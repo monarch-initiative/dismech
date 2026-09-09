@@ -19881,7 +19881,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 10,
-    "causal_graph_edges": "62",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "8"
   },
   {
@@ -30224,6 +30224,106 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Autosomal Dominant Osteosclerosis Worth Type",
+    "disease_id": "MONDO:0007764",
+    "category": "Mendelian",
+    "parents": [
+      "sclerosing bone dysplasia",
+      "hyperostosis"
+    ],
+    "creation_date": "2026-08-31T15:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Worth-type autosomal dominant osteosclerosis, now more often called LRP5 high bone mass, is a benign sclerosing bone dysplasia caused by heterozygous missense variants in the first beta-propeller of LRP5. Those variants make the Wnt co-receptor resistant to its physiological inhibitors sclerostin and DKK1, so canonical Wnt signalling in bone runs without its normal brake. Osteoblastic bone formation rises while resorption stays normal, producing lifelong endosteal hyperostosis with a widened, deepened mandible, torus palatinus, and dense but not brittle bone. It is the receptor-side mirror of sclerosteosis and Van Buchem disease, which lose the SOST ligand instead, and the allelic opposite of osteoporosis-pseudoglioma syndrome, which loses LRP5 function altogether.",
+    "pathophysiology": [
+      "LRP5 First-Propeller Missense Variants",
+      "LRP5 Resistance to Sclerostin and DKK1",
+      "Unrestrained Canonical Wnt Signalling in Bone",
+      "Increased Osteoblastic Bone Formation with Normal Resorption",
+      "Endosteal Hyperostosis and Cortical Thickening",
+      "Cranial Foramina and Posterior Fossa Encroachment"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "osteocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000137"
+    ],
+    "biological_processes": [
+      "negative regulation of canonical Wnt signaling pathway",
+      "canonical Wnt signaling pathway",
+      "ossification",
+      "bone mineralization"
+    ],
+    "phenotypes": [
+      "Increased bone mineral density",
+      "Mandibular hyperostosis",
+      "Torus palatinus",
+      "Progressive coarse facial change",
+      "Thickened calvaria",
+      "Diaphyseal sclerosis",
+      "Neurological involvement",
+      "Headache",
+      "Chiari type I malformation",
+      "Hearing impairment",
+      "Anosmia",
+      "Facial palsy"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011001",
+      "HP:0004472",
+      "HP:0100789",
+      "HP:0002684",
+      "HP:0003034",
+      "HP:0001293",
+      "HP:0002315",
+      "HP:0007099",
+      "HP:0000410",
+      "HP:0000458",
+      "HP:0007285"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "LRP5"
+    ],
+    "treatments": [
+      "Surveillance without intervention",
+      "Posterior fossa decompression",
+      "Mandibular reduction surgery"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated serum alkaline phosphatase"
+    ],
+    "source_file": "Autosomal_Dominant_Osteosclerosis_Worth_Type.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Osteosclerosis_Worth_Type.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Autosomal Dominant Polycystic Kidney Disease",
     "disease_id": "MONDO:0004691",
     "category": "Mendelian",
@@ -33637,6 +33737,109 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Autosomal Recessive Spinocerebellar Ataxia 16",
+    "disease_id": "MONDO:0014339",
+    "category": "Mendelian",
+    "parents": [
+      "autosomal recessive cerebellar ataxia",
+      "spinocerebellar ataxia"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive spinocerebellar ataxia 16 (SCAR16) is a progressive cerebellar degeneration caused by biallelic pathogenic variants in STUB1, which encodes CHIP (C-terminus of HSC70-interacting protein), a dimeric co-chaperone and U-box E3 ubiquitin ligase that couples the HSP70/HSC70 chaperone machinery to the ubiquitin-proteasome system. Disease variants destabilize CHIP and abolish or reduce its ubiquitin ligase activity, and many additionally weaken its interaction with chaperones, so that misfolded client proteins are no longer triaged for proteasomal degradation. The clinical core is progressive gait and limb ataxia with dysarthria and marked cerebellar atrophy on MRI. Pyramidal tract involvement (hyperreflexia, lower-limb spasticity) and cognitive decline are common accompanying features, and a subset of patients has hypogonadotropic hypogonadism, in which case the presentation corresponds to the historical Gordon Holmes syndrome. Dystonia and parkinsonism broaden the movement-disorder phenotype in a minority, and seizures occur at the severe, multisystemic end. Age at onset is highly variable, spanning adolescence to late adulthood in the series that report it, and ataxia severity does not track age at onset. Heterozygous STUB1 variants cause the allelic autosomal dominant disorder SCA48 (MONDO:0032526), curated separately; recessive and dominant variants produce similar in vitro biochemical defects and the two entities form a clinical continuum rather than sharply separated diseases.",
+    "pathophysiology": [
+      "Biallelic STUB1 Loss-of-Function Variants",
+      "CHIP Destabilization and Aggregation",
+      "Loss of CHIP E3 Ubiquitin Ligase Activity",
+      "Impaired CHIP-HSC70 Chaperone Coupling",
+      "Failure of Chaperone-Assisted Protein Quality Control",
+      "Purkinje Cell Degeneration",
+      "Cerebellar Atrophy",
+      "Corticospinal Tract Involvement",
+      "Hypothalamic-Pituitary Gonadotropin Deficiency"
+    ],
+    "cell_types": [
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "protein quality control for misfolded or incompletely synthesized proteins",
+      "ubiquitin-dependent protein catabolic process"
+    ],
+    "phenotypes": [
+      "Progressive Cerebellar Ataxia",
+      "Gait Ataxia",
+      "Dysarthria",
+      "Cerebellar Atrophy on MRI",
+      "Cognitive Decline",
+      "Hyperreflexia",
+      "Lower Limb Spasticity",
+      "Peripheral Neuropathy",
+      "Tremor",
+      "Hypogonadotropic Hypogonadism",
+      "Seizures",
+      "Dysphagia",
+      "Extrapyramidal Features"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0002066",
+      "HP:0001260",
+      "HP:0001272",
+      "HP:0001268",
+      "HP:0001347",
+      "HP:0002061",
+      "HP:0009830",
+      "HP:0001337",
+      "HP:0000044",
+      "HP:0001250",
+      "HP:0002015",
+      "HP:0002071"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "STUB1 biallelic pathogenic variants"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Physical Therapy and Gait Rehabilitation",
+      "Speech and Language Therapy",
+      "Occupational Therapy",
+      "Sex Hormone Replacement Therapy",
+      "Trehalose (Preclinical CHIP-Stabilizing Candidate)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Spinocerebellar_Ataxia_16.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Spinocerebellar_Ataxia_16.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Autosomal Recessive Spinocerebellar Ataxia 20",
@@ -40404,6 +40607,7 @@ window.searchData = [
       "ANK3",
       "ODZ4",
       "NCAN",
+      "SETD1A",
       "ITIH3"
     ],
     "treatments": [
@@ -40430,9 +40634,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Bipolar_Disorder.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 7,
-    "num_genes": 5,
+    "num_genes": 6,
     "num_treatments": 7,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "2"
   },
   {
@@ -41477,6 +41681,92 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Blount Disease",
+    "disease_id": "MONDO:0017194",
+    "category": "",
+    "parents": [
+      "osteochondrodysplasia"
+    ],
+    "creation_date": "2026-09-08T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Early-onset",
+      "Late-onset"
+    ],
+    "description": "An acquired, progressive varus deformity of the tibia in children, arising from disordered growth at the medial side of the proximal tibial physis. It is unusual among entries here in being biomechanical rather than molecular: no causal gene is known, and the leading account is that excess compressive load on the medial physis suppresses growth there, by the same growth-modulation principle exploited therapeutically in scoliosis. That account is a hypothesis rather than an established mechanism. A systematic review of the aetiology literature concluded the origin is multifactorial and that every supporting paper is low level of evidence. What makes the deformity progressive is a feedback loop: varus shifts the limb's mechanical axis further medially, which increases the medial load that caused it.",
+    "pathophysiology": [
+      "Excess Compressive Load on the Medial Proximal Tibial Physis",
+      "Growth Suppression at the Compressed Physis",
+      "Disordered Endochondral Ossification at the Medial Physis",
+      "Progressive Tibia Vara",
+      "Medial Tibial Epiphysiodesis",
+      "Joint Distortion and Premature Osteoarthritis"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "response to mechanical stimulus",
+      "endochondral bone growth",
+      "growth plate cartilage development"
+    ],
+    "phenotypes": [
+      "Genu Varum",
+      "Tibial Bowing",
+      "Internal Tibial Torsion",
+      "Abnormal Tibial Metaphysis Morphology",
+      "Premature Osteoarthritis",
+      "Lower Limb Asymmetry",
+      "Obesity"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002970",
+      "HP:0002982",
+      "HP:0034372",
+      "HP:0006491",
+      "HP:0003088",
+      "HP:0100559",
+      "HP:0001513"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "No identified Mendelian cause"
+    ],
+    "treatments": [
+      "Proximal Tibial Osteotomy",
+      "Knee-Ankle-Foot Orthosis",
+      "Gradual Correction with External Fixation",
+      "Guided Growth"
+    ],
+    "environmental": [
+      "Childhood Obesity",
+      "Early Walking Age"
+    ],
+    "biochemical": [],
+    "source_file": "Blount_Disease.yaml",
+    "page_url": "../pages/disorders/Blount_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Blue Cone Monochromacy",
@@ -46231,6 +46521,120 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Buschke-Ollendorff Syndrome",
+    "disease_id": "MONDO:0008157",
+    "category": "Mendelian",
+    "parents": [
+      "Musculoskeletal Disease",
+      "Skin Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Complete BOS",
+      "Skin-Limited BOS",
+      "Bone-Limited BOS",
+      "BOS with Melorheostosis"
+    ],
+    "description": "Buschke-Ollendorff syndrome (BOS) is a rare autosomal dominant disorder of bone and dermal connective tissue caused by heterozygous loss-of-function variants in LEMD3, which encodes MAN1, an integral protein of the inner nuclear membrane. MAN1 binds receptor-regulated SMADs at the nuclear envelope and terminates BMP (SMAD1/5/8) and TGF-beta/activin (SMAD2/3) signalling; haploinsufficiency therefore de-represses SMAD-driven transcription. The same lesion produces two cardinal manifestations in two tissues. In bone it drives focal modeling-based formation of compact lamellar nodules within trabecular bone, seen radiographically as osteopoikilosis - multiple small, round, broadly symmetric periarticular sclerotic foci that are clinically silent and usually discovered incidentally. In skin it drives fibroblast overproduction of elastin and collagen, producing connective tissue nevi (elastomas, collagenomas, or mixed lesions, historically dermatofibrosis lenticularis disseminata). Expressivity is strikingly variable within a single family, so a carrier may show nevi alone, osteopoikilosis alone, or both. Segmental cortical hyperostosis resembling melorheostosis occurs in a minority of LEMD3 kindreds, but sporadic isolated melorheostosis is a genetically distinct condition driven by somatic MAP2K1 mutation and is not part of BOS. The main clinical value of recognising BOS is avoiding misdiagnosis of the sclerotic bone foci as osteoblastic metastases.",
+    "pathophysiology": [
+      "LEMD3 Haploinsufficiency",
+      "Loss of Nuclear Envelope R-SMAD Antagonism",
+      "Increased BMP-SMAD1/5/8 Transcriptional Output",
+      "Increased TGF-beta-SMAD2/3 Transcriptional Output",
+      "Bone Lining Cell Activation and Modeling-Based Bone Formation",
+      "Focal Trabecular Osteosclerotic Nodule Formation",
+      "Segmental Cortical Hyperostosis",
+      "Dermal Fibroblast Elastin and Collagen Overproduction",
+      "Dermal Connective Tissue Nevus Formation"
+    ],
+    "cell_types": [
+      "bone lining cell",
+      "osteocyte",
+      "dermal fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000137",
+      "CL:0002551"
+    ],
+    "biological_processes": [
+      "negative regulation of BMP signaling pathway",
+      "negative regulation of TGF-beta receptor signaling pathway",
+      "SMAD protein signal transduction",
+      "BMP signaling pathway",
+      "positive regulation of ossification",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization",
+      "ossification",
+      "bone mineralization",
+      "elastic fiber assembly",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Connective Tissue Nevi",
+      "Osteopoikilosis",
+      "Increased Bone Mineral Density",
+      "Increased Number of Elastic Fibers in the Dermis",
+      "Collagenoma",
+      "Melorheostosis",
+      "Arthralgia",
+      "Short Stature",
+      "Spinal Canal Stenosis",
+      "Yellow Papule"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Skeletal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0100898",
+      "HP:0010739",
+      "HP:0011001",
+      "HP:0025164",
+      "HP:6000022",
+      "HP:6000817",
+      "HP:0002829",
+      "HP:0004322",
+      "HP:0003416",
+      "HP:0025507"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "LEMD3"
+    ],
+    "treatments": [
+      "Observation and Reassurance",
+      "Genetic Counselling and Cascade Evaluation",
+      "Analgesic Therapy for Musculoskeletal Pain",
+      "Surgical Excision of Symptomatic Connective Tissue Nevi",
+      "Corrective Orthopaedic Surgery",
+      "Bisphosphonate Therapy for Symptomatic Melorheostosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Buschke-Ollendorff_Syndrome.yaml",
+    "page_url": "../pages/disorders/Buschke-Ollendorff_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Byssinosis",
     "disease_id": "MONDO:0006688",
     "category": "Environmental Lung Disease",
@@ -50601,6 +51005,99 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "COA5-Related Fatal Infantile Cardioencephalomyopathy",
+    "disease_id": "MONDO:0014667",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COA5-related fatal infantile cardioencephalomyopathy (CEMCOX3; mitochondrial complex IV deficiency nuclear type 9, MC4DN9) is an ultra-rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COA5 (formerly C2orf64), the human orthologue of yeast Pet191. COA5 is a small twin-CX9C Complex IV assembly factor that acts at an early stage of holoenzyme biogenesis: patient cells accumulate an MTCO1-containing subassembly that fails to incorporate MTCO2, so the fully assembled holoenzyme is lost while the other respiratory-chain complexes are spared. Every patient reported to date is homozygous for the same missense allele, c.157G>C (p.Ala53Pro), and both reported families are of Turkish descent, raising the possibility of a founder allele. The presentation is cardiac-dominant and neonatal: hypertrophic cardiomyopathy with septal hypertrophy and a non-compaction appearance of the myocardium, elevated blood and urinary lactate, abnormal liver function tests, and death within the first months of life. Despite the \"cardioencephalomyopathy\" in the disease name, documented central nervous system involvement is limited - neuroimaging was normal in the one patient in whom it is reported - and this entry records that discrepancy rather than importing encephalopathy claims from the wider Complex IV deficiency literature. The entry conforms to the conserved Complex IV assembly/biogenesis-deficiency mechanism, with the lesion localized to the MTCO1-to-MTCO2 transition of early assembly.\n",
+    "pathophysiology": [
+      "COA5 Loss and Arrested Early Complex IV Assembly",
+      "Impaired Terminal Electron Transfer and ATP Synthesis",
+      "Lactic Acidosis and Metabolic Decompensation",
+      "Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "mitochondrial ATP synthesis coupled electron transport",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Ventricular Septal Hypertrophy",
+      "Noncompaction Cardiomyopathy",
+      "Lactic Acidosis",
+      "Lacticaciduria",
+      "Ethylmalonic Aciduria",
+      "Tachypnea",
+      "Respiratory Insufficiency",
+      "Abnormal Hepatic Echogenicity",
+      "Decreased Activity of Mitochondrial Complex IV"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Respiratory",
+      "Hepatic",
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0005144",
+      "HP:0012817",
+      "HP:0003128",
+      "HP:0003648",
+      "HP:0003219",
+      "HP:0002789",
+      "HP:0002093",
+      "HP:0031142",
+      "HP:0008347"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "COA5 pathogenic variants causing CEMCOX3 (MC4DN9)"
+    ],
+    "treatments": [
+      "Supportive and Metabolic Care",
+      "Genetic Counseling and Carrier Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COA5-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml",
+    "page_url": "../pages/disorders/COA5-Related_Fatal_Infantile_Cardioencephalomyopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "COA8-Related COX Deficiency",
@@ -57124,112 +57621,6 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "7"
-  },
-  {
-    "name": "Castleman Disease",
-    "disease_id": "MONDO:0015564",
-    "category": "Complex",
-    "parents": [
-      "Lymphoproliferative Disease"
-    ],
-    "creation_date": "2026-05-12T20:00:00Z",
-    "updated_date": null,
-    "subtypes": [
-      "Unicentric CD",
-      "HHV-8+ MCD",
-      "iMCD",
-      "POEMS-Associated MCD"
-    ],
-    "description": "Castleman disease (CD) is a rare, heterogeneous group of lymphoproliferative disorders that share a characteristic angiofollicular lymph node hyperplasia histopathology. CD is clinically divided by anatomic extent into unicentric Castleman disease (UCD), affecting a single lymph node region with curative surgical resection, and multicentric Castleman disease (MCD), affecting multiple regions with systemic inflammatory features. MCD is further subdivided by etiology into HHV-8/KSHV-associated MCD (driven by viral IL-6 production, often in HIV co-infection), idiopathic MCD (iMCD, of unknown etiology with dysregulated human IL-6 signaling), and POEMS- associated MCD. Across MCD subtypes, IL-6 hypercytokinemia and JAK-STAT signaling drive constitutional symptoms, lymphadenopathy, cytopenias, acute-phase response, and multi-organ dysfunction. In iMCD specifically, an emerging framework has been proposed in which immune\u2013stromal dysregulation involving fibroblastic reticular cells, endothelial dysfunction, and dysregulated immune-cell communication acts alongside IL-6 signaling, with molecular endotypes defined by distinct activation of IL-6, CXCL13, TNF, and PI3K/AKT/mTOR pathways proposed as a basis for targeted therapy. That framework is not yet established; it is recorded as an EMERGING hypothesis rather than as settled pathophysiology.",
-    "pathophysiology": [
-      "HHV-8/KSHV Viral Pathogenesis",
-      "IL-6 / vIL-6 Overproduction",
-      "JAK-STAT3 Signaling Activation",
-      "Plasma Cell / B Cell Proliferation and Acute-Phase Response",
-      "Angiofollicular Lymph Node Hyperplasia"
-    ],
-    "cell_types": [
-      "B cell",
-      "Plasma cell"
-    ],
-    "cell_type_ids": [
-      "CL:0000236",
-      "CL:0000786"
-    ],
-    "biological_processes": [
-      "Viral process",
-      "Interleukin-6 production",
-      "Interleukin-6-mediated signaling pathway",
-      "JAK-STAT signaling",
-      "B cell proliferation",
-      "Acute-phase response",
-      "Angiogenesis"
-    ],
-    "phenotypes": [
-      "Generalized Lymphadenopathy",
-      "Fever",
-      "Night Sweats",
-      "Fatigue",
-      "Anemia",
-      "Splenomegaly",
-      "Hepatomegaly",
-      "Thrombocytopenia",
-      "Ascites",
-      "Generalized Edema (Anasarca)",
-      "Renal Dysfunction"
-    ],
-    "phenotype_categories": [
-      "Constitutional",
-      "Hematologic",
-      "Abdominal",
-      "Cardiovascular",
-      "Renal"
-    ],
-    "phenotype_hpo_categories": [
-      "Blood",
-      "Cardiovascular",
-      "Constitutional",
-      "Digestive",
-      "Genitourinary",
-      "Immune",
-      "Metabolism"
-    ],
-    "phenotype_ids": [
-      "HP:0008940",
-      "HP:0001954",
-      "HP:0030166",
-      "HP:0012378",
-      "HP:0001903",
-      "HP:0001744",
-      "HP:0002240",
-      "HP:0001873",
-      "HP:0001541",
-      "HP:0000969",
-      "HP:0000083"
-    ],
-    "frequencies": [],
-    "genes": [],
-    "treatments": [
-      "Surgical Resection",
-      "Siltuximab",
-      "Tocilizumab",
-      "Rituximab",
-      "Sirolimus",
-      "Ruxolitinib"
-    ],
-    "environmental": [],
-    "biochemical": [
-      "Interleukin-6 (IL-6)",
-      "C-Reactive Protein (CRP)"
-    ],
-    "source_file": "Castleman_Disease.yaml",
-    "page_url": "../pages/disorders/Castleman_Disease.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 5,
-    "num_genes": 0,
-    "num_treatments": 6,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cat-scratch Disease",
@@ -67630,6 +68021,158 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Chylomicron Retention Disease",
+    "disease_id": "MONDO:0009528",
+    "category": "Mendelian",
+    "parents": [
+      "Hypobetalipoproteinemia"
+    ],
+    "creation_date": "2026-09-05T18:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chylomicron retention disease (CRD, Anderson disease) is an ultra-rare autosomal recessive disorder of intestinal lipoprotein secretion caused by biallelic pathogenic variants in SAR1B. SAR1B encodes the small GTPase that nucleates assembly of the COPII coat at endoplasmic reticulum exit sites. Enterocytes of affected individuals lipidate apolipoprotein B-48 and build chylomicrons normally, but cannot bud the pre-chylomicron transport vesicles that carry them from the endoplasmic reticulum to the Golgi; chylomicrons therefore accumulate inside the enterocyte in cytoplasmic droplets and membrane-bound lipoprotein-sized compartments instead of being secreted into intestinal lymph. Infants present in the first six months with chronic malabsorptive diarrhoea, steatorrhoea, vomiting, abdominal distension and failure to thrive. The biochemical signature is marked hypocholesterolaemia with low LDL, low HDL and low apolipoprotein B but normal or near-normal fasting triglycerides, together with an absent postprandial chylomicron response and deficiency of the fat-soluble vitamins, most severely vitamin E. The normal fasting triglyceride level is the feature that most reliably separates CRD from abetalipoproteinemia and from homozygous APOB-related hypobetalipoproteinemia, in which hepatic VLDL secretion also fails. Endoscopy shows a white \"gelee blanche\" duodenal mucosa and biopsy shows lipid-laden enterocytes with preserved villus architecture. Untreated or late-treated disease is complicated by vitamin E-dependent neuromuscular and ophthalmological disease, poor bone mineralisation, coagulopathy, elevated creatine kinase and, in a minority of adults, cardiomyopathy. Treatment is lifelong restriction of long-chain dietary fat with adequate calories and essential fatty acids, plus high-dose fat-soluble vitamin supplementation; there is no therapy that restores COPII-dependent chylomicron export.\n",
+    "pathophysiology": [
+      "SAR1B Loss of Function",
+      "Defective COPII Coat Assembly at Endoplasmic Reticulum Exit Sites",
+      "Failed Pre-Chylomicron Transport Vesicle Export from the Endoplasmic Reticulum",
+      "Enterocyte Chylomicron Retention",
+      "Absent Postprandial Chylomicronemia",
+      "Intestinal Fat Malabsorption",
+      "Fat-Soluble Vitamin Deficiency",
+      "Essential Fatty Acid Deficiency",
+      "Vitamin E-Dependent Neuroaxonal and Retinal Injury",
+      "Impaired Intestinal HDL Biogenesis and Cholesterol Efflux",
+      "Impaired Hepatic ApoB Lipoprotein Secretion",
+      "Enterocyte Lipid Peroxidation and Endoplasmic Reticulum Stress"
+    ],
+    "cell_types": [
+      "absorptive small-intestinal enterocyte",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "COPII coat assembly and vesicle budding at ER exit sites",
+      "endoplasmic reticulum to Golgi transport of pre-chylomicron vesicles",
+      "intestinal lipid transport into lymph",
+      "intestinal transport of fat-soluble vitamins",
+      "cholesterol efflux to apolipoprotein A-I",
+      "intestinal high-density lipoprotein particle assembly",
+      "response to endoplasmic reticulum stress"
+    ],
+    "phenotypes": [
+      "Chronic diarrhea",
+      "Steatorrhea",
+      "Fat malabsorption",
+      "Vomiting",
+      "Abdominal distention",
+      "Failure to thrive",
+      "Hypocholesterolemia",
+      "Decreased LDL cholesterol concentration",
+      "Decreased HDL cholesterol concentration",
+      "Decreased circulating apolipoprotein B concentration",
+      "Decreased circulating vitamin E concentration",
+      "Reduced circulating vitamin A concentration",
+      "Decreased circulating vitamin D concentration",
+      "Prolonged prothrombin time",
+      "Elevated circulating creatine kinase concentration",
+      "Hepatic steatosis",
+      "Hepatomegaly",
+      "Areflexia",
+      "Ataxia",
+      "Myopathy",
+      "Abnormal electroretinogram",
+      "Nystagmus",
+      "Reduced bone mineral density",
+      "Delayed skeletal maturation",
+      "Reduced left ventricular ejection fraction"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Growth",
+      "Biochemical",
+      "Hematologic",
+      "Hepatic",
+      "Neurologic",
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002028",
+      "HP:0002570",
+      "HP:0002630",
+      "HP:0002013",
+      "HP:0003270",
+      "HP:0001508",
+      "HP:0003146",
+      "HP:0003563",
+      "HP:0003233",
+      "HP:0034075",
+      "HP:0100513",
+      "HP:0004905",
+      "HP:0100512",
+      "HP:0008151",
+      "HP:0003236",
+      "HP:0001397",
+      "HP:0002240",
+      "HP:0001284",
+      "HP:0001251",
+      "HP:0003198",
+      "HP:0000512",
+      "HP:0000639",
+      "HP:0004349",
+      "HP:0002750",
+      "HP:0012664"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SAR1B biallelic pathogenic variants",
+      "SAR1A paralogue upregulation"
+    ],
+    "treatments": [
+      "Low-long-chain-fat diet with adequate calories and essential fatty acids",
+      "High-dose oral vitamin E supplementation",
+      "Vitamin A, D and K supplementation",
+      "Lifelong multisystem surveillance",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Absent postprandial chylomicrons and apolipoprotein B-48",
+      "Normal fasting triglyceride concentration",
+      "Low total, LDL and HDL cholesterol with low apolipoproteins A-I and B",
+      "Low plasma alpha-tocopherol",
+      "Hepatic cytolysis with elevated transaminases",
+      "Absence of acanthocytosis"
+    ],
+    "source_file": "Chylomicron_Retention_Disease.yaml",
+    "page_url": "../pages/disorders/Chylomicron_Retention_Disease.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 12,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Cisplatin Toxicity",
     "disease_id": "MONDO:0027664",
     "category": "Complex",
@@ -70067,6 +70610,142 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Cold Agglutinin Disease",
+    "disease_id": "MONDO:0018922",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Hemolytic Anemia",
+      "Hematologic Disease",
+      "B-Cell Lymphoproliferative Disorder"
+    ],
+    "creation_date": "2026-09-05T18:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A chronic, complement-mediated autoimmune hemolytic anemia that arises from a low-grade clonal B-cell lymphoproliferative disorder of the bone marrow. The clone secretes a monoclonal IgM cold agglutinin \u2014 almost always kappa-restricted and IGHV4-34-encoded, with anti-I specificity \u2014 that binds erythrocytes in the cooler acral circulation, agglutinates them, and fixes C1. Because IgM is a potent activator of the classical pathway, C3b is deposited on the red cell surface; when the cell returns to core temperature the IgM elutes but the C3b remains, so the dominant destruction is extravascular, C3b-mediated and hepatic (Kupffer cell) rather than splenic and Fc-mediated. Terminal-pathway completion to C5b-9 adds a smaller intravascular component, mainly during acute exacerbations. Agglutination itself, independent of hemolysis, produces cold-induced acrocyanosis and Raynaud-like circulatory symptoms. This dual clonal-plus-complement architecture is why corticosteroids and splenectomy fail in this disease, why B-cell-directed therapy (rituximab, bendamustine) works, and why classical-pathway inhibition at C1s (sutimlimab) works. Primary CAD is a distinct entity from secondary cold agglutinin syndrome (CAS), which follows Mycoplasma pneumoniae or Epstein-Barr virus infection or accompanies an overt lymphoma.",
+    "pathophysiology": [
+      "Somatic KMT2D and CARD11 Mutation in the CAD B-Cell Clone",
+      "Downregulation of Complement Receptor 1 on Clonal B Cells",
+      "Clonal Bone Marrow B-Cell Lymphoproliferation",
+      "Monoclonal IgM Cold Agglutinin Production",
+      "Cold-Dependent Erythrocyte Agglutination",
+      "Classical Complement Pathway Activation on the Erythrocyte Surface",
+      "Acute-Phase Complement Repletion During Febrile Illness",
+      "C3b Opsonization of Erythrocytes",
+      "Hepatic Extravascular Hemolysis",
+      "Terminal Complement Pathway Assembly and Membrane Attack Complex Formation",
+      "Intravascular Hemolysis",
+      "Chronic Hemolytic Anemia",
+      "Acral Microcirculatory Obstruction",
+      "Prothrombotic State of Chronic Complement-Mediated Hemolysis"
+    ],
+    "cell_types": [
+      "clonal CAD B cell",
+      "clonal CD20+ IgM+ CD27+ marrow B cell",
+      "monotypic IgM+ kappa plasma cell",
+      "erythrocyte",
+      "Kupffer cell",
+      "C3b-opsonized erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000232",
+      "CL:0000091"
+    ],
+    "biological_processes": [
+      "clonal B cell proliferation in the bone marrow",
+      "monoclonal IgM production by the CAD clone",
+      "IgM-mediated erythrocyte-erythrocyte adhesion",
+      "classical complement pathway activation on the red cell surface",
+      "C3b opsonization of the erythrocyte membrane",
+      "erythrophagocytosis by hepatic macrophages",
+      "hepatic clearance of opsonized erythrocytes",
+      "membrane attack complex assembly on the erythrocyte",
+      "complement-mediated lysis of erythrocytes",
+      "erythrocyte homeostasis"
+    ],
+    "phenotypes": [
+      "Anemia",
+      "Fatigue",
+      "Acrocyanosis",
+      "Raynaud Phenomenon",
+      "Livedo Reticularis",
+      "Jaundice",
+      "Hemoglobinuria",
+      "Venous Thromboembolism"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Systemic",
+      "Vascular",
+      "Dermatologic",
+      "Hepatic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0012378",
+      "HP:0001063",
+      "HP:0030880",
+      "HP:0033505",
+      "HP:0000952",
+      "HP:0003641",
+      "HP:0004936"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KMT2D",
+      "CARD11",
+      "CXCR4"
+    ],
+    "treatments": [
+      "Cold Avoidance and Thermal Protection",
+      "Rituximab Monotherapy",
+      "Bendamustine plus Rituximab",
+      "Fludarabine plus Rituximab",
+      "Sutimlimab",
+      "Eculizumab",
+      "Red Blood Cell Transfusion",
+      "Corticosteroid Therapy",
+      "Splenectomy",
+      "Bortezomib"
+    ],
+    "environmental": [
+      "Cold exposure of the acral circulation"
+    ],
+    "biochemical": [
+      "Cold agglutinin titer",
+      "Direct antiglobulin test (monospecific)",
+      "Monoclonal IgM kappa paraprotein",
+      "Lactate dehydrogenase",
+      "Haptoglobin",
+      "Unconjugated bilirubin",
+      "Complement C4",
+      "Reticulocyte count"
+    ],
+    "source_file": "Cold_Agglutinin_Disease.yaml",
+    "page_url": "../pages/disorders/Cold_Agglutinin_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 14,
+    "num_genes": 3,
+    "num_treatments": 10,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Cole-Carpenter syndrome",
     "disease_id": "MONDO:0016085",
     "category": "Mendelian",
@@ -71102,6 +71781,114 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Defect Type 23",
+    "disease_id": "MONDO:0014525",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COXPD23 (OMIM 616198) is the autosomal recessive mitochondrial disease caused by biallelic variants in GTPBP3. GTPBP3 and MTO1 together install 5-taurinomethyluridine at the wobble position of five mitochondrial tRNAs - those for Gln, Glu, Lys, Leu(UUR) and Trp - using taurine, methylene-tetrahydrofolate and GTP. Losing that modification degrades codon-anticodon pairing during mitochondrial translation, so synthesis of the thirteen mtDNA-encoded respiratory chain subunits falls and a combined, rather than isolated, respiratory chain defect follows.\nThe cardinal triad is hypertrophic cardiomyopathy, lactic acidosis and encephalopathy, and the entity was defined by an eleven-patient series in 2014. Since then the reported spectrum has separated into two clusters that a curator should keep apart: an early-onset severe form with fatal encephalopathy, cardiogenic shock and decompensated metabolic acidosis, and a milder later-onset form dominated by developmental delay and intellectual disability with or without drug-responsive epilepsy. In the milder group it is the progression of the cardiomyopathy rather than the brain lesions that determines outcome, and survival into the third decade is documented. Bilateral thalamic lesions are the characteristic neuroimaging clue.\nThe relationship to MTO1 deficiency is the most important thing about this entity and is drawn explicitly in this entry rather than left implicit. The two enzymes act in the same reaction, and the two diseases are near-phenocopies separated by sequencing rather than by phenotype. Two things do separate them. The founding cohort observed that, unlike MTO1 patients, most GTPBP3 patients develop neurological symptoms with thalamic, putaminal and brainstem MRI involvement resembling Leigh syndrome. And at the cellular level the two defects drive the HIF-PPAR-gamma-UCP2-AMPK axis in opposite directions - which is itself evidence that one of the two proteins does something beyond tRNA modification.\nClinGen's Mitochondrial Diseases expert panel classifies the GTPBP3 gene-disease relationship as Definitive, with loss of function as the mechanism. Knock-in mouse models reproducing patient alleles were reported in 2026, and adeno-associated-virus-mediated GTPBP3 expression reversed the mitochondrial dysfunction and pathology in those animals - the first intervention data for this disease, and preclinical.",
+    "pathophysiology": [
+      "Biallelic GTPBP3 Variant",
+      "Loss of Taurinomethyluridine Modification of Mitochondrial tRNAs",
+      "Impaired Mitochondrial Translation",
+      "Combined Respiratory Chain Complex Deficiency",
+      "Cellular Energy Deficit and Lactate Overproduction",
+      "GTPBP3-Specific Metabolic Reprogramming",
+      "Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling",
+      "Thalamic and Brainstem Injury"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial tRNA wobble uridine modification",
+      "mitochondrial translation",
+      "mitochondrial ATP synthesis coupled electron transport",
+      "cellular response to energy stress"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Lactic Acidosis",
+      "Increased Circulating Lactate Concentration",
+      "Focal T2 Hyperintense Thalamic Lesion",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Seizure",
+      "Hypotonia",
+      "Exercise Intolerance",
+      "Arrhythmia",
+      "Congestive Heart Failure",
+      "Feeding Difficulties",
+      "Ataxia",
+      "Strabismus"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Nervous System",
+      "Musculoskeletal",
+      "Digestive System",
+      "Eye"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0003128",
+      "HP:0002151",
+      "HP:0012692",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0003546",
+      "HP:0011675",
+      "HP:0001635",
+      "HP:0011968",
+      "HP:0001251",
+      "HP:0000486"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GTPBP3"
+    ],
+    "treatments": [
+      "Mitochondrial Cofactor and Antioxidant Supplementation",
+      "Antiseizure Medication for Drug-Responsive Epilepsy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_23.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_23.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Defect Type 26",
     "disease_id": "MONDO:0014684",
     "category": "Mendelian",
@@ -71562,6 +72349,117 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Combined oxidative phosphorylation deficiency 48",
+    "disease_id": "MONDO:0033566",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation deficiency 48 (COXPD48) is an autosomal recessive mitochondrial disease caused by biallelic variants in NSUN3, the mitochondrial RNA cytosine-5 methyltransferase that writes m5C at the wobble base (C34) of mitochondrial tRNA-Met.\nThe lesion sits one step further upstream than most of the combined-OXPHOS series. NSun3 is neither a respiratory-chain subunit nor an assembly factor: it installs a single tRNA modification. m5C34 is then oxidised by the alpha-ketoglutarate- and Fe(II)-dependent dioxygenase ALKBH1/ABH1 to 5-formylcytidine (f5C34), and mitochondria carry only one tRNA-Met, which serves both initiation and elongation and must read AUG together with the non-universal AUA (and, at initiation, AUU) codons. Because methionine codons occur throughout all thirteen mtDNA-encoded proteins, losing the modification degrades translation of every one of them, and the biochemical result is a combined rather than an isolated respiratory chain deficiency. Patient fibroblasts lose m5C34 and f5C34 together, consistent with a precursor-product relationship, while mt-tRNA steady-state levels, aminoacylation and mtDNA copy number are unaffected - the defect is one of decoding capacity, not of tRNA abundance or mitochondrial biogenesis.\nThe clinical spectrum turned out to be much wider than the founding case suggested. That patient presented at three months with developmental delay, microcephaly, failure to thrive and raised lactate. The largest cohort to date - eight individuals from five families - spans neonatal-onset multisystem disease to isolated optic atrophy first noticed at 39 years, with bilateral optic nerve involvement in 7 of 8 and biallelic loss-of-function or SAM-domain missense genotypes clustering at the severe end. Hypertrophic cardiomyopathy has since been reported in one further individual.",
+    "pathophysiology": [
+      "Loss of Functional NSun3 Methyltransferase",
+      "Loss of m5C34 in Mitochondrial tRNA-Met",
+      "Absence of f5C34 at the Wobble Position",
+      "Impaired Wobble Decoding by the Single Mitochondrial tRNA-Met",
+      "Deficient Mitochondrial Protein Synthesis",
+      "Combined Respiratory Chain Enzyme Deficiency",
+      "Retinal Ganglion Cell Bioenergetic Failure and Optic Nerve Degeneration",
+      "Mitochondrial Myopathy of Skeletal Muscle"
+    ],
+    "cell_types": [
+      "retinal ganglion cell",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000740",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "tRNA wobble base cytosine methylation",
+      "5-formylcytidine formation at the mt-tRNA-Met wobble base",
+      "mitochondrial translation",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Blue-dot cataract",
+      "Nystagmus",
+      "Generalized axonal sensorimotor neuropathy",
+      "Optic atrophy",
+      "Reduced visual acuity",
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Microcephaly",
+      "Failure to thrive",
+      "Increased circulating lactate concentration",
+      "Seizure",
+      "Proximal muscle weakness",
+      "External ophthalmoplegia",
+      "Sensorineural hearing impairment",
+      "Hypertrophic cardiomyopathy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Nervous System",
+      "Neurological",
+      "Constitutional",
+      "Metabolic",
+      "Musculoskeletal",
+      "Otological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000518",
+      "HP:0000639",
+      "HP:0007141",
+      "HP:0000648",
+      "HP:0007663",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0000252",
+      "HP:0001508",
+      "HP:0002151",
+      "HP:0001250",
+      "HP:0003701",
+      "HP:0000544",
+      "HP:0000407",
+      "HP:0001639"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NSUN3",
+      "ALKBH1"
+    ],
+    "treatments": [
+      "Supportive and Multidisciplinary Care",
+      "Idebenone",
+      "Coenzyme Q10 (Ubiquinone) Supplementation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_48.yaml",
+    "page_url": "../pages/disorders/Combined_oxidative_phosphorylation_deficiency_48.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Combined Oxidative Phosphorylation Deficiency 51",
@@ -72677,6 +73575,109 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Congenital Bile Acid Synthesis Defect 5",
+    "disease_id": "MONDO:0014564",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisomal Disease",
+      "Inborn Error of Metabolism",
+      "Cholestasis"
+    ],
+    "creation_date": "2026-09-08T07:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital bile acid synthesis defect 5 (CBAS5) is an autosomal recessive disorder caused by biallelic loss-of-function variants in ABCD3, which encodes the peroxisomal membrane ABC half-transporter PMP70. ABCD3 carries the CoA thioesters of 2-methyl branched-chain fatty acids and of the C27 bile acid intermediates dihydroxycholestanoic acid (DHCA) and trihydroxycholestanoic acid (THCA) from the cytosol into the peroxisomal matrix, where side-chain beta-oxidation shortens them to the mature C24 primary bile acids. The lesion is therefore a transport failure, not an enzyme failure: the peroxisome is assembled and import-competent, and the enzymes of the beta-oxidation spiral are present and active, but their substrates never reach them. The block is selective. Peroxisomal beta-oxidation of the very-long-chain fatty acid C26:0 and the first committed enzyme of ether-phospholipid synthesis were both normal in the index patient's fibroblasts, so this is not the generalized two-sided peroxisomal lesion of the biogenesis disorders; what fails is the branched-chain and C27-bile-acid substream, and it is the bile acid arm that produces the disease. Clinically that arm presents as a cholestatic liver disease of infancy and early childhood - hepatosplenomegaly, jaundice, elevated transaminases and raised serum bile acids with a normal gamma-glutamyltransferase - which progresses to hepatic fibrosis and cirrhosis. The index patient reached decompensated cirrhosis and was transplanted at four years of age. A second, independently reported child carried compound heterozygous ABCD3 variants and the same low-GGT cholestatic-fibrotic pattern, so the entity rests on two families.",
+    "pathophysiology": [
+      "ABCD3 Loss of Function",
+      "Failure of Peroxisomal Import of C27 Bile Acid and Branched-Chain Acyl-CoA Esters",
+      "Block of Peroxisomal Side-Chain Shortening of C27 Bile Acid Intermediates",
+      "Reduced Peroxisomal Beta-Oxidation of Branched-Chain Fatty Acids",
+      "Accumulation of C27 Bile Acid Intermediates",
+      "Deficient Formation of Mature C24 Primary Bile Acids",
+      "Hepatocellular Injury and Cholestasis",
+      "Progressive Hepatic Fibrosis and Cirrhosis",
+      "Portal Hypertension and Hepatic Decompensation"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "peroxisome number and size are abnormal, while matrix import is preserved",
+      "import of acyl-CoA esters into the peroxisomal matrix",
+      "peroxisomal side-chain beta-oxidation of C27 bile acid intermediates",
+      "bile acid biosynthetic process",
+      "branched-chain fatty acid beta-oxidation"
+    ],
+    "phenotypes": [
+      "Hepatosplenomegaly",
+      "Cholestasis",
+      "Increased serum bile acid concentration",
+      "Elevated circulating hepatic transaminase concentration",
+      "Conjugated hyperbilirubinemia",
+      "Jaundice",
+      "Pruritus",
+      "Hepatic fibrosis",
+      "Cirrhosis",
+      "Portal hypertension",
+      "Esophageal varix",
+      "Pancytopenia",
+      "Abnormality of coagulation"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Laboratory",
+      "Dermatologic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001433",
+      "HP:0001396",
+      "HP:0012202",
+      "HP:0002910",
+      "HP:0002908",
+      "HP:0000952",
+      "HP:0000989",
+      "HP:0001395",
+      "HP:0001394",
+      "HP:0001409",
+      "HP:0002040",
+      "HP:0001876",
+      "HP:0001928"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ABCD3"
+    ],
+    "treatments": [
+      "Liver Transplantation",
+      "Ursodeoxycholic Acid",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma C27 bile acid intermediates (DHCA and THCA)"
+    ],
+    "source_file": "Congenital_Bile_Acid_Synthesis_Defect_5.yaml",
+    "page_url": "../pages/disorders/Congenital_Bile_Acid_Synthesis_Defect_5.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Congenital Central Hypoventilation Syndrome",
@@ -74962,6 +75963,175 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Congenital Merosin-deficient Muscular Dystrophy 1A",
+    "disease_id": "MONDO:0011925",
+    "category": "Mendelian",
+    "parents": [
+      "LAMA2-related muscular dystrophy",
+      "Congenital Muscular Dystrophy"
+    ],
+    "creation_date": "2026-09-05T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Complete deficiency",
+      "Partial deficiency"
+    ],
+    "description": "MDC1A is what happens when a muscle fibre loses its anchor to the sheet of extracellular matrix it is built against. Biallelic loss-of-function variants in LAMA2 remove the laminin alpha-2 chain, historically called merosin, and with it the laminin-211 heterotrimer that is the dominant laminin of the skeletal-muscle basal lamina. Laminin-211 is not a passive filler. Its short arms polymerise into the basal lamina lattice while its C-terminal LG domains bind two sarcolemmal receptors at once, alpha-dystroglycan through the LG4-LG5 pair and integrin alpha-7-beta-1 through LG1-LG3, so the same molecule carries the mechanical load of contraction across the membrane and licenses the adhesion-dependent survival signalling that keeps the fibre alive. Delete it and both functions fail together.\nThat double loss is why the disease looks the way it does. Myofibres detach and tear under ordinary contraction, and the survival signal that would normally hold them through the injury is gone, so they die by apoptosis rather than surviving as damaged cells. Regeneration is attempted and is abortive, because the satellite-cell response also depends on the laminin substrate it is trying to rebuild against. What fills the space instead is inflammatory infiltrate and then endomysial connective tissue, and this happens strikingly early: in the most severe mouse model, apoptotic fibres are present on the first postnatal day and full dystrophic architecture by day four. The clinical counterpart is a child who is hypotonic and weak from birth, whose contractures begin before the weakness is even fully declared, and who in most series never walks.\nLaminin-211 is also the basal-lamina laminin of the Schwann cell and is deposited by astrocyte endfeet at the glia limitans and the blood-brain barrier, so the disease is not confined to muscle. A demyelinating sensorimotor neuropathy with slowed motor conduction is a consistent finding, although in humans it contributes little to the weakness. Diffuse T2 white-matter hyperintensity on brain MRI is close to universal after about six months and is a diagnostic anchor rather than a symptom; cognition is usually preserved. A minority carry something more serious: focal breaches of the glia limitans permitting neuronal overmigration, which surfaces radiologically as cobblestone malformation or occipital polymicrogyria and clinically as epilepsy and intellectual disability. That branch correlates with variants hitting the LG domains, which is the same protein module that binds dystroglycan in muscle.\nThe residual-protein rule organises the spectrum. Complete deficiency, typically from biallelic truncating variants, gives the congenital severe phenotype curated here; partial deficiency, more often from missense or leaky splice alleles, gives a later-onset limb-girdle disease (LGMDR23) in which independent ambulation is achieved. These are one allelic series with one mechanism at different doses, so they are curated as subtypes of this entry rather than as separate diseases. The rule is a tendency and not a law: complete deficiency with a mild course is reported, and merosin staining does not predict phenotype reliably enough to be used prognostically.\nThere is no approved disease-modifying therapy. Care is multidisciplinary and anticipatory, built around non-invasive ventilation, gastrostomy, contracture and scoliosis management, and cardiac surveillance. The one interventional trial to date, of the anti-apoptotic compound omigapil, was a phase 1 pharmacokinetic and safety study and was not powered for efficacy. What makes the preclinical picture unusually hopeful is that several mechanistically distinct interventions, from blocking apoptosis through inhibiting autophagy, restoring the dystroglycan link with an engineered linker protein, overexpressing integrin alpha-7, and upregulating the paralogous laminin-alpha1, each extend survival in laminin-alpha2-null mice, which says the downstream cascade is attackable at several points and not only at the gene.",
+    "pathophysiology": [
+      "Biallelic LAMA2 Loss of Function",
+      "Loss of Laminin-211 from the Muscle Basal Lamina",
+      "Failure of Basal Lamina to Sarcolemma Receptor Coupling",
+      "Contraction-Induced Myofibre Detachment and Mechanical Injury",
+      "Loss of Laminin-Dependent Survival Signalling",
+      "Myofibre Degeneration, Necrosis and Apoptosis",
+      "Dysregulated Muscle Proteostasis and Autophagy",
+      "Abortive Muscle Regeneration",
+      "Inflammatory Cell Recruitment",
+      "Endomysial Fibrosis and Replacement of Muscle",
+      "Muscle Atrophy and Loss of Muscle Mass",
+      "Progressive Weakness, Contracture and Restrictive Respiratory Failure",
+      "Loss of Laminin-211 from the Schwann Cell Basal Lamina",
+      "Peripheral Dysmyelination and Conduction Slowing",
+      "Loss of Laminin-211 at the Glia Limitans and CNS Vascular Basement Membranes",
+      "Cerebral White Matter Signal Abnormality",
+      "Pial Basement Membrane Assembly Failure",
+      "Cortical Malformation and Epileptogenesis"
+    ],
+    "cell_types": [
+      "skeletal muscle fibre",
+      "skeletal muscle satellite cell",
+      "macrophage",
+      "myofibroblast",
+      "Schwann cell",
+      "astrocyte endfoot at the glia limitans"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000594",
+      "CL:0000235",
+      "CL:0000186",
+      "CL:0002573",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "myofibre adhesion to the basal lamina",
+      "myofibre apoptosis",
+      "muscle cell apoptotic process",
+      "macroautophagy",
+      "skeletal muscle tissue regeneration",
+      "inflammatory response",
+      "extracellular matrix organization",
+      "myelination in peripheral nervous system",
+      "pial basement membrane assembly"
+    ],
+    "phenotypes": [
+      "Neonatal hypotonia",
+      "Axial and proximal muscle weakness",
+      "Inability to walk",
+      "Delayed gross motor development",
+      "Elevated serum creatine kinase",
+      "Joint contracture",
+      "Spinal rigidity",
+      "Scoliosis",
+      "Restrictive ventilatory defect",
+      "Recurrent respiratory infections",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Gastroesophageal reflux",
+      "Macroglossia",
+      "Ophthalmoplegia",
+      "Hyperintensity of cerebral white matter on MRI",
+      "Type II lissencephaly",
+      "Polymicrogyria",
+      "Seizures",
+      "Intellectual disability",
+      "Decreased motor nerve conduction velocity",
+      "Increased endomysial connective tissue",
+      "Abnormal left ventricular function",
+      "Recurrent fractures"
+    ],
+    "phenotype_categories": [
+      "Neuromuscular",
+      "Biochemical",
+      "Musculoskeletal",
+      "Respiratory",
+      "Gastrointestinal",
+      "Growth",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Neurologic",
+      "Histopathologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001319",
+      "HP:0003327",
+      "HP:0002540",
+      "HP:0002194",
+      "HP:0003236",
+      "HP:0001371",
+      "HP:0003306",
+      "HP:0002650",
+      "HP:0002091",
+      "HP:0002205",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002020",
+      "HP:0000158",
+      "HP:0000602",
+      "HP:0030890",
+      "HP:0007260",
+      "HP:0002126",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0003431",
+      "HP:0100297",
+      "HP:0005162",
+      "HP:0002757"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LAMA2"
+    ],
+    "treatments": [
+      "Multidisciplinary Supportive Care",
+      "Non-Invasive Ventilation",
+      "Gastrostomy Feeding",
+      "Physical Therapy and Contracture Management",
+      "Scoliosis Surgery",
+      "Antiepileptic Drug Therapy",
+      "Genetic Counseling",
+      "Omigapil",
+      "Avoidance of Succinylcholine and Statins"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Merosin-deficient_Muscular_Dystrophy_1A.yaml",
+    "page_url": "../pages/disorders/Congenital_Merosin-deficient_Muscular_Dystrophy_1A.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 18,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Congenital Myasthenic Syndrome",
     "disease_id": "MONDO:0018940",
     "category": "Mendelian",
@@ -75368,6 +76538,120 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Congenital Prothrombin Deficiency",
+    "disease_id": "MONDO:0013361",
+    "category": "Genetic",
+    "parents": [
+      "Bleeding Disorder",
+      "Coagulation Disorder",
+      "Rare Bleeding Disorder"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type I",
+      "Type II"
+    ],
+    "description": "Congenital prothrombin (factor II) deficiency is the rarest of the inherited coagulation factor deficiencies, caused by biallelic pathogenic variants in F2. Prothrombin sits at the convergence point of the coagulation cascade: the prothrombinase complex - factor Xa with factor Va as cofactor, assembled on an anionic phospholipid surface in the presence of calcium - cleaves the zymogen to thrombin, and thrombin is the effector that converts fibrinogen to fibrin, activates platelets through protease-activated receptors, feeds back on factors V, VIII and XI, activates factor XIII to cross-link the fibrin mesh, and, complexed with thrombomodulin, switches on the protein C anticoagulant arm. Because a single defect removes all of those outputs at once, the bleeding is out of proportion to what a single-pathway lesion would predict. Two biochemical forms are distinguished by the relationship between antigen and activity: type I (hypoprothrombinaemia) reduces both roughly in parallel, while type II (dysprothrombinaemia) leaves a normal or near-normal amount of a dysfunctional protein, so activity falls disproportionately. That antigen-versus-activity discrepancy is the diagnostic signature. Prothrombin is vitamin K-dependent, and gamma-carboxylation of its Gla domain is what allows it to dock on the procoagulant membrane surface, which is why the acquired vitamin K-related deficiencies phenocopy the congenital disorder. Complete absence of prothrombin has never been observed in a living human and appears to be incompatible with life; every described patient retains some residual activity.",
+    "pathophysiology": [
+      "Biallelic F2 Pathogenic Variants",
+      "Reduced Hepatic Prothrombin Output",
+      "Circulating Dysfunctional Prothrombin",
+      "Defective Vitamin K-Dependent Gla-Domain Membrane Binding",
+      "Impaired Prothrombinase-Mediated Thrombin Generation",
+      "Deficient Thrombin Activity at the Site of Injury",
+      "Impaired Fibrinogen-to-Fibrin Conversion",
+      "Impaired Thrombin-Mediated Platelet Activation",
+      "Loss of Thrombin Feedback Amplification of Factors V, VIII and XI",
+      "Impaired Factor XIII Activation and Fibrin Cross-Linking",
+      "Reduced Thrombomodulin-Dependent Protein C Activation",
+      "Weak, Poorly Cross-Linked Hemostatic Clot",
+      "Systemic Bleeding Diathesis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "platelet",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "blood coagulation",
+      "peptidyl-glutamic acid carboxylation",
+      "zymogen activation of prothrombin by prothrombinase",
+      "blood coagulation, fibrin clot formation",
+      "thrombin-activated receptor signaling pathway",
+      "platelet activation",
+      "regulation of blood coagulation"
+    ],
+    "phenotypes": [
+      "Recurrent mucocutaneous bleeding",
+      "Menorrhagia",
+      "Joint hemorrhage",
+      "Intramuscular hematoma",
+      "Intracranial hemorrhage",
+      "Prolonged bleeding after surgery",
+      "Prolonged prothrombin time",
+      "Prolonged partial thromboplastin time",
+      "Reduced prothrombin antigen"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Reproductive",
+      "Musculoskeletal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001892",
+      "HP:0000132",
+      "HP:0005261",
+      "HP:0012233",
+      "HP:0002170",
+      "HP:0004846",
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0040250"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "F2"
+    ],
+    "treatments": [
+      "Prothrombin Complex Concentrate Replacement",
+      "Fresh Frozen Plasma Transfusion",
+      "Tranexamic Acid"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Factor II coagulant activity",
+      "Prothrombin antigen concentration in type I disease",
+      "Prothrombin antigen concentration in type II disease",
+      "Activity-to-antigen discrepancy"
+    ],
+    "source_file": "Congenital_Prothrombin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Prothrombin_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Congenital Pulmonary Airway Malformation",
@@ -86657,6 +87941,68 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Developmental And Epileptic Encephalopathy 40",
+    "disease_id": "MONDO:0014895",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Developmental and Epileptic Encephalopathy"
+    ],
+    "creation_date": "2026-09-05T19:12:28Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DEE40 (EIEE40; OMIM 617065) is an autosomal recessive developmental and epileptic encephalopathy attributed to biallelic variants in GUF1, which encodes the nuclear genome-encoded mitochondrial translation elongation factor EF-4 (mtEF4), the eukaryotic homolog of bacterial LepA. The mechanism runs through mitochondrial protein synthesis rather than through an ion channel: mtEF4 is a fidelity factor that remobilizes stalled mitoribosomes and transiently inhibits elongation, and its disruption compromises assembly of the respiratory chain complexes whose core subunits are made inside the mitochondrion. The single reported family presented with isolated West syndrome \u2014 infantile spasms with hypsarrhythmia and developmental regression. The evidence base is deliberately small: one consanguineous family with three affected siblings (2016), a single additional GUF1 patient in a targeted gene-panel cohort (2023), and functional work in yeast, worm, and mouse rather than in human neural tissue. The final step from respiratory chain assembly failure to the epilepsy is proposed by the discovering authors and has not been measured in patients.",
+    "pathophysiology": [
+      "Biallelic GUF1 Variants",
+      "Impaired Mitochondrial Translation Elongation Fidelity",
+      "Defective Respiratory Chain Complex Assembly",
+      "Neuronal Energy Failure and Epileptic Encephalopathy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial translational elongation",
+      "mitochondrial respiratory chain complex assembly"
+    ],
+    "phenotypes": [
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "Developmental regression",
+      "Global developmental delay",
+      "Refractory epilepsy"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0002376",
+      "HP:0001263",
+      "HP:0020174"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GUF1"
+    ],
+    "treatments": [
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_And_Epileptic_Encephalopathy_40.yaml",
+    "page_url": "../pages/disorders/Developmental_And_Epileptic_Encephalopathy_40.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Developmental And Epileptic Encephalopathy 46",
     "disease_id": "MONDO:0014947",
     "category": "Mendelian",
@@ -86888,6 +88234,140 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Developmental And Epileptic Encephalopathy 77",
+    "disease_id": "MONDO:0032808",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation",
+      "Inborn Error of Metabolism",
+      "Epilepsy"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental and epileptic encephalopathy 77 (DEE77; also catalogued as multiple congenital anomalies-hypotonia-seizures syndrome 4, OMIM #618548, and nosologically as PIGQ-CDG) is an autosomal recessive inherited glycosylphosphatidylinositol (GPI) deficiency caused by biallelic variants in PIGQ. PIGQ is a component of the GPI-N-acetylglucosaminyltransferase complex that performs the first, committed step of GPI anchor biosynthesis on the cytoplasmic face of the endoplasmic reticulum, transferring N-acetylglucosamine from UDP-GlcNAc onto phosphatidylinositol. At least 150 human proteins reach the cell surface tethered by a GPI anchor, so reducing flux at the entry point of the pathway lowers the surface density of that whole protein class rather than removing one gene product.\nClinically the disorder is a severe, early-onset developmental and epileptic encephalopathy. Across the 13 genetically confirmed patients reported to date, hypotonia, psychomotor delay, epilepsy, brain MRI abnormality, ocular abnormality and craniofacial dysmorphism were present in all; gastrointestinal problems and abnormal movements in about 90%. Seizure onset in the largest single series fell between 2.5 and 7 months of age and ranged from treatable seizures to recurrent status epilepticus. Multisystem involvement is prominent and can be life-threatening: two children in that series had midgut volvulus requiring surgery, cardiac anomalies including arrhythmias occur, and one patient had recurrent febrile-infection-triggered rhabdomyolysis. Mortality is high, with a median survival age of 5.5 years across the reported cohort.\nThe functional lesion is demonstrable: flow cytometry of patient granulocytes, leukocytes and fibroblasts shows reduced surface GPI-anchored proteins, and transfection of wild-type PIGQ cDNA into patient fibroblasts restores them. Unlike its first-step-complex sibling PIGP, PIGQ deficiency is reported with elevated serum alkaline phosphatase in a majority of cases, which is mechanistically unexpected for a block this early in the pathway and is discussed below.\n",
+    "pathophysiology": [
+      "Biallelic PIGQ Variants",
+      "Reduced GPI-N-Acetylglucosaminyltransferase Activity",
+      "Impaired Initiation of GPI Anchor Biosynthesis",
+      "Reduced GPI-Anchored Protein Surface Expression",
+      "Disrupted Neurodevelopment and Cortical Network Excitability",
+      "Drug-Resistant Early-Onset Epilepsy",
+      "Profound Neurodevelopmental Impairment",
+      "Multisystem GPI-Anchored Protein Dysfunction"
+    ],
+    "cell_types": [
+      "granulocyte",
+      "leukocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000094",
+      "CL:0000738"
+    ],
+    "biological_processes": [
+      "GPI anchor biosynthetic process",
+      "nervous system development",
+      "synaptic signaling"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Generalized Hypotonia",
+      "Visual Impairment",
+      "Nystagmus",
+      "Ataxia",
+      "Cerebral Atrophy",
+      "Cerebellar Atrophy",
+      "Delayed Myelination",
+      "Elevated Circulating Alkaline Phosphatase Concentration",
+      "Rhabdomyolysis",
+      "Elevated Circulating Creatine Kinase Concentration",
+      "Volvulus",
+      "Arrhythmia",
+      "Feeding Difficulties",
+      "Coarse Facial Features",
+      "Anteverted Nares",
+      "Open Mouth",
+      "Macroglossia",
+      "Scoliosis",
+      "Pectus Carinatum",
+      "Polyhydramnios"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neurodevelopmental",
+      "Neuromuscular",
+      "Ophthalmological",
+      "Neuroimaging",
+      "Biochemical",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Craniofacial",
+      "Skeletal",
+      "Prenatal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0000505",
+      "HP:0000639",
+      "HP:0001251",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0012448",
+      "HP:0003155",
+      "HP:0003201",
+      "HP:0003236",
+      "HP:0002580",
+      "HP:0011675",
+      "HP:0011968",
+      "HP:0000280",
+      "HP:0000463",
+      "HP:0000194",
+      "HP:0000158",
+      "HP:0002650",
+      "HP:0000768",
+      "HP:0001561"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PIGQ"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Pyridoxine or Pyridoxal 5-Phosphate",
+      "Ketogenic Diet",
+      "Surgical Correction of Midgut Volvulus",
+      "Enteral Feeding Support"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum alkaline phosphatase",
+      "Serum creatine kinase"
+    ],
+    "source_file": "Developmental_And_Epileptic_Encephalopathy_77.yaml",
+    "page_url": "../pages/disorders/Developmental_And_Epileptic_Encephalopathy_77.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Developmental And Epileptic Encephalopathy 80",
@@ -90360,6 +91840,66 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Dilated Cardiomyopathy 1V",
+    "disease_id": "MONDO:0013373",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Dilated Cardiomyopathy"
+    ],
+    "creation_date": "2026-09-05T13:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A numbered OMIM dilated-cardiomyopathy locus assigned to PSEN2, the second presenilin and, like its sibling PSEN1, far better known as an early-onset Alzheimer disease gene. This entry is the companion of dismech's Dilated Cardiomyopathy 1U: the two loci were defined by the same 2006 screen of the same 315 probands, and they are curated on the same evidence base for the same reason - the locus exists and is queried, not because the gene-disease relationship is settled.\nThe single most important thing in the entry is the expert-panel verdict, and it differs from 1U's. In March 2026 the ClinGen Dilated Cardiomyopathy Gene Curation Expert Panel reported the PSEN2 - dilated cardiomyopathy 1V relationship as **Limited** under SOP10. Limited is a positive but weak tier: some human genetic evidence is scorable, and it is not enough. That is one tier better than PSEN1's **Disputed** at the sibling locus, and the difference is real rather than cosmetic - for PSEN1 the panel found no scorable human genetic evidence at all, whereas for PSEN2 it counted two missense variants in four probands across two studies. The panel nevertheless records that the genetic evidence points decreased over time, that both reported variants turn out to be too common in population reference data for a monogenic effect, and that no new human genetic evidence has emerged since the previous curation.\nThe clinical phenotype also differs, and in the direction that matters for a family. Where the PSEN1 family showed complete penetrance and progressive disease ending in transplantation or death, the PSEN2 variant Ser130Leu - found in two families in the same screen - showed partial penetrance, milder disease and a more favourable prognosis. Any statement about penetrance here rests on two small pedigrees and is not a lifetime estimate.\nThe mechanism is held loosely, as at the sibling locus, but the cardiac anchor is a different molecule. For PSEN1 the proposed route runs through the sarcoplasmic-reticulum calcium pump SERCA2a. For PSEN2 the specific cardiac interaction reported is with the ryanodine receptor RyR2 and its modulator sorcin, demonstrated by co-immunoprecipitation and colocalisation at the Z-lines in mouse heart. Presenilin-2 is expressed in myocardium, and its expression rises with hypoxia and glucose deprivation in cardiac cells and in failing canine myocardium - which is the expression work ClinGen names as supporting the relationship. What is missing is the step that would matter: no cardiomyocyte carrying Ser130Leu has ever been studied, and the one in vivo cardiac calcium phenotype - from a Psen2 knockout mouse - runs in the wrong direction, showing increased contractility and no dilatation. The causal chain below is therefore held inside a single ALTERNATIVE mechanistic hypothesis rather than asserted as the disease mechanism.\nPractically: a PSEN2 variant found in a patient with dilated cardiomyopathy is weak evidence and should not be reported as a molecular diagnosis on its own. The Limited classification is specific to the cardiac phenotype and says nothing about PSEN2's established role in early-onset familial Alzheimer disease.",
+    "pathophysiology": [
+      "PSEN2 Ser130Leu Missense Variant in Cardiomyocytes",
+      "Dysregulated Cardiomyocyte Calcium Handling",
+      "Ventricular Remodeling and Chamber Dilatation",
+      "Systolic Dysfunction and Heart Failure",
+      "Stress-Responsive Myocardial Presenilin-2 Expression"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "calcium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Congestive Heart Failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PSEN2"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Therapy",
+      "Cardiac Surveillance of At-Risk Relatives"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1V.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1V.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1X",
     "disease_id": "MONDO:0012704",
     "category": "Mendelian",
@@ -91103,9 +92643,10 @@ window.searchData = [
       "dHMN5-GARS",
       "dHMN7B",
       "dHMN7A",
+      "dHMN2C",
       "dHMN-TRPV4"
     ],
-    "description": "Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F) and HSPB8 (dHMN2A, split out - see below), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry. HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried here as a subtype - it is curated as a specific toxic-gain-of-function proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3 chaperone-assisted selective autophagy complex, which is finer than the general proteostasis framing of this entry. Its subtype row, HSPB8 genetic block and OMIM:158590 assertion moved with it. A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9 (MONDO:0060585) and has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in here - its curated mechanism is two-armed (dominant-negative loss of tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic TrpRS activity) and is not represented by the proteostasis and axonal-transport framing of this entry.\n",
+    "description": "Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F), HSPB3 (dHMN2C) and HSPB8 (dHMN2A, split out - see below), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry. HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried here as a subtype - it is curated as a specific toxic-gain-of-function proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3 chaperone-assisted selective autophagy complex, which is finer than the general proteostasis framing of this entry. Its subtype row, HSPB8 genetic block and OMIM:158590 assertion moved with it. A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9 (MONDO:0060585) and has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in here - its curated mechanism is two-armed (dominant-negative loss of tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic TrpRS activity) and is not represented by the proteostasis and axonal-transport framing of this entry.\n",
     "pathophysiology": [
       "Motor Neuron and Distal Axon Gene Defect",
       "Disrupted Proteostasis and Axonal Transport",
@@ -91158,6 +92699,7 @@ window.searchData = [
       "GARS1",
       "DCTN1",
       "SLC5A7",
+      "HSPB3",
       "TRPV4"
     ],
     "treatments": [
@@ -91171,7 +92713,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Dominant.html",
     "num_phenotypes": 8,
     "num_pathophysiology": 4,
-    "num_genes": 6,
+    "num_genes": 7,
     "num_treatments": 3,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
@@ -104428,6 +105970,92 @@ window.searchData = [
     "num_genes": 3,
     "num_treatments": 4,
     "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Familial Digital Arthropathy-Brachydactyly",
+    "disease_id": "MONDO:0011732",
+    "category": "Mendelian",
+    "parents": [
+      "TRPV4-Related Bone Disorder",
+      "Congenital Limb Malformation"
+    ],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial digital arthropathy-brachydactyly (FDAB) is an autosomal dominant, non-inflammatory osteoarthropathy confined to the joints of the hands and feet. Onset is in the first decade, and the arthropathy is aggressive and progressive, producing deformity and pain by adult life. It is caused by heterozygous missense substitutions (p.Gly270Val, p.Arg271Pro, p.Phe273Leu) in the intracellular ankyrin-repeat domain of TRPV4, the same calcium-permeable cation channel whose variants elsewhere in the protein cause the TRPV4 skeletal dysplasias and the TRPV4 peripheral neuropathies. FDAB is the odd member of that allelic series in two ways. Clinically it is the mildest and most restricted of the TRPV4 skeletal phenotypes: the rest of the skeleton is spared and stature is normal. Mechanistically the brachydactyly is not a primary growth-plate dysplasia - the shortening of the middle and distal phalanges is a secondary consequence of subchondral destruction of the phalangeal, metacarpal, and metatarsal heads, so digital shortening sits downstream of joint destruction rather than beside it. The functional consequence of the ankyrin-repeat-domain variants is not settled: the primary report found reduced channel activity and poor cell-surface localization, while later structure-function work frames pathogenic TRPV4 variants as gain-of-function and cytotoxic (see discussions).",
+    "pathophysiology": [
+      "TRPV4 Ankyrin Repeat Domain Missense Variants",
+      "Impaired TRPV4 Cell-Surface Trafficking",
+      "Reduced TRPV4 Channel Responsiveness",
+      "Loss of Articular Cartilage Homeostasis",
+      "Subchondral Destruction of the Phalangeal, Metacarpal and Metatarsal Heads",
+      "Progressive Destructive Osteoarthropathy of the Digital Joints",
+      "Secondary Shortening of the Middle and Distal Phalanges"
+    ],
+    "cell_types": [
+      "articular chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1001607"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "calcium ion transmembrane transport",
+      "response to osmotic stress",
+      "cartilage homeostasis"
+    ],
+    "phenotypes": [
+      "Non-Inflammatory Digital Arthropathy",
+      "Osteoarthritis of the Small Joints of the Hand",
+      "Distal Interphalangeal Joint Osteoarthritis",
+      "Premature Osteoarthritis",
+      "Digital Joint Pain",
+      "Radial Deviation of the Fingers",
+      "Brachydactyly",
+      "Short Middle Phalanx of Finger",
+      "Short Distal Phalanx of Finger",
+      "Short Middle Phalanx of Toe"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003040",
+      "HP:0004268",
+      "HP:0006233",
+      "HP:0003088",
+      "HP:0002829",
+      "HP:0009466",
+      "HP:0001156",
+      "HP:0005819",
+      "HP:0009882",
+      "HP:0003795"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRPV4"
+    ],
+    "treatments": [
+      "Symptom-Directed Supportive Care",
+      "Annual Evaluation for Joint Pain",
+      "Physical Therapy for Digital Joint Function",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Digital_Arthropathy-Brachydactyly.yaml",
+    "page_url": "../pages/disorders/Familial_Digital_Arthropathy-Brachydactyly.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "7"
   },
   {
@@ -122733,6 +124361,132 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "HHV-8-Associated Multicentric Castleman Disease",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Castleman Disease",
+      "Lymphoproliferative Disease",
+      "Viral Infection"
+    ],
+    "creation_date": "2026-08-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HHV-8-associated multicentric Castleman disease is the form of Castleman disease with a known cause: uncontrolled lytic replication of Kaposi sarcoma-associated herpesvirus (KSHV/HHV-8) in lymph node plasmablasts. The virus encodes a viral homolog of interleukin-6 (vIL-6) that engages gp130 directly, without needing the IL-6 receptor, so it bypasses the checkpoint that normally limits IL-6 signaling. Most cases occur in people living with HIV, though the disease also occurs in HIV-negative immunocompromised individuals. The course is remitting-relapsing, running as discrete attacks of lytic viral activity with intervening remission, and constitutional symptoms and splenomegaly are substantially more frequent than in idiopathic multicentric disease (98.6% versus 46.6%, and 89.2% versus 48.2%). Because the same uncontrolled infection also drives Kaposi sarcoma and KSHV-associated lymphoma, those malignancies frequently co-occur. First-line therapy is rituximab, which depletes the CD20-positive B cells harboring the virus and raised 5-year survival from 33% to 90%; antiretroviral therapy is given alongside for the underlying HIV infection.",
+    "pathophysiology": [
+      "HHV-8/KSHV Viral Pathogenesis",
+      "IL-6 / vIL-6 Overproduction",
+      "JAK-STAT3 Signaling Activation",
+      "Plasma Cell / B Cell Proliferation",
+      "Hepatic Acute-Phase Response",
+      "Angiofollicular Lymph Node Hyperplasia"
+    ],
+    "cell_types": [
+      "KSHV-infected plasmablast",
+      "Plasma cell",
+      "Vascular endothelial cell",
+      "B cell",
+      "Plasmablast",
+      "Hepatocyte",
+      "Follicular dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000980",
+      "CL:0000786",
+      "CL:0000115",
+      "CL:0000236",
+      "CL:0000182",
+      "CL:0000442"
+    ],
+    "biological_processes": [
+      "Viral process",
+      "Lytic viral genome replication",
+      "Interleukin-6 production",
+      "Interleukin-6-mediated signaling pathway",
+      "JAK-STAT signaling",
+      "B cell proliferation",
+      "Immunoglobulin production",
+      "Acute-phase response",
+      "Angiogenesis"
+    ],
+    "phenotypes": [
+      "Generalized Lymphadenopathy",
+      "Fever",
+      "Night Sweats",
+      "Fatigue",
+      "Weight Loss",
+      "Anemia",
+      "Hypoalbuminemia",
+      "Elevated C-Reactive Protein",
+      "Elevated Erythrocyte Sedimentation Rate",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Renal Dysfunction",
+      "Kaposi's Sarcoma"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Laboratory",
+      "Abdominal",
+      "Renal",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0008940",
+      "HP:0001954",
+      "HP:0030166",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0001903",
+      "HP:0003073",
+      "HP:0011227",
+      "HP:0003565",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0000083",
+      "HP:0100726"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Rituximab",
+      "High-Dose Zidovudine plus Valganciclovir",
+      "Antiretroviral Therapy",
+      "Corticosteroids",
+      "Combination Cytotoxic Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interleukin-6 (IL-6)",
+      "C-Reactive Protein (CRP)",
+      "KSHV/HHV-8 Viral Load"
+    ],
+    "source_file": "HHV-8-Associated_Multicentric_Castleman_Disease.yaml",
+    "page_url": "../pages/disorders/HHV-8-Associated_Multicentric_Castleman_Disease.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "HIDEA_Syndrome",
     "disease_id": "MONDO:0032780",
     "category": "Genetic",
@@ -125298,6 +127052,69 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hearing Loss Autosomal Recessive 100",
+    "disease_id": "MONDO:0032740",
+    "category": "Mendelian",
+    "parents": [
+      "hearing loss, autosomal recessive"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB100 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic variants in PPIP5K2, which encodes one of the two human diphosphoinositol pentakisphosphate kinases. It is defined by a single founder missense allele, c.2510G>A p.(Arg837His), homozygous in two large consanguineous Pakistani families (PKDF041 and PKDF751) that together delimit the DFNB100 locus on chromosome 5. Affected individuals have prelingual, bilateral, severe-to-profound sensorineural hearing loss with normal tympanometry, absent transient evoked otoacoustic emissions, no overt vestibular dysfunction, and no retinal degeneration.\nThe mechanism is what distinguishes this entry from the other numbered DFNB loci. PPIP5K2 is a bifunctional enzyme that interconverts the inositol pyrophosphates 5-InsP7 and InsP8 through mutually competing kinase and phosphatase domains. The Arg837His substitution sits in the phosphatase domain, and in vitro it both lowers IP8 phosphatase activity and raises 5-IP7 kinase activity, so the net effect is increased metabolic flux toward InsP8 rather than a simple loss of enzyme. The route to deafness therefore runs through inositol pyrophosphate signalling rather than through a structural, gap-junction or ion-transport lesion; the founding report presents it as the first demonstration that PP-IP metabolism is required for inner ear function at all.",
+    "pathophysiology": [
+      "PPIP5K2 Arg837His Catalytic Imbalance",
+      "Increased Metabolic Flux from 5-InsP7 to InsP8",
+      "Disrupted Inositol Pyrophosphate Homeostasis in the Cochlear Sensory Epithelium",
+      "Outer Hair Cell Dysfunction and Degeneration",
+      "Loss of Cochlear Amplification"
+    ],
+    "cell_types": [
+      "cochlear hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000855",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "inositol pyrophosphate (PP-IP) turnover",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Prelingual bilateral severe-to-profound sensorineural hearing loss",
+      "Absent transient evoked otoacoustic emissions"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000399",
+      "HP:6000182"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PPIP5K2"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Genetic counselling and family testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hearing_Loss_Autosomal_Recessive_100.yaml",
+    "page_url": "../pages/disorders/Hearing_Loss_Autosomal_Recessive_100.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Hearing Loss Autosomal Recessive 106",
     "disease_id": "MONDO:0033198",
     "category": "Mendelian",
@@ -125433,6 +127250,86 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Hearing Loss Autosomal Recessive 116",
+    "disease_id": "MONDO:0033670",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB116 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic variants in CLDN9, which encodes claudin-9, a constituent of the bicellular tight junctions of the epithelia that line the scala media. Three families are reported with functional support - a Turkish family with the truncating c.86delT (p.Leu29ArgfsTer4), and Pakistani and Moroccan families with the hypomorphic p.(Glu159Lys) and p.(Ile124dup) alleles - plus one further individual whose p.(Cys25Trp) allele is proposed rather than established.\nThe mechanism this entry curates is a paracellular ion barrier failure, and it is worth being precise about which compartment fails, because \"tight junction gene, therefore endolymph barrier\" is the intuitive story and it is not quite what was measured. In the Cldn9 nmf329 mouse the endocochlear potential and the endolymphatic potassium concentration are both normal - the stria vascularis works - while the *perilymphatic* potassium concentration is raised. Claudin-9 sits in a subapical subdomain of the hair cell junctional complex, underneath the more apical strands built by other claudins, and what its loss does is let potassium leak from the endolymph past those outer strands to the basolateral face of the hair cell. Hair cells then die, from the cochlear base upward. That the potassium is what kills them is not inferred: outer hair cell loss is prevented by culturing the explanted organ of Corti in low potassium, and in vivo by deleting pou3f4 to collapse the endocochlear driving force.\nNone of that has been measured in a human cochlea. The human evidence is segregation in consanguineous families plus heterologous-cell and structural-modelling work on the variant proteins; the barrier mechanism reaches humans by inference from the mouse, and the pathophysiology nodes downstream of the protein defect are marked PROVISIONAL for that reason. The mouse also diverges from the human phenotype in a way that matters: it is uniformly deaf across frequencies, whereas the human audiogram characteristically spares the low frequencies and slopes steeply above 1 kHz.\nClinically, DFNB116 is a mild-to-profound, often asymmetric loss whose reported onset ranges from prelingual to adolescence, and which is progressive in some families and stable over a decade in others. That milder end is the ascertainment point the second report makes explicitly - recessive deafness genetics has concentrated on profound congenital cases, and CLDN9 is a gene to consider when the loss is moderate.",
+    "pathophysiology": [
+      "CLDN9 Truncating Loss of Function",
+      "CLDN9 Hypomorphic Missense and In-Frame Alleles",
+      "Failure of the Claudin-9 Paracellular Ion Barrier",
+      "Basolateral Potassium Exposure of Cochlear Hair Cells",
+      "Basal-Predominant Outer Hair Cell Degeneration",
+      "Loss of Cochlear Transduction in the High-Frequency Base"
+    ],
+    "cell_types": [
+      "cochlear outer hair cell",
+      "cochlear inner hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000601",
+      "CL:0000589"
+    ],
+    "biological_processes": [
+      "paracellular transport of potassium and sodium",
+      "potassium ion homeostasis",
+      "cell death of cochlear outer hair cells",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Bilateral Sensorineural Hearing Impairment",
+      "High-Frequency Sensorineural Hearing Impairment",
+      "Progressive Sensorineural Hearing Impairment",
+      "Adolescent to Adult Recognition of Hearing Loss",
+      "Tinnitus",
+      "Normal Vestibular Function"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0001757",
+      "HP:0000408",
+      "HP:0008596",
+      "HP:0000360"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CLDN9"
+    ],
+    "treatments": [
+      "Hearing Amplification",
+      "Cochlear Implantation",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hearing_Loss_Autosomal_Recessive_116.yaml",
+    "page_url": "../pages/disorders/Hearing_Loss_Autosomal_Recessive_116.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hearing Loss Autosomal Recessive 120",
@@ -129432,6 +131329,93 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Hereditary Hyperferritinemia with Congenital Cataracts",
+    "disease_id": "MONDO:0010952",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "eye disorder",
+      "inherited disorder of iron metabolism"
+    ],
+    "creation_date": "2026-09-05T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hereditary hyperferritinemia-cataract syndrome (HHCS) is an autosomal dominant disorder caused by non-coding point mutations or small deletions in the iron-responsive element (IRE) in the 5' untranslated region of FTL. The IRE is the stem-loop that iron-regulatory proteins IRP1 and IRP2 occupy when cellular iron is low, blocking assembly of the translation preinitiation complex on L-ferritin mRNA. Variants that distort the hairpin lower or abolish IRP affinity, so L-ferritin translation runs constitutively and is no longer coupled to iron supply. The result is a very high serum ferritin with a normal serum iron and a normal transferrin saturation, and no parenchymal iron loading, together with bilateral early-onset cataract produced by crystalline L-ferritin deposits in lens fibre cells. Clinically the disorder is benign apart from the lens, and its main hazard is iatrogenic: because serum ferritin is routinely read as a surrogate for body iron stores, HHCS is repeatedly mistaken for hereditary haemochromatosis and treated with venesection or iron chelation, which cannot lower a genetically driven ferritin and instead produces iron deficiency. This entry is mechanistically distinct from `kb/disorders/neuroferritinopathy.yaml`, which is caused by FTL coding-region variants and features brain iron accumulation with low-to-normal serum ferritin.",
+    "pathophysiology": [
+      "FTL Iron-Responsive Element Disruption",
+      "Loss of Iron-Regulatory Protein Binding to the FTL IRE",
+      "Constitutive Derepression of L-Ferritin Translation",
+      "L-Ferritin Overproduction and Intracellular Accumulation",
+      "Serum Hyperferritinemia Uncoupled from Body Iron Stores",
+      "Lens Fibre Cell L-Ferritin Accumulation",
+      "Crystalline L-Ferritin Deposition and Lens Light Scattering",
+      "Iatrogenic Iron Depletion from Misdirected Venesection and Chelation"
+    ],
+    "cell_types": [
+      "lens fibre cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "iron-independent initiation of L-ferritin mRNA translation",
+      "IRP-mediated translational repression of FTL mRNA"
+    ],
+    "phenotypes": [
+      "Bilateral Early-Onset Cataract",
+      "Nuclear Cataract",
+      "Pulverulent Lens Opacities",
+      "Visual Impairment",
+      "Persistent Hyperferritinemia",
+      "Iron Deficiency Anemia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Laboratory",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0100018",
+      "HP:0010693",
+      "HP:0000505",
+      "HP:0003281",
+      "HP:0001891"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FTL"
+    ],
+    "treatments": [
+      "Cataract Extraction",
+      "Avoidance of Venesection, Iron Chelation and Liver Biopsy",
+      "Genetic Counselling and Cascade Family Screening"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum ferritin",
+      "Transferrin saturation"
+    ],
+    "source_file": "Hereditary_Hyperferritinemia_With_Congenital_Cataracts.yaml",
+    "page_url": "../pages/disorders/Hereditary_Hyperferritinemia_with_Congenital_Cataracts.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Hereditary intrinsic factor deficiency",
@@ -136240,6 +138224,77 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 15",
+    "disease_id": "MONDO:0013200",
+    "category": "Mendelian",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 15 (CMH15) is the VCL-attributed form of familial hypertrophic cardiomyopathy. VCL encodes two proteins from one gene: vinculin, expressed ubiquitously, and metavinculin, a splice isoform carrying a 68-residue insert in the C-terminal tail encoded by exon 19 and restricted to cardiac and smooth muscle. Both localize to the sites where the actin cytoskeleton is anchored to the membrane, so the proposed lesion is one of force transmission and cytoskeletal anchorage rather than of the contractile apparatus itself. The vinculin tail binds F-actin and dimerizes to bundle filaments into thick fibers; the metavinculin tail binds F-actin but cannot bundle it, severs filaments instead, and inhibits vinculin-mediated bundling, so metavinculin acts as a tuner of vinculin's actin-organizing activity. The cardiomyopathy-associated insert variants destabilize the conformational sub-domain that mediates that inhibition: they neither bundle normally nor restrain vinculin, and instead promote large, disordered actin assemblies. Myectomy tissue from the two reported probands showed vinculin and metavinculin markedly reduced at the intercalated disc with preserved Z-disc staining, and both had severely obstructive mid-ventricular hypertrophy, with apical involvement in one of the two.\nThe gene-disease relationship is disputed, and this entry is curated on that footing rather than as an established cause. ClinGen's Hereditary Cardiovascular Disease Gene Curation Expert Panel reclassified VCL-hypertrophic cardiomyopathy from Limited to Disputed in May 2023: only two probands were ever reported, both in 2006 from one group, and the two missense variants carried by them are more common in gnomAD than the panel's pathogenicity cutoff allows. The intercalated-disc depletion seen in those probands was subsequently found in obstructive hypertrophic cardiomyopathy and aortic stenosis generally, so it tracks outflow obstruction rather than VCL genotype and cannot serve as VCL-specific corroboration. VCL's well-supported cardiac association is with dilated cardiomyopathy, which ClinGen rates Strong, and the best-characterized variant, p.Arg975Trp, has been reported in both hypertrophic and dilated presentations. CMH15 should therefore be read as a molecularly plausible but clinically unconfirmed entity: the metavinculin biochemistry is solid, the human genetic evidence that it causes hypertrophic cardiomyopathy is not.",
+    "pathophysiology": [
+      "VCL Missense Variant in Vinculin or the Metavinculin Insert",
+      "Loss of Metavinculin Restraint on Vinculin-Mediated Actin Bundling",
+      "Disordered F-Actin Assembly at the Membrane Anchor",
+      "Disrupted Intercalated Disc and Costamere Anchorage",
+      "Impaired Cardiomyocyte Force Transmission",
+      "Maladaptive Left Ventricular Hypertrophy",
+      "Dynamic Outflow Obstruction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "vinculin-mediated actin filament bundling",
+      "actin cytoskeleton organization",
+      "adherens junction organization",
+      "cell-matrix adhesion",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Left ventricular outflow tract obstruction",
+      "Apical hypertrophy",
+      "Sigmoidal septal contour"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0032092",
+      "HP:0031992",
+      "HP:0001712"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VCL"
+    ],
+    "treatments": [
+      "Septal myectomy for obstructive disease"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_15.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_15.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 17",
     "disease_id": "MONDO:0013474",
     "category": "Mendelian",
@@ -137987,6 +140042,98 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Hypomyelinating Leukodystrophy 12",
+    "disease_id": "MONDO:0014732",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy",
+      "congenital nervous system disorder"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 12 (HLD12, MIM 616683) is an ultra-rare autosomal recessive infantile-onset hypomyelinating leukodystrophy caused by biallelic variants in VPS11, which encodes a core subunit shared by the two Class C Vps tethering complexes of the endolysosomal system - HOPS (homotypic fusion and protein sorting), which tethers late endosomes and autophagosomes to lysosomes, and CORVET (class C core vacuole/endosome tethering), which acts at early endosomes. Affected children present in the first months of life with developmental stagnation, acquired progressive microcephaly, truncal (axial) hypotonia evolving to appendicular spasticity and spastic tetraplegia, variable seizures, cortical visual impairment or optic atrophy, and sensorineural hearing loss. Brain MRI shows diffuse CNS hypomyelination, a short and posteriorly thinned corpus callosum, reduced white-matter volume, and - in a recent two-centre cohort - a VPS11-specific cerebellar signature (focal absence of the middle-anterior cerebellar cortex) not seen in other hypomyelinating leukodystrophies. Most reported patients are of Ashkenazi Jewish ancestry and homozygous for the founder allele VPS11 c.2536T>G (p.Cys846Gly), which has a carrier frequency of roughly 1:250 (0.6%) in that population.\nThe mechanism is a loss of VPS11 function in endolysosomal membrane trafficking. The p.Cys846Gly substitution sits in the C-terminal cysteine-rich RING-H2 domain; it does not misfold the domain but is aberrantly ubiquitinated and rapidly degraded, lowering steady-state VPS11 and weakening VPS11-VPS18 core assembly, so both HOPS and CORVET are compromised. Other alleles (the in-frame deletion p.Leu387_Gly395del; compound-heterozygous missense variants) reduce protein by different routes. The downstream consequences are impaired fusion of late endosomes and autophagosomes with lysosomes, reduced autophagic flux, and lysosomal storage (membranous cytoplasmic bodies, storage macrophages and abnormal urinary glycosphingolipids resembling a classic lysosomal storage disease). In oligodendroglial cell models the mutant protein aggregates and downregulates p70S6K signalling, blocking the morphological differentiation required to make myelin; in zebrafish vps11 mutants CNS neuronal death precedes and accompanies a reduction in myelination. Both a primary oligodendroglial differentiation failure and primary neuronal death therefore contribute to the hypomyelination.\nThere is no disease-modifying therapy; management is supportive and multidisciplinary. A candidate molecular intervention point (restoring p70S6K phosphorylation by inhibiting the phosphatases PP1C/PP2A) has been demonstrated only in an oligodendroglial cell line.",
+    "pathophysiology": [
+      "Biallelic VPS11 Loss of Function",
+      "Impaired HOPS/CORVET-Mediated Endolysosomal Tethering and Fusion",
+      "Impaired Autophagic Flux",
+      "Lysosomal Storage",
+      "Oligodendroglial Differentiation Failure",
+      "CNS Neuronal Death",
+      "CNS Hypomyelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "late endosome to lysosome transport",
+      "organelle membrane fusion",
+      "autophagosome-lysosome fusion",
+      "macroautophagy",
+      "lysosomal transport",
+      "oligodendrocyte differentiation",
+      "neuron apoptotic process",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Progressive microcephaly",
+      "Axial hypotonia",
+      "Spastic tetraplegia",
+      "Seizures",
+      "Cerebral visual impairment",
+      "Sensorineural hearing impairment",
+      "CNS hypomyelination on MRI",
+      "Thin corpus callosum"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neuroimaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000253",
+      "HP:0008936",
+      "HP:0002510",
+      "HP:0001250",
+      "HP:0100704",
+      "HP:0000407",
+      "HP:0006808",
+      "HP:0033725"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "VPS11"
+    ],
+    "treatments": [
+      "Multidisciplinary supportive care",
+      "Antiseizure pharmacotherapy",
+      "Genetic counseling and carrier screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_12.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_12.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 15",
@@ -141632,6 +143779,196 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Idiopathic Multicentric Castleman Disease",
+    "disease_id": "MONDO:0035838",
+    "category": "Complex",
+    "parents": [
+      "Castleman Disease",
+      "Lymphoproliferative Disease"
+    ],
+    "creation_date": "2026-08-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "iMCD-TAFRO",
+      "iMCD-IPL",
+      "iMCD-NOS"
+    ],
+    "description": "Idiopathic multicentric Castleman disease (iMCD) is the HHV-8-negative multicentric form, and the one whose cause is unknown. It presents with multicentric lymphadenopathy, characteristic angiofollicular lymph node histopathology, cytopenias, and a systemic inflammatory syndrome that can progress to multiorgan failure. Diagnosis is by the international consensus criteria and is a diagnosis of exclusion: there is no diagnostic serum biomarker, and infection, malignancy and autoimmune disease - all of which can produce Castleman-like nodal changes - must be ruled out first. Three clinical subtypes with materially different courses are recognized: iMCD-TAFRO, an acute cytokine storm with thrombocytopenia, anasarca, renal dysfunction and marrow fibrosis; iMCD-IPL, an indolent form with polyclonal hypergammaglobulinemia and thrombocytosis that closely mimics IgG4-related disease; and iMCD-NOS. First-line therapy across all three is the anti-IL-6 antibody siltuximab, the only approved drug, but it produces a durable response in only about a third of patients and what drives the remainder is not known. An emerging framework proposes immune-stromal dysregulation - activated follicular dendritic, T-zone and perivascular reticular cells supplying VEGF and IL-6 - alongside molecular endotypes defined by IL-6, CXCL13, TNF and PI3K/AKT/mTOR pathway activation. That framework is recorded here as EMERGING rather than as settled pathophysiology, and the absence of any validated animal or cell-culture model is the reason it cannot yet be tested causally.",
+    "pathophysiology": [
+      "Unknown iMCD Initiating Process",
+      "Somatic Stromal Cell Mutation",
+      "Autoantibody-Mediated Immune Dysregulation",
+      "Lymph Node Stromal Cell Activation and Expansion",
+      "Follicular Dendritic Cell Meshwork Expansion",
+      "Stromal VEGF Overproduction and Neovascularization",
+      "PI3K/AKT/mTOR Pathway Activation",
+      "IL-6 Overproduction",
+      "JAK-STAT3 Signaling Activation",
+      "CXCL13 Chemokine Axis Elevation",
+      "Plasma Cell / B Cell Proliferation",
+      "Hepatic Acute-Phase Response",
+      "Angiofollicular Lymph Node Hyperplasia",
+      "Vascular Hyperpermeability and Third-Space Fluid Accumulation",
+      "Endothelial Injury and Renal Thrombotic Microangiopathy",
+      "Marrow Stromal Fibrotic Remodeling",
+      "Peripheral Platelet Consumption"
+    ],
+    "cell_types": [
+      "Follicular dendritic cell",
+      "T-zone reticular cell",
+      "B-zone reticular cell",
+      "Perivascular reticular cell",
+      "Fibroblastic reticular cell",
+      "Mantle zone B cell",
+      "Blood endothelial cell",
+      "CD8+ T cell",
+      "Plasma cell",
+      "Vascular endothelial cell",
+      "B cell",
+      "Plasmablast",
+      "Hepatocyte",
+      "Glomerular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000442",
+      "CL:0009105",
+      "CL:0009104",
+      "CL:4033054",
+      "CL:0009101",
+      "CL:0000236",
+      "CL:0000115",
+      "CL:0000625",
+      "CL:0000786",
+      "CL:0000980",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "Immunoglobulin production",
+      "Extracellular matrix remodeling",
+      "TGF-beta receptor signaling",
+      "Germinal center formation",
+      "Plasma cell differentiation",
+      "Vascular endothelial growth factor production",
+      "Angiogenesis",
+      "PI3K/AKT signal transduction",
+      "TOR signaling",
+      "Interleukin-6 production",
+      "Interleukin-6-mediated signaling pathway",
+      "JAK-STAT signaling",
+      "Chemokine-mediated signaling",
+      "B cell proliferation",
+      "Acute-phase response",
+      "Regulation of vascular permeability",
+      "Blood coagulation",
+      "Extracellular matrix organization",
+      "Negative regulation of megakaryocyte differentiation"
+    ],
+    "phenotypes": [
+      "Generalized Lymphadenopathy",
+      "Fever",
+      "Night Sweats",
+      "Fatigue",
+      "Weight Loss",
+      "Anorexia",
+      "Anemia",
+      "Hypoalbuminemia",
+      "Elevated C-Reactive Protein",
+      "Elevated Erythrocyte Sedimentation Rate",
+      "Splenomegaly",
+      "Hepatomegaly",
+      "Thrombocytopenia",
+      "Thrombocytosis",
+      "Polyclonal Hypergammaglobulinemia",
+      "Ascites",
+      "Pleural Effusion",
+      "Generalized Edema (Anasarca)",
+      "Renal Dysfunction",
+      "Acute Renal Failure",
+      "Proteinuria",
+      "Bone Marrow Reticulin Fibrosis"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Laboratory",
+      "Abdominal",
+      "Immunologic",
+      "Respiratory",
+      "Cardiovascular",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008940",
+      "HP:0001954",
+      "HP:0030166",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0002039",
+      "HP:0001903",
+      "HP:0003073",
+      "HP:0011227",
+      "HP:0003565",
+      "HP:0001744",
+      "HP:0002240",
+      "HP:0001873",
+      "HP:0001894",
+      "HP:0032288",
+      "HP:0001541",
+      "HP:0002202",
+      "HP:0000969",
+      "HP:0000083",
+      "HP:0001919",
+      "HP:0000093",
+      "HP:0011974"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NCOA4"
+    ],
+    "treatments": [
+      "Siltuximab",
+      "Tocilizumab",
+      "Corticosteroids",
+      "Combination Cytotoxic Chemotherapy",
+      "Sirolimus",
+      "Ruxolitinib"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interleukin-6 (IL-6)",
+      "C-Reactive Protein (CRP)",
+      "C-X-C Motif Chemokine Ligand 13 (CXCL13)",
+      "Vascular Endothelial Growth Factor A (VEGF-A)",
+      "Serum Albumin",
+      "Serum Immunoglobulin G",
+      "Serum Fibrinogen"
+    ],
+    "source_file": "Idiopathic_Multicentric_Castleman_Disease.yaml",
+    "page_url": "../pages/disorders/Idiopathic_Multicentric_Castleman_Disease.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 17,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Idiopathic Phalangeal Acro-osteolysis",
     "disease_id": "MONDO:0018635",
     "category": "Complex",
@@ -142862,6 +145199,158 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Immunodeficiency 11B with Atopic Dermatitis",
+    "disease_id": "MONDO:0054697",
+    "category": "Genetic",
+    "parents": [
+      "MONDO:0021094"
+    ],
+    "creation_date": "2026-09-05T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 11B with atopic dermatitis (IMD11B; OMIM #617638), known clinically as CADINS (CARD11-associated atopy with dominant interference of NF-kB signalling), is an autosomal dominant primary atopic disorder caused by heterozygous loss-of-function CARD11 variants that act as dominant negatives. CARD11 is the antigen receptor-proximal scaffold that assembles the CARD11-BCL10-MALT1 complex and drives NF-kB, JNK and mTORC1 signalling in lymphocytes; CADINS variants, largely confined to the CARD and coiled-coil domains, poison mixed wild-type:mutant oligomers at the opening and cofactor-association steps of the signalling cycle, attenuating all three pathways. Patient T cells proliferate poorly, produce little IFN-gamma and IL-2, import glutamine inefficiently, and, because loss of CARD11-JNK signalling de-represses GATA3 and NFATC1, differentiate toward Th2; regulatory T cells are reduced and NK cells show altered homeostasis. The result is severe early-onset atopic dermatitis with markedly elevated IgE and eosinophilia, asthma, food allergy and urticaria, combined with a partial combined immunodeficiency (recurrent respiratory, cutaneous and viral infections, hypogammaglobulinaemia in some), autoimmunity, neutropenia, colitis and, rarely, HPV-related carcinoma or lymphoma; penetrance and expressivity vary even within families, and the phenotype overlaps STAT3- and DOCK8-related hyper-IgE syndromes. Atopy improves with age in many patients and responds to dupilumab and omalizumab; glutamine supplementation partially rescues the T-cell defects in vitro. The biallelic null (IMD11A) and gain-of-function (BENTA) CARD11 disorders are distinct allelic entities.\n",
+    "pathophysiology": [
+      "Heterozygous Dominant-Negative CARD11 Variant",
+      "Oligomer Poisoning of the CARD11 Signaling Cycle",
+      "Attenuated NF-kB, JNK and mTORC1 Signaling Downstream of the Antigen Receptor",
+      "Th2 Skewing via Loss of JNK-Dependent GATA3 Repression",
+      "Partial T-Cell, Regulatory T-Cell and NK-Cell Dysfunction",
+      "Atopic Inflammation with Hyper-IgE and Eosinophilia"
+    ],
+    "cell_types": [
+      "T cell",
+      "T-helper 2 cell",
+      "regulatory T cell",
+      "natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000546",
+      "CL:0000815",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "canonical NF-kappaB signal transduction",
+      "JNK cascade",
+      "TORC1 signaling",
+      "T cell receptor signaling pathway",
+      "T-helper 2 cell differentiation",
+      "interferon-gamma production",
+      "T cell activation",
+      "interleukin-2 production",
+      "immunoglobulin production"
+    ],
+    "phenotypes": [
+      "Atopic dermatitis",
+      "Increased circulating IgE concentration",
+      "Increased total eosinophil count",
+      "Asthma",
+      "Food allergy",
+      "Anaphylactic shock",
+      "Urticaria",
+      "Recurrent respiratory infections",
+      "Recurrent skin infections",
+      "Recurrent viral infections",
+      "Decreased circulating immunoglobulin concentration",
+      "Autoimmunity",
+      "Decreased total neutrophil count",
+      "Colitis",
+      "Decreased regulatory T cell proportion",
+      "Squamous cell carcinoma",
+      "Abnormal facial shape",
+      "Impaired specific antibody response",
+      "Decreased mitogen-induced T-cell proliferation",
+      "Failure to thrive",
+      "Bronchiectasis",
+      "Chronic sinusitis",
+      "Allergic rhinitis",
+      "Eosinophilic infiltration of the esophagus",
+      "Oral ulcer"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Laboratory",
+      "Respiratory",
+      "Immunological",
+      "Infectious",
+      "Gastrointestinal",
+      "Neoplastic",
+      "Craniofacial",
+      "Immunologic",
+      "Growth",
+      "Allergic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001047",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0002099",
+      "HP:0500093",
+      "HP:0100845",
+      "HP:0001025",
+      "HP:0002205",
+      "HP:0001581",
+      "HP:0004429",
+      "HP:0004313",
+      "HP:0002960",
+      "HP:0001875",
+      "HP:0002583",
+      "HP:0020113",
+      "HP:0002860",
+      "HP:0001999",
+      "HP:0012475",
+      "HP:0031381",
+      "HP:0001508",
+      "HP:0002110",
+      "HP:0011109",
+      "HP:0003193",
+      "HP:0410151",
+      "HP:0000155"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CARD11"
+    ],
+    "treatments": [
+      "Dupilumab",
+      "Omalizumab",
+      "Glutamine supplementation (investigational)",
+      "Infection management and HPV vaccination",
+      "Genetic counseling",
+      "Immunoglobulin replacement therapy",
+      "Topical corticosteroids and calcineurin inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_11B_With_Atopic_Dermatitis.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_11B_with_Atopic_Dermatitis.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Immunodeficiency 123 With HPV-related Verrucosis",
@@ -149213,6 +151702,106 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Intellectual Disability Autosomal Recessive 65",
+    "disease_id": "MONDO:0020850",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neurological disease",
+      "syndromic intellectual disability",
+      "Mendelian disorder of the epigenetic machinery"
+    ],
+    "creation_date": "2026-09-07T22:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MRT65 is a rare autosomal recessive neurodevelopmental disorder caused by biallelic (homozygous or compound heterozygous) disruptive variants in KDM5B, the gene for a JmjC-domain histone demethylase that removes methyl groups from lysine 4 of histone H3. It was defined in 2018 by two papers published within a year of each other: a genome-wide recessive burden analysis of the Deciphering Developmental Disorders cohort, which named KDM5B and EIF3F as the two genes newly associated with recessive developmental disorders, and a pathway-based survey of the histone lysine methylases and demethylases, which described the resulting entity as a recognisable syndrome of developmental delay, facial dysmorphism and camptodactyly. Roughly ten individuals with biallelic KDM5B variants have been reported. Developmental delay or impaired intellectual development is present in all of them; facial dysmorphism, behavioural problems and macrocephaly are recurrent, and agenesis of the corpus callosum has been described in a subset.\n\nThe interesting thing about this gene is that the recessive entity is only one end of a dose-response relationship, and the entry is scoped deliberately to that end. In the Deciphering Developmental Disorders cohort KDM5B was the only gene enriched for biallelic variants and de novo mutations at the same time. Heterozygous KDM5B loss-of-function alleles are found in unaffected relatives and in population controls, do not segregate cleanly within families, and at population scale associate with a measurable downward shift in adult cognitive function rather than with a discrete disease. One group put it as \"a spectrum of recessiveness\". So the reduced penetrance that is repeatedly documented in the KDM5B literature is a statement about the *heterozygous* state; it is not, on the sources available, a statement about the biallelic genotype that defines MRT65. See the inheritance block and the discussions for how far that distinction can currently be pushed.\n\nSCOPE NOTE. This entity is defined by biallelic KDM5B. It must not be conflated with (a) the disorders of the KDM5 paralogues, which are separate genes with separate disease associations - in particular KDM5C, which causes Claes-Jensen type X-linked intellectual disability and is curated separately here; (b) the proposed dominant, monoallelic KDM5B-related neurodevelopmental disorder, whose existence and boundaries are still argued over and which is the subject of a discussion below rather than of this entry; (c) the large somatic KDM5B cancer literature, in which the gene appears under its older names PLU-1 and JARID1B as an amplified oncogene in breast cancer and a driver of drug-tolerant persister states in melanoma - a different biological context entirely; or (d) RUSC2-related Alwadei syndrome (OMIM 617773), a distinct recessive intellectual disability syndrome that some tertiary aggregator pages conflate with this one.",
+    "pathophysiology": [
+      "Biallelic KDM5B Loss of Function",
+      "Loss of KDM5B H3K4 Demethylase Activity",
+      "Elevated H3K4 Trimethylation at Developmental Gene Promoters",
+      "Dysregulated Neurodevelopmental Transcriptional Program",
+      "Increased Grin2d and NMDA Receptor Subunit 2D Expression",
+      "Impaired Activity-Dependent Gene Expression and Synaptic Plasticity",
+      "Altered Cortical Neurodevelopment and Brain Overgrowth"
+    ],
+    "cell_types": [
+      "hippocampal neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002608",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "regulation of DNA-templated transcription",
+      "nervous system development",
+      "regulation of synaptic plasticity",
+      "long-term synaptic potentiation",
+      "learning or memory",
+      "cerebral cortex neuron differentiation"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Impaired Intellectual Development",
+      "Facial Dysmorphism",
+      "Camptodactyly",
+      "Behavioral Abnormalities",
+      "Macrocephaly",
+      "Overgrowth",
+      "Agenesis of the Corpus Callosum",
+      "Delayed Speech and Language Development",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Behavioral",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0012385",
+      "HP:0000708",
+      "HP:0000256",
+      "HP:0001548",
+      "HP:0001274",
+      "HP:0000750",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KDM5B"
+    ],
+    "treatments": [
+      "Supportive and Symptom-Directed Management",
+      "Developmental, Educational and Communication Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_Autosomal_Recessive_65.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability_Autosomal_Recessive_65.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Intellectual Disability X-linked Syndromic 35",
     "disease_id": "MONDO:0030908",
     "category": "Genetic",
@@ -155216,7 +157805,8 @@ window.searchData = [
       "PROKR2_PROK2",
       "FGF8",
       "CHD7",
-      "SPRY4"
+      "SPRY4",
+      "FLRT3"
     ],
     "description": "Kallmann syndrome is the anosmic form of congenital isolated gonadotropin-releasing hormone (GnRH) deficiency, characterized by hypogonadotropic hypogonadism (absent or incomplete puberty, low sex steroids, infertility) combined with an impaired sense of smell (anosmia or hyposmia). It arises from defective embryonic co-migration of GnRH neurons and olfactory axons from the olfactory placode to the forebrain, with associated failure of olfactory bulb morphogenesis. Kallmann syndrome is genetically heterogeneous and can be inherited in X-linked recessive, autosomal dominant, autosomal recessive, or oligogenic patterns. Causal genes include ANOS1/KAL1 (X-linked), FGFR1/KAL2, FGF8, PROKR2, PROK2, and CHD7, among others. Anosmia distinguishes Kallmann syndrome from normosmic isolated GnRH deficiency, with which it shares a reproductive phenotype.",
     "pathophysiology": [
@@ -155282,7 +157872,8 @@ window.searchData = [
       "PROKR2 / PROK2 variants",
       "FGF8 variants",
       "CHD7 variants",
-      "SPRY4 variants"
+      "SPRY4 variants",
+      "FLRT3 variants"
     ],
     "treatments": [
       "Sex steroid replacement therapy",
@@ -155294,7 +157885,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Kallmann_Syndrome.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 3,
-    "num_genes": 6,
+    "num_genes": 7,
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
@@ -165078,6 +167669,115 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Listeriosis",
+    "disease_id": "MONDO:0005828",
+    "category": "",
+    "parents": [
+      "bacterial infectious disease",
+      "foodborne illness"
+    ],
+    "creation_date": "2026-09-05T17:15:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Early-Onset Neonatal",
+      "Granulomatosis Infantisepticum",
+      "Late-Onset Neonatal"
+    ],
+    "description": "A foodborne infection by Listeria monocytogenes, a Gram-positive bacterium that grows in the refrigerator and lives inside host cells. Most people who eat it are never diagnosed. In the old, the immunosuppressed, the pregnant and the newborn it invades, and then it presents as bacteraemia, as meningitis or meningoencephalitis, or as maternal-fetal infection ending in miscarriage, stillbirth or neonatal sepsis. The mechanism is a sequence of borrowed host machinery: internalins to get into the cell, listeriolysin O to get out of the vacuole, ActA to move by polymerising the host's own actin, and cell-to-cell spread that keeps the organism out of the extracellular space where antibody and complement wait. That intracellular lifestyle is also why the immunity that controls it is T cell mediated, and why pregnancy, which damps Th1 responses, is the risk factor it is.",
+    "pathophysiology": [
+      "Intestinal Epithelial Invasion by Internalins",
+      "Listeriolysin O Escape from the Phagosome",
+      "Cytosolic Replication and ActA-Driven Cell-to-Cell Spread",
+      "Failure of Th1 Cellular Containment",
+      "Haematogenous Dissemination",
+      "Central Nervous System Invasion",
+      "Placental Infection and Fetal Compromise"
+    ],
+    "cell_types": [
+      "intestinal epithelial cell",
+      "macrophage",
+      "cytotrophoblast",
+      "syncytiotrophoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002563",
+      "CL:0000235",
+      "CL:0000523",
+      "CL:0000525"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "symbiont-mediated disruption of host phagosome",
+      "symbiont-mediated actin polymerization-dependent cell-to-cell migration in host",
+      "actin filament polymerization",
+      "type II interferon-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Meningitis",
+      "Meningoencephalitis",
+      "Headache",
+      "Reduced Consciousness",
+      "Seizure",
+      "Sepsis",
+      "Vomiting",
+      "Abdominal Pain",
+      "Fetal Distress",
+      "Premature Birth"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurologic",
+      "Hematologic",
+      "Gastrointestinal",
+      "Obstetric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001287",
+      "HP:0002383",
+      "HP:0002315",
+      "HP:0004372",
+      "HP:0001250",
+      "HP:0100806",
+      "HP:0002013",
+      "HP:0002027",
+      "HP:0025116",
+      "HP:0001622"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Ampicillin or Amoxicillin",
+      "Gentamicin",
+      "Trimethoprim-Sulfamethoxazole"
+    ],
+    "environmental": [
+      "Ingestion of contaminated ready-to-eat food"
+    ],
+    "biochemical": [],
+    "source_file": "Listeriosis.yaml",
+    "page_url": "../pages/disorders/Listeriosis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Livedoid vasculopathy",
     "disease_id": "MONDO:0025514",
     "category": "Complex",
@@ -165172,7 +167872,8 @@ window.searchData = [
       "IL-11 Signalling in Hepatic Stellate Cells",
       "Hepatic Stellate Cell Activation",
       "TGF-beta Signaling in Fibrogenesis",
-      "Kupffer Cell and Inflammatory Response",
+      "Kupffer Cell Activation",
+      "Hepatic Pro-Inflammatory Mediator Release",
       "Portal Hypertension",
       "Synthetic Dysfunction"
     ],
@@ -165196,6 +167897,7 @@ window.searchData = [
       "ERK1 and ERK2 cascade",
       "TGF-beta Receptor Signaling",
       "Collagen Biosynthesis",
+      "Macrophage Activation",
       "Inflammatory Response",
       "Protein Synthesis"
     ],
@@ -165275,11 +167977,11 @@ window.searchData = [
     "source_file": "Liver_Cirrhosis.yaml",
     "page_url": "../pages/disorders/Liver_Cirrhosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Loeys-Dietz Syndrome",
@@ -176462,8 +179164,12 @@ window.searchData = [
       "In situ subepithelial immune complex deposition",
       "Complement activation at the glomerular capillary wall",
       "Podocyte structural injury",
+      "Podocyte apoptosis",
+      "Podocyte pyroptosis",
+      "Podocyte ferroptosis",
+      "Podocyte autophagy dysregulation",
+      "Podocyte depletion from programmed cell death",
       "Glomerular filtration barrier failure and proteinuria",
-      "Programmed cell death dysregulation in podocytes",
       "Progressive kidney function decline"
     ],
     "cell_types": [
@@ -176481,11 +179187,11 @@ window.searchData = [
       "immunoglobulin production",
       "complement activation",
       "actin cytoskeleton organization",
-      "glomerular filtration",
       "apoptotic process",
       "pyroptotic inflammatory response",
       "ferroptosis",
-      "autophagy"
+      "autophagy",
+      "glomerular filtration"
     ],
     "phenotypes": [
       "Nephrotic syndrome",
@@ -176534,11 +179240,11 @@ window.searchData = [
     "source_file": "Membranous_Nephropathy.yaml",
     "page_url": "../pages/disorders/Membranous_nephropathy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12B Deficiency",
@@ -181859,6 +184565,125 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Mitochondrial Complex I Deficiency, Nuclear Type 33",
+    "disease_id": "MONDO:0032636",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex I Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MC1DN33 is the complex I deficiency caused by biallelic variants in NDUFA6. Four unrelated children were reported in a single 2018 paper, and a PubMed search in September 2026 for NDUFA6 together with disease, deficiency, syndrome, case or proband returned no further patient report; ClinGen's Mitochondrial Diseases expert panel, curating in April 2024, likewise describes the 2018 paper as the first and only report.\nNDUFA6 - also called LYRM6 - is a 15 kDa accessory subunit of the Q-module, the part of complex I that reduces ubiquinone. It carries an LYR motif that binds the mitochondrial acyl carrier protein NDUFAB1, and the NDUFA6/NDUFAB1 pair sits at the interface between the Q-module and the proton-pumping membrane arm. Complexome profiling of patient fibroblasts shows what its loss costs: NDUFA6 itself is markedly reduced in the assembled enzyme, NDUFAB1, NDUFA7 and NDUFA12 go with it, and N-module subunits are reduced or absent. The authors' reading is that NDUFA6 may be a prerequisite for NDUFA7 and NDUFA12 incorporation, so that its absence stalls assembly before the N-module can be added; they offer that as a possibility rather than a demonstration.\nWhat accumulates instead of holoenzyme is an approximately 830 kDa intermediate consisting of the P- and Q-modules with the late assembly factor NDUFAF2 still bound. That retention is itself informative, because the same thing happens when N-module subunits are mutated, which is the observation behind the idea that NDUFAF2 release is an assembly checkpoint. More surprisingly, this stalled intermediate still enters supercomplexes with fully assembled complexes III and IV - a supercomplex that is not a functional respirasome, because it has no NADH dehydrogenase activity.\nThe clinical range in four children is wide and this entry keeps it visible rather than smoothing it. One infant died of relentless lactic acidosis at about 51 hours of age and another at 13 weeks; a third has survived into his teens with a slowly progressive spastic leukoencephalopathy and preserved cognition; the fourth is alive at ten with an epileptic encephalopathy and basal ganglia disease. Biochemistry tracks that severity only in part. Muscle complex I activity was 44 and 46 percent of control in the first two, but was normal in the third despite a demonstrable assembly defect in his fibroblasts - a combination the authors call most unusual and try to explain through an alternative longer NDUFA6 isoform in which his start-loss allele would act as a tolerated missense change.\nLentiviral expression of wild-type NDUFA6 corrected the assembly defect in all three cell lines tested and restored in-gel complex I activity in two, which is the experiment that makes the variants causal rather than merely associated.",
+    "pathophysiology": [
+      "Biallelic NDUFA6 Variant",
+      "Loss of NDUFA6 from the Complex I Q-Module",
+      "Loss of NDUFAB1, NDUFA7 and NDUFA12 from the Assembly Intermediate",
+      "Stalled 830 kDa Complex I Assembly Intermediate",
+      "Catalytically Inactive Complex I-Containing Supercomplex",
+      "Isolated Complex I Deficiency",
+      "Impaired Mitochondrial Respiration",
+      "Lactate Accumulation and Metabolic Acidosis",
+      "White Matter and Deep Grey Matter Injury"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Decreased Activity of Mitochondrial Complex I",
+      "Lactic Acidosis",
+      "Increased Circulating Lactate Concentration",
+      "Leukoencephalopathy",
+      "Abnormal Basal Ganglia Morphology",
+      "Developmental Regression",
+      "Seizure",
+      "Status Epilepticus",
+      "Spasticity",
+      "Dystonia",
+      "Optic Atrophy",
+      "Global Developmental Delay",
+      "Generalized Hypotonia",
+      "Feeding Difficulties",
+      "Hypoglycemia",
+      "Hyperammonemia",
+      "Intrauterine Growth Retardation",
+      "Decreased Total Neutrophil Count",
+      "Sparse Hair"
+    ],
+    "phenotype_categories": [
+      "Metabolism",
+      "Nervous System",
+      "Eye",
+      "Digestive System",
+      "Growth",
+      "Blood",
+      "Integument"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011923",
+      "HP:0003128",
+      "HP:0002151",
+      "HP:0002352",
+      "HP:0002134",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0002133",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0000648",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0011968",
+      "HP:0001943",
+      "HP:0001987",
+      "HP:0001511",
+      "HP:0001875",
+      "HP:0008070"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NDUFA6"
+    ],
+    "treatments": [
+      "Intrathecal Baclofen for Spasticity",
+      "Gastrostomy Tube Feeding for Unsafe Swallow",
+      "Granulocyte Colony-Stimulating Factor for Neutropenia"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_33.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_33.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 34",
     "disease_id": "MONDO:0032910",
     "category": "Mendelian",
@@ -185593,109 +188418,6 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
-    "name": "Multicentric Castleman Disease",
-    "disease_id": "MONDO:0019754",
-    "category": "Complex",
-    "parents": [
-      "Lymphoproliferative Disease",
-      "Autoimmune Disease"
-    ],
-    "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": null,
-    "subtypes": [
-      "HHV-8 Associated MCD",
-      "Idiopathic MCD (iMCD)"
-    ],
-    "description": "A rare lymphoproliferative disorder characterized by systemic lymphadenopathy with characteristic histopathological features including angiofollicular lymph node hyperplasia. Multicentric Castleman disease (MCD) can be driven by human herpesvirus 8 (HHV-8) infection or occur as an idiopathic form (iMCD). The pathogenesis centers on dysregulated interleukin-6 (IL-6) signaling leading to systemic inflammation, constitutional symptoms, cytopenias, and multi-organ dysfunction. IL-6 targeting with siltuximab or tocilizumab has transformed treatment outcomes.",
-    "pathophysiology": [
-      "IL-6 Hypersecretion and Cytokine Storm",
-      "Angiogenesis and Vascular Proliferation"
-    ],
-    "cell_types": [
-      "B cell",
-      "Plasma cell"
-    ],
-    "cell_type_ids": [
-      "CL:0000236",
-      "CL:0000786"
-    ],
-    "biological_processes": [
-      "Interleukin-6 Production",
-      "Inflammatory Response",
-      "Interleukin-6-mediated signaling pathway",
-      "JAK-STAT signaling",
-      "Angiogenesis"
-    ],
-    "phenotypes": [
-      "Generalized Lymphadenopathy",
-      "Fever",
-      "Night Sweats",
-      "Weight Loss",
-      "Fatigue",
-      "Anemia",
-      "Thrombocytopenia",
-      "Splenomegaly",
-      "Hepatomegaly",
-      "Generalized Edema",
-      "Renal Insufficiency"
-    ],
-    "phenotype_categories": [
-      "Constitutional",
-      "Hematologic",
-      "Abdominal",
-      "Renal"
-    ],
-    "phenotype_hpo_categories": [
-      "Blood",
-      "Cardiovascular",
-      "Constitutional",
-      "Digestive",
-      "Genitourinary",
-      "Growth",
-      "Immune",
-      "Metabolism"
-    ],
-    "phenotype_ids": [
-      "HP:0008940",
-      "HP:0001954",
-      "HP:0030166",
-      "HP:0001824",
-      "HP:0012378",
-      "HP:0001903",
-      "HP:0001873",
-      "HP:0001744",
-      "HP:0002240",
-      "HP:0007430",
-      "HP:0000083"
-    ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
-    "genes": [],
-    "treatments": [
-      "Siltuximab",
-      "Tocilizumab",
-      "Rituximab",
-      "Combination Chemotherapy"
-    ],
-    "environmental": [],
-    "biochemical": [
-      "Interleukin-6 (IL-6)",
-      "C-Reactive Protein (CRP)",
-      "VEGF"
-    ],
-    "source_file": "Multicentric_Castleman_Disease.yaml",
-    "page_url": "../pages/disorders/Multicentric_Castleman_Disease.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 2,
-    "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
-  },
-  {
     "name": "Multiminicore Disease",
     "disease_id": "MONDO:0018948",
     "category": "Mendelian",
@@ -186611,6 +189333,128 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "31",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Multiple Mitochondrial Dysfunctions Syndrome 2",
+    "disease_id": "MONDO:0013675",
+    "category": "Genetic",
+    "parents": [
+      "MONDO:0017338"
+    ],
+    "creation_date": "2026-09-05T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Multiple mitochondrial dysfunctions syndrome 2 (MMDS2; OMIM #614299) is an autosomal recessive disorder of mitochondrial iron-sulfur (Fe-S) cluster biogenesis caused by biallelic variants in BOLA3. Mitochondrial BOLA3 forms a [2Fe-2S]-bridged heterocomplex with the monothiol glutaredoxin GLRX5, and this GLRX5-BOLA3 node feeds [4Fe-4S] cluster assembly on NFU1 and supplies the mitoribosome; BOLA3 is also required for NFU1 stability. Loss of BOLA3 therefore impairs maturation of the same [4Fe-4S] targets as NFU1 deficiency, lipoic acid synthase and respiratory chain complexes I and II, while sparing aconitase, so that lipoate-dependent enzymes (pyruvate dehydrogenase, 2-oxoglutarate, 2-oxoadipate and branched-chain ketoacid dehydrogenases, glycine cleavage system) fail together with OXPHOS. The biochemical signature is lactic acidosis with non-ketotic hyperglycinemia and reduced protein lipoylation; the clinical picture is an infantile-onset leukodystrophy with developmental regression after a period of normal development, optic atrophy, seizures and, distinctively among the MMDS forms, hypertrophic or dilated cardiomyopathy, with death usually in the first years. Rare hypomorphic alleles (p.Cys59Tyr compound heterozygosity) produce a leukoencephalopathy with clinical recovery. Endothelial BOLA3 deficiency also promotes pulmonary hypertension through glycine and metabolic dysregulation. Treatment is supportive.\n",
+    "pathophysiology": [
+      "Biallelic BOLA3 Loss of Function",
+      "Failure of the GLRX5-BOLA3 Node in 4Fe-4S Cluster Assembly",
+      "Lipoic Acid Synthase Deficiency and Loss of Protein Lipoylation",
+      "Combined 2-Oxoacid Dehydrogenase and Glycine Cleavage System Deficiency",
+      "Respiratory Chain Complex I and II Deficiency",
+      "Attenuated Mitochondrial Protein Synthesis",
+      "Bioenergetic Failure in Brain and Heart",
+      "Pulmonary Endothelial Metabolic Dysfunction"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "cardiac muscle cell",
+      "pulmonary artery endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000746",
+      "CL:1001568"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "protein lipoylation",
+      "glycine catabolic process",
+      "tricarboxylic acid cycle",
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial electron transport, succinate to ubiquinone",
+      "mitochondrial translation"
+    ],
+    "phenotypes": [
+      "Hyperglycinemia",
+      "Lactic acidosis",
+      "Leukoencephalopathy",
+      "Developmental regression",
+      "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
+      "Optic atrophy",
+      "Seizure",
+      "Hypotonia",
+      "Respiratory failure",
+      "Pulmonary arterial hypertension",
+      "Decreased activity of mitochondrial complex I",
+      "Decreased activity of mitochondrial complex II",
+      "Feeding difficulties",
+      "Failure to thrive"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Cardiovascular",
+      "Ophthalmological",
+      "Respiratory",
+      "Laboratory",
+      "Gastrointestinal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002154",
+      "HP:0003128",
+      "HP:0002352",
+      "HP:0002376",
+      "HP:0001639",
+      "HP:0001644",
+      "HP:0000648",
+      "HP:0032794",
+      "HP:0001252",
+      "HP:0002878",
+      "HP:0002092",
+      "HP:0011923",
+      "HP:0008314",
+      "HP:0011968",
+      "HP:0001508"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BOLA3"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care",
+      "Cardiomyopathy management",
+      "Glycine supplementation (preclinical, pulmonary hypertension)",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated plasma glycine and lactate with reduced protein lipoylation"
+    ],
+    "source_file": "Multiple_Mitochondrial_Dysfunctions_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_2.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "6"
   },
   {
@@ -188131,6 +190975,149 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Muscular Dystrophy, Congenital Hearing Loss, and Ovarian Insufficiency Syndrome",
+    "disease_id": "MONDO:0859189",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Muscular Dystrophy"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A recessive syndrome caused by biallelic hypomorphic missense variants in GGPS1, which encodes geranylgeranyl diphosphate synthase (GGPPS), the enzyme that makes geranylgeranyl pyrophosphate (GGPP) from farnesyl pyrophosphate in the mevalonate/isoprenoid pathway. GGPP is the lipid donor for protein geranylgeranylation, the modification that anchors Rab and Rho/Rac family small GTPases to membranes. The syndrome was defined in 2020 in eleven patients from six families and consists of an early-onset muscular dystrophy, congenital sensorineural hearing loss, and primary ovarian insufficiency in postpubertal 46,XX individuals.\nTwo things make it unusual among the congenital muscular dystrophies. The first is the organ combination: hearing loss with ovarian insufficiency is the Perrault-syndrome dyad, and adding a dystrophy to it had not been described before. The second is that the lesion is metabolic rather than structural. There is no sarcolemmal protein missing; what has been shown in patient cells is a failure of the wounded plasma membrane to reseal, which is a plausible route from a prenylation deficit to a dystrophic muscle, since the membrane-repair machinery is built on vesicle trafficking that depends on prenylated Rab GTPases. Muscle biopsy is dystrophic with degeneration, regeneration and internal nuclei, and adds two features that are not part of the classic dystrophic picture: excess autophagic material and enlarged mitochondria.\nThe mutational spectrum is narrow and informative. All reported alleles are missense, four of the five in the founding cohort clustering in a five-amino-acid stretch at the start of helix 11, on the outside of the hexamer and away from the catalytic barrel. They reduce enzyme activity only partially -- to roughly 70-85% of wild-type for recombinant protein and to about half of control in patient myoblasts -- and heterozygous loss-of-function carriers in gnomAD are asymptomatic. The gene is essential: complete inactivation is not compatible with multicellular life, and a knock-in mouse homozygous for the human Y259C allele dies before embryonic day 13.5, which is why there is no mouse model of the human disease. The alleles are therefore hypomorphic by necessity as well as by measurement.\nHow a universally required modification produces disease in exactly three organs is unresolved, and the honest state of the mechanism is that the prenylation step itself has not been shown to fail in patients: the discovery paper reports that it could not find a consistent change in the small GTPases or in the overall prenylome of patient cells. The ovarian arm has the best independent support, from mouse oocytes in which selective GGPP depletion blocks Rho GTPase geranylgeranylation, the primary-to-secondary follicle transition and fertility. The cochlear arm has essentially none beyond the clinical observation that cochlear implantation works well, which localises the lesion to the sensory organ without saying what fails in it.\nManagement is entirely supportive. Only three interventions are documented in the published patients and curated here -- cochlear implantation, non-invasive progressing to invasive ventilation, and spinal fusion for scoliosis. Rehabilitation, nutritional support and hormone replacement for the ovarian insufficiency are all plausible and are what these patients will in practice receive, but no source about this disease describes them, so they are deliberately not curated as treatments. There is no directed therapy. The one metabolite tried, coenzyme Q10, produced no improvement in the single patient given it, and muscle coenzyme Q10 was normal in another, so the coenzyme Q branch of the pathway is not obviously where the disease sits.\nLater cohorts have loosened the triad rather than confirming it. In thirteen individuals reported in 2022 hearing loss was present in only 46%, ovarian insufficiency was not established in the one woman who reached adulthood, and a 2024 case had isolated proximal weakness with normal hearing and raised transaminases. Muscular dystrophy is the constant; the two Perrault features are the variable ones. That inversion is the main reason this is curated as its own disease rather than as a Perrault subtype.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic GGPS1 Missense Variants",
+      "Reduced Geranylgeranyl Diphosphate Synthase Activity",
+      "Geranylgeranyl Pyrophosphate Depletion",
+      "Deficient Protein Geranylgeranylation of Small GTPases",
+      "Impaired Sarcolemmal Membrane Repair",
+      "Myofiber Degeneration with Disordered Autophagy",
+      "Ovarian Follicle Depletion",
+      "Cochlear Sensory Failure"
+    ],
+    "cell_types": [
+      "patient-derived MyoD-converted myoblast",
+      "skeletal muscle fiber",
+      "oocyte",
+      "granulosa cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000515",
+      "CL:0008002",
+      "CL:0000023",
+      "CL:0000501"
+    ],
+    "biological_processes": [
+      "geranylgeranyl diphosphate biosynthetic process",
+      "isoprenoid biosynthesis",
+      "protein geranylgeranylation",
+      "protein prenylation",
+      "plasma membrane repair",
+      "autophagy",
+      "ovarian follicle development"
+    ],
+    "phenotypes": [
+      "Skeletal Muscle Atrophy",
+      "Areflexia",
+      "Hypotonia",
+      "Short Stature",
+      "Calf Muscle Hypertrophy",
+      "Myalgia",
+      "Decreased Fetal Movement",
+      "Weak Cry",
+      "Poor Suck",
+      "Proximal Muscle Weakness",
+      "Congenital Sensorineural Hearing Loss",
+      "Primary Ovarian Insufficiency",
+      "Elevated Serum Creatine Kinase",
+      "Respiratory Insufficiency",
+      "Scoliosis",
+      "Joint Contractures",
+      "Loss of Ambulation",
+      "Motor Delay",
+      "Failure to Thrive",
+      "Elevated Hepatic Transaminases",
+      "Absence of Cardiac Involvement"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic",
+      "Growth",
+      "Prenatal",
+      "Neonatal",
+      "Auditory",
+      "Endocrine",
+      "Laboratory",
+      "Respiratory",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0003202",
+      "HP:0001284",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0008981",
+      "HP:0003326",
+      "HP:0001558",
+      "HP:0001612",
+      "HP:0002033",
+      "HP:0003701",
+      "HP:0008527",
+      "HP:0008209",
+      "HP:0003236",
+      "HP:0002747",
+      "HP:0002650",
+      "HP:0034392",
+      "HP:0002505",
+      "HP:0001270",
+      "HP:0001508",
+      "HP:0002910",
+      "HP:0001627"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "GGPS1 (geranylgeranyl diphosphate synthase 1)"
+    ],
+    "treatments": [
+      "Cochlear implantation",
+      "Non-invasive and invasive ventilatory support",
+      "Spinal fusion for progressive scoliosis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Normal Muscle Coenzyme Q10",
+      "Elevated Serum Follicle-Stimulating Hormone"
+    ],
+    "source_file": "Muscular_Dystrophy_Congenital_Hearing_Loss_And_Ovarian_Insufficiency_Syndrome.yaml",
+    "page_url": "../pages/disorders/Muscular_Dystrophy,_Congenital_Hearing_Loss,_and_Ovarian_Insufficiency_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Muscular Dystrophy, Limb-Girdle, Autosomal Recessive 28",
     "disease_id": "MONDO:0957270",
     "category": "Mendelian",
@@ -189549,7 +192536,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
   },
   {
@@ -196345,6 +199332,105 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurohypophyseal Diabetes Insipidus",
+    "disease_id": "MONDO:0007450",
+    "category": "",
+    "parents": [
+      "central diabetes insipidus",
+      "pituitary gland disorder"
+    ],
+    "creation_date": "2026-09-05T18:20:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "AD FNDI",
+      "AR P26L"
+    ],
+    "description": "A hereditary deficiency of arginine vasopressin, transmitted in almost every family as an autosomal dominant trait, that presents in infancy or early childhood with hypotonic polyuria and compensatory polydipsia and worsens over years. The disease is not caused by loss of one working copy of AVP. A heterozygous mutation - almost always in the signal peptide or in the neurophysin II moiety of the prepro-vasopressin precursor - yields a folding-incompetent precursor that cannot leave the endoplasmic reticulum of the magnocellular neurons of the supraoptic and paraventricular nuclei. Part of it is cleared by ER-associated degradation; the rest forms disulfide-linked fibrillar aggregates that also trap the wild-type precursor made from the normal allele. The retained aggregate first disables hormone synthesis and secretion and then, over a longer timescale, kills the neuron by autophagy-associated death. That two-stage toxic gain of function is what explains the two features a haploinsufficiency model cannot: onset months to years after birth rather than at birth, and relentless progression despite one intact allele. Treatment is desmopressin, which replaces the missing hormone without touching the neuronal disease. A separate and much rarer autosomal recessive form exists, caused by homozygosity for AVP p.Pro26Leu, in which a weakly active hormone is synthesised, trafficked and secreted normally; there is no ER retention and no neuronal loss, and it is modelled here as a subtype precisely because its mechanism is the contrast case.",
+    "pathophysiology": [
+      "Mutant Prepro-Vasopressin Misfolding",
+      "Endoplasmic Reticulum Retention and Fibrillar Aggregation",
+      "Endoplasmic Reticulum Stress and Autophagy Induction",
+      "Vasopressin Neuron Secretory Dysfunction",
+      "Magnocellular Vasopressin Neuron Loss",
+      "Secreted Weakly Active Vasopressin",
+      "Progressive Arginine Vasopressin Deficiency",
+      "Impaired Renal Free Water Reabsorption"
+    ],
+    "cell_types": [
+      "vasopressin-secreting magnocellular cell"
+    ],
+    "cell_type_ids": [
+      "CL:4023109"
+    ],
+    "biological_processes": [
+      "protein folding in endoplasmic reticulum",
+      "ERAD pathway",
+      "response to endoplasmic reticulum stress",
+      "macroautophagy",
+      "vasopressin secretion",
+      "neuron apoptotic process",
+      "renal water absorption"
+    ],
+    "phenotypes": [
+      "Polyuria",
+      "Polydipsia",
+      "Hyposthenuria",
+      "Hypernatremic Dehydration",
+      "Failure to Thrive in Infancy",
+      "Vomiting",
+      "Nocturia"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000103",
+      "HP:0001959",
+      "HP:0003158",
+      "HP:0004906",
+      "HP:0001531",
+      "HP:0002013",
+      "HP:0000017"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "AVP"
+    ],
+    "treatments": [
+      "Desmopressin",
+      "Assured Access to Water and Fluid Management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma arginine vasopressin",
+      "Plasma copeptin",
+      "Urine osmolality",
+      "Serum sodium"
+    ],
+    "source_file": "Neurohypophyseal_Diabetes_Insipidus.yaml",
+    "page_url": "../pages/disorders/Neurohypophyseal_Diabetes_Insipidus.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neuromyelitis Optica",
@@ -209687,6 +212773,105 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "PLS3-Related X-Linked Osteoporosis",
+    "disease_id": "MONDO:0018315",
+    "category": "Mendelian",
+    "parents": [
+      "Osteoporosis",
+      "Metabolic Bone Disease"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A monogenic, X-linked form of primary early-onset osteoporosis caused by loss-of-function variants in PLS3, which encodes the calcium-regulated actin-bundling protein plastin 3. Hemizygous males present in childhood with low bone mineral density, recurrent peripheral fractures and vertebral compression fractures, often progressing to thoracic kyphosis and height loss; heterozygous females range from unaffected to overtly osteoporotic. Unlike osteogenesis imperfecta, the lesion is not in type I collagen: bone matrix is laid down but is hypomineralized, with prolonged mineralizing lag time and low bone turnover. Which cell type carries the primary defect is unsettled - the osteoblast mineralization/mechanosensing arm, an osteoclast NKRF-NFkB-NFATc1 arm seen in Pls3-null mice, and an emerging endosteal vascular arm are curated here as competing mechanistic hypotheses rather than as one settled chain.",
+    "pathophysiology": [
+      "PLS3 Loss of Actin-Bundling Function",
+      "Impaired Osteoblast Mechanosensation",
+      "Endosteal Vascular Niche Dysfunction",
+      "Dysregulated Osteoclast NFATc1 Signaling",
+      "Defective Bone Matrix Mineralization",
+      "Low-Turnover Bone Remodeling",
+      "Cortical and Trabecular Bone Deficit"
+    ],
+    "cell_types": [
+      "Osteoblast",
+      "Osteocyte",
+      "Bone vascular endothelial cell",
+      "Bone vascular smooth muscle cell",
+      "Osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000137",
+      "CL:0000115",
+      "CL:0000359",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "Actin filament bundling",
+      "Cellular response to matrix stiffness",
+      "Skeletal angiogenesis",
+      "Bone blood vessel morphogenesis",
+      "Osteoclast differentiation",
+      "Bone mineralization",
+      "Ossification",
+      "Bone remodeling"
+    ],
+    "phenotypes": [
+      "Reduced Bone Mineral Density",
+      "Recurrent Peripheral Fractures",
+      "Vertebral Compression Fractures",
+      "Thoracic Kyphosis",
+      "Blue Sclerae",
+      "Joint Hypermobility",
+      "Skin Hyperlaxity"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Connective tissue",
+      "Musculoskeletal",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004349",
+      "HP:0002757",
+      "HP:0002953",
+      "HP:0002942",
+      "HP:0000592",
+      "HP:0001382",
+      "HP:0000974"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PLS3 loss-of-function variants"
+    ],
+    "treatments": [
+      "Bisphosphonate Therapy",
+      "Teriparatide"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum dickkopf-1 (DKK1)",
+      "Conventional serum bone turnover markers"
+    ],
+    "source_file": "PLS3-Related_X-Linked_Osteoporosis.yaml",
+    "page_url": "../pages/disorders/PLS3-Related_X-Linked_Osteoporosis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "PMM2-Congenital Disorder of Glycosylation",
     "disease_id": "MONDO:0008907",
     "category": "",
@@ -218314,6 +221499,124 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Persistent Mullerian Duct Syndrome",
+    "disease_id": "MONDO:0009857",
+    "category": "Mendelian",
+    "parents": [
+      "46,XY disorder of sex development",
+      "Disorder of sex development"
+    ],
+    "creation_date": "2026-09-05T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PMDS type I",
+      "PMDS type II"
+    ],
+    "description": "Persistent Mullerian duct syndrome (PMDS) is a rare autosomal recessive 46,XY difference of sex development in which a uterus and Fallopian tubes persist in an individual who has histologically normal testes and normally virilized male external genitalia. Fetal Sertoli cells normally secrete anti-Mullerian hormone (AMH), a TGF-beta family ligand that signals through the type II receptor AMHR2 on the mesenchyme surrounding the Mullerian ducts and drives their regression during a narrow window of male sex differentiation. Biallelic loss-of-function variants in AMH (PMDS type I) or AMHR2 (PMDS type II) break that single arm of male differentiation while leaving the Leydig-cell testosterone arm intact, so Wolffian derivatives develop and external virilization proceeds normally. The retained Mullerian structures tether the testes and prevent normal descent, so most individuals present with cryptorchidism, inguinal hernia, or transverse testicular ectopia, and the diagnosis is usually made incidentally at hernia repair or orchidopexy. PMDS is emphatically not a gonadal dysgenesis: the gonads are testes and produce testosterone normally.",
+    "pathophysiology": [
+      "AMH Ligand or AMHR2 Receptor Loss of Function",
+      "Failed AMH Receptor Signaling in Mullerian Duct Mesenchyme",
+      "Failure of Mullerian Duct Regression",
+      "Preserved Leydig Cell Androgen Production and Signaling",
+      "Normal Wolffian Duct Development and Male External Virilization",
+      "Mechanical Tethering of the Testis by Retained Mullerian Structures",
+      "Germ Cell Neoplasia Risk in the Malpositioned Testis",
+      "Neoplastic Transformation of Retained Mullerian Epithelium",
+      "Impaired Spermatogenesis and Excurrent Duct Compromise",
+      "Delayed and Incidental Diagnosis"
+    ],
+    "cell_types": [
+      "fetal Sertoli cell",
+      "Mullerian duct mesenchymal cell",
+      "Leydig cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000216",
+      "CL:0008019",
+      "CL:0000178"
+    ],
+    "biological_processes": [
+      "anti-Mullerian hormone receptor signaling pathway",
+      "SMAD protein signal transduction",
+      "Mullerian duct regression",
+      "testosterone biosynthetic process",
+      "androgen receptor signaling pathway",
+      "male genitalia development",
+      "mesonephric duct development"
+    ],
+    "phenotypes": [
+      "Presence of Uterus in 46,XY Individual",
+      "Normal Male External Genitalia",
+      "Cryptorchidism",
+      "Inguinal Hernia",
+      "Ectopic Testis",
+      "Male Infertility",
+      "Azoospermia",
+      "Testicular Neoplasm",
+      "Uterine Neoplasm",
+      "Testicular Atrophy"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Reproductive",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0034546",
+      "HP:0000028",
+      "HP:0000023",
+      "HP:6000460",
+      "HP:0003251",
+      "HP:0000027",
+      "HP:0010788",
+      "HP:0010784",
+      "HP:0008734"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "AMH",
+      "AMHR2",
+      "Unexplained PMDS (no AMH or AMHR2 variant identified)",
+      "PPP1R12A"
+    ],
+    "treatments": [
+      "Orchidopexy",
+      "Preservation of Mullerian Remnants and the Vas Deferens",
+      "Excision of Mullerian Remnants",
+      "Inguinal Hernia Repair",
+      "Long-term Surveillance of Preserved Mullerian Remnants and Pexed Testes",
+      "Semen Analysis and Sperm Cryopreservation",
+      "Testicular Sperm Extraction",
+      "Intracytoplasmic Sperm Injection",
+      "Orchidectomy for a Nonviable or Malignancy-Suspicious Testis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Low or undetectable serum anti-Mullerian hormone",
+      "Normal or elevated serum anti-Mullerian hormone"
+    ],
+    "source_file": "Persistent_Mullerian_Duct_Syndrome.yaml",
+    "page_url": "../pages/disorders/Persistent_Mullerian_Duct_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 4,
+    "num_treatments": 9,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Persistent Truncus Arteriosus",
     "disease_id": "MONDO:0018072",
     "category": "Congenital",
@@ -224464,7 +227767,11 @@ window.searchData = [
     ],
     "creation_date": "2026-04-06T23:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Type I Deletion",
+      "Type II Deletion",
+      "mUPD"
+    ],
     "description": "Prader-Willi syndrome is a complex genomic imprinting disorder caused by loss of expression of paternally inherited genes in the imprinted 15q11-q13 region, most commonly through a paternal deletion, maternal uniparental disomy of chromosome 15, or an imprinting-center defect. It is characterized by a distinctive evolution from severe neonatal hypotonia and feeding difficulties in infancy to hyperphagia and progressive obesity in early childhood, accompanied by short stature, hypogonadism, intellectual disability, and characteristic behavioral and psychiatric features. Hypothalamic-pituitary dysfunction underlies many of the endocrine and appetite-regulation abnormalities, and management centers on growth hormone therapy together with strict dietary and environmental control of food access.",
     "pathophysiology": [
       "Loss of Paternally Expressed Genes at 15q11.2-q13",
@@ -224924,6 +228231,133 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Primary Aldosteronism",
+    "disease_id": "MONDO:0001422",
+    "category": "Complex",
+    "parents": [
+      "hyperaldosteronism"
+    ],
+    "creation_date": "2026-09-05T20:15:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "APA",
+      "UAH",
+      "BIH"
+    ],
+    "description": "Primary aldosteronism is autonomous adrenocortical aldosterone production that is not suppressed by volume expansion and proceeds independently of the renin-angiotensin system. Somatic gain-of-function mutations in zona glomerulosa ion channels and pumps (KCNJ5, CACNA1D, ATP1A1, ATP2B3), and constitutive Wnt/beta-catenin signalling through CTNNB1, converge on cell depolarization, calcium entry, and transcription of aldosterone synthase (CYP11B2). The resulting mineralocorticoid receptor overactivation drives renal sodium retention, potassium and hydrogen ion wasting, and low-renin hypertension, together with cardiac, vascular, and renal inflammation and fibrosis that exceed what the blood pressure elevation alone predicts. Primary aldosteronism is the most common identifiable cause of secondary hypertension, is curable by adrenalectomy when aldosterone production lateralizes to one adrenal, and is markedly underdiagnosed.\n",
+    "pathophysiology": [
+      "Somatic Gain-of-Function Mutation in a Zona Glomerulosa Ion Channel or Pump",
+      "Constitutive Wnt Signalling from Stabilized Beta-Catenin",
+      "Zona Glomerulosa Cell Depolarization and Calcium Entry",
+      "Clonal Expansion of Aldosterone-Producing Adrenocortical Cells",
+      "Autonomous CYP11B2 Expression and Aldosterone Synthesis",
+      "Renin-Independent Aldosterone Excess",
+      "Mineralocorticoid Receptor Overactivation in the Distal Nephron",
+      "Sodium Retention and Extracellular Volume Expansion",
+      "Suppression of Renin Release",
+      "Renal Potassium and Hydrogen Ion Wasting",
+      "Mineralocorticoid Receptor-Driven Tissue Inflammation and Oxidative Stress",
+      "Myocardial and Renal Interstitial Fibrosis",
+      "Blood-Pressure-Independent Cardiovascular and Renal Injury"
+    ],
+    "cell_types": [
+      "adrenal zona glomerulosa cell",
+      "renal principal cell",
+      "infiltrating macrophage",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002099",
+      "CL:0005009",
+      "CL:0000235",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "membrane depolarization",
+      "calcium ion import across the plasma membrane",
+      "aldosterone biosynthetic process",
+      "renal sodium ion absorption",
+      "renal sodium ion transport",
+      "renal potassium excretion",
+      "inflammatory response",
+      "leukocyte migration",
+      "collagen fibril organization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Resistant hypertension",
+      "Increased circulating aldosterone concentration",
+      "Decreased circulating renin concentration",
+      "Elevated aldosterone:renin ratio",
+      "Hypokalemia",
+      "Metabolic alkalosis",
+      "Left ventricular hypertrophy",
+      "Stroke",
+      "Atrial fibrillation",
+      "Congestive heart failure",
+      "Albuminuria",
+      "Diabetes mellitus"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Laboratory",
+      "Biochemical",
+      "Neurological",
+      "Renal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0430034",
+      "HP:0000859",
+      "HP:0003351",
+      "HP:6000318",
+      "HP:0002900",
+      "HP:0200114",
+      "HP:0001712",
+      "HP:0001297",
+      "HP:0005110",
+      "HP:0001635",
+      "HP:0012592",
+      "HP:0000819"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNJ5",
+      "CACNA1D",
+      "ATP1A1",
+      "ATP2B3",
+      "CTNNB1"
+    ],
+    "treatments": [
+      "Laparoscopic Unilateral Adrenalectomy",
+      "Mineralocorticoid Receptor Antagonist Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma aldosterone concentration",
+      "Plasma renin",
+      "Serum potassium"
+    ],
+    "source_file": "Primary_Aldosteronism.yaml",
+    "page_url": "../pages/disorders/Primary_Aldosteronism.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 13,
+    "num_genes": 5,
+    "num_treatments": 2,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Primary Bile Acid Malabsorption",
@@ -233929,6 +237363,170 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Radioulnar Synostosis with Amegakaryocytic Thrombocytopenia",
+    "disease_id": "MONDO:0011555",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Congenital thrombocytopenia"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "RUSAT1",
+      "RUSAT2"
+    ],
+    "description": "Radioulnar synostosis with amegakaryocytic thrombocytopenia (RUSAT) is an inherited bone marrow failure syndrome in which a congenital bony fusion of the proximal radius and ulna sits beside a marrow that makes no megakaryocytes. The forearm is fixed, usually in pronation, and the platelet count is low from birth. In many reported individuals the thrombocytopenia does not stay confined to one lineage: it progresses to pancytopenia, and allogeneic haematopoietic stem cell transplantation is the only curative treatment.\nTwo genes are implicated, and they are not equally established. ClinGen's Hemostasis/Thrombosis expert panel grades MECOM Definitive for MECOM-associated syndrome and HOXA11 only Limited for RUSAT1 - its lowest non-disputed tier. Read the HOXA11 arm of this entry with that in mind throughout. HOXA11 (RUSAT1) accounts for a single frameshift allele found in six individuals from two families in 2000, and no further HOXA11 family has been reported since. MECOM (RUSAT2), encoding the zinc-finger transcription factor EVI1, accounts for essentially every case identified since 2015 - approximately 66 by 2025. Both proteins are transcription factors required in two places at once: in haematopoietic stem cells and in the developing forearm. That dual requirement, rather than any shared downstream pathway, is what puts a bone malformation and a marrow failure in the same syndrome.\nThe mechanism has one central step and several branches. A heterozygous variant clustered in the eighth and ninth zinc fingers of EVI1 reduces sequence-specific DNA binding at its target sites, and the transcriptional network EVI1 maintains is dysregulated. One branch of that network holds haematopoietic stem cells in a self-renewing state, and losing it produces the progressive multilineage marrow failure. A second branch runs through MPL, the thrombopoietin receptor whose biallelic loss causes congenital amegakaryocytic thrombocytopenia - which is why RUSAT and CAMT can look identical in a neonate. A third branch is developmental, in the limb bud, where the proximal radioulnar joint fails to separate.\nThe name is the least reliable thing about the disease. A large fraction of people carrying pathogenic MECOM variants have marrow failure with no synostosis at all, and some have synostosis with almost no haematological disease. The synostosis tracks the variant class rather than the diagnosis: it is a missense feature, and specifically a zinc-finger-8/9 missense feature, while truncating alleles and whole-gene deletions give bone marrow failure without it. A second missense hotspot at zinc finger 6 is reported and complicates that picture; the entry records it rather than tidying it away. Two competing renamings are in the literature - MECOM-associated syndrome, and RUS-associated haematological disease (RUSHD) - and this entry records that dispute rather than resolving it.\n",
+    "pathophysiology": [
+      "Germline Heterozygous MECOM Zinc Finger Variant",
+      "Germline Heterozygous HOXA11 Frameshift Variant",
+      "Loss of EVI1 Sequence-Specific DNA Binding",
+      "Loss of HOXA11 Sequence-Specific DNA Binding",
+      "Dysregulation of the EVI1 HSC Maintenance Network",
+      "Loss of EVI1 Transcriptional Control of MPL",
+      "Hematopoietic Stem Cell Maintenance Failure",
+      "Megakaryocyte Differentiation Arrest",
+      "Progressive Multilineage Marrow Failure",
+      "B-Cell Developmental Arrest",
+      "Clonal Selection of Revertant Hematopoietic Stem Cells",
+      "Age-Related Clonal Hematopoiesis",
+      "Failure of Proximal Radioulnar Joint Separation",
+      "Multi-Organ Developmental MECOM Requirement",
+      "Pulmonary Arterial Endothelial MECOM Deficiency"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell",
+      "megakaryocyte",
+      "B cell",
+      "pulmonary arterial endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0000556",
+      "CL:0000236",
+      "CL:1001568"
+    ],
+    "biological_processes": [
+      "TGF-beta-mediated transcriptional response",
+      "thrombopoietin-mediated signaling pathway",
+      "stem cell population maintenance",
+      "megakaryocyte differentiation",
+      "hematopoietic stem cell differentiation",
+      "B cell differentiation",
+      "embryonic skeletal limb joint morphogenesis",
+      "forelimb morphogenesis",
+      "embryonic organ development"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Megakaryocytopenia",
+      "Radioulnar Synostosis",
+      "Limited pronation and supination of the forearm",
+      "Pancytopenia",
+      "Bone marrow hypocellularity",
+      "Aplastic Anemia",
+      "Myelodysplasia",
+      "Anemia",
+      "Nonimmune hydrops fetalis",
+      "Petechiae",
+      "Abnormal bleeding",
+      "Intracranial hemorrhage",
+      "Decreased total B cell count",
+      "Decreased circulating immunoglobulin concentration",
+      "Recurrent infections",
+      "Clinodactyly",
+      "Sensorineural Hearing Impairment",
+      "Ventricular Septal Defect",
+      "Pulmonary arterial hypertension",
+      "Renal Malformation",
+      "Failure to Thrive",
+      "Global Developmental Delay",
+      "Patellar Aplasia or Hypoplasia",
+      "Digital Phalangeal Hypoplasia",
+      "Nail Abnormality",
+      "Aortic Root Dilatation"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Skeletal",
+      "Prenatal",
+      "Neurologic",
+      "Immunologic",
+      "Auditory",
+      "Cardiovascular",
+      "Renal",
+      "Growth",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0005548",
+      "HP:0002974",
+      "HP:0006394",
+      "HP:0001876",
+      "HP:0005528",
+      "HP:0001915",
+      "HP:0002863",
+      "HP:0001903",
+      "HP:0001790",
+      "HP:0000967",
+      "HP:0001892",
+      "HP:0002170",
+      "HP:0010976",
+      "HP:0004313",
+      "HP:0002719",
+      "HP:0030084",
+      "HP:0000407",
+      "HP:0001629",
+      "HP:0002092",
+      "HP:0000077",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0006498",
+      "HP:0004220",
+      "HP:0001597",
+      "HP:0002616"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MECOM",
+      "HOXA11"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Platelet Transfusion",
+      "Surgical Correction of Radioulnar Synostosis",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Radioulnar_Synostosis_with_Amegakaryocytic_Thrombocytopenia.yaml",
+    "page_url": "../pages/disorders/Radioulnar_Synostosis_with_Amegakaryocytic_Thrombocytopenia.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 15,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Raine Syndrome",
     "disease_id": "MONDO:0009821",
     "category": "Mendelian",
@@ -235778,6 +239376,140 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Reticular Dysgenesis",
+    "disease_id": "MONDO:0009973",
+    "category": "Mendelian",
+    "parents": [
+      "T-B- severe combined immunodeficiency",
+      "severe combined immunodeficiency",
+      "combined immunodeficiency"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Reticular dysgenesis (RD) is the most severe form of severe combined immunodeficiency, caused by biallelic loss-of-function variants in AK2, the gene encoding adenylate kinase 2. AK2 is the only adenylate kinase resident in the mitochondrial intermembrane space, where it interconverts adenine nucleotides (ATP + AMP <-> 2 ADP) and sustains the adenylate pool that feeds oxidative phosphorylation; no other family member occupies that compartment, so its loss is not buffered. The resulting bioenergetic and redox failure kills differentiating haematopoietic progenitors, and the block therefore falls at the progenitor stage and strikes the granulocytic and lymphoid lineages together, producing agranulocytosis with a marrow maturation arrest at the promyelocyte stage alongside profound T- and NK-cell lymphopenia. This is what separates RD from the commoner forms of SCID already curated here, where the lesion is in V(D)J recombination (RAG1/RAG2, DCLRE1C) or cytokine-receptor signalling (IL2RG, JAK3, IL7R) and myelopoiesis is spared. Erythroid and megakaryocytic maturation are generally preserved, which constrains the mechanism to a lineage-restricted rather than a global stem-cell defect. AK2 is separately required in the stria vascularis of the cochlea, which accounts for the bilateral sensorineural deafness that is unique to RD among the SCIDs and is the feature that flags the diagnosis clinically. Affected neonates present within the first weeks of life with overwhelming bacterial sepsis; the neutropenia is characteristically refractory to G-CSF, and allogeneic haematopoietic stem cell transplantation with myeloablative conditioning is the only cure - but it does not restore hearing, because the cochlear tissue is not replaced by donor cells.",
+    "pathophysiology": [
+      "AK2 Loss of Function in the Mitochondrial Intermembrane Space",
+      "Adenine Nucleotide Imbalance and Impaired Oxidative Phosphorylation",
+      "Oxidative Stress and Apoptosis in Haematopoietic Progenitors",
+      "Lineage-Restricted Vulnerability of Myeloid and Lymphoid Progenitors",
+      "Granulocytic Maturation Arrest at the Promyelocyte Stage",
+      "T and NK Lymphoid Differentiation Arrest",
+      "Stria Vascularis AK2 Requirement and Cochlear Ionic Homeostasis Failure",
+      "Cochlear Hair Cell Death and Sensory Organ Developmental Failure",
+      "Agranulocytosis and Failure of Innate Antibacterial Defence",
+      "Absent Adaptive Cellular Immunity"
+    ],
+    "cell_types": [
+      "haematopoietic stem and progenitor cell",
+      "granulocyte monocyte progenitor cell",
+      "common lymphoid progenitor",
+      "promyelocyte",
+      "neutrophil",
+      "T cell",
+      "natural killer cell",
+      "sensory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0000557",
+      "CL:0000051",
+      "CL:0000836",
+      "CL:0000775",
+      "CL:0000084",
+      "CL:0000623",
+      "CL:0000855"
+    ],
+    "biological_processes": [
+      "ATP metabolic process",
+      "oxidative phosphorylation",
+      "response to oxidative stress",
+      "apoptotic process",
+      "hematopoietic progenitor cell differentiation",
+      "myeloid cell differentiation",
+      "lymphocyte differentiation",
+      "TOR signaling",
+      "granulocyte differentiation",
+      "T cell differentiation",
+      "natural killer cell differentiation",
+      "potassium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Premature birth",
+      "Intrauterine growth restriction",
+      "Thrombocytopenia",
+      "Anemia",
+      "Congenital agranulocytosis",
+      "Myeloid maturation arrest",
+      "Decreased total lymphocyte count",
+      "Decreased total T cell count",
+      "Reduced total natural killer cell count",
+      "Decreased total B cell count",
+      "Bilateral sensorineural hearing impairment",
+      "Hypoplasia of the thymus",
+      "Neonatal sepsis",
+      "Recurrent bacterial infections"
+    ],
+    "phenotype_categories": [
+      "Perinatal",
+      "Hematologic",
+      "Immunologic",
+      "Auditory",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Immune",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001622",
+      "HP:0001511",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0005541",
+      "HP:0410253",
+      "HP:0001888",
+      "HP:0005403",
+      "HP:0040218",
+      "HP:0010976",
+      "HP:0008619",
+      "HP:0000778",
+      "HP:0040187",
+      "HP:0002718"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AK2"
+    ],
+    "treatments": [
+      "Immunoglobulin replacement therapy",
+      "Antimicrobial prophylaxis during the aplastic phase",
+      "Allogeneic haematopoietic stem cell transplantation with myeloablative conditioning",
+      "Cochlear implantation",
+      "Recombinant human granulocyte colony-stimulating factor"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Reticular_Dysgenesis.yaml",
+    "page_url": "../pages/disorders/Reticular_Dysgenesis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Retinal Arterial Tortuosity",
     "disease_id": "MONDO:0008373",
     "category": "Mendelian",
@@ -237565,6 +241297,119 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Rhizomelic Dysplasia, Ain-Naz Type",
+    "disease_id": "MONDO:0859203",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhizomelic dysplasia, Ain-Naz type (OMIM 619598) is an ultra-rare autosomal recessive skeletal dysplasia caused by biallelic missense variants in GNPNAT1, which encodes glucosamine-6-phosphate N-acetyltransferase (GNA1), the enzyme that acetylates glucosamine-6-phosphate in the hexosamine biosynthetic pathway on the route to UDP-N-acetylglucosamine. The defining feature is short stature from extreme shortening of the proximal limb segments, with hip dysplasia and severe platyspondyly on radiographs; later reports classify it as a rhizomelic spondyloepimetaphyseal dysplasia and add metaphyseal flaring, brachydactyly, delayed epiphyseal ossification, accelerated skeletal maturation and, in one patient, immunodeficiency. Three families have been published, so the entry is deliberately thin and rests on those primary reports. How the metabolic lesion produces the skeletal phenotype is not established: the only functional data are siRNA knockdown of Gnpnat1 in cultured rat chondrocytes, and no glycosylation, O-GlcNAcylation or mannose-6-phosphate measurement has been reported in a patient. That question is recorded here as a knowledge gap, not answered.",
+    "pathophysiology": [
+      "Biallelic GNPNAT1 Missense Variants",
+      "Reduced Glucosamine-6-Phosphate N-Acetyltransferase Activity",
+      "Diminished UDP-GlcNAc Supply",
+      "Impaired Growth Plate Chondrocyte Proliferation and Differentiation",
+      "Disordered Endochondral Ossification"
+    ],
+    "cell_types": [
+      "growth plate chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "UDP-N-acetylglucosamine biosynthetic process",
+      "chondrocyte proliferation",
+      "chondrocyte differentiation",
+      "growth plate cartilage development"
+    ],
+    "phenotypes": [
+      "Rhizomelic limb shortening",
+      "Severe short stature",
+      "Severe platyspondyly",
+      "Hip dysplasia",
+      "Metaphyseal flaring",
+      "Brachydactyly",
+      "Delayed epiphyseal ossification",
+      "Accelerated skeletal maturation",
+      "Short broad long bones",
+      "Immunodeficiency",
+      "Large hands",
+      "Long foot",
+      "Enlarged joints",
+      "Limitation of joint mobility",
+      "Gait disturbance",
+      "Short femur",
+      "Short humerus",
+      "Short femoral neck",
+      "Flat acetabular roof",
+      "Squared iliac bones",
+      "Posterior scalloping of vertebral bodies",
+      "Wormian bones"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Immunologic",
+      "Musculoskeletal",
+      "Neurologic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008905",
+      "HP:0003510",
+      "HP:0004565",
+      "HP:0001385",
+      "HP:0003015",
+      "HP:0001156",
+      "HP:0002663",
+      "HP:0005616",
+      "HP:0003026",
+      "HP:0002721",
+      "HP:0001176",
+      "HP:0001833",
+      "HP:0003037",
+      "HP:0001376",
+      "HP:0001288",
+      "HP:0003097",
+      "HP:0005792",
+      "HP:0100864",
+      "HP:0003180",
+      "HP:0003177",
+      "HP:0005121",
+      "HP:0002645"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GNPNAT1"
+    ],
+    "treatments": [
+      "Supportive and symptomatic management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhizomelic_Dysplasia_Ain-Naz_Type.yaml",
+    "page_url": "../pages/disorders/Rhizomelic_Dysplasia,_Ain-Naz_Type.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Rienhoff Syndrome",
@@ -247093,6 +250938,8 @@ window.searchData = [
     "subtypes": [],
     "description": "Schizophrenia is a severe chronic psychotic disorder characterized by positive symptoms (delusions, hallucinations, disorganized thought), negative symptoms (avolition, flat affect, social withdrawal), and cognitive impairment. Pathophysiology centers on dysregulated dopaminergic neurotransmission together with glutamatergic (NMDA receptor) and GABAergic abnormalities, complement-mediated excessive synaptic pruning, and oligodendrocyte/myelin dysfunction.",
     "pathophysiology": [
+      "Reduced SETD1A H3K4 Methyltransferase Activity at Psychiatric Risk Gene Promoters",
+      "DNA Damage Accumulation in Postmitotic Neurons",
       "Dysregulation of Dopamine Neurotransmission",
       "Abnormality of Glutamergic Signaling",
       "Abnormality of GABAergic Signaling",
@@ -247102,6 +250949,7 @@ window.searchData = [
       "Blood-Brain Barrier Dysfunction"
     ],
     "cell_types": [
+      "cortical neuron",
       "parvalbumin-positive interneuron",
       "microglial cell",
       "oligodendrocyte",
@@ -247109,6 +250957,7 @@ window.searchData = [
       "astrocyte"
     ],
     "cell_type_ids": [
+      "CL:0000540",
       "CL:0000099",
       "CL:0000129",
       "CL:0000128",
@@ -247116,6 +250965,7 @@ window.searchData = [
       "CL:0000127"
     ],
     "biological_processes": [
+      "DNA damage response",
       "dopamine secretion",
       "synaptic transmission, glutamatergic",
       "synaptic transmission, GABAergic",
@@ -247188,10 +251038,10 @@ window.searchData = [
     "source_file": "Schizophrenia.yaml",
     "page_url": "../pages/disorders/Schizophrenia.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 14,
     "num_treatments": 6,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -250357,6 +254207,156 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Sheehan Syndrome",
+    "disease_id": "MONDO:0019618",
+    "category": "Acquired",
+    "parents": [
+      "syndromic disease"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sheehan syndrome is acquired hypopituitarism caused by ischaemic infarction and necrosis of the anterior pituitary in the setting of severe postpartum haemorrhage. During pregnancy the anterior lobe enlarges through oestrogen-driven lactotroph hyperplasia while remaining confined within the bony sella turcica and dependent on the low-pressure hypophyseal portal circulation, so peripartum hypovolaemia and portal vasospasm can infarct it. Trophic hormone secretion is then lost, classically beginning with prolactin and growth hormone and extending to the gonadotropins, thyroid-stimulating hormone and adrenocorticotropic hormone, while the separately supplied posterior lobe is comparatively preserved. Presentation is dominated by failure of postpartum lactation, amenorrhoea and non-specific fatigue, so diagnosis is typically delayed by years to decades and may first be made when an intercurrent illness precipitates adrenal crisis. It is a leading cause of hypopituitarism where obstetric care is limited and is uncommon where postpartum haemorrhage is well managed.",
+    "pathophysiology": [
+      "Pregnancy-Induced Lactotroph Hyperplasia and Anterior Pituitary Enlargement",
+      "Portal Perfusion and Fixed Sellar Volume Constrain Anterior Pituitary Blood Supply",
+      "Postpartum Haemorrhage with Hypovolaemia and Portal Vasospasm",
+      "Ischaemic Infarction and Necrosis of the Anterior Pituitary",
+      "Relative Preservation of Posterior Pituitary Perfusion",
+      "Loss of Anterior Pituitary Trophic Hormone Secretion",
+      "Prolactin Deficiency",
+      "Growth Hormone Deficiency",
+      "Gonadotropin Deficiency",
+      "Central Hypothyroidism from Thyroid-Stimulating Hormone Deficiency",
+      "Reduced Thyroid Hormone Action and Hypometabolism",
+      "Secondary Adrenal Insufficiency from Corticotropin Deficiency",
+      "Progressive Pituitary Atrophy and Empty Sella Formation"
+    ],
+    "cell_types": [
+      "lactotroph",
+      "pituitary gland cell",
+      "somatotroph",
+      "gonadotroph",
+      "thyrotroph",
+      "thyroid follicular cell",
+      "corticotroph"
+    ],
+    "cell_type_ids": [
+      "CL:0000439",
+      "CL:2000004",
+      "CL:0002312",
+      "CL:0000437",
+      "CL:0000476",
+      "CL:0002258",
+      "CL:0002309"
+    ],
+    "biological_processes": [
+      "lactotroph proliferation",
+      "cellular response to hypoxia",
+      "prolactin secretion",
+      "growth hormone secretion",
+      "gonadotropin secretion",
+      "thyroid-stimulating hormone secretion",
+      "thyroid hormone generation",
+      "response to thyroid hormone",
+      "regulation of metabolic process",
+      "corticotropin secretion"
+    ],
+    "phenotypes": [
+      "Failure of Postpartum Lactation",
+      "Secondary Amenorrhoea",
+      "Hypogonadotropic Hypogonadism",
+      "Loss of Axillary and Pubic Hair",
+      "Central Hypothyroidism",
+      "Secondary Adrenal Insufficiency",
+      "Adrenal Crisis",
+      "Hyponatraemia",
+      "Hypoglycaemia",
+      "Chronic Fatigue",
+      "Cold Intolerance",
+      "Hypotension",
+      "Growth Hormone Deficiency",
+      "Hepatic Steatosis",
+      "Metabolic Syndrome",
+      "Increased Body Fat with Abdominal Predominance",
+      "Atherogenic Dyslipidemia",
+      "Insulin Resistance",
+      "Diabetes Mellitus",
+      "Osteoporosis",
+      "Anaemia"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Integumentary",
+      "Metabolic",
+      "Constitutional",
+      "Cardiovascular",
+      "Hepatic",
+      "Musculoskeletal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031109",
+      "HP:0000869",
+      "HP:0000044",
+      "HP:0002221",
+      "HP:0008245",
+      "HP:0011735",
+      "HP:0000846",
+      "HP:0002902",
+      "HP:0001943",
+      "HP:0012432",
+      "HP:6000855",
+      "HP:0002615",
+      "HP:0008240",
+      "HP:0001397",
+      "MONDO:0000816",
+      "HP:0012743",
+      "HP:0003119",
+      "HP:0000855",
+      "HP:0000819",
+      "HP:0000939",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Lifelong Pituitary Hormone Replacement",
+      "Glucocorticoid Replacement",
+      "Levothyroxine Replacement",
+      "Sex Steroid Replacement",
+      "Growth Hormone Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sheehan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Sheehan_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Shigellosis",
@@ -255044,6 +259044,151 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Sotos Syndrome",
+    "disease_id": "MONDO:0019349",
+    "category": "Mendelian",
+    "parents": [
+      "Overgrowth Syndrome",
+      "Chromatinopathy"
+    ],
+    "creation_date": "2026-09-05T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Intragenic NSD1 Variant",
+      "5q35 Microdeletion"
+    ],
+    "description": "Sotos syndrome (MONDO:0019349; OMIM 117550) is an autosomal dominant overgrowth-intellectual disability syndrome caused by haploinsufficiency of NSD1, the nuclear receptor binding SET domain protein 1 at 5q35. NSD1 is the principal writer of histone H3 lysine 36 dimethylation (H3K36me2), a mark deposited predominantly across intergenic euchromatin. Three features are treated as cardinal: a distinctive facial appearance (broad prominent forehead with dolichocephaly, sparse frontotemporal hair, downslanting palpebral fissures, malar flushing, long narrow face and a tall chin), learning disability ranging from early developmental delay to severe intellectual impairment, and childhood overgrowth of height and/or head circumference. A broad set of associated features occurs: advanced bone age, autism spectrum behaviours, seizures, scoliosis, joint hyperlaxity, congenital cardiac anomalies, renal anomalies, cranial imaging abnormalities and neonatal complications. Two molecular classes account for essentially all cases - intragenic NSD1 loss-of-function variants and a recurrent 5q35 microdeletion encompassing NSD1 that arises by non-allelic homologous recombination between flanking low-copy repeats. The deletion class is much commoner in Japanese and Korean cohorts than in European ones and is associated with more severe learning disability, less prominent overgrowth and more progressive scoliosis; this is a within-disease genotype axis, curated here as `has_subtypes`, not two diseases. NSD1 loss produces a highly specific genome-wide DNA-methylation episignature in peripheral blood that is now used diagnostically, including to reclassify NSD1 variants of uncertain significance and to separate Sotos syndrome from the clinically overlapping Weaver syndrome. The NFIX-related \"Sotos syndrome 2\" phenotype is a separate MONDO concept curated in dismech as Malan_Syndrome and is cross-referenced here as a differential diagnosis rather than absorbed into this entry.",
+    "pathophysiology": [
+      "Non-Allelic Homologous Recombination at 5q35 Sos-REP Low-Copy Repeats",
+      "NSD1 Haploinsufficiency",
+      "Genome-Wide H3K36me2 Depletion",
+      "Intergenic DNA Hypomethylation from Loss of DNMT3A Recruitment",
+      "Loss of Developmental Enhancer Priming",
+      "Dysregulated Developmental Transcriptional Program",
+      "Impaired Cortical Neuronal Migration and Laminar Positioning",
+      "Impaired Mesendodermal Lineage Differentiation",
+      "Reduced NSD1 Tumor-Suppressor Function"
+    ],
+    "cell_types": [
+      "cortical projection neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "epigenetic regulation of gene expression",
+      "epigenetic regulation of gene expression at developmental enhancers",
+      "regulation of DNA-templated transcription",
+      "nervous system development",
+      "cerebral cortex cell migration",
+      "mesodermal cell differentiation",
+      "endodermal cell differentiation"
+    ],
+    "phenotypes": [
+      "Distinctive Facial Appearance",
+      "Sparse Frontotemporal Hair",
+      "Downslanting Palpebral Fissures",
+      "Childhood Overgrowth",
+      "Macrocephaly",
+      "Advanced Bone Age",
+      "Intellectual Disability and Developmental Delay",
+      "Autism Spectrum Behaviour",
+      "Seizures",
+      "Cranial Imaging Abnormalities",
+      "Congenital Heart Defects",
+      "Scoliosis",
+      "Joint Hyperlaxity",
+      "Renal Anomalies",
+      "Neonatal Hypotonia",
+      "Feeding Difficulties",
+      "Neonatal Jaundice",
+      "High Arched Palate",
+      "Hearing Impairment",
+      "Neoplasia",
+      "Attention Deficit Hyperactivity Disorder",
+      "Anxiety",
+      "Ophthalmological Abnormalities"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Growth",
+      "Skeletal",
+      "Neurologic",
+      "Behavioral",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Renal",
+      "Neonatal",
+      "Gastrointestinal",
+      "Otologic",
+      "Neoplastic",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000337",
+      "HP:0002209",
+      "HP:0000494",
+      "HP:0000098",
+      "HP:0000256",
+      "HP:0005616",
+      "HP:0001249",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0002119",
+      "HP:0001627",
+      "HP:0002650",
+      "HP:0001382",
+      "HP:0012210",
+      "HP:0001319",
+      "HP:0011968",
+      "HP:0000952",
+      "HP:0000218",
+      "HP:0000365",
+      "HP:0002664",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000478"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "NSD1"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Developmental and Educational Intervention",
+      "Multisystem Surveillance and Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sotos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Sotos_Syndrome.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Southern Tick-Associated Rash Illness",
     "disease_id": "MONDO:0025294",
     "category": "Infectious Disease",
@@ -256931,7 +261076,7 @@ window.searchData = [
     "creation_date": "2026-08-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Spinocerebellar ataxia 48 (SCA48; ATX-STUB1) is an adult-onset autosomal dominant cerebellar ataxia caused by heterozygous pathogenic variants in STUB1, which encodes CHIP (C-terminus of HSC70-interacting protein), a co-chaperone and U-box E3 ubiquitin ligase that couples the HSP70/HSC70 chaperone machinery to the ubiquitin-proteasome system. Its distinguishing feature is the pairing of progressive cerebellar ataxia and dysarthria with a prominent cerebellar cognitive-affective syndrome (dysexecutive and psychiatric/behavioural disturbance) that frequently precedes the motor syndrome by years; chorea, dystonia, parkinsonism, tremor and urinary symptoms broaden the phenotype. Brain MRI shows cerebellar atrophy with a postero-lateral hemispheric predominance together with T2 hyperintensity of both dentate nuclei (the \"crab sign\"), and neuropathology shows marked Purkinje cell loss with ubiquitin/p62-positive neuronal inclusions. Biallelic STUB1 variants cause the allelic autosomal recessive disorder SCAR16 / Gordon Holmes syndrome (MONDO:0008935), curated separately in this knowledge base as Cerebellar Ataxia-Hypogonadism Syndrome; the two presentations form a continuous clinical spectrum; hypogonadism, early onset and prominent spastic/pyramidal involvement predominate at the recessive end, but pyramidal signs and hypertonia are also reported in SCA48 and their absence in one cohort should not be read as a rule. Intermediate-length CAG/CAA repeat expansions in TBP co-occur with STUB1 variants often enough that digenic inheritance was proposed, but patients with the full SCA48 phenotype and normal TBP alleles establish that SCA48 also occurs as a monogenic disorder.",
+    "description": "Spinocerebellar ataxia 48 (SCA48; ATX-STUB1) is an adult-onset autosomal dominant cerebellar ataxia caused by heterozygous pathogenic variants in STUB1, which encodes CHIP (C-terminus of HSC70-interacting protein), a co-chaperone and U-box E3 ubiquitin ligase that couples the HSP70/HSC70 chaperone machinery to the ubiquitin-proteasome system. Its distinguishing feature is the pairing of progressive cerebellar ataxia and dysarthria with a prominent cerebellar cognitive-affective syndrome (dysexecutive and psychiatric/behavioural disturbance) that frequently precedes the motor syndrome by years; chorea, dystonia, parkinsonism, tremor and urinary symptoms broaden the phenotype. Brain MRI shows cerebellar atrophy with a postero-lateral hemispheric predominance together with T2 hyperintensity of both dentate nuclei (the \"crab sign\"), and neuropathology shows marked Purkinje cell loss with ubiquitin/p62-positive neuronal inclusions. Biallelic STUB1 variants cause the allelic autosomal recessive disorder SCAR16 (MONDO:0014339), curated separately in this knowledge base as Autosomal Recessive Spinocerebellar Ataxia 16; SCAR16 patients who also have hypogonadism fall under the clinical label Gordon Holmes syndrome (MONDO:0008935, curated as Cerebellar Ataxia-Hypogonadism Syndrome), which has other causal genes besides STUB1. The two STUB1 presentations form a continuous clinical spectrum; hypogonadism, early onset and prominent spastic/pyramidal involvement predominate at the recessive end, but pyramidal signs and hypertonia are also reported in SCA48 and their absence in one cohort should not be read as a rule. Intermediate-length CAG/CAA repeat expansions in TBP co-occur with STUB1 variants often enough that digenic inheritance was proposed, but patients with the full SCA48 phenotype and normal TBP alleles establish that SCA48 also occurs as a monogenic disorder.",
     "pathophysiology": [
       "CHIP Loss of Function from Heterozygous STUB1 Variants",
       "Impaired Chaperone-Assisted Protein Quality Control",
@@ -276460,6 +280605,117 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Unicentric Castleman Disease",
+    "disease_id": "MONDO:0019753",
+    "category": "Complex",
+    "parents": [
+      "Castleman Disease",
+      "Lymphoproliferative Disease"
+    ],
+    "creation_date": "2026-08-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Unicentric Castleman disease (UCD) is the localized form of Castleman disease, involving a single lymph node region and accounting for the majority of Castleman cases. It usually presents as an asymptomatic mass found incidentally or on investigation of local compressive symptoms, and complete surgical resection is generally curative, with 5-year survival around 91%. About one in five patients nonetheless has systemic symptoms or laboratory abnormalities, and these are more pronounced in children. The hyaline-vascular histologic pattern predominates: regressed germinal centers with expanded follicular dendritic cell meshworks producing the \"onion-skin\" mantle zones, and follicle-confined VEGF overexpression producing the penetrating \"lollipop\" vessels. Recurrent somatic mutations in the stromal compartment - PDGFRB N666S in about 10% of cases, and IL6ST and PDGFRB in about a third of paraneoplastic-pemphigus-associated cases - raise the possibility that UCD is a clonal stromal neoplasm rather than a reactive process, though this is not established. Paraneoplastic pemphigus with bronchiolitis obliterans is a rare but frequently fatal complication that can progress even after the Castleman lesion is removed.",
+    "pathophysiology": [
+      "Somatic Stromal Cell Mutation",
+      "Lymph Node Stromal Cell Activation and Expansion",
+      "Follicular Dendritic Cell Meshwork Expansion",
+      "Stromal VEGF Overproduction and Neovascularization",
+      "Angiofollicular Lymph Node Hyperplasia"
+    ],
+    "cell_types": [
+      "Follicular dendritic cell",
+      "T-zone reticular cell",
+      "B-zone reticular cell",
+      "Perivascular reticular cell",
+      "Fibroblastic reticular cell",
+      "Mantle zone B cell",
+      "Blood endothelial cell",
+      "Plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000442",
+      "CL:0009105",
+      "CL:0009104",
+      "CL:4033054",
+      "CL:0009101",
+      "CL:0009037",
+      "CL:0000115",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "Extracellular matrix remodeling",
+      "TGF-beta receptor signaling",
+      "Germinal center formation",
+      "Plasma cell differentiation",
+      "Vascular endothelial growth factor production",
+      "Angiogenesis"
+    ],
+    "phenotypes": [
+      "Localized Lymphadenopathy",
+      "Fatigue",
+      "Weight Loss",
+      "Anemia",
+      "Elevated C-Reactive Protein",
+      "Oral Mucosal Ulceration (Paraneoplastic Pemphigus)",
+      "Bronchiolitis Obliterans",
+      "Growth Delay"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Hematologic",
+      "Laboratory",
+      "Dermatologic",
+      "Respiratory",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002716",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0001903",
+      "HP:0011227",
+      "HP:0000155",
+      "HP:0011946",
+      "HP:0001510"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PDGFRB",
+      "IL6ST"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Siltuximab",
+      "Neoadjuvant Rituximab or Corticosteroids",
+      "Radiotherapy or Embolization for Unresectable UCD"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interleukin-6 (IL-6)",
+      "C-Reactive Protein (CRP)"
+    ],
+    "source_file": "Unicentric_Castleman_Disease.yaml",
+    "page_url": "../pages/disorders/Unicentric_Castleman_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Unverricht-Lundborg Disease",
     "disease_id": "MONDO:0009698",
     "category": "Mendelian",
@@ -286291,6 +290547,140 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "ZAP70 Deficiency",
+    "disease_id": "MONDO:0010023",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Combined Immunodeficiency"
+    ],
+    "creation_date": "2026-09-09T01:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ZAP70 deficiency is an autosomal recessive combined immunodeficiency caused by biallelic loss-of-function variants in ZAP70, the Syk-family cytoplasmic tyrosine kinase that couples the engaged T-cell receptor to its downstream signalling machinery. On TCR engagement, LCK phosphorylates the ITAMs of the CD3 and zeta chains; ZAP-70 docks on those phospho-ITAMs through its tandem SH2 domains and, once activated, phosphorylates the adaptors LAT and SLP-76 that nucleate the rest of the cascade. Losing the kinase therefore leaves the receptor intact but uncoupled from everything downstream of it.\nWhat makes the disorder distinctive is that the disconnection is not uniform across the T-cell lineages, and the resulting laboratory picture is the diagnosis. CD8 single-positive thymocytes fail positive selection almost completely, so patients have profound CD8 lymphopenia; CD4 single-positive development proceeds largely intact, because the paralogous kinase SYK is expressed highly enough in human thymocytes to carry the lower signalling threshold that the CD4 lineage requires. The CD4 cells that emerge are present in normal or elevated numbers and are functionally dead to TCR stimulation. A normal or high lymphocyte count with normal B and NK cells and absent CD8 T cells matches no classical SCID, and the largest published review recommends screening for ZAP70 deficiency on that pattern. It is also a pattern standard TREC newborn screening can miss, because CD4 thymic output continues.\nClinically it spans a wide range: infantile SCID-like disease with opportunistic infection at one end, and later-onset immune dysregulation with autoimmunity, atopy and lymphoma at the other. Untreated infants who present in the first year rarely survive past the second. Allogeneic haematopoietic stem cell transplantation is the only curative treatment and is highly effective.",
+    "pathophysiology": [
+      "ZAP70 Loss of Kinase Function",
+      "Failure of TCR-Proximal Signal Propagation",
+      "Block of CD8 Single-Positive Thymocyte Selection",
+      "Peripheral CD8 T Cell Lymphopenia",
+      "Functional Anergy of Peripheral CD4 T Cells",
+      "Attenuated Residual TCR Signaling",
+      "Impaired Negative Selection and Thymic Regulatory T Cell Output",
+      "Impaired Cellular Immunity Against Opportunistic Pathogens",
+      "Defective T-Dependent Antibody Responses",
+      "Impaired Cytotoxic Surveillance of Virus-Infected Cells",
+      "Autoimmunity and Immune Dysregulation"
+    ],
+    "cell_types": [
+      "alpha-beta T cell",
+      "CD4-positive CD8-positive double-positive thymocyte",
+      "CD8-positive, alpha-beta T cell",
+      "CD4-positive, alpha-beta T cell",
+      "regulatory T cell",
+      "CD8-positive, alpha-beta cytotoxic T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000789",
+      "CL:0000809",
+      "CL:0000625",
+      "CL:0000624",
+      "CL:0000815",
+      "CL:0000794"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "positive thymic T cell selection",
+      "T cell activation",
+      "T cell proliferation",
+      "negative thymic T cell selection"
+    ],
+    "phenotypes": [
+      "Decreased total CD8+ T cell count",
+      "Impaired T-cell proliferative response to mitogens",
+      "Impaired specific antibody response",
+      "Decreased circulating immunoglobulin concentration",
+      "Recurrent respiratory infections",
+      "Eczematoid dermatitis",
+      "Chronic diarrhea",
+      "Failure to thrive",
+      "Lymphadenopathy",
+      "Autoimmunity",
+      "Pneumocystis jirovecii pneumonia",
+      "Neoplasm",
+      "Pneumonia",
+      "BCGosis",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Increased circulating IgE concentration"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:5210426",
+      "HP:0031381",
+      "HP:0012475",
+      "HP:0004315",
+      "HP:0002205",
+      "HP:0000964",
+      "HP:0002028",
+      "HP:0001508",
+      "HP:0002716",
+      "HP:0002960",
+      "HP:0020102",
+      "HP:0002664",
+      "HP:0002090",
+      "HP:0020087",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0003212"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZAP70",
+      "SYK"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement Therapy",
+      "Antimicrobial Prophylaxis",
+      "Infection-Risk Avoidance and Blood Product Precautions",
+      "Genetic Counseling",
+      "Gene Therapy",
+      "Post-Transplant Surveillance",
+      "Corticosteroid Therapy"
+    ],
+    "environmental": [
+      "BCG vaccination before diagnosis"
+    ],
+    "biochemical": [],
+    "source_file": "ZAP70_Deficiency.yaml",
+    "page_url": "../pages/disorders/ZAP70_Deficiency.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "ZNF407-Related Neurodevelopmental Disorder",
     "disease_id": "MONDO:0859198",
     "category": "Mendelian",
@@ -287956,19 +292346,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2790,
-  "total_subtypes": 3669,
-  "total_disorders_and_subtypes": 6459,
-  "total_unique_evidence_sources": 39341,
-  "total_unique_publications": 37059,
+  "total_disorder_pages": 2828,
+  "total_subtypes": 3695,
+  "total_disorders_and_subtypes": 6523,
+  "total_unique_evidence_sources": 39875,
+  "total_unique_publications": 37562,
   "total_unique_disease_categories": 57,
-  "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2785,
-  "total_unique_pathological_events": 16611,
-  "total_modules": 172,
-  "total_research_reports": 2911,
+  "total_unique_phenotype_categories": 279,
+  "total_pathographs": 2823,
+  "total_unique_pathological_events": 16914,
+  "total_modules": 173,
+  "total_research_reports": 2957,
   "total_classifications": 19,
   "total_comorbidities": 26,
-  "total_groupings": 101
+  "total_groupings": 102
 };
 window.dispatchEvent(new Event('searchDataReady'));
