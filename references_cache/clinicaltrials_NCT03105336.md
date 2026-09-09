@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03105336"
+reference_id: clinicaltrials:NCT03105336
 title: A Phase 2 Multicenter Study of Axicabtagene Ciloleucel in Subjects With Relapsed/Refractory Indolent Non-Hodgkin Lymphoma (iNHL)
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Multicenter Study of Axicabtagene Ciloleucel in Subjects With Relapsed/Refractory Indolent Non-Hodgkin Lymphoma (iNHL)
