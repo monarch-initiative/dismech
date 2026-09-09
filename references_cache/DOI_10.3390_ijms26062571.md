@@ -1,0 +1,24 @@
+---
+reference_id: DOI:10.3390/ijms26062571
+title: "Recent Evidences of Epigenetic Alterations in Chronic Obstructive Pulmonary Disease (COPD): A Systematic Review"
+authors:
+- Rosetta Ragusa
+- Pasquale Bufano
+- Alessandro Tognetti
+- Marco Laurino
+- Chiara Caselli
+journal: International Journal of Molecular Sciences
+year: '2025'
+doi: 10.3390/ijms26062571
+content_type: abstract_only
+is_preprint: false
+---
+
+# Recent Evidences of Epigenetic Alterations in Chronic Obstructive Pulmonary Disease (COPD): A Systematic Review
+**Authors:** Rosetta Ragusa, Pasquale Bufano, Alessandro Tognetti, Marco Laurino, Chiara Caselli
+**Journal:** International Journal of Molecular Sciences (2025)
+**DOI:** [10.3390/ijms26062571](https://doi.org/10.3390/ijms26062571)
+
+## Content
+
+Chronic obstructive pulmonary disease (COPD) is a heterogeneous inflammatory condition characterized by progressive airflow limitation, which may be caused by genetic and environmental factors. Furthermore, epigenetic mechanisms could provide valuable insights into the complex interactions between environment and genes and subsequent development of the disease. The aim of this study is to provide a systematic review of the latest knowledge on epigenetic modifications that characterize COPD, summarizing epigenetic factors that could serve as potential novel biomarkers and therapeutic targets for the treatment of COPD patients. We queried the PubMed and Scopus electronic databases with specific keywords, in May 2024, according to the PRISMA guidelines, and articles were included if they met all the inclusion criteria and survived a quality assessment. We identified 5414 publications in our systematic search. Among them, only 51 articles met the criteria of COPD-associated epigenetic modifications in human patients compared to the control group. Eight studies described DNA methylation, one study histone modifications, and forty-two studies non-coding RNAs. Apoptosis and inflammatory pathways have been found to be the main mechanisms regulated by epigenetic elements in COPD patients. In addition, non-coding RNAs may be useful as biomarkers or therapeutic targets of pulmonary disease. Future studies will be needed to confirm the role of epigenetic elements associated with COPD.

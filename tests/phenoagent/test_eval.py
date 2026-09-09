@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from dismech import oak_db
 from phenoagent.eval import (
     aggregate_results,
     build_disease_index,
@@ -20,7 +21,7 @@ from phenoagent.eval import (
     run_eval,
     score_matching_run,
 )
-from phenoagent.matching import load_phenopacket
+from phenoagent.matching import HP_ADAPTER_SPEC, load_phenopacket
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 PHENOPACKET_DIR = ROOT_DIR / "tests" / "phenoagent" / "data" / "phenopackets"
@@ -121,7 +122,15 @@ def test_disease_index_resolves_by_id_and_name(index):
 # --- per-packet evaluation --------------------------------------------------
 
 
+@pytest.mark.oak_db
 def test_evaluate_scored_packet_resolves_and_scores(index, kb_dir):
+    # The related-match assertions below turn on "Abnormality of the liver" being
+    # a parent of Hepatomegaly, which only the `sqlite:obo:hp` build can answer.
+    # OAK downloads it (440 MB) rather than failing when it is absent, so ask
+    # about the file (issue #11299).
+    if not oak_db.local_build_present(HP_ADAPTER_SPEC):
+        pytest.skip(f"needs a local {HP_ADAPTER_SPEC} build")
+
     result = evaluate_phenopacket(GALACTOSEMIA_GT, kb_dir=kb_dir, disease_index=index)
     assert result.status == "SCORED"
     assert result.ground_truth_id == "MONDO:0018116"

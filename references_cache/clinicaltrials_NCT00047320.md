@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00047320"
+reference_id: clinicaltrials:NCT00047320
 title: A Phase II Study To Assess The Ability Of Neoadjuvant Chemotherapy Plus/Minus Second Look Surgery To Eliminate All Measurable Disease Prior To Radiotherapy For NGGCT
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II Study To Assess The Ability Of Neoadjuvant Chemotherapy Plus/Minus Second Look Surgery To Eliminate All Measurable Disease Prior To Radiotherapy For NGGCT
