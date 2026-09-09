@@ -76540,6 +76540,120 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Congenital Prothrombin Deficiency",
+    "disease_id": "MONDO:0013361",
+    "category": "Genetic",
+    "parents": [
+      "Bleeding Disorder",
+      "Coagulation Disorder",
+      "Rare Bleeding Disorder"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type I",
+      "Type II"
+    ],
+    "description": "Congenital prothrombin (factor II) deficiency is the rarest of the inherited coagulation factor deficiencies, caused by biallelic pathogenic variants in F2. Prothrombin sits at the convergence point of the coagulation cascade: the prothrombinase complex - factor Xa with factor Va as cofactor, assembled on an anionic phospholipid surface in the presence of calcium - cleaves the zymogen to thrombin, and thrombin is the effector that converts fibrinogen to fibrin, activates platelets through protease-activated receptors, feeds back on factors V, VIII and XI, activates factor XIII to cross-link the fibrin mesh, and, complexed with thrombomodulin, switches on the protein C anticoagulant arm. Because a single defect removes all of those outputs at once, the bleeding is out of proportion to what a single-pathway lesion would predict. Two biochemical forms are distinguished by the relationship between antigen and activity: type I (hypoprothrombinaemia) reduces both roughly in parallel, while type II (dysprothrombinaemia) leaves a normal or near-normal amount of a dysfunctional protein, so activity falls disproportionately. That antigen-versus-activity discrepancy is the diagnostic signature. Prothrombin is vitamin K-dependent, and gamma-carboxylation of its Gla domain is what allows it to dock on the procoagulant membrane surface, which is why the acquired vitamin K-related deficiencies phenocopy the congenital disorder. Complete absence of prothrombin has never been observed in a living human and appears to be incompatible with life; every described patient retains some residual activity.",
+    "pathophysiology": [
+      "Biallelic F2 Pathogenic Variants",
+      "Reduced Hepatic Prothrombin Output",
+      "Circulating Dysfunctional Prothrombin",
+      "Defective Vitamin K-Dependent Gla-Domain Membrane Binding",
+      "Impaired Prothrombinase-Mediated Thrombin Generation",
+      "Deficient Thrombin Activity at the Site of Injury",
+      "Impaired Fibrinogen-to-Fibrin Conversion",
+      "Impaired Thrombin-Mediated Platelet Activation",
+      "Loss of Thrombin Feedback Amplification of Factors V, VIII and XI",
+      "Impaired Factor XIII Activation and Fibrin Cross-Linking",
+      "Reduced Thrombomodulin-Dependent Protein C Activation",
+      "Weak, Poorly Cross-Linked Hemostatic Clot",
+      "Systemic Bleeding Diathesis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "platelet",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "blood coagulation",
+      "peptidyl-glutamic acid carboxylation",
+      "zymogen activation of prothrombin by prothrombinase",
+      "blood coagulation, fibrin clot formation",
+      "thrombin-activated receptor signaling pathway",
+      "platelet activation",
+      "regulation of blood coagulation"
+    ],
+    "phenotypes": [
+      "Recurrent mucocutaneous bleeding",
+      "Menorrhagia",
+      "Joint hemorrhage",
+      "Intramuscular hematoma",
+      "Intracranial hemorrhage",
+      "Prolonged bleeding after surgery",
+      "Prolonged prothrombin time",
+      "Prolonged partial thromboplastin time",
+      "Reduced prothrombin antigen"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Reproductive",
+      "Musculoskeletal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001892",
+      "HP:0000132",
+      "HP:0005261",
+      "HP:0012233",
+      "HP:0002170",
+      "HP:0004846",
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0040250"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "F2"
+    ],
+    "treatments": [
+      "Prothrombin Complex Concentrate Replacement",
+      "Fresh Frozen Plasma Transfusion",
+      "Tranexamic Acid"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Factor II coagulant activity",
+      "Prothrombin antigen concentration in type I disease",
+      "Prothrombin antigen concentration in type II disease",
+      "Activity-to-antigen discrepancy"
+    ],
+    "source_file": "Congenital_Prothrombin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Prothrombin_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Congenital Pulmonary Airway Malformation",
     "disease_id": "MONDO:0016580",
     "category": "Complex",
@@ -167758,7 +167872,8 @@ window.searchData = [
       "IL-11 Signalling in Hepatic Stellate Cells",
       "Hepatic Stellate Cell Activation",
       "TGF-beta Signaling in Fibrogenesis",
-      "Kupffer Cell and Inflammatory Response",
+      "Kupffer Cell Activation",
+      "Hepatic Pro-Inflammatory Mediator Release",
       "Portal Hypertension",
       "Synthetic Dysfunction"
     ],
@@ -167782,6 +167897,7 @@ window.searchData = [
       "ERK1 and ERK2 cascade",
       "TGF-beta Receptor Signaling",
       "Collagen Biosynthesis",
+      "Macrophage Activation",
       "Inflammatory Response",
       "Protein Synthesis"
     ],
@@ -167861,11 +167977,11 @@ window.searchData = [
     "source_file": "Liver_Cirrhosis.yaml",
     "page_url": "../pages/disorders/Liver_Cirrhosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Loeys-Dietz Syndrome",
@@ -179048,8 +179164,12 @@ window.searchData = [
       "In situ subepithelial immune complex deposition",
       "Complement activation at the glomerular capillary wall",
       "Podocyte structural injury",
+      "Podocyte apoptosis",
+      "Podocyte pyroptosis",
+      "Podocyte ferroptosis",
+      "Podocyte autophagy dysregulation",
+      "Podocyte depletion from programmed cell death",
       "Glomerular filtration barrier failure and proteinuria",
-      "Programmed cell death dysregulation in podocytes",
       "Progressive kidney function decline"
     ],
     "cell_types": [
@@ -179067,11 +179187,11 @@ window.searchData = [
       "immunoglobulin production",
       "complement activation",
       "actin cytoskeleton organization",
-      "glomerular filtration",
       "apoptotic process",
       "pyroptotic inflammatory response",
       "ferroptosis",
-      "autophagy"
+      "autophagy",
+      "glomerular filtration"
     ],
     "phenotypes": [
       "Nephrotic syndrome",
@@ -179120,11 +179240,11 @@ window.searchData = [
     "source_file": "Membranous_Nephropathy.yaml",
     "page_url": "../pages/disorders/Membranous_nephropathy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12B Deficiency",
@@ -228113,6 +228233,133 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Primary Aldosteronism",
+    "disease_id": "MONDO:0001422",
+    "category": "Complex",
+    "parents": [
+      "hyperaldosteronism"
+    ],
+    "creation_date": "2026-09-05T20:15:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "APA",
+      "UAH",
+      "BIH"
+    ],
+    "description": "Primary aldosteronism is autonomous adrenocortical aldosterone production that is not suppressed by volume expansion and proceeds independently of the renin-angiotensin system. Somatic gain-of-function mutations in zona glomerulosa ion channels and pumps (KCNJ5, CACNA1D, ATP1A1, ATP2B3), and constitutive Wnt/beta-catenin signalling through CTNNB1, converge on cell depolarization, calcium entry, and transcription of aldosterone synthase (CYP11B2). The resulting mineralocorticoid receptor overactivation drives renal sodium retention, potassium and hydrogen ion wasting, and low-renin hypertension, together with cardiac, vascular, and renal inflammation and fibrosis that exceed what the blood pressure elevation alone predicts. Primary aldosteronism is the most common identifiable cause of secondary hypertension, is curable by adrenalectomy when aldosterone production lateralizes to one adrenal, and is markedly underdiagnosed.\n",
+    "pathophysiology": [
+      "Somatic Gain-of-Function Mutation in a Zona Glomerulosa Ion Channel or Pump",
+      "Constitutive Wnt Signalling from Stabilized Beta-Catenin",
+      "Zona Glomerulosa Cell Depolarization and Calcium Entry",
+      "Clonal Expansion of Aldosterone-Producing Adrenocortical Cells",
+      "Autonomous CYP11B2 Expression and Aldosterone Synthesis",
+      "Renin-Independent Aldosterone Excess",
+      "Mineralocorticoid Receptor Overactivation in the Distal Nephron",
+      "Sodium Retention and Extracellular Volume Expansion",
+      "Suppression of Renin Release",
+      "Renal Potassium and Hydrogen Ion Wasting",
+      "Mineralocorticoid Receptor-Driven Tissue Inflammation and Oxidative Stress",
+      "Myocardial and Renal Interstitial Fibrosis",
+      "Blood-Pressure-Independent Cardiovascular and Renal Injury"
+    ],
+    "cell_types": [
+      "adrenal zona glomerulosa cell",
+      "renal principal cell",
+      "infiltrating macrophage",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002099",
+      "CL:0005009",
+      "CL:0000235",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "membrane depolarization",
+      "calcium ion import across the plasma membrane",
+      "aldosterone biosynthetic process",
+      "renal sodium ion absorption",
+      "renal sodium ion transport",
+      "renal potassium excretion",
+      "inflammatory response",
+      "leukocyte migration",
+      "collagen fibril organization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Hypertension",
+      "Resistant hypertension",
+      "Increased circulating aldosterone concentration",
+      "Decreased circulating renin concentration",
+      "Elevated aldosterone:renin ratio",
+      "Hypokalemia",
+      "Metabolic alkalosis",
+      "Left ventricular hypertrophy",
+      "Stroke",
+      "Atrial fibrillation",
+      "Congestive heart failure",
+      "Albuminuria",
+      "Diabetes mellitus"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Laboratory",
+      "Biochemical",
+      "Neurological",
+      "Renal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000822",
+      "HP:0430034",
+      "HP:0000859",
+      "HP:0003351",
+      "HP:6000318",
+      "HP:0002900",
+      "HP:0200114",
+      "HP:0001712",
+      "HP:0001297",
+      "HP:0005110",
+      "HP:0001635",
+      "HP:0012592",
+      "HP:0000819"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNJ5",
+      "CACNA1D",
+      "ATP1A1",
+      "ATP2B3",
+      "CTNNB1"
+    ],
+    "treatments": [
+      "Laparoscopic Unilateral Adrenalectomy",
+      "Mineralocorticoid Receptor Antagonist Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma aldosterone concentration",
+      "Plasma renin",
+      "Serum potassium"
+    ],
+    "source_file": "Primary_Aldosteronism.yaml",
+    "page_url": "../pages/disorders/Primary_Aldosteronism.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 13,
+    "num_genes": 5,
+    "num_treatments": 2,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Primary Bile Acid Malabsorption",
     "disease_id": "MONDO:0013214",
     "category": "Mendelian",
@@ -239127,6 +239374,140 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Reticular Dysgenesis",
+    "disease_id": "MONDO:0009973",
+    "category": "Mendelian",
+    "parents": [
+      "T-B- severe combined immunodeficiency",
+      "severe combined immunodeficiency",
+      "combined immunodeficiency"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Reticular dysgenesis (RD) is the most severe form of severe combined immunodeficiency, caused by biallelic loss-of-function variants in AK2, the gene encoding adenylate kinase 2. AK2 is the only adenylate kinase resident in the mitochondrial intermembrane space, where it interconverts adenine nucleotides (ATP + AMP <-> 2 ADP) and sustains the adenylate pool that feeds oxidative phosphorylation; no other family member occupies that compartment, so its loss is not buffered. The resulting bioenergetic and redox failure kills differentiating haematopoietic progenitors, and the block therefore falls at the progenitor stage and strikes the granulocytic and lymphoid lineages together, producing agranulocytosis with a marrow maturation arrest at the promyelocyte stage alongside profound T- and NK-cell lymphopenia. This is what separates RD from the commoner forms of SCID already curated here, where the lesion is in V(D)J recombination (RAG1/RAG2, DCLRE1C) or cytokine-receptor signalling (IL2RG, JAK3, IL7R) and myelopoiesis is spared. Erythroid and megakaryocytic maturation are generally preserved, which constrains the mechanism to a lineage-restricted rather than a global stem-cell defect. AK2 is separately required in the stria vascularis of the cochlea, which accounts for the bilateral sensorineural deafness that is unique to RD among the SCIDs and is the feature that flags the diagnosis clinically. Affected neonates present within the first weeks of life with overwhelming bacterial sepsis; the neutropenia is characteristically refractory to G-CSF, and allogeneic haematopoietic stem cell transplantation with myeloablative conditioning is the only cure - but it does not restore hearing, because the cochlear tissue is not replaced by donor cells.",
+    "pathophysiology": [
+      "AK2 Loss of Function in the Mitochondrial Intermembrane Space",
+      "Adenine Nucleotide Imbalance and Impaired Oxidative Phosphorylation",
+      "Oxidative Stress and Apoptosis in Haematopoietic Progenitors",
+      "Lineage-Restricted Vulnerability of Myeloid and Lymphoid Progenitors",
+      "Granulocytic Maturation Arrest at the Promyelocyte Stage",
+      "T and NK Lymphoid Differentiation Arrest",
+      "Stria Vascularis AK2 Requirement and Cochlear Ionic Homeostasis Failure",
+      "Cochlear Hair Cell Death and Sensory Organ Developmental Failure",
+      "Agranulocytosis and Failure of Innate Antibacterial Defence",
+      "Absent Adaptive Cellular Immunity"
+    ],
+    "cell_types": [
+      "haematopoietic stem and progenitor cell",
+      "granulocyte monocyte progenitor cell",
+      "common lymphoid progenitor",
+      "promyelocyte",
+      "neutrophil",
+      "T cell",
+      "natural killer cell",
+      "sensory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0000557",
+      "CL:0000051",
+      "CL:0000836",
+      "CL:0000775",
+      "CL:0000084",
+      "CL:0000623",
+      "CL:0000855"
+    ],
+    "biological_processes": [
+      "ATP metabolic process",
+      "oxidative phosphorylation",
+      "response to oxidative stress",
+      "apoptotic process",
+      "hematopoietic progenitor cell differentiation",
+      "myeloid cell differentiation",
+      "lymphocyte differentiation",
+      "TOR signaling",
+      "granulocyte differentiation",
+      "T cell differentiation",
+      "natural killer cell differentiation",
+      "potassium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Premature birth",
+      "Intrauterine growth restriction",
+      "Thrombocytopenia",
+      "Anemia",
+      "Congenital agranulocytosis",
+      "Myeloid maturation arrest",
+      "Decreased total lymphocyte count",
+      "Decreased total T cell count",
+      "Reduced total natural killer cell count",
+      "Decreased total B cell count",
+      "Bilateral sensorineural hearing impairment",
+      "Hypoplasia of the thymus",
+      "Neonatal sepsis",
+      "Recurrent bacterial infections"
+    ],
+    "phenotype_categories": [
+      "Perinatal",
+      "Hematologic",
+      "Immunologic",
+      "Auditory",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Immune",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001622",
+      "HP:0001511",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0005541",
+      "HP:0410253",
+      "HP:0001888",
+      "HP:0005403",
+      "HP:0040218",
+      "HP:0010976",
+      "HP:0008619",
+      "HP:0000778",
+      "HP:0040187",
+      "HP:0002718"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AK2"
+    ],
+    "treatments": [
+      "Immunoglobulin replacement therapy",
+      "Antimicrobial prophylaxis during the aplastic phase",
+      "Allogeneic haematopoietic stem cell transplantation with myeloablative conditioning",
+      "Cochlear implantation",
+      "Recombinant human granulocyte colony-stimulating factor"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Reticular_Dysgenesis.yaml",
+    "page_url": "../pages/disorders/Reticular_Dysgenesis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Retinal Arterial Tortuosity",
@@ -253826,6 +254207,156 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Sheehan Syndrome",
+    "disease_id": "MONDO:0019618",
+    "category": "Acquired",
+    "parents": [
+      "syndromic disease"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sheehan syndrome is acquired hypopituitarism caused by ischaemic infarction and necrosis of the anterior pituitary in the setting of severe postpartum haemorrhage. During pregnancy the anterior lobe enlarges through oestrogen-driven lactotroph hyperplasia while remaining confined within the bony sella turcica and dependent on the low-pressure hypophyseal portal circulation, so peripartum hypovolaemia and portal vasospasm can infarct it. Trophic hormone secretion is then lost, classically beginning with prolactin and growth hormone and extending to the gonadotropins, thyroid-stimulating hormone and adrenocorticotropic hormone, while the separately supplied posterior lobe is comparatively preserved. Presentation is dominated by failure of postpartum lactation, amenorrhoea and non-specific fatigue, so diagnosis is typically delayed by years to decades and may first be made when an intercurrent illness precipitates adrenal crisis. It is a leading cause of hypopituitarism where obstetric care is limited and is uncommon where postpartum haemorrhage is well managed.",
+    "pathophysiology": [
+      "Pregnancy-Induced Lactotroph Hyperplasia and Anterior Pituitary Enlargement",
+      "Portal Perfusion and Fixed Sellar Volume Constrain Anterior Pituitary Blood Supply",
+      "Postpartum Haemorrhage with Hypovolaemia and Portal Vasospasm",
+      "Ischaemic Infarction and Necrosis of the Anterior Pituitary",
+      "Relative Preservation of Posterior Pituitary Perfusion",
+      "Loss of Anterior Pituitary Trophic Hormone Secretion",
+      "Prolactin Deficiency",
+      "Growth Hormone Deficiency",
+      "Gonadotropin Deficiency",
+      "Central Hypothyroidism from Thyroid-Stimulating Hormone Deficiency",
+      "Reduced Thyroid Hormone Action and Hypometabolism",
+      "Secondary Adrenal Insufficiency from Corticotropin Deficiency",
+      "Progressive Pituitary Atrophy and Empty Sella Formation"
+    ],
+    "cell_types": [
+      "lactotroph",
+      "pituitary gland cell",
+      "somatotroph",
+      "gonadotroph",
+      "thyrotroph",
+      "thyroid follicular cell",
+      "corticotroph"
+    ],
+    "cell_type_ids": [
+      "CL:0000439",
+      "CL:2000004",
+      "CL:0002312",
+      "CL:0000437",
+      "CL:0000476",
+      "CL:0002258",
+      "CL:0002309"
+    ],
+    "biological_processes": [
+      "lactotroph proliferation",
+      "cellular response to hypoxia",
+      "prolactin secretion",
+      "growth hormone secretion",
+      "gonadotropin secretion",
+      "thyroid-stimulating hormone secretion",
+      "thyroid hormone generation",
+      "response to thyroid hormone",
+      "regulation of metabolic process",
+      "corticotropin secretion"
+    ],
+    "phenotypes": [
+      "Failure of Postpartum Lactation",
+      "Secondary Amenorrhoea",
+      "Hypogonadotropic Hypogonadism",
+      "Loss of Axillary and Pubic Hair",
+      "Central Hypothyroidism",
+      "Secondary Adrenal Insufficiency",
+      "Adrenal Crisis",
+      "Hyponatraemia",
+      "Hypoglycaemia",
+      "Chronic Fatigue",
+      "Cold Intolerance",
+      "Hypotension",
+      "Growth Hormone Deficiency",
+      "Hepatic Steatosis",
+      "Metabolic Syndrome",
+      "Increased Body Fat with Abdominal Predominance",
+      "Atherogenic Dyslipidemia",
+      "Insulin Resistance",
+      "Diabetes Mellitus",
+      "Osteoporosis",
+      "Anaemia"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Integumentary",
+      "Metabolic",
+      "Constitutional",
+      "Cardiovascular",
+      "Hepatic",
+      "Musculoskeletal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031109",
+      "HP:0000869",
+      "HP:0000044",
+      "HP:0002221",
+      "HP:0008245",
+      "HP:0011735",
+      "HP:0000846",
+      "HP:0002902",
+      "HP:0001943",
+      "HP:0012432",
+      "HP:6000855",
+      "HP:0002615",
+      "HP:0008240",
+      "HP:0001397",
+      "MONDO:0000816",
+      "HP:0012743",
+      "HP:0003119",
+      "HP:0000855",
+      "HP:0000819",
+      "HP:0000939",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Lifelong Pituitary Hormone Replacement",
+      "Glucocorticoid Replacement",
+      "Levothyroxine Replacement",
+      "Sex Steroid Replacement",
+      "Growth Hormone Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sheehan_Syndrome.yaml",
+    "page_url": "../pages/disorders/Sheehan_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Shigellosis",
@@ -291681,17 +292212,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2823,
-  "total_subtypes": 3690,
-  "total_disorders_and_subtypes": 6513,
-  "total_unique_evidence_sources": 39783,
-  "total_unique_publications": 37474,
+  "total_disorder_pages": 2827,
+  "total_subtypes": 3695,
+  "total_disorders_and_subtypes": 6522,
+  "total_unique_evidence_sources": 39859,
+  "total_unique_publications": 37546,
   "total_unique_disease_categories": 57,
-  "total_unique_phenotype_categories": 278,
-  "total_pathographs": 2818,
-  "total_unique_pathological_events": 16849,
+  "total_unique_phenotype_categories": 279,
+  "total_pathographs": 2822,
+  "total_unique_pathological_events": 16903,
   "total_modules": 173,
-  "total_research_reports": 2952,
+  "total_research_reports": 2956,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
