@@ -86458,7 +86458,10 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000540"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "inclusion body assembly",
+      "autophagy"
+    ],
     "phenotypes": [
       "Visual Hallucinations",
       "Parkinsonism",
@@ -95602,6 +95605,110 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Dyssegmental Dysplasia",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-08-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DDSH",
+      "DDRD"
+    ],
+    "description": "Dyssegmental dysplasia (DD) is a rare autosomal recessive skeletal dysplasia caused by biallelic loss-of-function variants in HSPG2, the gene encoding perlecan \u2014 the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Its defining radiographic feature is anisospondyly: vertebral ossification centres of irregular size and shape, with defective segmentation and fusion of the vertebral bodies, from which the disorder takes its name. This is combined with micromelia, short thick bowed and dumbbell-shaped tubular bones, a narrow thorax, and a characteristic flat facies with short neck, micrognathia and cleft palate. Mutant perlecan is retained and degraded intracellularly rather than secreted, so the cartilage extracellular matrix is depleted of perlecan; the growth-plate columnar architecture and endochondral ossification then fail. DD is curated here as one entry spanning its two long-recognized clinical grades \u2014 the lethal Silverman-Handmaker type (DDSH) and the nonlethal Rolland-Desbuquois type (DDRD) \u2014 because both are now known to be caused by biallelic HSPG2 variants and share a single pathomechanism, differing in the amount of residual functional perlecan rather than in kind. Together with Schwartz-Jampel syndrome, which arises from hypomorphic alleles of the same gene, they form an allelic perlecan gene-dosage series.",
+    "pathophysiology": [
+      "Biallelic HSPG2 Loss-of-Function Variation",
+      "Failure of Perlecan Secretion into the Extracellular Matrix",
+      "Cartilage Extracellular Matrix Disorganization",
+      "Growth-Plate Disorganization and Defective Endochondral Ossification",
+      "Anisospondyly",
+      "Micromelia with Bowed, Dumbbell-Shaped Tubular Bones",
+      "Narrow Thorax with Neonatal Respiratory Failure"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "growth plate chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "endochondral ossification",
+      "chondrocyte proliferation",
+      "chondrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Anisospondyly",
+      "Coronal Cleft Vertebrae",
+      "Deficient Vertebral Ossification",
+      "Hydrocephalus",
+      "Occipital Encephalocele",
+      "Micromelia",
+      "Bowed Long Bones",
+      "Severe Short Stature",
+      "Narrow Thorax",
+      "Respiratory Insufficiency",
+      "Cleft Palate",
+      "Short Neck",
+      "Micrognathia",
+      "Limitation of Joint Mobility",
+      "Myotonia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Neurologic",
+      "Respiratory",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Neuromuscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003422",
+      "HP:0003417",
+      "HP:0004599",
+      "HP:0000238",
+      "HP:0002085",
+      "HP:0002983",
+      "HP:0006487",
+      "HP:0003510",
+      "HP:0000774",
+      "HP:0002093",
+      "HP:0000175",
+      "HP:0000470",
+      "HP:0000347",
+      "HP:0001376",
+      "HP:0002486"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HSPG2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dyssegmental_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Dyssegmental_Dysplasia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dystroglycanopathy",
@@ -204317,31 +204424,39 @@ window.searchData = [
     "pathophysiology": [
       "Upper Airway Collapse",
       "Intermittent Hypoxia",
+      "TLR4 Upregulation",
+      "MyD88-Dependent NF-\u03baB Activation",
+      "MAPK Cascade Activation",
       "Sleep Fragmentation",
       "Non-Anatomic Endotypic Traits",
       "Sympathetic Overactivation",
+      "NLRP3 Inflammasome Activation",
       "Systemic Inflammation",
       "Ocular Surface Inflammation and Dry Eye Disease"
     ],
     "cell_types": [
       "Genioglossus pharyngeal dilator muscle cell",
       "Sympathetic postganglionic neuron",
-      "Vascular endothelial cell",
       "Macrophage",
+      "Vascular endothelial cell",
       "Meibomian (sebaceous) gland cell"
     ],
     "cell_type_ids": [
       "CL:0002673",
       "CL:0011103",
-      "CL:0002139",
       "CL:0000235",
+      "CL:0002139",
       "CL:2000021"
     ],
     "biological_processes": [
       "Sleep-related loss of pharyngeal dilator muscle tone",
       "Response to Hypoxia",
+      "Toll-like receptor 4 signaling pathway",
+      "Positive regulation of NF-kB transcription factor activity",
+      "MAPK cascade",
       "Sleep Regulation",
       "nervous system control of respiratory gas exchange",
+      "Interleukin-1 Beta Production",
       "Inflammatory Response",
       "Ocular Surface Inflammation",
       "Response to Oxidative Stress",
@@ -204414,11 +204529,11 @@ window.searchData = [
     "source_file": "Obstructive_Sleep_Apnea.yaml",
     "page_url": "../pages/disorders/Obstructive_Sleep_Apnea.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ochoa syndrome",
@@ -292568,15 +292683,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2830,
-  "total_subtypes": 3697,
-  "total_disorders_and_subtypes": 6527,
-  "total_unique_evidence_sources": 39920,
-  "total_unique_publications": 37604,
+  "total_disorder_pages": 2831,
+  "total_subtypes": 3699,
+  "total_disorders_and_subtypes": 6530,
+  "total_unique_evidence_sources": 39931,
+  "total_unique_publications": 37615,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2825,
-  "total_unique_pathological_events": 16934,
+  "total_pathographs": 2826,
+  "total_unique_pathological_events": 16943,
   "total_modules": 173,
   "total_research_reports": 2959,
   "total_classifications": 19,
