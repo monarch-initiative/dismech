@@ -162013,6 +162013,119 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "LPIN1-Related Recurrent Myoglobinuria",
+    "disease_id": "MONDO:0009992",
+    "category": "Genetic",
+    "parents": [
+      "MONDO:0020504"
+    ],
+    "creation_date": "2026-09-05T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "LPIN1-related recurrent myoglobinuria (OMIM #268200) is an autosomal recessive disorder caused by biallelic loss-of-function variants in LPIN1, which encodes lipin-1, the Mg2+-dependent phosphatidic acid phosphatase that converts phosphatidic acid to diacylglycerol and accounts for most of that activity in skeletal muscle. It is a major cause, in some series the commonest, of severe recurrent rhabdomyolysis in early childhood: episodes usually begin before age six (mean about 21 months), are precipitated by febrile illness, fasting, strenuous exercise or anaesthesia, and produce massive creatine kinase elevation (often above 100,000 U/L), myoglobinuria, myalgia and weakness, with acute kidney injury, hyperkalaemia and fatal arrhythmia in the most severe attacks; about a third of patients have died, most during a crisis. Between attacks most patients are clinically well, although exercise intolerance and permanent muscle symptoms occur, and rare adolescent- or adult-onset and atypical neuromuscular presentations are described. Patient muscle and myoblasts show loss of phosphatidate phosphatase activity, phosphatidic acid and lipid-droplet accumulation, impaired fatty acid oxidation during exercise, and defective mitochondrial quality control in which oxidised mitochondrial DNA accumulating in late endosomes activates TLR9-driven inflammatory signalling and caspase-dependent myolysis, a model that also explains the febrile trigger. Muscle-specific Lpin1-null mice add sarcoplasmic reticulum stress and loss of membrane integrity with apoptotic and necroptotic myofibre death. There is no approved targeted therapy: attacks are managed with aggressive intravenous fluid and glucose, electrolyte and cardiac monitoring, and, in the largest cohort, intravenous corticosteroids; low-dose hydroxychloroquine has been given compassionately, and glucose loading improves exercise capacity. The mitochondrially inherited recurrent myoglobinuria attributed to mtDNA cytochrome c oxidase gene mutations (MONDO:0010791, OMIM 550500) is a separate entity.\n",
+    "pathophysiology": [
+      "Biallelic LPIN1 Loss of Function",
+      "Phosphatidic Acid Accumulation and Glycerolipid Imbalance",
+      "Impaired Mitochondrial Quality Control and Fatty Acid Oxidation",
+      "Sarcoplasmic Reticulum Stress",
+      "Oxidized Mitochondrial DNA-TLR9 Inflammatory Signaling",
+      "Trigger-Induced Myofibre Necrosis"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "fatty acid metabolic process",
+      "mitophagy",
+      "fatty acid beta-oxidation",
+      "response to endoplasmic reticulum stress",
+      "toll-like receptor 9 signaling pathway",
+      "inflammatory response",
+      "necroptotic process"
+    ],
+    "phenotypes": [
+      "Rhabdomyolysis",
+      "Myoglobinuria",
+      "Elevated circulating creatine kinase activity",
+      "Elevated circulating hepatic transaminase concentration",
+      "Myalgia",
+      "Muscle weakness",
+      "Exercise intolerance",
+      "Increased intramyocellular lipid droplets",
+      "Acute kidney injury",
+      "Cardiac arrest",
+      "Abnormal T-wave",
+      "Hypotonia",
+      "Hyporeflexia"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Histopathology",
+      "Renal",
+      "Cardiovascular",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003201",
+      "HP:0002913",
+      "HP:0003236",
+      "HP:0002910",
+      "HP:0003326",
+      "HP:0001324",
+      "HP:0003546",
+      "HP:0012240",
+      "HP:0001919",
+      "HP:0001695",
+      "HP:0005135",
+      "HP:0001252",
+      "HP:0001265"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LPIN1"
+    ],
+    "treatments": [
+      "Emergency management of acute rhabdomyolysis",
+      "Intravenous corticosteroids during attacks",
+      "Low-dose hydroxychloroquine (compassionate)",
+      "Glucose supplementation during exercise and avoidance of fasting",
+      "TUDCA and bezafibrate (preclinical)",
+      "Genetic counseling and carrier advice"
+    ],
+    "environmental": [
+      "Febrile illness",
+      "Strenuous exercise",
+      "Fasting",
+      "General anaesthesia"
+    ],
+    "biochemical": [],
+    "source_file": "LPIN1-Related_Recurrent_Myoglobinuria.yaml",
+    "page_url": "../pages/disorders/LPIN1-Related_Recurrent_Myoglobinuria.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "LRBA Deficiency",
     "disease_id": "MONDO:0013863",
     "category": "Mendelian",
@@ -175569,6 +175682,71 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Maleylacetoacetate Isomerase Deficiency",
+    "disease_id": "MONDO:0060527",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of Tyrosine Metabolism",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Maleylacetoacetate isomerase deficiency is an autosomal recessive inborn error of tyrosine catabolism caused by biallelic variants in GSTZ1, which encodes maleylacetoacetate isomerase \u2014 the glutathione-dependent enzyme that isomerises maleylacetoacetate to fumarylacetoacetate, the step immediately upstream of fumarylacetoacetate hydrolase. It is curated here because it is the exception that the rest of the distal tyrosine pathway does not predict: a block one enzyme above the lesion that causes hepatorenal tyrosinemia type 1 produces only mild, often intermittent hypersuccinylacetonaemia and, in every molecularly confirmed individual followed to date, no disease. The mechanistic explanation is a glutathione-mediated non-enzymatic isomerisation of maleylacetoacetate that partially substitutes for the missing enzyme, demonstrated in vitro and in Gstz1-null mice. That bypass is not unconditional: under phenylalanine or tyrosine overload, a high-protein diet, or glutathione depletion, mutant mice develop renal and hepatic necrosis and die, and no human counterpart of that stressed state has been reported. Clinically the entry matters mainly as a differential diagnosis in newborn screening \u2014 elevated dried-blood-spot succinylacetone is no longer pathognomonic for tyrosinemia type 1 \u2014 where elevated urinary maleic acid discriminates the two and spares the infant unnecessary nitisinone and dietary restriction.\n",
+    "pathophysiology": [
+      "Maleylacetoacetate isomerase deficiency",
+      "Maleylacetoacetate accumulation behind the block",
+      "Glutathione-dependent non-enzymatic isomerisation to fumarylacetoacetate",
+      "Escape of succinylacetone and maleic acid into blood and urine",
+      "Bypass saturation under substrate overload or glutathione depletion",
+      "Hepatorenal injury and leucopenia in the saturated state"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "L-tyrosine catabolic process"
+    ],
+    "phenotypes": [
+      "Mild hypersuccinylacetonaemia",
+      "Elevated urinary succinylacetone",
+      "Elevated urinary maleic acid excretion"
+    ],
+    "phenotype_categories": [
+      "Biochemical"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:6001410",
+      "HP:6000598",
+      "HP:0031980"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GSTZ1 deficiency"
+    ],
+    "treatments": [
+      "Withholding nitisinone and dietary tyrosine restriction, with structured surveillance",
+      "Avoidance of dichloroacetate, glutathione-depleting drugs and protein supplements",
+      "Genetic counselling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma and dried-blood-spot succinylacetone",
+      "Urinary maleic acid"
+    ],
+    "source_file": "Maleylacetoacetate_Isomerase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Maleylacetoacetate_Isomerase_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Malignant Atrophic Papulosis",
@@ -292683,17 +292861,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2831,
+  "total_disorder_pages": 2833,
   "total_subtypes": 3699,
-  "total_disorders_and_subtypes": 6530,
-  "total_unique_evidence_sources": 39931,
-  "total_unique_publications": 37615,
+  "total_disorders_and_subtypes": 6532,
+  "total_unique_evidence_sources": 39964,
+  "total_unique_publications": 37647,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2826,
-  "total_unique_pathological_events": 16943,
+  "total_pathographs": 2828,
+  "total_unique_pathological_events": 16955,
   "total_modules": 173,
-  "total_research_reports": 2959,
+  "total_research_reports": 2961,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
