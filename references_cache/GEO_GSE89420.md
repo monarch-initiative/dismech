@@ -1,0 +1,12 @@
+---
+reference_id: GEO:GSE89420
+title: Surveillance of rRNA synthesis by an RNA helicase mediates tissue-specific developmental disorders
+content_type: summary
+full_text_attempted: true
+---
+
+# Surveillance of rRNA synthesis by an RNA helicase mediates tissue-specific developmental disorders
+
+## Content
+
+Myriad of craniofacial disorders are caused by heterozygous mutations in general regulators of housekeeping cellular functions such as ribosome biogenesis. While it is understood that many of these highly tissue-specific malformations are a consequence of defects in cranial neural crest cells (cNCCs), an embryonic cell group that gives rise to most of the facial structures during embryogenesis, the mechanism underlying cell type-selectivity of these effects remains largely unknown. Here we show that DDX21, a DEAD-box RNA helicase involved in control of both RNA polymerase (Pol) I and Pol II dependent transcriptional arms of ribosome biogenesis, is a key mediator of the nucleolar stress response. Using an in vitro model of Treacher Collins Syndrome (TCS), a craniofacial disorder caused by heterozygous mutations in components of the Pol I transcriptional machinery, we demonstrate that perturbations in ribosomal RNA (rRNA) transcription induce DDX21-mediated surveillance mechanism in cNCCs, leading to DDX21 relocalization from the nucleolus to the nucleoplasm, its eviction from Pol I and Pol II chromatin targets and inhibition of rRNA processing. Importantly, these effects are cell type-selective, cell-autonomous and involve activation of the p53 pathway. We further show that cNCCs are characterized by the inherently high reservoir of p53 mRNA and sensitivity to p53-mediated apoptosis. Remarkably, preventing the loss of DDX21 from nucleolus and chromatin can rescue both the sensitivity to apoptosis and TCS-associated craniofacial phenotypes in vivo. This mechanism is not restricted to TCS, as gene function perturbations linked to other ribosomopathies with craniofacial manifestations also lead to the activation of DDX21 surveillance. Lastly, we provide evidence that inhibition of rRNA synthesis leads to rDNA damage, and furthermore, that rDNA damage is sufficient to activate DDX21 surveillance and elicits tissue-selective and dosage-dependent effects on craniofacial development in vivo.

@@ -1,0 +1,21 @@
+---
+reference_id: DOI:10.18699/VJGB-23-04
+title: Molecular genetic basis of epidermolysis bullosa
+authors:
+- Yu. Yu. Kotalevskaya
+- V. A. Stepanov
+journal: Vavilov Journal of Genetics and Breeding
+year: '2023'
+doi: 10.18699/VJGB-23-04
+content_type: abstract_only
+is_preprint: false
+---
+
+# Molecular genetic basis of epidermolysis bullosa
+**Authors:** Yu. Yu. Kotalevskaya, V. A. Stepanov
+**Journal:** Vavilov Journal of Genetics and Breeding (2023)
+**DOI:** [10.18699/VJGB-23-04](https://doi.org/10.18699/VJGB-23-04)
+
+## Content
+
+Epidermolysis bullosa (EB) is an inherited disorder of skin fragility, caused by mutations in a large number of genes associated with skin integrity and dermal-epidermal adhesion. Skin fragility is manifested by a decrease in resistance to external mechanical influences, the clinical signs of which are the formation of blisters, erosions and wounds on the skin and mucous membranes. EB is a multisystemic disease and characterized by a wide phenotypic spectrum with extracutaneous complications in severe types, besides the skin and mucous membranes, with high mortality. More than 30 clinical subtypes have been identified, which are grouped into four main types: simplex EB, junctional EB, dystrophic EB and Kindler syndrome. To date, pathogenic variants in 16 different genes are associated with EB and encode proteins that are part of the skin anchoring structures or are signaling proteins. Genetic mutations cause dysfunction of cellular structures, differentiation, proliferation and apoptosis of cells, leading to mechanical instability of the skin. The formation of reduced proteins or decrease in their level leads mainly to functional disorders, forming mild or intermediate severe phenotypes. Absent protein expression is a result of null genetic variants and leads to structural abnormalities, causing a severe clinical phenotype. For most of the genes involved in the pathogenesis of EB, certain relationships have been established between the type and position of genetic variant and the severity of the clinical manifestations of the disease. Establishing an accurate diagnosis depends on the correlation of clinical, genealogical and immunohistological data in combination with molecular genetic testing. In general, the study of clinical, genetic and ultrastructural changes in EB has significantly expanded the understanding of the natural history of the disease and supplemented the data on genotype-phenotype correlations, promotes the search and study of epigenetic and non-genetic disease modifier factors, and also allows developing approaches to radical treatment of the disease. New advances of sequencing technologies have made it possible to describe new phenotypes and study their genetic and molecular mechanisms. This article describes the pathogenetic aspects and genes that cause main and rare syndromic subtypes of EB.
