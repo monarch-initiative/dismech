@@ -1,5 +1,9 @@
 # ICD-10 mapping coverage
 
+> **Historical, before enrichment.** See the [implemented workflow and current
+> coverage](current/README.md). The data files beside this report preserve the
+> initial audit; the coverage script now writes to `current/` by default.
+
 Exploration on 2026-09-08 of the 1,728 indexed Boomer inputs, including 1,550
 grounded entries with `category: Mendelian`. The 12 ungrounded Mendelian
 candidates in [the selection report](../mendelian.tsv) are outside this denominator.

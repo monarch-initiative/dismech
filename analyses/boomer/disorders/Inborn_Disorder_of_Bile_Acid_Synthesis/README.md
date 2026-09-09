@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # Inborn Disorder of Bile Acid Synthesis
 
 Boomer grounding analysis for [`kb/disorders/Inborn_Disorder_of_Bile_Acid_Synthesis.yaml`](../../../../kb/disorders/Inborn_Disorder_of_Bile_Acid_Synthesis.yaml).

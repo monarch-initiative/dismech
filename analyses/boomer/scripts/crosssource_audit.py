@@ -13,14 +13,12 @@ two assertions compete. This script reports those cases.
 
 Prefixes are normalised before comparison because the two sources spell the same
 vocabulary differently (dismech ``icd11f:`` vs MONDO ``icd11.foundation:``;
-dismech ``ICD10CM:`` vs MONDO ``ICD10:``; MONDO ``Orphanet:`` vs ``ORDO:``).
+MONDO ``Orphanet:`` vs ``ORDO:``). WHO ICD-10 and ICD-10-CM remain distinct.
 
 **Read the output with care.** Most hits are granularity differences rather than
-contradictions -- ``ICD10CM:Q93.5`` vs ``ICD10:Q93.51`` is a parent code against
-its child, which is a perfectly reasonable pair of assertions when the dismech
-side is recorded as ``narrowMatch``. Only a hit where *both* sides claim exact
-identity to different terms is a genuine conflict. The ``both_exact`` column
-flags those.
+contradictions. A broadMatch to a parent category can coexist with an exactMatch
+to its child. The ``both_exact`` column flags competing exact assertions for
+review; distinct identifiers alone do not prove logical inconsistency.
 
 Usage:
     uv run python analyses/boomer/scripts/crosssource_audit.py \
@@ -36,16 +34,16 @@ import sqlite3
 import sys
 from pathlib import Path
 
-import yaml
-
 MONDO_DB = Path.home() / ".data/oaklib/mondo.db"
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "src"))
+from dismech import kb_cache  # noqa: E402
 
 # collapse the spelling differences between the two sources
 PREFIX_ALIASES = {
     "icd11f": "ICD11",
     "icd11.foundation": "ICD11",
-    "ICD10CM": "ICD10",
+    "ICD-10": "ICD10",
     "ICD10": "ICD10",
     "Orphanet": "ORPHA",
     "ORDO": "ORPHA",
@@ -102,6 +100,7 @@ def mondo_xrefs(con, curie):
 
 
 def main(argv=None):
+    kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--kb", default=str(REPO / "kb/disorders/*.yaml"))
     ap.add_argument("--out", required=True)
@@ -119,7 +118,7 @@ def main(argv=None):
 
     rows = []
     for path in sorted(glob.glob(args.kb)):
-        data = yaml.safe_load(open(path)) or {}
+        data = kb_cache.load_document(path) or {}
         if not isinstance(data, dict):
             continue
         mondo = term_id(data.get("disease_term"))
@@ -172,7 +171,7 @@ def main(argv=None):
 
     n_exact = sum(r["both_exact"] == "true" for r in rows)
     print(f"cross-vocabulary disagreements: {len(rows)}")
-    print(f"  dismech side asserts exactMatch (genuine conflict): {n_exact}")
+    print(f"  competing exact assertions to review: {n_exact}")
     print(
         f"  dismech side is close/narrow/broadMatch (usually granularity): {len(rows) - n_exact}"
     )

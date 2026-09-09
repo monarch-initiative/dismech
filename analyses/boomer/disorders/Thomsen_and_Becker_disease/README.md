@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # Thomsen and Becker disease
 
 Boomer grounding analysis for [`kb/disorders/Thomsen_and_Becker_disease.yaml`](../../../../kb/disorders/Thomsen_and_Becker_disease.yaml).

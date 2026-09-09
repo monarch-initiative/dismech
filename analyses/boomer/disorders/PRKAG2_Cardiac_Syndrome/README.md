@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # PRKAG2 Cardiac Syndrome
 
 Boomer grounding analysis for [`kb/disorders/PRKAG2_Cardiac_Syndrome.yaml`](../../../../kb/disorders/PRKAG2_Cardiac_Syndrome.yaml).

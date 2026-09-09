@@ -25,21 +25,35 @@ boomer-all: boomer-disorders boomer-groupings boomer-cross-source
 boomer-disorders:
     uv run --with networkx python boomer/scripts/build_analyses.py \
         --out boomer/disorders --index boomer/index.tsv \
-        --boomer-src {{boomer_src}} --scope expanded --oak-dir {{oak_dir}} \
+        --boomer-src {{boomer_src}} --scope expanded --oak-dir {{oak_dir}} --with-icd10 \
         --selection-report boomer/mendelian.tsv
 
 # Add Mendelian inputs marked NOT_RUN while preserving existing indexed results.
 boomer-expand-mendelian:
     uv run --with networkx python boomer/scripts/build_analyses.py \
         --out boomer/disorders --index boomer/index.tsv \
-        --scope mendelian --add-only --inputs-only --oak-dir {{oak_dir}} \
+        --scope mendelian --add-only --inputs-only --oak-dir {{oak_dir}} --with-icd10 \
         --selection-report boomer/mendelian.tsv
 
 # One disorder only -- for iterating. e.g. `just boomer-one Adult_Refsum_Disease`
 boomer-one slug:
     uv run --with networkx python boomer/scripts/build_analyses.py \
-        --out boomer/disorders --boomer-src {{boomer_src}} --only {{slug}} \
-        --scope expanded --oak-dir {{oak_dir}}
+        --out boomer/disorders --index boomer/index.tsv --boomer-src {{boomer_src}} --only {{slug}} \
+        --scope expanded --oak-dir {{oak_dir}} --with-icd10
+
+# Prepare the checksum-pinned WHO ICD-10 label/hierarchy projection for OAK.
+boomer-prepare-icd10:
+    uv run python boomer/scripts/prepare_icd10.py --oak-dir {{oak_dir}}
+
+# Add directional ICD hypotheses to existing Mendelian inputs; mark old solves stale.
+boomer-enrich-icd10:
+    uv run --with networkx python boomer/scripts/enrich_icd10_inputs.py \
+        --oak-dir {{oak_dir}} --boomer-src {{boomer_src}}
+
+# Recompute coverage separately from the historical pre-enrichment snapshot.
+boomer-icd10-coverage:
+    uv run python boomer/scripts/icd10_coverage.py --oak-dir {{oak_dir}} \
+        --out boomer/icd10/current
 
 # Fill missing external labels in existing KB inputs, without running the solver.
 boomer-labels:
@@ -56,17 +70,12 @@ boomer-cross-source:
     uv run python boomer/scripts/crosssource_audit.py \
         --out boomer/cross-source/disagreements.tsv
 
-# `-C 6` below is NOT optional. The partitioning that makes these tractable is a solver
-# setting and is not serialised into kb.yaml; without it boomer runs at its
-# default and times out on anything past a few subtypes. The CLI has no flag for
-# partition_initial_threshold, but --max-pfacts-per-clique triggers the same
-# partitioning and reproduces the committed results exactly.
-#
-# Solve one committed kb.yaml through the boomer CLI, reproducing its solution.md.
+# Solve one current input to stdout. A timeout is not a settled result; lowering
+# -C can discard interacting hypotheses. Use boomer-one to regenerate saved results.
 boomer-solve slug timeout="60":
     cd {{boomer_src}}/.. && uv run pyboomer solve \
         {{justfile_directory()}}/boomer/disorders/{{slug}}/kb.yaml \
-        -t {{timeout}} -C 6 -O markdown
+        -t {{timeout}} -O markdown
 
 # Are the committed outputs still what the scripts produce? Prints a diff if not.
 boomer-check:
@@ -88,6 +97,12 @@ check-deps:
       if [ -f "{{oak_dir}}/$db.db" ]; then echo "  ok      $db.db"
       else echo "  MISSING $db.db"; missing=1; fi
     done
+    if [ -f "{{oak_dir}}/icd10-who-2019.obo" ]; then
+      echo "  ok      icd10-who-2019.obo"
+    else
+      echo "  MISSING WHO ICD-10 projection: run just boomer-prepare-icd10"
+      missing=1
+    fi
     if [ "$missing" = 1 ]; then
       echo
       echo "Fetch a missing one with:  uv run runoak -i sqlite:obo:<name> info CURIE"

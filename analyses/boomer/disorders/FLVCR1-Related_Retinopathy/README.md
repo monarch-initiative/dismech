@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # FLVCR1-Related Retinopathy with or without Ataxia
 
 Boomer grounding analysis for [`kb/disorders/FLVCR1-Related_Retinopathy.yaml`](../../../../kb/disorders/FLVCR1-Related_Retinopathy.yaml).

@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # Juvenile Amyotrophic Lateral Sclerosis
 
 Boomer grounding analysis for [`kb/disorders/Juvenile_Amyotrophic_Lateral_Sclerosis.yaml`](../../../../kb/disorders/Juvenile_Amyotrophic_Lateral_Sclerosis.yaml).

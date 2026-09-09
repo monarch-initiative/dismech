@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # Hereditary Sensory and Autonomic Neuropathy Type 2
 
 Boomer grounding analysis for [`kb/disorders/Hereditary_Sensory_and_Autonomic_Neuropathy_Type_2.yaml`](../../../../kb/disorders/Hereditary_Sensory_and_Autonomic_Neuropathy_Type_2.yaml).

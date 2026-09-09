@@ -26,16 +26,13 @@ Each folder gets:
 
     README.md      what was checked, per-subtype verdicts, what boomer did
     kb.yaml        the boomer input, runnable as
-                   `pyboomer solve kb.yaml -t 60 -C 6`
+                   `pyboomer solve kb.yaml -t 60`
     solution.yaml  boomer's output, machine-readable
     solution.md    boomer's output, rendered
 
-`-C 6` is not optional in the reproduction command. The partitioning that makes
-these KBs tractable is a solver setting, not something serialised into kb.yaml, so
-a plain `pyboomer solve kb.yaml` runs at boomer's default and times out on
-anything past a handful of subtypes. The CLI has no flag for
-`partition_initial_threshold`, but `--max-pfacts-per-clique` triggers the same
-partitioning and reproduces these results exactly.
+Always set a timeout. `-C` limits hypotheses per clique and may remove interacting
+hypotheses; lowering it is not a semantics-preserving performance optimization.
+`--with-icd10` adds directional ICD mappings to Mendelian entries only.
 
 Usage:
     uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
@@ -62,6 +59,7 @@ OAK_DIR = Path.home() / ".data/oaklib"
 MONDO_DB = OAK_DIR / "mondo.db"
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dismech import kb_cache  # noqa: E402
 
 # External vocabularies reachable from MONDO by CONFIRMED equivalency, for which a
@@ -177,7 +175,17 @@ class Mondo:
 class External:
     """Cached reader over the external ontologies' own hierarchies."""
 
-    def __init__(self, oak_dir=OAK_DIR, dbs=EXTERNAL_DBS):
+    def __init__(self, oak_dir=OAK_DIR, dbs=None):
+        if dbs is None:
+            dbs = dict(EXTERNAL_DBS)
+            # Reuse configured local OAK source names. OLS-backed validators do
+            # not replace the local graph snapshots needed by this analysis.
+            adapters = yaml.safe_load((REPO / "conf/oak_config.yaml").read_text())[
+                "ontology_adapters"
+            ]
+            for vocab, adapter in adapters.items():
+                if vocab in dbs and adapter.startswith("sqlite:obo:"):
+                    dbs[vocab] = adapter.removeprefix("sqlite:obo:") + ".db"
         self.con = {}
         for vocab, filename in dbs.items():
             path = Path(oak_dir) / filename
@@ -353,6 +361,9 @@ def collect(kb_glob, mondo, external, scope="subtypes", selection=None):
                     v: sorted(t) for v, t in sorted(parent_equivs.items())
                 },
                 "curated_predicate": curated_predicate,
+                "category": data.get("category"),
+                "direct_icd10cm": (data.get("mappings") or {}).get("icd10cm_mappings")
+                or [],
                 "pairs": pairs,
             }
             if reasons:
@@ -360,7 +371,7 @@ def collect(kb_glob, mondo, external, scope="subtypes", selection=None):
             yield rec
 
 
-def build_kb_dict(mondo, external, rec):
+def build_kb_dict(mondo, external, rec, icd10=None):
     d_parent = f"dismech:{rec['slug']}"
     terms = {rec["parent_term"], *(p["term"] for p in rec["pairs"])}
 
@@ -512,6 +523,8 @@ def build_kb_dict(mondo, external, rec):
     }
     for curie in add_external_labels(kb_dict, external):
         print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
+    if icd10 is not None and rec.get("category") == "Mendelian":
+        icd10.enrich(kb_dict, rec["slug"], rec.get("direct_icd10cm", []))
     return kb_dict
 
 
@@ -706,10 +719,10 @@ def write_readme(folder, rec, sol, retracted, timed_out, inputs_only=False):
     elif retracted:
         lines += [
             "Boomer could **not** accept every mapping at once and retracted the following",
-            "identity claim(s) to restore consistency:",
+            "mapping claim(s) to restore consistency:",
             "",
         ]
-        lines += [f"- `{sub}` ≡ `{obj}`" for sub, obj in retracted]
+        lines += [f"- `{sub}` {relation} `{obj}`" for sub, relation, obj in retracted]
         lines += [
             "",
             "A retraction means these assertions are jointly unsatisfiable, not that the",
@@ -719,7 +732,7 @@ def write_readme(folder, rec, sol, retracted, timed_out, inputs_only=False):
         ]
     else:
         lines += [
-            "All asserted high-prior identity mappings were accepted together.",
+            "All asserted high-prior mappings were accepted together.",
             "The included mapping and ontology constraints are jointly consistent for this entry.",
             "",
         ]
@@ -744,14 +757,7 @@ def write_readme(folder, rec, sol, retracted, timed_out, inputs_only=False):
         "",
         "| File | What |",
         "|---|---|",
-        (
-            "| [`kb.yaml`](kb.yaml) | Boomer input. Run with "
-            + (
-                "`pyboomer solve kb.yaml -t 60`. |"
-                if inputs_only
-                else "`pyboomer solve kb.yaml -t 60 -C 6`. |"
-            )
-        ),
+        "| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |",
         *(
             []
             if inputs_only
@@ -767,6 +773,23 @@ def write_readme(folder, rec, sol, retracted, timed_out, inputs_only=False):
     (folder / "README.md").write_text("\n".join(lines))
 
 
+def retracted_mappings(sol):
+    """Rejected high-prior identities and directions, excluding unassessed facts."""
+    if sol is None:
+        return []
+    return sorted(
+        (
+            f.sub,
+            "≡" if type(f).__name__ == "EquivalentTo" else "⊂",
+            f.equivalent if type(f).__name__ == "EquivalentTo" else f.sup,
+        )
+        for gp in (sol.solved_pfacts or [])
+        if type(f := gp.pfact.fact).__name__ in {"EquivalentTo", "ProperSubClassOf"}
+        and gp.truth_value is False
+        and gp.pfact.prob >= 0.5
+    )
+
+
 def main(argv=None):
     kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__)
@@ -780,13 +803,16 @@ def main(argv=None):
         type=int,
         default=6,
         help=(
-            "Minimum pfacts before boomer partitions the KB into independent cliques. "
-            "boomer's own default is 200, which never triggers at this scale and makes "
-            "even a 12-pfact KB time out; the subtypes of one entry are largely "
-            "independent, so splitting them is both sound and orders of magnitude faster."
+            "Minimum pfacts before boomer attempts partitioning. This is not a cap "
+            "on clique size and does not guarantee that a solve finishes before timeout."
         ),
     )
     ap.add_argument("--only", help="restrict to one slug (for debugging)")
+    ap.add_argument(
+        "--with-icd10",
+        action="store_true",
+        help="Include directional ICD mappings for Mendelian entries (requires prepared WHO snapshot)",
+    )
     ap.add_argument("--index", help="TSV index to write")
     ap.add_argument(
         "--inputs-only",
@@ -819,10 +845,10 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     existing = {}
-    if args.add_only:
+    if args.add_only or (args.only and args.index):
         if not args.index or not Path(args.index).is_file() or args.labels_only:
             ap.error(
-                "--add-only requires an existing --index and cannot accompany --labels-only"
+                "Updating indexed analyses requires an existing --index and cannot accompany --labels-only"
             )
         with Path(args.index).open() as fh:
             reader = csv.DictReader(fh, delimiter="\t")
@@ -842,6 +868,11 @@ def main(argv=None):
                     ap.error(f"Indexed analysis is incomplete: {slug}/{name}")
 
     external = External(oak_dir=args.oak_dir)
+    icd10 = None
+    if args.with_icd10:
+        from icd10_enrichment import ICD10Mappings
+
+        icd10 = ICD10Mappings(external, args.oak_dir)
     if args.labels_only:
         if args.index:
             ap.error("--labels-only does not regenerate --index")
@@ -889,7 +920,7 @@ def main(argv=None):
         flush=True,
     )
     for i, rec in enumerate(records, 1):
-        kb_dict = build_kb_dict(mondo, external, rec)
+        kb_dict = build_kb_dict(mondo, external, rec, icd10)
         sol = None
         if not args.inputs_only:
             kb = KB.model_validate(kb_dict)
@@ -899,21 +930,9 @@ def main(argv=None):
             sol.name = kb_dict["name"]
             stabilise_floats(sol)
 
-        # A rejected identity claim only counts as a RETRACTION if we asserted it
-        # with confidence. Where a curator has recorded the mapping as
-        # narrow/broad/relatedMatch, the identity pfact is deliberately given a low
-        # prior and its rejection is the expected outcome, not a conflict.
-        retracted = (
-            sorted(
-                (f.sub, f.equivalent)
-                for gp in (sol.solved_pfacts or [])
-                if type(f := gp.pfact.fact).__name__ == "EquivalentTo"
-                and not gp.truth_value
-                and gp.pfact.prob >= 0.5
-            )
-            if sol is not None
-            else []
-        )
+        # Include rejected high-prior directional mappings as well as identities.
+        # Low-prior alternatives and unassessed (None) facts are not retractions.
+        retracted = retracted_mappings(sol)
         timed_out = bool(sol and sol.timed_out)
 
         folder = out_root / rec["slug"]

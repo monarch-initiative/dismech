@@ -72,7 +72,9 @@ def write_tsv(path, rows, fields):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--oak-dir", type=Path, default=Path.home() / ".data/oaklib")
-    parser.add_argument("--out", type=Path, default=REPO / "analyses/boomer/icd10")
+    parser.add_argument(
+        "--out", type=Path, default=REPO / "analyses/boomer/icd10/current"
+    )
     args = parser.parse_args()
     kb_cache.default_off()
     databases = {}
@@ -171,6 +173,19 @@ def main():
         summary["cohorts"][name] = {
             "entries": len(rows),
             "boomer_icd10": sum(bool(r["boomer_icd10_terms"]) for r in rows),
+            "boomer_who_icd10": sum(
+                any(
+                    t.startswith(("ICD10:", "ICD-10:"))
+                    for t in r["boomer_icd10_terms"].split("|")
+                )
+                for r in rows
+            ),
+            "boomer_icd10cm": sum(
+                any(
+                    t.startswith("ICD10CM:") for t in r["boomer_icd10_terms"].split("|")
+                )
+                for r in rows
+            ),
             "direct_icd10cm": sum(bool(r["direct_icd10cm_count"]) for r in rows),
             "parent_mondo_icd10": sum(bool(r["mondo_icd10_count"]) for r in rows),
             "parent_ordo_icd10": sum(bool(r["ordo_icd10_count"]) for r in rows),

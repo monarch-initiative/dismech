@@ -39,6 +39,13 @@ The scope also includes Mendelian diseases without grounded subtypes. These
 inputs test cross-source mappings and can expose conflicting MONDO equivalences;
 they do not assert or validate a subtype hierarchy.
 
+The [ICD enrichment](icd10/current/README.md) adds directional ORDO→WHO ICD-10
+and reviewed direct ICD10CM hypotheses to Mendelian inputs. **1,005 of 1,550
+Mendelian inputs now contain an ICD term (64.8%)**. The 177 previously solved
+inputs that changed are marked `STALE_INPUT` in the index and their reports;
+their saved solutions describe the previous inputs only. The original results
+below are historical. WHO ICD-10 and ICD10CM remain separate vocabularies.
+
 ## Mendelian selection
 
 This first expansion uses the repository's explicit **`category: Mendelian`**
@@ -86,6 +93,7 @@ should be rechecked against the installed Boomer version before relying on them.
 | MONDO | hard | subsumption edges and `owl:disjointWith` axioms relating the entry's term to each subtype's term |
 | dismech→MONDO | probabilistic | one identity claim per grounded term (p=0.90), with the competing `ProperSubClassOf` readings in both directions (0.07 / 0.03) |
 | MONDO→external | probabilistic | MONDO's `skos:exactMatch` links (p=0.95) into DOID, NCIT, ORDO, OMIM, ICD10CM, icd11f, MESH, EFO |
+| ORDO→ICD10, reviewed dismech→ICD10CM | probabilistic | Mendelian entries only: exact equivalence p=0.95; broad/narrow directional proper subclass p=0.90; original predicates and review decisions retained in `icd10/import-decisions.tsv` |
 | external | hard | each of those ontologies' **own** subsumption edges among the mapped terms |
 
 Ontologies are loaded as *hard* facts deliberately: the question is whether
@@ -436,10 +444,11 @@ neither needs a solver:
   narrower than its term and a `narrowMatch` one wider, so neither licenses the
   descendant expectation; 74 of 100 are skipped on that basis.
 - [`cross-source/`](cross-source/) — dismech's direct ICD/NCIT mappings against
-  MONDO's own xrefs. **A negative result**: 8 disagreements, 6 of them
-  granularity the `mapping_predicate` already records honestly
-  (`ICD10CM:Q93.5` vs `ICD10:Q93.51` as `narrowMatch`). Nothing for a reasoner to
-  resolve. Recorded so the check is not repeated expecting signal.
+  MONDO's own xrefs. The refreshed audit has **10 disagreements**, including
+  two competing exact assertions to review. It now keeps WHO ICD-10 and
+  ICD10CM distinct. Differences involving broad/narrow/close mappings require
+  review of both granularity and predicate direction; they are not automatically
+  contradictions or automatically correct curation.
 
 That the subtype (88.1%) and grouping (91.7%) checks land on comparable
 agreement rates with the same failure mode, across two structurally independent parts of the

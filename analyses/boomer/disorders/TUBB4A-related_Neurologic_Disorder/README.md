@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # TUBB4A-related Neurologic Disorder
 
 Boomer grounding analysis for [`kb/disorders/TUBB4A-related_Neurologic_Disorder.yaml`](../../../../kb/disorders/TUBB4A-related_Neurologic_Disorder.yaml).

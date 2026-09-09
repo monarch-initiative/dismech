@@ -1,3 +1,8 @@
+> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
+> The report and solution files below describe the previous input only.
+> No result is asserted for the current `kb.yaml`; rerun the solver.
+> [Input hashes and previous index values](../../icd10/updates.json)
+
 # Autosomal Dominant Progressive External Ophthalmoplegia
 
 Boomer grounding analysis for [`kb/disorders/Autosomal_Dominant_Progressive_External_Ophthalmoplegia.yaml`](../../../../kb/disorders/Autosomal_Dominant_Progressive_External_Ophthalmoplegia.yaml).
