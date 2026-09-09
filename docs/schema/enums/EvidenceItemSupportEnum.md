@@ -3,7 +3,7 @@
 
 
 
-_The level of support for an evidence item_
+_Which way the cited evidence cuts relative to the claim. This is direction only. How *directly* the quote bears on the claim is a separate axis -- see DirectnessEnum and the `directness` slot -- and how strong the evidence is has no slot at all (see design decisions section 12)._
 
 
 
@@ -12,11 +12,9 @@ URI: [dismech:enum/EvidenceItemSupportEnum](https://w3id.org/monarch-initiative/
 ## Permissible Values
 | Value | Meaning | Description | Additional Info |
 | --- | --- | --- | --- |
-| WRONG_STATEMENT | None | The annotated claim contains a demonstrable factual error (e | Title: Wrong statement<br>|
-| SUPPORT | None | The cited evidence directly supports the claim | Title: Supports<br>|
-| REFUTE | None | The cited evidence directly contradicts the claim | Title: Refutes<br>|
+| SUPPORT | None | The cited evidence supports the claim | Title: Supports<br>|
+| REFUTE | None | The cited evidence contradicts the claim | Title: Refutes<br>|
 | NO_EVIDENCE | None | The cited reference does not contain evidence relevant to the claim | Title: No evidence<br>|
-| PARTIAL | None | The cited evidence partially or indirectly supports the claim | Title: Partially supports<br>|
 
 
 
@@ -25,7 +23,7 @@ URI: [dismech:enum/EvidenceItemSupportEnum](https://w3id.org/monarch-initiative/
 
 | Name | Description |
 | ---  | --- |
-| [supports](../slots/supports.md) |  |
+| [supports](../slots/supports.md) | Which way the cited evidence cuts relative to the claim |
 
 
 
@@ -33,6 +31,11 @@ URI: [dismech:enum/EvidenceItemSupportEnum](https://w3id.org/monarch-initiative/
 
 
 
+
+## Comments
+
+* SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided` values `supports` and `disputes`. NO_EVIDENCE is a dismech extension: SEPIO's third value, `neutral`, means the evidence bears on the claim without favouring either side, whereas NO_EVIDENCE means it does not bear on the claim at all. The exporter must not silently equate them.
+* PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing. PARTIAL conflated four distinct things -- indirect support, an inverted model system, an item that supported one claim while contradicting another, and simple irrelevance -- and became SUPPORT (with `directness` left unset), a split pair of items, or NO_EVIDENCE. WRONG_STATEMENT had a single use recording that an earlier entry text was inaccurate, which is provenance for a history/ record rather than evidence direction.
 
 
 
@@ -57,35 +60,41 @@ URI: [dismech:enum/EvidenceItemSupportEnum](https://w3id.org/monarch-initiative/
 <details>
 ```yaml
 name: EvidenceItemSupportEnum
-description: The level of support for an evidence item
+description: Which way the cited evidence cuts relative to the claim. This is direction
+  only. How *directly* the quote bears on the claim is a separate axis -- see DirectnessEnum
+  and the `directness` slot -- and how strong the evidence is has no slot at all (see
+  design decisions section 12).
+comments:
+- 'SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided` values `supports`
+  and `disputes`. NO_EVIDENCE is a dismech extension: SEPIO''s third value, `neutral`,
+  means the evidence bears on the claim without favouring either side, whereas NO_EVIDENCE
+  means it does not bear on the claim at all. The exporter must not silently equate
+  them.'
+- 'PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing. PARTIAL
+  conflated four distinct things -- indirect support, an inverted model system, an
+  item that supported one claim while contradicting another, and simple irrelevance
+  -- and became SUPPORT (with `directness` left unset), a split pair of items, or
+  NO_EVIDENCE. WRONG_STATEMENT had a single use recording that an earlier entry text
+  was inaccurate, which is provenance for a history/ record rather than evidence direction.'
 from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 permissible_values:
-  WRONG_STATEMENT:
-    text: WRONG_STATEMENT
-    description: The annotated claim contains a demonstrable factual error (e.g.,
-      an incorrect statistic or assertion); the cited evidence documents the correct
-      information. Use this when the claim is outright wrong, not merely contested.
-      If the cited reference simply does not mention the claim, use NO_EVIDENCE instead.
-      If the reference contradicts the claim but does not prove it factually wrong,
-      use REFUTE.
-    title: Wrong statement
   SUPPORT:
     text: SUPPORT
-    description: The cited evidence directly supports the claim
+    description: The cited evidence supports the claim
     title: Supports
+    exact_mappings:
+    - sepio:supports
   REFUTE:
     text: REFUTE
-    description: The cited evidence directly contradicts the claim
+    description: The cited evidence contradicts the claim
     title: Refutes
+    exact_mappings:
+    - sepio:disputes
   NO_EVIDENCE:
     text: NO_EVIDENCE
     description: The cited reference does not contain evidence relevant to the claim
     title: No evidence
-  PARTIAL:
-    text: PARTIAL
-    description: The cited evidence partially or indirectly supports the claim
-    title: Partially supports
 
 ```
 </details>
