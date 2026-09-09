@@ -280550,6 +280550,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "UV-Sensitive Syndrome",
+    "disease_id": "MONDO:0015797",
+    "category": "Genetic",
+    "parents": [
+      "DNA Repair Disorder",
+      "Photosensitivity Disorder"
+    ],
+    "creation_date": "2026-09-09T16:56:20Z",
+    "updated_date": null,
+    "subtypes": [
+      "UVSS1",
+      "UVSS2",
+      "UVSS3"
+    ],
+    "description": "UV-sensitive syndrome is an autosomal recessive photosensitivity disorder caused by biallelic loss of transcription-coupled nucleotide excision repair (TC-NER). Affected individuals sunburn easily after minimal exposure, and develop freckling and telangiectasia on sun-exposed skin. They have no neurological abnormality and no established predisposition to skin cancer.\nThe interest of the entry is the contrast rather than the repair defect on its own. Two of the three causal genes, ERCC6 (CSB) and ERCC8 (CSA), are the Cockayne syndrome genes. Cockayne syndrome is a severe segmental progeroid disease with neurodegeneration, cachectic dwarfism and early death, while UV-sensitive syndrome is confined to the skin and compatible with a normal lifespan. The two share a TC-NER defect, so the TC-NER defect cannot be what makes Cockayne syndrome severe. A homozygous null CSB allele has been found in a person with UV-sensitive syndrome and no Cockayne features, which is the sharpest form of the problem: complete absence of the protein does not produce the severe disease. The favoured explanation is that CSA and CSB have further transcriptional, mitochondrial or repair-independent roles whose loss drives Cockayne syndrome, but this is not settled, and the entry records it as an open question rather than asserting it.\nThe third gene, UVSSA, is the informative comparator: it acts in the same pathway, is the most frequently reported UV-sensitive syndrome gene, and has never been reported to cause Cockayne syndrome.",
+    "pathophysiology": [
+      "Biallelic Loss of a TC-NER Factor",
+      "Failure to Process Stalled RNA Polymerase II",
+      "Persistent Transcription Blockage After UV Exposure",
+      "UV-Induced Keratinocyte Apoptosis"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "transcription-coupled nucleotide-excision repair",
+      "UV-damage excision repair"
+    ],
+    "phenotypes": [
+      "Cutaneous Photosensitivity",
+      "Freckling",
+      "Telangiectasia",
+      "Dry Skin"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0001480",
+      "HP:0001009",
+      "HP:0000958"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ERCC6",
+      "ERCC8",
+      "UVSSA"
+    ],
+    "treatments": [
+      "Photoprotection"
+    ],
+    "environmental": [
+      "Ultraviolet radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "UV-Sensitive_Syndrome.yaml",
+    "page_url": "../pages/disorders/UV-Sensitive_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ulcerative Colitis",
     "disease_id": "MONDO:0005101",
     "category": "Complex",
@@ -292861,17 +292936,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2833,
-  "total_subtypes": 3699,
-  "total_disorders_and_subtypes": 6532,
-  "total_unique_evidence_sources": 39964,
-  "total_unique_publications": 37647,
+  "total_disorder_pages": 2834,
+  "total_subtypes": 3702,
+  "total_disorders_and_subtypes": 6536,
+  "total_unique_evidence_sources": 39977,
+  "total_unique_publications": 37656,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2828,
-  "total_unique_pathological_events": 16955,
+  "total_pathographs": 2829,
+  "total_unique_pathological_events": 16959,
   "total_modules": 173,
-  "total_research_reports": 2961,
+  "total_research_reports": 2962,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
