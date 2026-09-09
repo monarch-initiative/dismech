@@ -290547,6 +290547,140 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "ZAP70 Deficiency",
+    "disease_id": "MONDO:0010023",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Combined Immunodeficiency"
+    ],
+    "creation_date": "2026-09-09T01:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ZAP70 deficiency is an autosomal recessive combined immunodeficiency caused by biallelic loss-of-function variants in ZAP70, the Syk-family cytoplasmic tyrosine kinase that couples the engaged T-cell receptor to its downstream signalling machinery. On TCR engagement, LCK phosphorylates the ITAMs of the CD3 and zeta chains; ZAP-70 docks on those phospho-ITAMs through its tandem SH2 domains and, once activated, phosphorylates the adaptors LAT and SLP-76 that nucleate the rest of the cascade. Losing the kinase therefore leaves the receptor intact but uncoupled from everything downstream of it.\nWhat makes the disorder distinctive is that the disconnection is not uniform across the T-cell lineages, and the resulting laboratory picture is the diagnosis. CD8 single-positive thymocytes fail positive selection almost completely, so patients have profound CD8 lymphopenia; CD4 single-positive development proceeds largely intact, because the paralogous kinase SYK is expressed highly enough in human thymocytes to carry the lower signalling threshold that the CD4 lineage requires. The CD4 cells that emerge are present in normal or elevated numbers and are functionally dead to TCR stimulation. A normal or high lymphocyte count with normal B and NK cells and absent CD8 T cells matches no classical SCID, and the largest published review recommends screening for ZAP70 deficiency on that pattern. It is also a pattern standard TREC newborn screening can miss, because CD4 thymic output continues.\nClinically it spans a wide range: infantile SCID-like disease with opportunistic infection at one end, and later-onset immune dysregulation with autoimmunity, atopy and lymphoma at the other. Untreated infants who present in the first year rarely survive past the second. Allogeneic haematopoietic stem cell transplantation is the only curative treatment and is highly effective.",
+    "pathophysiology": [
+      "ZAP70 Loss of Kinase Function",
+      "Failure of TCR-Proximal Signal Propagation",
+      "Block of CD8 Single-Positive Thymocyte Selection",
+      "Peripheral CD8 T Cell Lymphopenia",
+      "Functional Anergy of Peripheral CD4 T Cells",
+      "Attenuated Residual TCR Signaling",
+      "Impaired Negative Selection and Thymic Regulatory T Cell Output",
+      "Impaired Cellular Immunity Against Opportunistic Pathogens",
+      "Defective T-Dependent Antibody Responses",
+      "Impaired Cytotoxic Surveillance of Virus-Infected Cells",
+      "Autoimmunity and Immune Dysregulation"
+    ],
+    "cell_types": [
+      "alpha-beta T cell",
+      "CD4-positive CD8-positive double-positive thymocyte",
+      "CD8-positive, alpha-beta T cell",
+      "CD4-positive, alpha-beta T cell",
+      "regulatory T cell",
+      "CD8-positive, alpha-beta cytotoxic T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000789",
+      "CL:0000809",
+      "CL:0000625",
+      "CL:0000624",
+      "CL:0000815",
+      "CL:0000794"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "positive thymic T cell selection",
+      "T cell activation",
+      "T cell proliferation",
+      "negative thymic T cell selection"
+    ],
+    "phenotypes": [
+      "Decreased total CD8+ T cell count",
+      "Impaired T-cell proliferative response to mitogens",
+      "Impaired specific antibody response",
+      "Decreased circulating immunoglobulin concentration",
+      "Recurrent respiratory infections",
+      "Eczematoid dermatitis",
+      "Chronic diarrhea",
+      "Failure to thrive",
+      "Lymphadenopathy",
+      "Autoimmunity",
+      "Pneumocystis jirovecii pneumonia",
+      "Neoplasm",
+      "Pneumonia",
+      "BCGosis",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Increased circulating IgE concentration"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:5210426",
+      "HP:0031381",
+      "HP:0012475",
+      "HP:0004315",
+      "HP:0002205",
+      "HP:0000964",
+      "HP:0002028",
+      "HP:0001508",
+      "HP:0002716",
+      "HP:0002960",
+      "HP:0020102",
+      "HP:0002664",
+      "HP:0002090",
+      "HP:0020087",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0003212"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ZAP70",
+      "SYK"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement Therapy",
+      "Antimicrobial Prophylaxis",
+      "Infection-Risk Avoidance and Blood Product Precautions",
+      "Genetic Counseling",
+      "Gene Therapy",
+      "Post-Transplant Surveillance",
+      "Corticosteroid Therapy"
+    ],
+    "environmental": [
+      "BCG vaccination before diagnosis"
+    ],
+    "biochemical": [],
+    "source_file": "ZAP70_Deficiency.yaml",
+    "page_url": "../pages/disorders/ZAP70_Deficiency.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "ZNF407-Related Neurodevelopmental Disorder",
     "disease_id": "MONDO:0859198",
     "category": "Mendelian",
@@ -292212,17 +292346,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2827,
+  "total_disorder_pages": 2828,
   "total_subtypes": 3695,
-  "total_disorders_and_subtypes": 6522,
-  "total_unique_evidence_sources": 39859,
-  "total_unique_publications": 37546,
+  "total_disorders_and_subtypes": 6523,
+  "total_unique_evidence_sources": 39875,
+  "total_unique_publications": 37562,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2822,
-  "total_unique_pathological_events": 16903,
+  "total_pathographs": 2823,
+  "total_unique_pathological_events": 16914,
   "total_modules": 173,
-  "total_research_reports": 2956,
+  "total_research_reports": 2957,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
