@@ -2649,15 +2649,41 @@ fetch-reference +identifiers:
     done
 
 # Tag top-level PublicationReference entries with authoritative-source labels
-# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
-# and writes `tags: [GeneReviews]` onto the matching reference entry.
-# Run after adding new GeneReviews citations or to refresh all tags.
+# (GeneReviews, StatPearls). Membership is decided from the committed Bookshelf
+# index (cache/bookshelf/), falling back to the citation form in the cached
+# record for a chapter newer than the snapshot, and writes `tags: [<Tag>]`
+# onto the matching reference entry.
+# Run after adding new GeneReviews / StatPearls citations or to refresh tags.
 #   just tag-references                   # tag all disorder files
 #   just tag-references --dry-run         # preview without writing
 #   just tag-references kb/disorders/Noonan_Syndrome.yaml
 [group('Curation')]
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
+
+# Semi-deterministic GeneReviews / StatPearls baseline check (offline). Reports,
+# per entry and per collection, whether a Bookshelf chapter names the disease
+# and whether it is tagged in `references:`. Exact-title and identity findings
+# are deterministic; partial title matches are listed as CANDIDATE_CHAPTER for a
+# reviewer to judge. Runs inside the automated PR reviewer, which cannot curl.
+#   just check-genereviews kb/disorders/Asthma.yaml   # one or more files
+#   just check-genereviews                             # whole KB, findings only
+#   just check-genereviews --strict FILE               # exit 1 on a GeneReviews gap
+#   just check-genereviews --online FILE               # also live PubMed (network)
+#   just check-genereviews --format tsv                # census
+[group('Curation')]
+check-genereviews *args="":
+    uv run python scripts/check_genereviews_baseline.py {{args}}
+
+# Rebuild cache/bookshelf/ (every PubMed-indexed GeneReviews and StatPearls
+# chapter: PMID, NBK accession, title, date) from PubMed's `<name>[book]`
+# field. ~30 throttled E-utilities requests; set NCBI_API_KEY for the faster
+# tier. Rows are sorted by PMID with no per-row timestamps, so the diff after a
+# refresh is exactly the chapters that appeared, retired, or were renamed.
+#   just refresh-bookshelf-index
+[group('Curation')]
+refresh-bookshelf-index *args="":
+    uv run python scripts/build_bookshelf_index.py {{args}}
 
 # Backfill missing publication titles on KB references and evidence items
 # (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).

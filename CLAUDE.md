@@ -2792,6 +2792,40 @@ Never claim a check that did not finish. If evidence cannot be verified, use an
 exact quote from a better source, move the claim to notes where appropriate, or
 remove the evidence.
 
+### GeneReviews and StatPearls Baseline (`just check-genereviews`)
+
+A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry
+(review skill item 15). Whether one **exists** is now answered offline from a
+committed index of every PubMed-indexed chapter of both Bookshelf collections
+(`cache/bookshelf/`; PubMed's `genereviews[book]` / `statpearls[book]` fields
+select them exactly), so the automated reviewer -- whose sandbox blocks `curl`
+and every web tool -- can verify a "no GeneReviews chapter exists" note instead
+of recording it as unverifiable, which is what happened twice on #11592.
+
+```bash
+just check-genereviews kb/disorders/MyDisease.yaml   # per entry (offline)
+just check-genereviews --strict FILE                 # exit 1 on a GeneReviews gap
+just check-genereviews --online FILE                 # + live PubMed title search
+just check-genereviews --format tsv                  # whole-KB census
+just refresh-bookshelf-index                         # rebuild cache/bookshelf/
+```
+
+**Semi-deterministic, on purpose.** Identity findings are exact and gate under
+`--strict`: `MISTAGGED` (a `GeneReviews`-tagged reference that is not a
+chapter), `CITED_UNTAGGED` (a chapter PMID or NBK URL cited but not tagged in
+`references:`), `UNTAGGED_CHAPTER` (a chapter whose normalised title equals one
+of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
+listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
+X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
+no string rule settles that. Nothing gates on StatPearls: it is a point-of-care
+reference across all of medicine with a light editorial process, citable for
+orientation (and taggable as `StatPearls`) but never a baseline, and its absence
+is never a gap. `just tag-references` now decides chapter membership from the
+same index rather than by grepping the cached abstract for the word
+"GeneReviews", which a journal article citing one also contains. The index is a
+dated snapshot; staleness is printed, never gated. See
+[`docs/genereviews-baseline-check.md`](docs/genereviews-baseline-check.md).
+
 ## Ontology and Term Caches
 
 Treat committed CSVs under `cache/` as derived, authority-backed artifacts:

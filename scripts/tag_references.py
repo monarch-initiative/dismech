@@ -5,14 +5,21 @@ Tag top-level PublicationReference entries in disorder YAML files.
 For each disorder file the script:
 1. Collects every PMID cited anywhere in the file (evidence items *and*
    top-level references).
-2. Detects which PMIDs are GeneReviews articles by inspecting the local
-   references_cache (looks for "GeneReviews" in the cached abstract body).
-3. For each GeneReviews PMID:
+2. Decides which PMIDs are GeneReviews or StatPearls chapters. The committed
+   Bookshelf index (``cache/bookshelf/``, see :mod:`dismech.bookshelf`) is
+   the authority -- it is the collection's own PubMed membership. A PMID
+   absent from the index (a chapter newer than the snapshot) falls back to
+   the Bookshelf *citation form* in the cached record. The fallback is
+   deliberately not the bare word "GeneReviews": a journal article that cites
+   GeneReviews in its reference list contains that word too -- the previous
+   marker would have tagged PMID:18651971, an Orphanet J Rare Dis review cited
+   by ``Alpha_Mannosidosis``, as a GeneReviews chapter.
+3. For each chapter PMID, with the tag for its collection:
    - If the PMID already appears in the top-level `references` list, ensures it
-     has `tags:\n  - GeneReviews` immediately after its `reference:` / `title:`
+     has `tags:\n  - <Tag>` immediately after its `reference:` / `title:`
      line.
    - If the PMID is only used in evidence items (not in top-level `references`),
-     prepends a minimal PublicationReference entry with `tags: [GeneReviews]`
+     prepends a minimal PublicationReference entry with `tags: [<Tag>]`
      and the title from cache.
 
 The script edits files using targeted text operations so that YAML formatting
@@ -35,11 +42,27 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
-GENEREVIEW_MARKERS = ["GeneReviews", "genereview"]
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-REPO_ROOT = Path(__file__).parent.parent
+from dismech.bookshelf import (  # noqa: E402
+    DEFAULT_INDEX_DIR,
+    SOURCE_TAGS,
+    BookshelfIndex,
+    source_from_cache_text,
+)
+
+_INDEX: BookshelfIndex | None = None
+
+
+def bookshelf_index() -> BookshelfIndex:
+    global _INDEX
+    if _INDEX is None:
+        _INDEX = BookshelfIndex.load(DEFAULT_INDEX_DIR)
+    return _INDEX
 
 
 # ---------------------------------------------------------------------------
@@ -47,14 +70,29 @@ REPO_ROOT = Path(__file__).parent.parent
 # ---------------------------------------------------------------------------
 
 
-def is_genereview_pmid(pmid_str: str, cache_dir: Path) -> bool:
-    """Return True if the cached abstract for pmid_str is a GeneReviews article."""
+def bookshelf_tag_for_pmid(
+    pmid_str: str, cache_dir: Path, index: BookshelfIndex | None = None
+) -> str | None:
+    """The ``ReferenceTagEnum`` value for a Bookshelf chapter PMID, else ``None``.
+
+    Index first (exact membership); the cached record's citation form second,
+    for a chapter published after the index snapshot.
+    """
     pmid_num = pmid_str.replace("PMID:", "").strip()
+    index = bookshelf_index() if index is None else index
+    chapter = index.by_pmid.get(pmid_num)
+    if chapter is not None:
+        return chapter.tag
     cache_file = cache_dir / f"PMID_{pmid_num}.md"
     if not cache_file.exists():
-        return False
-    content = cache_file.read_text(encoding="utf-8")
-    return any(marker in content for marker in GENEREVIEW_MARKERS)
+        return None
+    source = source_from_cache_text(cache_file.read_text(encoding="utf-8"))
+    return SOURCE_TAGS[source] if source else None
+
+
+def is_genereview_pmid(pmid_str: str, cache_dir: Path) -> bool:
+    """Return True if pmid_str is a GeneReviews chapter (kept for callers of the old name)."""
+    return bookshelf_tag_for_pmid(pmid_str, cache_dir) == "GeneReviews"
 
 
 def title_from_cache(pmid_str: str, cache_dir: Path) -> str | None:
@@ -138,7 +176,7 @@ def next_entry_line(lines: list[str], entry_start: int, sec_end: int) -> int:
 
 
 def has_tag_in_entry(lines: list[str], entry_start: int, sec_end: int, tag: str) -> bool:
-    """Return True if the entry already contains `- GeneReviews` under a `tags:` key."""
+    """Return True if the entry already contains `- {tag}` under a `tags:` key."""
     in_tags = False
     for i in range(entry_start, min(next_entry_line(lines, entry_start, sec_end), sec_end)):
         line = lines[i]
@@ -229,9 +267,13 @@ def tag_disorder_file(
     """
     text = path.read_text(encoding="utf-8")
     all_pmids = collect_all_pmids_text(text)
-    gr_pmids = {p for p in all_pmids if is_genereview_pmid(p, cache_dir)}
+    chapter_tags: dict[str, str] = {}
+    for pmid in all_pmids:
+        tag = bookshelf_tag_for_pmid(pmid, cache_dir)
+        if tag is not None:
+            chapter_tags[pmid] = tag
 
-    if not gr_pmids:
+    if not chapter_tags:
         return {"added": 0, "tagged": 0, "already_ok": 0}
 
     lines = text.splitlines()
@@ -241,8 +283,8 @@ def tag_disorder_file(
     tagged = 0
     already_ok = 0
 
-    for gr_pmid in sorted(gr_pmids):
-        tag = "GeneReviews"
+    for gr_pmid in sorted(chapter_tags):
+        tag = chapter_tags[gr_pmid]
         # Re-compute section bounds each iteration (lines may have grown)
         sec_start, sec_end = find_references_section(lines)
         existing = top_level_ref_ids(lines, sec_start, sec_end)
@@ -325,8 +367,8 @@ def main() -> None:
         total_already_ok += result["already_ok"]
 
     action = "Would tag" if args.dry_run else "Tagged"
-    print(f"\n{action} GeneReviews references:")
-    print(f"  Disorders with GeneReviews citations : {len(files_with_gr)}")
+    print(f"\n{action} GeneReviews / StatPearls references:")
+    print(f"  Disorders with Bookshelf citations   : {len(files_with_gr)}")
     print(f"  New top-level entries added          : {total_added}")
     print(f"  Existing entries tagged              : {total_tagged}")
     print(f"  Already correctly tagged             : {total_already_ok}")
@@ -338,7 +380,7 @@ def main() -> None:
         print("\nNo files needed modification.")
 
     if files_with_gr:
-        print(f"\nDisorders with ≥1 GeneReviews citation ({len(files_with_gr)}):")
+        print(f"\nDisorders with ≥1 GeneReviews / StatPearls citation ({len(files_with_gr)}):")
         for f in sorted(files_with_gr):
             print(f"  {f}")
 
