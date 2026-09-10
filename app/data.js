@@ -82340,6 +82340,125 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cyanide Poisoning",
+    "disease_id": "MONDO:0018754",
+    "category": "Environmental",
+    "parents": [
+      "chemical poisoning"
+    ],
+    "creation_date": "2026-09-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute Cyanide Poisoning",
+      "Delayed Neurological Sequelae",
+      "Nitroprusside-Associated Cyanide Toxicity"
+    ],
+    "description": "Cyanide poisoning is an acute chemical-asphyxiant toxidrome caused by exposure to the cyanide ion or to compounds that release it: hydrogen cyanide gas from the combustion of nitrogen-containing synthetic polymers in structure fires, alkali cyanide salts used in electroplating and metal finishing, cyanogenic glycosides such as amygdalin in apricot kernels and bitter almonds, and the metabolic breakdown of infused sodium nitroprusside. Absorbed cyanide binds the ferric heme a3 centre of mitochondrial cytochrome c oxidase (Complex IV) and arrests the terminal step of the electron transport chain, so cells cannot use oxygen that is being delivered normally - histotoxic, rather than hypoxic, hypoxia. Oxidative phosphorylation fails, ATP is depleted within minutes, and metabolism is forced onto anaerobic glycolysis, producing severe high-anion-gap lactic acidosis. The brain and myocardium, with the highest oxidative demand, fail first: headache, vertigo and confusion give way to coma, seizures, hypotension, bradyarrhythmia and cardiac arrest. Classic bedside signs (bitter almond odour, cherry-red skin) are unreliable and blood cyanide assays are too slow to guide care, so plasma lactate serves as the practical surrogate marker. Survivors of severe poisoning may develop a delayed dystonic-parkinsonian syndrome weeks to months later, correlating with bilateral globus pallidus and putaminal lesions. Endogenous detoxification by rhodanese (thiosulfate sulfurtransferase) converts cyanide to renally excreted thiocyanate but is sulfur-donor limited and rapidly overwhelmed, which is the pharmacologic basis for thiosulfate therapy. Management is hydroxocobalamin as first-line antidote, with sodium nitrite and sodium thiosulfate as alternatives or adjuncts, plus 100% oxygen and haemodynamic and ventilatory support. Chronic dietary cyanogen exposure produces distinct entities curated separately in this knowledge base (see Konzo).",
+    "pathophysiology": [
+      "Systemic Cyanide Burden",
+      "Cytochrome c Oxidase Inhibition",
+      "Rhodanese-Mediated Cyanide Detoxification",
+      "Oxidative Phosphorylation Failure and ATP Depletion",
+      "Anaerobic Glycolytic Shift",
+      "Myocardial Energy Failure",
+      "Cardiovascular Collapse",
+      "Cerebral Energy Failure",
+      "Excitotoxic Neuronal Injury",
+      "Basal Ganglia Necrosis"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "oxidative phosphorylation",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Coma",
+      "Seizure",
+      "Encephalopathy",
+      "Headache",
+      "Vertigo",
+      "Confusion",
+      "Parkinsonism",
+      "Dystonia",
+      "Hypotension",
+      "Ventricular bigeminy",
+      "Cardiac arrest",
+      "Tachypnea",
+      "Respiratory failure",
+      "Lactic acidosis",
+      "Elevated serum anion gap"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001259",
+      "HP:0001250",
+      "HP:0001298",
+      "HP:0002315",
+      "HP:0002321",
+      "HP:0001289",
+      "HP:0001300",
+      "HP:0001332",
+      "HP:0002615",
+      "HP:0034306",
+      "HP:0001695",
+      "HP:0002789",
+      "HP:0002878",
+      "HP:0003128",
+      "HP:0031962"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TST"
+    ],
+    "treatments": [
+      "Hydroxocobalamin",
+      "Sodium Thiosulfate",
+      "Sodium Nitrite",
+      "Amyl Nitrite",
+      "Dicobalt Edetate",
+      "High-Concentration Oxygen Therapy",
+      "Supportive Critical Care"
+    ],
+    "environmental": [
+      "Structure fire smoke inhalation",
+      "Occupational cyanide salt exposure",
+      "Cyanogenic glycoside ingestion",
+      "Sodium nitroprusside infusion"
+    ],
+    "biochemical": [
+      "Blood lactate",
+      "Blood cyanide concentration"
+    ],
+    "source_file": "Cyanide_Poisoning.yaml",
+    "page_url": "../pages/disorders/Cyanide_Poisoning.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Cyanosis Transient Neonatal",
     "disease_id": "MONDO:0013511",
     "category": "Mendelian",
@@ -240898,6 +241017,106 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Reynolds Syndrome",
+    "disease_id": "MONDO:0013276",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Connective Tissue Disease",
+      "Liver Disease"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Reynolds syndrome is the co-occurrence of primary biliary cholangitis (PBC) with limited cutaneous systemic sclerosis, described by Telfer Reynolds in 1971. It is curated here as a disease entry rather than as an incidental comorbidity because the overlap is not simply two independent diagnoses in one patient: a 2026 systematic review of case-control studies concluded that it \"represents a distinct clinical and immunological entity\", with higher anticentromere and antimitochondrial antibody positivity than either isolated disease, a predominance of the limited cutaneous rather than diffuse cutaneous SSc subset, and more extrahepatic autoimmunity. The other half of that distinctness is clinical: visceral involvement is milder than in SSc alone -- less interstitial lung disease, reflux and musculoskeletal disease -- without that amounting to a better prognosis, since SSc-related mortality and oesophageal varices run higher in some cohorts.\nThe pathograph is deliberately modelled as two autoimmune arms sharing a common host predisposition rather than as one linear chain, because that is what the evidence supports. The hepatic arm runs from loss of tolerance to the pyruvate dehydrogenase complex E2 subunit through immune destruction of small intrahepatic bile ducts to cholestasis and biliary cirrhosis. The sclerodermatous arm runs from loss of tolerance to centromere protein B through microvascular endothelial injury and dermal fibroblast activation to the CREST features. What ties the arms together is serological rather than mechanistic: the two autoantibody systems co-occur far more often than chance would predict, and no shared downstream effector has been demonstrated. That gap is recorded as a knowledge gap rather than papered over with a speculative shared node.\nOne point of caution about this entity's identity. MONDO gives Reynolds syndrome two parents -- \"hereditary disease\" and \"autoimmune disease\" -- and attributes a causal gene, LBR (hgnc:6518), while OMIM assigns it MIM#613471. This entry follows the autoimmune parent and not the hereditary one, because the genetic attribution rests on a single patient reported in 2010 with a single heterozygous LBR missense variant, whose own authors concluded only that \"LBR mutations might thus be associated with Reynolds syndrome\". A commentary published the same year asked directly whether the syndrome is a genetic laminopathy and answered that the case was not yet made, and no replication has been reported since. The clinical and serological literature treats the syndrome as autoimmune. So the LBR hypothesis is recorded as an open question in `discussions`, with the genetic association typed as a susceptibility hypothesis rather than as a causal mechanism.",
+    "pathophysiology": [
+      "Loss of Immune Tolerance to Pyruvate Dehydrogenase Complex E2",
+      "Autoimmune Destruction of Small Intrahepatic Bile Ducts",
+      "Intrahepatic Cholestasis",
+      "Loss of Immune Tolerance to Centromere Protein B",
+      "Microvascular Endothelial Injury",
+      "Dermal Fibroblast Activation and Skin Fibrosis"
+    ],
+    "cell_types": [
+      "cholangiocyte",
+      "endothelial cell of vascular tree",
+      "fibroblast of dermis"
+    ],
+    "cell_type_ids": [
+      "CL:1000488",
+      "CL:0002139",
+      "CL:0002551"
+    ],
+    "biological_processes": [
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Raynaud phenomenon",
+      "Telangiectasia",
+      "Sclerodactyly",
+      "Calcinosis cutis",
+      "Dysphagia",
+      "Pruritus",
+      "Elevated circulating alkaline phosphatase concentration",
+      "Biliary cirrhosis",
+      "Interstitial lung disease",
+      "Milder systemic involvement than isolated systemic sclerosis",
+      "Autoimmunity"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Cutaneous",
+      "Gastrointestinal",
+      "Hepatic",
+      "Respiratory",
+      "Constitutional",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030880",
+      "HP:0001009",
+      "HP:0011838",
+      "HP:0025520",
+      "HP:0002015",
+      "HP:0000989",
+      "HP:0003155",
+      "HP:0002613",
+      "HP:0006530",
+      "HP:0002960"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LBR"
+    ],
+    "treatments": [
+      "Ursodeoxycholic Acid",
+      "Cyclophosphamide"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Antimitochondrial antibody",
+      "Anticentromere antibody"
+    ],
+    "source_file": "Reynolds_Syndrome.yaml",
+    "page_url": "../pages/disorders/Reynolds_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Rh Deficiency Syndrome",
     "disease_id": "MONDO:0019107",
     "category": "Mendelian",
@@ -266065,6 +266284,104 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Stickler Syndrome Type 6",
+    "disease_id": "MONDO:0031047",
+    "category": "Mendelian",
+    "parents": [
+      "Stickler Syndrome"
+    ],
+    "creation_date": "2026-09-07T21:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Stickler syndrome type 6 (STL6) is the COL9A3-related, autosomal recessive form of Stickler syndrome. Type IX collagen is a heterotrimer of three genetically distinct chains -- alpha1, alpha2 and alpha3, encoded by COL9A1, COL9A2 and COL9A3 -- that decorates the surface of type II collagen fibrils in vitreous, cartilage and the cochlear extracellular matrix. Biallelic loss-of-function variants in COL9A3 remove the alpha3 chain, and the fibril-surface function of collagen IX is lost or degraded. Whether the loss is total is genuinely unsettled: mouse work shows that removing one chain abolishes the whole protein, but a review of the human recessive cases argues the milder-than-expected skeletal phenotype may mean the remaining two chains form a partly functional alternative heterotrimer. Both readings are recorded below. This separates STL6 mechanistically from the two common dominant forms. Types 1 and 2 arise from a single altered COL2A1 or COL11A1 allele acting through haploinsufficiency or a dominant-negative incorporated chain; STL6 is a recessive null state of a different, quantitatively minor collagen. The clinical consequence tracks that difference. High myopia with an abnormal, hypoplastic vitreous is near-universal, but sensorineural hearing loss is both more frequent and more severe than in the dominant forms -- moderate to severe and downsloping -- which is why the type IX collagen genes have been proposed for congenital hearing loss gene panels. Cleft palate, a familiar feature of the type II and type XI collagen forms, has not been reported with type IX collagen variants at all. Retinal detachment risk is the second point of divergence, and it matters clinically. Type 1 Stickler syndrome carries a lifetime detachment risk above 50%, much of it from giant retinal tears, which is what justifies prophylactic retinopexy in that group. In the largest type IX recessive series the detachments were fewer, unilateral, and secondary to horseshoe tears rather than giant retinal tears, so the prophylaxis argument does not transfer. COL9A3 is allelic across several disorders and the inheritance is not a clean recessive/dominant split: heterozygous variants cause multiple epiphyseal dysplasia type 3, contribute to sensorineural hearing loss and lumbar disc disease, and -- in two reported families -- cause dominant peripheral vitreoretinal degeneration with retinal detachment. A naturally occurring canine model exists, the Labrador retriever drd1 allele, an autosomal recessive COL9A3 frameshift producing short-limbed dwarfism with vitreous dysplasia and retinal detachment.\n",
+    "pathophysiology": [
+      "Biallelic COL9A3 Loss of Function",
+      "Failure of Type IX Collagen Heterotrimer Assembly",
+      "Loss of Collagen IX from the Type II Fibril Surface",
+      "Vitreous Gel Hypoplasia and Disorganization",
+      "Cochlear Extracellular Matrix Instability",
+      "Cartilage Matrix Long-Term Instability",
+      "Vitreoretinal Interface Degeneration"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "tectorial membrane collagen fibre organization"
+    ],
+    "phenotypes": [
+      "High Myopia",
+      "Abnormal Vitreous Gel",
+      "Peripheral Vitreoretinal Degeneration",
+      "Rhegmatogenous Retinal Detachment",
+      "Cataract",
+      "Sensorineural Hearing Loss",
+      "Midface Hypoplasia",
+      "Depressed Nasal Bridge and Anteverted Nares",
+      "Epiphyseal Dysplasia",
+      "Spondyloepiphyseal Dysplasia",
+      "Early-Onset Arthropathy",
+      "Congenital Long Bone Bowing"
+    ],
+    "phenotype_categories": [
+      "Ocular",
+      "Auditory",
+      "Craniofacial",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011003",
+      "HP:0004327",
+      "HP:0200071",
+      "HP:0000541",
+      "HP:0000518",
+      "HP:0000407",
+      "HP:0011800",
+      "HP:0005280",
+      "HP:0002656",
+      "HP:0002655",
+      "HP:0003088",
+      "HP:0002980"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "COL9A3"
+    ],
+    "treatments": [
+      "Refractive Correction",
+      "Audiologic Management",
+      "Retinal Detachment Surveillance and Case-by-Case Retinopexy",
+      "Avoidance of Contact Sports",
+      "Orthopaedic and Symptomatic Joint Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Stickler_Syndrome_Type_6.yaml",
+    "page_url": "../pages/disorders/Stickler_Syndrome_Type_6.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Stiff Person Syndrome",
@@ -293195,17 +293512,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2836,
-  "total_subtypes": 3702,
-  "total_disorders_and_subtypes": 6538,
-  "total_unique_evidence_sources": 40006,
-  "total_unique_publications": 37685,
+  "total_disorder_pages": 2839,
+  "total_subtypes": 3705,
+  "total_disorders_and_subtypes": 6544,
+  "total_unique_evidence_sources": 40058,
+  "total_unique_publications": 37734,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2831,
-  "total_unique_pathological_events": 16974,
+  "total_pathographs": 2834,
+  "total_unique_pathological_events": 16997,
   "total_modules": 173,
-  "total_research_reports": 2965,
+  "total_research_reports": 2967,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
