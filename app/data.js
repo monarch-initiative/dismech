@@ -154157,29 +154157,37 @@ window.searchData = [
       "HP:0032448"
     ],
     "frequencies": [
+      "OBLIGATE",
       "FREQUENT"
     ],
     "genes": [
-      "KCNQ1"
+      "KCNQ1",
+      "NOS1AP"
     ],
     "treatments": [
       "Beta-Blocker Therapy",
       "Implantable Cardioverter-Defibrillator Placement",
       "Left Cardiac Sympathetic Denervation",
+      "Atrial Pacing with Beta-Blockade",
+      "KCNQ1 Suppression-and-Replacement Gene Therapy",
       "Cochlear Implantation",
       "QT-Prolonging Drug and Trigger Avoidance",
       "Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Serum Gastrin",
+      "Serum Pepsinogen",
+      "Faecal Calprotectin"
+    ],
     "source_file": "Jervell_and_Lange-Nielsen_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Jervell_and_Lange-Nielsen_Syndrome_1.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 11,
-    "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Jervell and Lange-Nielsen Syndrome 2",
@@ -292956,14 +292964,14 @@ window.searchMetrics = {
   "total_disorder_pages": 2834,
   "total_subtypes": 3702,
   "total_disorders_and_subtypes": 6536,
-  "total_unique_evidence_sources": 39977,
-  "total_unique_publications": 37656,
+  "total_unique_evidence_sources": 39985,
+  "total_unique_publications": 37664,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
   "total_pathographs": 2829,
   "total_unique_pathological_events": 16961,
   "total_modules": 173,
-  "total_research_reports": 2962,
+  "total_research_reports": 2963,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
