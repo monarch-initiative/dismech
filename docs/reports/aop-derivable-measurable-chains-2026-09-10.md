@@ -185,6 +185,17 @@ Chains are simple paths (no repeated node) over `pathophysiology` nodes only; a
 excluded by construction, so the counts are unaffected by the grandfathered backlog in
 `tests/causal_target_baseline.txt`.
 
+## The derivation
+
+`Left_Ventricular_Noncompaction_8` has been worked through in full as a putative AOP:
+[`projects/AOP_EMOD_ALIGNMENT/lvnc8-putative-aop-2026-09-10.md`](../../projects/AOP_EMOD_ALIGNMENT/lvnc8-putative-aop-2026-09-10.md).
+
+Headline result: the Event and KER layers transfer nearly for free — three of its six Events
+already exist in AOP-Wiki and three are new — but **the chain has no MIE and cannot have one**,
+because a germline lesion is not a stressor-biomolecule interaction. That is a limitation of
+this screen, which ranked on measurability and never asked whether a chain has a chemical
+entry point. `Skeletal_Fluorosis` is the chemically initiated alternative in the same table.
+
 ## What this report does not decide
 
 Whether a derived AOP should be *recorded* anywhere in dismech — a `Pathophysiology`
