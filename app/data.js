@@ -152039,6 +152039,135 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Intellectual Disability, X-linked, Syndromic 33",
+    "disease_id": "MONDO:0010500",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability",
+      "multiple congenital anomalies/dysmorphic syndrome-intellectual disability"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, X-linked, syndromic 33 (MRXS33; TAF1 intellectual disability syndrome) is an X-linked neurodevelopmental disorder of affected males caused by germline variants in TAF1, which encodes the largest subunit of the general transcription factor TFIID. Affected boys present early with generalized hypotonia, global developmental delay, and characteristic facial dysmorphology, evolving into intellectual disability and/or autism spectrum disorder; a broadened allelic series adds brain morphological abnormalities, seizures, hearing loss, and heart malformations. Reported disease alleles are predominantly missense, with a start-loss variant, a splice-site variant, and two locus duplications also described. Complete TAF1 loss is embryonic-lethal in mouse and zebrafish, and no hemizygous null alleles of the canonical coding isoform are seen in population databases, so the disorder is best understood as a hypomorphic, dosage- and activity-sensitive lesion of the RNA polymerase II preinitiation machinery rather than a null. Two families with large Xq13.1 duplications involving TAF1 overlap the missense phenotype but additionally show severe progressive neurodegeneration.\nMRXS33 is allelic to, and clinically distinct from, X-linked dystonia-parkinsonism (XDP, curated separately in this knowledge base). XDP arises from a Filipino founder SINE-VNTR-Alu retrotransposon insertion in intron 32 of TAF1 and is an adult-onset neurodegenerative movement disorder with neostriatal neuronal loss; MRXS33 arises from coding missense variants (or locus duplication) and is a congenital neurodevelopmental syndrome. The two share a gene and a broad theme of TAF1 transcriptional dysregulation, but differ in lesion class, age of onset, neuroanatomical target, and clinical syndrome.\n",
+    "pathophysiology": [
+      "TAF1 Hypomorphic Missense Variants",
+      "Loss of TAF1 Bromodomain Repression in Cardiogenesis",
+      "TAF1 Locus Duplication",
+      "Reduced RAP74 Phosphorylation in Patient Cells",
+      "TFIID-Dependent Transcription Dysfunction",
+      "Impaired Craniofacial Development",
+      "Dysregulated Neurodevelopmental Transcriptional Program",
+      "Impaired Neuronal Differentiation and Neurodevelopment",
+      "Cerebellar Purkinje Cell Loss"
+    ],
+    "cell_types": [
+      "cerebellar Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "RNA polymerase II preinitiation complex assembly",
+      "regulation of transcription by RNA polymerase II",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Delayed speech and language development",
+      "Autism spectrum disorder",
+      "Characteristic facial dysmorphism",
+      "Prominent supraorbital ridges",
+      "Low-set ears",
+      "Protruding ear",
+      "Long philtrum",
+      "Long face",
+      "Pointed chin",
+      "Prominent forehead",
+      "Large hands",
+      "Short neck",
+      "High palate",
+      "Sacral dimple",
+      "Gait disturbance",
+      "Seizure",
+      "Hearing impairment",
+      "Strabismus",
+      "Genitourinary anomaly",
+      "Congenital heart malformation",
+      "Abnormal brain morphology",
+      "Cerebellar hypoplasia",
+      "Oral-pharyngeal dysphagia",
+      "Joint hypermobility",
+      "Progressive neurodegeneration in TAF1 duplication"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0001999",
+      "HP:0000336",
+      "HP:0000369",
+      "HP:0000411",
+      "HP:0000343",
+      "HP:0000276",
+      "HP:0000307",
+      "HP:0011220",
+      "HP:0001176",
+      "HP:0000470",
+      "HP:0000218",
+      "HP:0000960",
+      "HP:0001288",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0000486",
+      "HP:0000119",
+      "HP:0001627",
+      "HP:0012443",
+      "HP:0001321",
+      "HP:0200136",
+      "HP:0001382",
+      "HP:0002180"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TAF1"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_X-linked_Syndromic_33.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability,_X-linked,_Syndromic_33.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Intellectual Disability X-linked Syndromic 35",
     "disease_id": "MONDO:0030908",
     "category": "Genetic",
@@ -217921,6 +218050,7 @@ window.searchData = [
       "PGC-1alpha Transcriptional Program Repression",
       "MAPK Dysregulation",
       "Neuroinflammation",
+      "Reactive Astrogliosis",
       "Complement C3-C3aR Activation in Depression",
       "Autophagy-Lysosome Pathway Dysfunction",
       "LRRK2 GTPase Domain Dysregulation",
@@ -217974,6 +218104,11 @@ window.searchData = [
       "MAPK cascade",
       "JNK cascade",
       "p38MAPK cascade",
+      "TNF-alpha production",
+      "IL-1beta production",
+      "IL-6 production",
+      "Astrocyte activation",
+      "Astrocytic clearance of synaptic glutamate",
       "complement activation",
       "synapse pruning",
       "Autophagy",
@@ -218068,10 +218203,10 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 23,
+    "num_pathophysiology": 24,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "9"
   },
   {
@@ -254448,6 +254583,105 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "65",
     "causal_graph_longest_path": "11"
+  },
+  {
+    "name": "Severe X-linked Intellectual Disability Gustavson Type",
+    "disease_id": "MONDO:0010661",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "neurodevelopmental disorder",
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-09-05T02:36:43Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gustavson syndrome (severe X-linked intellectual disability, Gustavson type; OMIM 309555) is an ultra-rare X-linked recessive syndromic intellectual disability described in a single large Swedish kindred. Affected males have profound intellectual disability with microcephaly, optic atrophy with severely impaired vision or blindness, a severe hearing defect, epileptic seizures, spasticity, restricted movement of the large joints, and death in infancy or early childhood. The locus was mapped to Xq26 by linkage in 1993, and the causal allele was identified thirty years later as a hemizygous in-frame single-codon deletion in RBMX (NM_002139.4; c.484_486del, p.(Pro162del)). RBMX encodes heterogeneous nuclear ribonucleoprotein G (hnRNP G), an RNA-binding regulator of pre-mRNA splicing; Pro162 lies in a conserved tri-proline region predicted to form a polyproline II helix and to act as an SH3-binding motif. Expressing the variant in neuronal cells dysregulates genes enriched for RNA polymerase II transcription, while aberrant RBMX splicing was specifically excluded as the mechanism.\nGustavson syndrome is allelic with, but clinically and mechanistically distinct from, Shashi X-linked intellectual disability syndrome, which is caused by loss of the C-terminal hnRNP G RGG/RG motif and is much milder. Structural brain abnormalities, epilepsy, severe vision defects, hearing loss and early death separate the Gustavson type; the two disorders share only minor phenotypic overlap, which the discovery authors read as evidence that disruption of different hnRNP G domains produces different disease.",
+    "pathophysiology": [
+      "RBMX p.(Pro162del) In-Frame Deletion",
+      "Disrupted hnRNP G SH3-Binding Motif Interaction",
+      "Dysregulated RNA Polymerase II Transcription",
+      "Impaired Brain Development",
+      "Profound Neurodevelopmental Impairment",
+      "Death in Early Childhood"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "transcription by RNA polymerase II",
+      "brain development"
+    ],
+    "phenotypes": [
+      "Profound intellectual disability",
+      "Microcephaly",
+      "Lissencephaly",
+      "Optic atrophy",
+      "Blindness",
+      "Hearing impairment",
+      "Seizure",
+      "Spasticity",
+      "Limitation of joint mobility",
+      "Abnormal facial shape",
+      "Congenital heart defect",
+      "Cerebellar vermis hypoplasia",
+      "Thin corpus callosum",
+      "Short stature"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Otologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002187",
+      "HP:0000252",
+      "HP:0001339",
+      "HP:0000648",
+      "HP:0000618",
+      "HP:0000365",
+      "HP:0001250",
+      "HP:0001257",
+      "HP:0001376",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0001320",
+      "HP:0033725",
+      "HP:0004322"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RBMX",
+      "RBMXL1"
+    ],
+    "treatments": [
+      "Supportive and palliative care",
+      "Genetic counseling and carrier testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Severe_X-linked_Intellectual_Disability_Gustavson_Type.yaml",
+    "page_url": "../pages/disorders/Severe_X-linked_Intellectual_Disability_Gustavson_Type.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Sezary Syndrome",
@@ -292961,17 +293195,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2834,
+  "total_disorder_pages": 2836,
   "total_subtypes": 3702,
-  "total_disorders_and_subtypes": 6536,
-  "total_unique_evidence_sources": 39985,
-  "total_unique_publications": 37664,
+  "total_disorders_and_subtypes": 6538,
+  "total_unique_evidence_sources": 40006,
+  "total_unique_publications": 37685,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2829,
-  "total_unique_pathological_events": 16961,
+  "total_pathographs": 2831,
+  "total_unique_pathological_events": 16974,
   "total_modules": 173,
-  "total_research_reports": 2963,
+  "total_research_reports": 2965,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
