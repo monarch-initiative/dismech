@@ -82611,25 +82611,42 @@ window.searchData = [
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
-      "Hepatic cyst formation"
+      "Hepatic cyst formation",
+      "Hepatic Cyst Rupture",
+      "Secondary Hydatidosis"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
-      "Hepatic cysts"
+      "Hepatic cysts",
+      "Pulmonary cysts",
+      "Urticaria",
+      "Flushing",
+      "Anaphylactic shock"
     ],
     "phenotype_categories": [
-      "Hepatic"
+      "Hepatic",
+      "Respiratory",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
-      "Digestive"
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0001407"
+      "HP:0001407",
+      "HP:0032445",
+      "HP:0001025",
+      "HP:0031284",
+      "HP:0100845"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -82640,12 +82657,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Cystic Fibrosis",
@@ -292944,7 +292961,7 @@ window.searchMetrics = {
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
   "total_pathographs": 2829,
-  "total_unique_pathological_events": 16959,
+  "total_unique_pathological_events": 16961,
   "total_modules": 173,
   "total_research_reports": 2962,
   "total_classifications": 19,
