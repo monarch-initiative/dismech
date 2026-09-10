@@ -82611,25 +82611,42 @@ window.searchData = [
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
-      "Hepatic cyst formation"
+      "Hepatic cyst formation",
+      "Hepatic Cyst Rupture",
+      "Secondary Hydatidosis"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
-      "Hepatic cysts"
+      "Hepatic cysts",
+      "Pulmonary cysts",
+      "Urticaria",
+      "Flushing",
+      "Anaphylactic shock"
     ],
     "phenotype_categories": [
-      "Hepatic"
+      "Hepatic",
+      "Respiratory",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
-      "Digestive"
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0001407"
+      "HP:0001407",
+      "HP:0032445",
+      "HP:0001025",
+      "HP:0031284",
+      "HP:0100845"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -82640,12 +82657,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Cystic Fibrosis",
@@ -86458,7 +86475,10 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000540"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "inclusion body assembly",
+      "autophagy"
+    ],
     "phenotypes": [
       "Visual Hallucinations",
       "Parkinsonism",
@@ -95602,6 +95622,110 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Dyssegmental Dysplasia",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-08-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DDSH",
+      "DDRD"
+    ],
+    "description": "Dyssegmental dysplasia (DD) is a rare autosomal recessive skeletal dysplasia caused by biallelic loss-of-function variants in HSPG2, the gene encoding perlecan \u2014 the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Its defining radiographic feature is anisospondyly: vertebral ossification centres of irregular size and shape, with defective segmentation and fusion of the vertebral bodies, from which the disorder takes its name. This is combined with micromelia, short thick bowed and dumbbell-shaped tubular bones, a narrow thorax, and a characteristic flat facies with short neck, micrognathia and cleft palate. Mutant perlecan is retained and degraded intracellularly rather than secreted, so the cartilage extracellular matrix is depleted of perlecan; the growth-plate columnar architecture and endochondral ossification then fail. DD is curated here as one entry spanning its two long-recognized clinical grades \u2014 the lethal Silverman-Handmaker type (DDSH) and the nonlethal Rolland-Desbuquois type (DDRD) \u2014 because both are now known to be caused by biallelic HSPG2 variants and share a single pathomechanism, differing in the amount of residual functional perlecan rather than in kind. Together with Schwartz-Jampel syndrome, which arises from hypomorphic alleles of the same gene, they form an allelic perlecan gene-dosage series.",
+    "pathophysiology": [
+      "Biallelic HSPG2 Loss-of-Function Variation",
+      "Failure of Perlecan Secretion into the Extracellular Matrix",
+      "Cartilage Extracellular Matrix Disorganization",
+      "Growth-Plate Disorganization and Defective Endochondral Ossification",
+      "Anisospondyly",
+      "Micromelia with Bowed, Dumbbell-Shaped Tubular Bones",
+      "Narrow Thorax with Neonatal Respiratory Failure"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "growth plate chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "endochondral ossification",
+      "chondrocyte proliferation",
+      "chondrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Anisospondyly",
+      "Coronal Cleft Vertebrae",
+      "Deficient Vertebral Ossification",
+      "Hydrocephalus",
+      "Occipital Encephalocele",
+      "Micromelia",
+      "Bowed Long Bones",
+      "Severe Short Stature",
+      "Narrow Thorax",
+      "Respiratory Insufficiency",
+      "Cleft Palate",
+      "Short Neck",
+      "Micrognathia",
+      "Limitation of Joint Mobility",
+      "Myotonia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Neurologic",
+      "Respiratory",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Neuromuscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003422",
+      "HP:0003417",
+      "HP:0004599",
+      "HP:0000238",
+      "HP:0002085",
+      "HP:0002983",
+      "HP:0006487",
+      "HP:0003510",
+      "HP:0000774",
+      "HP:0002093",
+      "HP:0000175",
+      "HP:0000470",
+      "HP:0000347",
+      "HP:0001376",
+      "HP:0002486"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HSPG2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dyssegmental_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Dyssegmental_Dysplasia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dystroglycanopathy",
@@ -151915,6 +152039,135 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Intellectual Disability, X-linked, Syndromic 33",
+    "disease_id": "MONDO:0010500",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked syndromic intellectual disability",
+      "multiple congenital anomalies/dysmorphic syndrome-intellectual disability"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, X-linked, syndromic 33 (MRXS33; TAF1 intellectual disability syndrome) is an X-linked neurodevelopmental disorder of affected males caused by germline variants in TAF1, which encodes the largest subunit of the general transcription factor TFIID. Affected boys present early with generalized hypotonia, global developmental delay, and characteristic facial dysmorphology, evolving into intellectual disability and/or autism spectrum disorder; a broadened allelic series adds brain morphological abnormalities, seizures, hearing loss, and heart malformations. Reported disease alleles are predominantly missense, with a start-loss variant, a splice-site variant, and two locus duplications also described. Complete TAF1 loss is embryonic-lethal in mouse and zebrafish, and no hemizygous null alleles of the canonical coding isoform are seen in population databases, so the disorder is best understood as a hypomorphic, dosage- and activity-sensitive lesion of the RNA polymerase II preinitiation machinery rather than a null. Two families with large Xq13.1 duplications involving TAF1 overlap the missense phenotype but additionally show severe progressive neurodegeneration.\nMRXS33 is allelic to, and clinically distinct from, X-linked dystonia-parkinsonism (XDP, curated separately in this knowledge base). XDP arises from a Filipino founder SINE-VNTR-Alu retrotransposon insertion in intron 32 of TAF1 and is an adult-onset neurodegenerative movement disorder with neostriatal neuronal loss; MRXS33 arises from coding missense variants (or locus duplication) and is a congenital neurodevelopmental syndrome. The two share a gene and a broad theme of TAF1 transcriptional dysregulation, but differ in lesion class, age of onset, neuroanatomical target, and clinical syndrome.\n",
+    "pathophysiology": [
+      "TAF1 Hypomorphic Missense Variants",
+      "Loss of TAF1 Bromodomain Repression in Cardiogenesis",
+      "TAF1 Locus Duplication",
+      "Reduced RAP74 Phosphorylation in Patient Cells",
+      "TFIID-Dependent Transcription Dysfunction",
+      "Impaired Craniofacial Development",
+      "Dysregulated Neurodevelopmental Transcriptional Program",
+      "Impaired Neuronal Differentiation and Neurodevelopment",
+      "Cerebellar Purkinje Cell Loss"
+    ],
+    "cell_types": [
+      "cerebellar Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "RNA polymerase II preinitiation complex assembly",
+      "regulation of transcription by RNA polymerase II",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Delayed speech and language development",
+      "Autism spectrum disorder",
+      "Characteristic facial dysmorphism",
+      "Prominent supraorbital ridges",
+      "Low-set ears",
+      "Protruding ear",
+      "Long philtrum",
+      "Long face",
+      "Pointed chin",
+      "Prominent forehead",
+      "Large hands",
+      "Short neck",
+      "High palate",
+      "Sacral dimple",
+      "Gait disturbance",
+      "Seizure",
+      "Hearing impairment",
+      "Strabismus",
+      "Genitourinary anomaly",
+      "Congenital heart malformation",
+      "Abnormal brain morphology",
+      "Cerebellar hypoplasia",
+      "Oral-pharyngeal dysphagia",
+      "Joint hypermobility",
+      "Progressive neurodegeneration in TAF1 duplication"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0001999",
+      "HP:0000336",
+      "HP:0000369",
+      "HP:0000411",
+      "HP:0000343",
+      "HP:0000276",
+      "HP:0000307",
+      "HP:0011220",
+      "HP:0001176",
+      "HP:0000470",
+      "HP:0000218",
+      "HP:0000960",
+      "HP:0001288",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0000486",
+      "HP:0000119",
+      "HP:0001627",
+      "HP:0012443",
+      "HP:0001321",
+      "HP:0200136",
+      "HP:0001382",
+      "HP:0002180"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TAF1"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_X-linked_Syndromic_33.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability,_X-linked,_Syndromic_33.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Intellectual Disability X-linked Syndromic 35",
     "disease_id": "MONDO:0030908",
     "category": "Genetic",
@@ -154033,29 +154286,37 @@ window.searchData = [
       "HP:0032448"
     ],
     "frequencies": [
+      "OBLIGATE",
       "FREQUENT"
     ],
     "genes": [
-      "KCNQ1"
+      "KCNQ1",
+      "NOS1AP"
     ],
     "treatments": [
       "Beta-Blocker Therapy",
       "Implantable Cardioverter-Defibrillator Placement",
       "Left Cardiac Sympathetic Denervation",
+      "Atrial Pacing with Beta-Blockade",
+      "KCNQ1 Suppression-and-Replacement Gene Therapy",
       "Cochlear Implantation",
       "QT-Prolonging Drug and Trigger Avoidance",
       "Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Serum Gastrin",
+      "Serum Pepsinogen",
+      "Faecal Calprotectin"
+    ],
     "source_file": "Jervell_and_Lange-Nielsen_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Jervell_and_Lange-Nielsen_Syndrome_1.html",
     "num_phenotypes": 11,
     "num_pathophysiology": 11,
-    "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Jervell and Lange-Nielsen Syndrome 2",
@@ -161904,6 +162165,119 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "38",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "LPIN1-Related Recurrent Myoglobinuria",
+    "disease_id": "MONDO:0009992",
+    "category": "Genetic",
+    "parents": [
+      "MONDO:0020504"
+    ],
+    "creation_date": "2026-09-05T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "LPIN1-related recurrent myoglobinuria (OMIM #268200) is an autosomal recessive disorder caused by biallelic loss-of-function variants in LPIN1, which encodes lipin-1, the Mg2+-dependent phosphatidic acid phosphatase that converts phosphatidic acid to diacylglycerol and accounts for most of that activity in skeletal muscle. It is a major cause, in some series the commonest, of severe recurrent rhabdomyolysis in early childhood: episodes usually begin before age six (mean about 21 months), are precipitated by febrile illness, fasting, strenuous exercise or anaesthesia, and produce massive creatine kinase elevation (often above 100,000 U/L), myoglobinuria, myalgia and weakness, with acute kidney injury, hyperkalaemia and fatal arrhythmia in the most severe attacks; about a third of patients have died, most during a crisis. Between attacks most patients are clinically well, although exercise intolerance and permanent muscle symptoms occur, and rare adolescent- or adult-onset and atypical neuromuscular presentations are described. Patient muscle and myoblasts show loss of phosphatidate phosphatase activity, phosphatidic acid and lipid-droplet accumulation, impaired fatty acid oxidation during exercise, and defective mitochondrial quality control in which oxidised mitochondrial DNA accumulating in late endosomes activates TLR9-driven inflammatory signalling and caspase-dependent myolysis, a model that also explains the febrile trigger. Muscle-specific Lpin1-null mice add sarcoplasmic reticulum stress and loss of membrane integrity with apoptotic and necroptotic myofibre death. There is no approved targeted therapy: attacks are managed with aggressive intravenous fluid and glucose, electrolyte and cardiac monitoring, and, in the largest cohort, intravenous corticosteroids; low-dose hydroxychloroquine has been given compassionately, and glucose loading improves exercise capacity. The mitochondrially inherited recurrent myoglobinuria attributed to mtDNA cytochrome c oxidase gene mutations (MONDO:0010791, OMIM 550500) is a separate entity.\n",
+    "pathophysiology": [
+      "Biallelic LPIN1 Loss of Function",
+      "Phosphatidic Acid Accumulation and Glycerolipid Imbalance",
+      "Impaired Mitochondrial Quality Control and Fatty Acid Oxidation",
+      "Sarcoplasmic Reticulum Stress",
+      "Oxidized Mitochondrial DNA-TLR9 Inflammatory Signaling",
+      "Trigger-Induced Myofibre Necrosis"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "fatty acid metabolic process",
+      "mitophagy",
+      "fatty acid beta-oxidation",
+      "response to endoplasmic reticulum stress",
+      "toll-like receptor 9 signaling pathway",
+      "inflammatory response",
+      "necroptotic process"
+    ],
+    "phenotypes": [
+      "Rhabdomyolysis",
+      "Myoglobinuria",
+      "Elevated circulating creatine kinase activity",
+      "Elevated circulating hepatic transaminase concentration",
+      "Myalgia",
+      "Muscle weakness",
+      "Exercise intolerance",
+      "Increased intramyocellular lipid droplets",
+      "Acute kidney injury",
+      "Cardiac arrest",
+      "Abnormal T-wave",
+      "Hypotonia",
+      "Hyporeflexia"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Histopathology",
+      "Renal",
+      "Cardiovascular",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003201",
+      "HP:0002913",
+      "HP:0003236",
+      "HP:0002910",
+      "HP:0003326",
+      "HP:0001324",
+      "HP:0003546",
+      "HP:0012240",
+      "HP:0001919",
+      "HP:0001695",
+      "HP:0005135",
+      "HP:0001252",
+      "HP:0001265"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LPIN1"
+    ],
+    "treatments": [
+      "Emergency management of acute rhabdomyolysis",
+      "Intravenous corticosteroids during attacks",
+      "Low-dose hydroxychloroquine (compassionate)",
+      "Glucose supplementation during exercise and avoidance of fasting",
+      "TUDCA and bezafibrate (preclinical)",
+      "Genetic counseling and carrier advice"
+    ],
+    "environmental": [
+      "Febrile illness",
+      "Strenuous exercise",
+      "Fasting",
+      "General anaesthesia"
+    ],
+    "biochemical": [],
+    "source_file": "LPIN1-Related_Recurrent_Myoglobinuria.yaml",
+    "page_url": "../pages/disorders/LPIN1-Related_Recurrent_Myoglobinuria.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "LRBA Deficiency",
@@ -175462,6 +175836,71 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Maleylacetoacetate Isomerase Deficiency",
+    "disease_id": "MONDO:0060527",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of Tyrosine Metabolism",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Maleylacetoacetate isomerase deficiency is an autosomal recessive inborn error of tyrosine catabolism caused by biallelic variants in GSTZ1, which encodes maleylacetoacetate isomerase \u2014 the glutathione-dependent enzyme that isomerises maleylacetoacetate to fumarylacetoacetate, the step immediately upstream of fumarylacetoacetate hydrolase. It is curated here because it is the exception that the rest of the distal tyrosine pathway does not predict: a block one enzyme above the lesion that causes hepatorenal tyrosinemia type 1 produces only mild, often intermittent hypersuccinylacetonaemia and, in every molecularly confirmed individual followed to date, no disease. The mechanistic explanation is a glutathione-mediated non-enzymatic isomerisation of maleylacetoacetate that partially substitutes for the missing enzyme, demonstrated in vitro and in Gstz1-null mice. That bypass is not unconditional: under phenylalanine or tyrosine overload, a high-protein diet, or glutathione depletion, mutant mice develop renal and hepatic necrosis and die, and no human counterpart of that stressed state has been reported. Clinically the entry matters mainly as a differential diagnosis in newborn screening \u2014 elevated dried-blood-spot succinylacetone is no longer pathognomonic for tyrosinemia type 1 \u2014 where elevated urinary maleic acid discriminates the two and spares the infant unnecessary nitisinone and dietary restriction.\n",
+    "pathophysiology": [
+      "Maleylacetoacetate isomerase deficiency",
+      "Maleylacetoacetate accumulation behind the block",
+      "Glutathione-dependent non-enzymatic isomerisation to fumarylacetoacetate",
+      "Escape of succinylacetone and maleic acid into blood and urine",
+      "Bypass saturation under substrate overload or glutathione depletion",
+      "Hepatorenal injury and leucopenia in the saturated state"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "L-tyrosine catabolic process"
+    ],
+    "phenotypes": [
+      "Mild hypersuccinylacetonaemia",
+      "Elevated urinary succinylacetone",
+      "Elevated urinary maleic acid excretion"
+    ],
+    "phenotype_categories": [
+      "Biochemical"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:6001410",
+      "HP:6000598",
+      "HP:0031980"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GSTZ1 deficiency"
+    ],
+    "treatments": [
+      "Withholding nitisinone and dietary tyrosine restriction, with structured surveillance",
+      "Avoidance of dichloroacetate, glutathione-depleting drugs and protein supplements",
+      "Genetic counselling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma and dried-blood-spot succinylacetone",
+      "Urinary maleic acid"
+    ],
+    "source_file": "Maleylacetoacetate_Isomerase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Maleylacetoacetate_Isomerase_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Malignant Atrophic Papulosis",
@@ -204317,31 +204756,39 @@ window.searchData = [
     "pathophysiology": [
       "Upper Airway Collapse",
       "Intermittent Hypoxia",
+      "TLR4 Upregulation",
+      "MyD88-Dependent NF-\u03baB Activation",
+      "MAPK Cascade Activation",
       "Sleep Fragmentation",
       "Non-Anatomic Endotypic Traits",
       "Sympathetic Overactivation",
+      "NLRP3 Inflammasome Activation",
       "Systemic Inflammation",
       "Ocular Surface Inflammation and Dry Eye Disease"
     ],
     "cell_types": [
       "Genioglossus pharyngeal dilator muscle cell",
       "Sympathetic postganglionic neuron",
-      "Vascular endothelial cell",
       "Macrophage",
+      "Vascular endothelial cell",
       "Meibomian (sebaceous) gland cell"
     ],
     "cell_type_ids": [
       "CL:0002673",
       "CL:0011103",
-      "CL:0002139",
       "CL:0000235",
+      "CL:0002139",
       "CL:2000021"
     ],
     "biological_processes": [
       "Sleep-related loss of pharyngeal dilator muscle tone",
       "Response to Hypoxia",
+      "Toll-like receptor 4 signaling pathway",
+      "Positive regulation of NF-kB transcription factor activity",
+      "MAPK cascade",
       "Sleep Regulation",
       "nervous system control of respiratory gas exchange",
+      "Interleukin-1 Beta Production",
       "Inflammatory Response",
       "Ocular Surface Inflammation",
       "Response to Oxidative Stress",
@@ -204414,11 +204861,11 @@ window.searchData = [
     "source_file": "Obstructive_Sleep_Apnea.yaml",
     "page_url": "../pages/disorders/Obstructive_Sleep_Apnea.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ochoa syndrome",
@@ -217603,6 +218050,7 @@ window.searchData = [
       "PGC-1alpha Transcriptional Program Repression",
       "MAPK Dysregulation",
       "Neuroinflammation",
+      "Reactive Astrogliosis",
       "Complement C3-C3aR Activation in Depression",
       "Autophagy-Lysosome Pathway Dysfunction",
       "LRRK2 GTPase Domain Dysregulation",
@@ -217656,6 +218104,11 @@ window.searchData = [
       "MAPK cascade",
       "JNK cascade",
       "p38MAPK cascade",
+      "TNF-alpha production",
+      "IL-1beta production",
+      "IL-6 production",
+      "Astrocyte activation",
+      "Astrocytic clearance of synaptic glutamate",
       "complement activation",
       "synapse pruning",
       "Autophagy",
@@ -217750,10 +218203,10 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 23,
+    "num_pathophysiology": 24,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "9"
   },
   {
@@ -254132,6 +254585,105 @@ window.searchData = [
     "causal_graph_longest_path": "11"
   },
   {
+    "name": "Severe X-linked Intellectual Disability Gustavson Type",
+    "disease_id": "MONDO:0010661",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "neurodevelopmental disorder",
+      "X-linked syndromic intellectual disability"
+    ],
+    "creation_date": "2026-09-05T02:36:43Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gustavson syndrome (severe X-linked intellectual disability, Gustavson type; OMIM 309555) is an ultra-rare X-linked recessive syndromic intellectual disability described in a single large Swedish kindred. Affected males have profound intellectual disability with microcephaly, optic atrophy with severely impaired vision or blindness, a severe hearing defect, epileptic seizures, spasticity, restricted movement of the large joints, and death in infancy or early childhood. The locus was mapped to Xq26 by linkage in 1993, and the causal allele was identified thirty years later as a hemizygous in-frame single-codon deletion in RBMX (NM_002139.4; c.484_486del, p.(Pro162del)). RBMX encodes heterogeneous nuclear ribonucleoprotein G (hnRNP G), an RNA-binding regulator of pre-mRNA splicing; Pro162 lies in a conserved tri-proline region predicted to form a polyproline II helix and to act as an SH3-binding motif. Expressing the variant in neuronal cells dysregulates genes enriched for RNA polymerase II transcription, while aberrant RBMX splicing was specifically excluded as the mechanism.\nGustavson syndrome is allelic with, but clinically and mechanistically distinct from, Shashi X-linked intellectual disability syndrome, which is caused by loss of the C-terminal hnRNP G RGG/RG motif and is much milder. Structural brain abnormalities, epilepsy, severe vision defects, hearing loss and early death separate the Gustavson type; the two disorders share only minor phenotypic overlap, which the discovery authors read as evidence that disruption of different hnRNP G domains produces different disease.",
+    "pathophysiology": [
+      "RBMX p.(Pro162del) In-Frame Deletion",
+      "Disrupted hnRNP G SH3-Binding Motif Interaction",
+      "Dysregulated RNA Polymerase II Transcription",
+      "Impaired Brain Development",
+      "Profound Neurodevelopmental Impairment",
+      "Death in Early Childhood"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "transcription by RNA polymerase II",
+      "brain development"
+    ],
+    "phenotypes": [
+      "Profound intellectual disability",
+      "Microcephaly",
+      "Lissencephaly",
+      "Optic atrophy",
+      "Blindness",
+      "Hearing impairment",
+      "Seizure",
+      "Spasticity",
+      "Limitation of joint mobility",
+      "Abnormal facial shape",
+      "Congenital heart defect",
+      "Cerebellar vermis hypoplasia",
+      "Thin corpus callosum",
+      "Short stature"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Otologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002187",
+      "HP:0000252",
+      "HP:0001339",
+      "HP:0000648",
+      "HP:0000618",
+      "HP:0000365",
+      "HP:0001250",
+      "HP:0001257",
+      "HP:0001376",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0001320",
+      "HP:0033725",
+      "HP:0004322"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RBMX",
+      "RBMXL1"
+    ],
+    "treatments": [
+      "Supportive and palliative care",
+      "Genetic counseling and carrier testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Severe_X-linked_Intellectual_Disability_Gustavson_Type.yaml",
+    "page_url": "../pages/disorders/Severe_X-linked_Intellectual_Disability_Gustavson_Type.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Sezary Syndrome",
     "disease_id": "MONDO:0017844",
     "category": "Cancer",
@@ -280257,6 +280809,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "UV-Sensitive Syndrome",
+    "disease_id": "MONDO:0015797",
+    "category": "Genetic",
+    "parents": [
+      "DNA Repair Disorder",
+      "Photosensitivity Disorder"
+    ],
+    "creation_date": "2026-09-09T16:56:20Z",
+    "updated_date": null,
+    "subtypes": [
+      "UVSS1",
+      "UVSS2",
+      "UVSS3"
+    ],
+    "description": "UV-sensitive syndrome is an autosomal recessive photosensitivity disorder caused by biallelic loss of transcription-coupled nucleotide excision repair (TC-NER). Affected individuals sunburn easily after minimal exposure, and develop freckling and telangiectasia on sun-exposed skin. They have no neurological abnormality and no established predisposition to skin cancer.\nThe interest of the entry is the contrast rather than the repair defect on its own. Two of the three causal genes, ERCC6 (CSB) and ERCC8 (CSA), are the Cockayne syndrome genes. Cockayne syndrome is a severe segmental progeroid disease with neurodegeneration, cachectic dwarfism and early death, while UV-sensitive syndrome is confined to the skin and compatible with a normal lifespan. The two share a TC-NER defect, so the TC-NER defect cannot be what makes Cockayne syndrome severe. A homozygous null CSB allele has been found in a person with UV-sensitive syndrome and no Cockayne features, which is the sharpest form of the problem: complete absence of the protein does not produce the severe disease. The favoured explanation is that CSA and CSB have further transcriptional, mitochondrial or repair-independent roles whose loss drives Cockayne syndrome, but this is not settled, and the entry records it as an open question rather than asserting it.\nThe third gene, UVSSA, is the informative comparator: it acts in the same pathway, is the most frequently reported UV-sensitive syndrome gene, and has never been reported to cause Cockayne syndrome.",
+    "pathophysiology": [
+      "Biallelic Loss of a TC-NER Factor",
+      "Failure to Process Stalled RNA Polymerase II",
+      "Persistent Transcription Blockage After UV Exposure",
+      "UV-Induced Keratinocyte Apoptosis"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "transcription-coupled nucleotide-excision repair",
+      "UV-damage excision repair"
+    ],
+    "phenotypes": [
+      "Cutaneous Photosensitivity",
+      "Freckling",
+      "Telangiectasia",
+      "Dry Skin"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0001480",
+      "HP:0001009",
+      "HP:0000958"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ERCC6",
+      "ERCC8",
+      "UVSSA"
+    ],
+    "treatments": [
+      "Photoprotection"
+    ],
+    "environmental": [
+      "Ultraviolet radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "UV-Sensitive_Syndrome.yaml",
+    "page_url": "../pages/disorders/UV-Sensitive_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ulcerative Colitis",
     "disease_id": "MONDO:0005101",
     "category": "Complex",
@@ -292568,17 +293195,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2830,
-  "total_subtypes": 3697,
-  "total_disorders_and_subtypes": 6527,
-  "total_unique_evidence_sources": 39920,
-  "total_unique_publications": 37604,
+  "total_disorder_pages": 2836,
+  "total_subtypes": 3702,
+  "total_disorders_and_subtypes": 6538,
+  "total_unique_evidence_sources": 40006,
+  "total_unique_publications": 37685,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2825,
-  "total_unique_pathological_events": 16934,
+  "total_pathographs": 2831,
+  "total_unique_pathological_events": 16974,
   "total_modules": 173,
-  "total_research_reports": 2959,
+  "total_research_reports": 2965,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
