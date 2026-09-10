@@ -18539,6 +18539,119 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Amyotrophic Lateral Sclerosis Type 1",
+    "disease_id": "MONDO:0007103",
+    "category": "Mendelian",
+    "parents": [
+      "Amyotrophic Lateral Sclerosis",
+      "Motor Neuron Disease",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "A4V",
+      "D90A homozygous"
+    ],
+    "description": "Amyotrophic lateral sclerosis type 1 (ALS1) is the SOD1-associated form of motor neuron disease and was the first genetically defined form of ALS, identified in 1993 when missense variants in SOD1 \u2014 encoding the homodimeric cytosolic Cu/Zn superoxide dismutase \u2014 were found to segregate with autosomal dominant familial ALS. Over 200 variants are now known, and SOD1 accounts for a substantial minority of familial ALS. Reported estimates span a wide range rather than converging: 12-23% and 1-23% of familial ALS in two recent sources, alongside single-cohort figures of 20% and 24.2%, plus roughly 1-7% of apparently sporadic disease. The spread is real and population-dependent, so this entry does not name a central value. The defining mechanistic claim of this entry is that ALS1 is a gain of toxic function rather than a loss of dismutase activity: SOD1-null mice have structurally and functionally normal motor neurons, the slowly progressive Asp90Ala allele leaves erythrocyte dismutase activity essentially normal, and a transgene encoding a variant with little effect on enzyme activity is sufficient to paralyse mice. Destabilised SOD1 misfolds and acquires toxicity through several partly independent routes \u2014 cytoplasmic aggregation, sequestration of the ERAD component Derlin-1 with downstream ASK1 activation, and prion-like templated propagation of the misfolded conformer \u2014 and disease is then propagated non-cell-autonomously, with mutant protein in motor neurons setting onset while mutant protein in microglia and astrocytes governs the later rate of progression. ALS1 is kept separate from the broad `Amyotrophic Lateral Sclerosis` entry for a specific pathological reason and not merely a genetic one: SOD1-mutant cases carry ubiquitin-positive but TDP-43-negative inclusions, so they fall outside the TDP-43 proteinopathy that defines the great majority of ALS. ALS1 is also the first ALS subtype with a mechanism-directed therapy, the SOD1-lowering antisense oligonucleotide tofersen.",
+    "pathophysiology": [
+      "SOD1 Missense Variant",
+      "Misfolded SOD1 Gain of Toxic Function",
+      "Prion-Like Templated Propagation of Misfolded SOD1",
+      "Cytoplasmic SOD1 Aggregate Formation",
+      "Derlin-1 Sequestration and ASK1-Dependent ER Stress",
+      "Non-Cell-Autonomous Glial Toxicity",
+      "Extra-Motor CNS Degeneration",
+      "Disease-Associated Motor Neuron State",
+      "Motor Neuron Degeneration",
+      "Progressive Muscle Denervation"
+    ],
+    "cell_types": [
+      "spinal cord motor neuron",
+      "microglial cell",
+      "astrocyte",
+      "alpha motor neuron",
+      "Betz upper motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011001",
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0008038",
+      "CL:4023052"
+    ],
+    "biological_processes": [
+      "protein quality control for misfolded or incompletely synthesized proteins",
+      "response to endoplasmic reticulum stress",
+      "ERAD pathway",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Progressive Muscle Weakness",
+      "Lower Limb Muscle Weakness",
+      "Skeletal Muscle Atrophy",
+      "Fasciculations",
+      "Spasticity",
+      "Hyperreflexia",
+      "Dysarthria",
+      "Dysphagia",
+      "Respiratory Insufficiency",
+      "Somatic Sensory Dysfunction",
+      "Functional Abnormality of the Bladder",
+      "Gait Ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Respiratory",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003323",
+      "HP:0007340",
+      "HP:0003202",
+      "HP:0002380",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0002093",
+      "HP:0003474",
+      "HP:0000009",
+      "HP:0002066"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOD1"
+    ],
+    "treatments": [
+      "Tofersen",
+      "Riluzole",
+      "Edaravone",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling and Predictive Testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Neurofilament light chain"
+    ],
+    "source_file": "Amyotrophic_Lateral_Sclerosis_Type_1.yaml",
+    "page_url": "../pages/disorders/Amyotrophic_Lateral_Sclerosis_Type_1.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Anal Canal Adenocarcinoma",
     "disease_id": "MONDO:0002735",
     "category": "",
@@ -82498,25 +82611,42 @@ window.searchData = [
     "subtypes": [],
     "description": "Cystic echinococcosis is a helminthic disease caused by the larval stage of Echinococcus granulosus.",
     "pathophysiology": [
-      "Hepatic cyst formation"
+      "Hepatic cyst formation",
+      "Hepatic Cyst Rupture",
+      "Secondary Hydatidosis"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
-      "Hepatic cysts"
+      "Hepatic cysts",
+      "Pulmonary cysts",
+      "Urticaria",
+      "Flushing",
+      "Anaphylactic shock"
     ],
     "phenotype_categories": [
-      "Hepatic"
+      "Hepatic",
+      "Respiratory",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
-      "Digestive"
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0001407"
+      "HP:0001407",
+      "HP:0032445",
+      "HP:0001025",
+      "HP:0031284",
+      "HP:0100845"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
@@ -82527,12 +82657,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Cystic Fibrosis",
@@ -86345,7 +86475,10 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000540"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "inclusion body assembly",
+      "autophagy"
+    ],
     "phenotypes": [
       "Visual Hallucinations",
       "Parkinsonism",
@@ -95489,6 +95622,110 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Dyssegmental Dysplasia",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Skeletal Dysplasia"
+    ],
+    "creation_date": "2026-08-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DDSH",
+      "DDRD"
+    ],
+    "description": "Dyssegmental dysplasia (DD) is a rare autosomal recessive skeletal dysplasia caused by biallelic loss-of-function variants in HSPG2, the gene encoding perlecan \u2014 the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Its defining radiographic feature is anisospondyly: vertebral ossification centres of irregular size and shape, with defective segmentation and fusion of the vertebral bodies, from which the disorder takes its name. This is combined with micromelia, short thick bowed and dumbbell-shaped tubular bones, a narrow thorax, and a characteristic flat facies with short neck, micrognathia and cleft palate. Mutant perlecan is retained and degraded intracellularly rather than secreted, so the cartilage extracellular matrix is depleted of perlecan; the growth-plate columnar architecture and endochondral ossification then fail. DD is curated here as one entry spanning its two long-recognized clinical grades \u2014 the lethal Silverman-Handmaker type (DDSH) and the nonlethal Rolland-Desbuquois type (DDRD) \u2014 because both are now known to be caused by biallelic HSPG2 variants and share a single pathomechanism, differing in the amount of residual functional perlecan rather than in kind. Together with Schwartz-Jampel syndrome, which arises from hypomorphic alleles of the same gene, they form an allelic perlecan gene-dosage series.",
+    "pathophysiology": [
+      "Biallelic HSPG2 Loss-of-Function Variation",
+      "Failure of Perlecan Secretion into the Extracellular Matrix",
+      "Cartilage Extracellular Matrix Disorganization",
+      "Growth-Plate Disorganization and Defective Endochondral Ossification",
+      "Anisospondyly",
+      "Micromelia with Bowed, Dumbbell-Shaped Tubular Bones",
+      "Narrow Thorax with Neonatal Respiratory Failure"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "growth plate chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "endochondral ossification",
+      "chondrocyte proliferation",
+      "chondrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Anisospondyly",
+      "Coronal Cleft Vertebrae",
+      "Deficient Vertebral Ossification",
+      "Hydrocephalus",
+      "Occipital Encephalocele",
+      "Micromelia",
+      "Bowed Long Bones",
+      "Severe Short Stature",
+      "Narrow Thorax",
+      "Respiratory Insufficiency",
+      "Cleft Palate",
+      "Short Neck",
+      "Micrognathia",
+      "Limitation of Joint Mobility",
+      "Myotonia"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Neurologic",
+      "Respiratory",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Neuromuscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003422",
+      "HP:0003417",
+      "HP:0004599",
+      "HP:0000238",
+      "HP:0002085",
+      "HP:0002983",
+      "HP:0006487",
+      "HP:0003510",
+      "HP:0000774",
+      "HP:0002093",
+      "HP:0000175",
+      "HP:0000470",
+      "HP:0000347",
+      "HP:0001376",
+      "HP:0002486"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HSPG2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dyssegmental_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Dyssegmental_Dysplasia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dystroglycanopathy",
@@ -161793,6 +162030,119 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "LPIN1-Related Recurrent Myoglobinuria",
+    "disease_id": "MONDO:0009992",
+    "category": "Genetic",
+    "parents": [
+      "MONDO:0020504"
+    ],
+    "creation_date": "2026-09-05T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "LPIN1-related recurrent myoglobinuria (OMIM #268200) is an autosomal recessive disorder caused by biallelic loss-of-function variants in LPIN1, which encodes lipin-1, the Mg2+-dependent phosphatidic acid phosphatase that converts phosphatidic acid to diacylglycerol and accounts for most of that activity in skeletal muscle. It is a major cause, in some series the commonest, of severe recurrent rhabdomyolysis in early childhood: episodes usually begin before age six (mean about 21 months), are precipitated by febrile illness, fasting, strenuous exercise or anaesthesia, and produce massive creatine kinase elevation (often above 100,000 U/L), myoglobinuria, myalgia and weakness, with acute kidney injury, hyperkalaemia and fatal arrhythmia in the most severe attacks; about a third of patients have died, most during a crisis. Between attacks most patients are clinically well, although exercise intolerance and permanent muscle symptoms occur, and rare adolescent- or adult-onset and atypical neuromuscular presentations are described. Patient muscle and myoblasts show loss of phosphatidate phosphatase activity, phosphatidic acid and lipid-droplet accumulation, impaired fatty acid oxidation during exercise, and defective mitochondrial quality control in which oxidised mitochondrial DNA accumulating in late endosomes activates TLR9-driven inflammatory signalling and caspase-dependent myolysis, a model that also explains the febrile trigger. Muscle-specific Lpin1-null mice add sarcoplasmic reticulum stress and loss of membrane integrity with apoptotic and necroptotic myofibre death. There is no approved targeted therapy: attacks are managed with aggressive intravenous fluid and glucose, electrolyte and cardiac monitoring, and, in the largest cohort, intravenous corticosteroids; low-dose hydroxychloroquine has been given compassionately, and glucose loading improves exercise capacity. The mitochondrially inherited recurrent myoglobinuria attributed to mtDNA cytochrome c oxidase gene mutations (MONDO:0010791, OMIM 550500) is a separate entity.\n",
+    "pathophysiology": [
+      "Biallelic LPIN1 Loss of Function",
+      "Phosphatidic Acid Accumulation and Glycerolipid Imbalance",
+      "Impaired Mitochondrial Quality Control and Fatty Acid Oxidation",
+      "Sarcoplasmic Reticulum Stress",
+      "Oxidized Mitochondrial DNA-TLR9 Inflammatory Signaling",
+      "Trigger-Induced Myofibre Necrosis"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "fatty acid metabolic process",
+      "mitophagy",
+      "fatty acid beta-oxidation",
+      "response to endoplasmic reticulum stress",
+      "toll-like receptor 9 signaling pathway",
+      "inflammatory response",
+      "necroptotic process"
+    ],
+    "phenotypes": [
+      "Rhabdomyolysis",
+      "Myoglobinuria",
+      "Elevated circulating creatine kinase activity",
+      "Elevated circulating hepatic transaminase concentration",
+      "Myalgia",
+      "Muscle weakness",
+      "Exercise intolerance",
+      "Increased intramyocellular lipid droplets",
+      "Acute kidney injury",
+      "Cardiac arrest",
+      "Abnormal T-wave",
+      "Hypotonia",
+      "Hyporeflexia"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Histopathology",
+      "Renal",
+      "Cardiovascular",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003201",
+      "HP:0002913",
+      "HP:0003236",
+      "HP:0002910",
+      "HP:0003326",
+      "HP:0001324",
+      "HP:0003546",
+      "HP:0012240",
+      "HP:0001919",
+      "HP:0001695",
+      "HP:0005135",
+      "HP:0001252",
+      "HP:0001265"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LPIN1"
+    ],
+    "treatments": [
+      "Emergency management of acute rhabdomyolysis",
+      "Intravenous corticosteroids during attacks",
+      "Low-dose hydroxychloroquine (compassionate)",
+      "Glucose supplementation during exercise and avoidance of fasting",
+      "TUDCA and bezafibrate (preclinical)",
+      "Genetic counseling and carrier advice"
+    ],
+    "environmental": [
+      "Febrile illness",
+      "Strenuous exercise",
+      "Fasting",
+      "General anaesthesia"
+    ],
+    "biochemical": [],
+    "source_file": "LPIN1-Related_Recurrent_Myoglobinuria.yaml",
+    "page_url": "../pages/disorders/LPIN1-Related_Recurrent_Myoglobinuria.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "LRBA Deficiency",
     "disease_id": "MONDO:0013863",
     "category": "Mendelian",
@@ -175349,6 +175699,71 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Maleylacetoacetate Isomerase Deficiency",
+    "disease_id": "MONDO:0060527",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of Tyrosine Metabolism",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Maleylacetoacetate isomerase deficiency is an autosomal recessive inborn error of tyrosine catabolism caused by biallelic variants in GSTZ1, which encodes maleylacetoacetate isomerase \u2014 the glutathione-dependent enzyme that isomerises maleylacetoacetate to fumarylacetoacetate, the step immediately upstream of fumarylacetoacetate hydrolase. It is curated here because it is the exception that the rest of the distal tyrosine pathway does not predict: a block one enzyme above the lesion that causes hepatorenal tyrosinemia type 1 produces only mild, often intermittent hypersuccinylacetonaemia and, in every molecularly confirmed individual followed to date, no disease. The mechanistic explanation is a glutathione-mediated non-enzymatic isomerisation of maleylacetoacetate that partially substitutes for the missing enzyme, demonstrated in vitro and in Gstz1-null mice. That bypass is not unconditional: under phenylalanine or tyrosine overload, a high-protein diet, or glutathione depletion, mutant mice develop renal and hepatic necrosis and die, and no human counterpart of that stressed state has been reported. Clinically the entry matters mainly as a differential diagnosis in newborn screening \u2014 elevated dried-blood-spot succinylacetone is no longer pathognomonic for tyrosinemia type 1 \u2014 where elevated urinary maleic acid discriminates the two and spares the infant unnecessary nitisinone and dietary restriction.\n",
+    "pathophysiology": [
+      "Maleylacetoacetate isomerase deficiency",
+      "Maleylacetoacetate accumulation behind the block",
+      "Glutathione-dependent non-enzymatic isomerisation to fumarylacetoacetate",
+      "Escape of succinylacetone and maleic acid into blood and urine",
+      "Bypass saturation under substrate overload or glutathione depletion",
+      "Hepatorenal injury and leucopenia in the saturated state"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "L-tyrosine catabolic process"
+    ],
+    "phenotypes": [
+      "Mild hypersuccinylacetonaemia",
+      "Elevated urinary succinylacetone",
+      "Elevated urinary maleic acid excretion"
+    ],
+    "phenotype_categories": [
+      "Biochemical"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:6001410",
+      "HP:6000598",
+      "HP:0031980"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GSTZ1 deficiency"
+    ],
+    "treatments": [
+      "Withholding nitisinone and dietary tyrosine restriction, with structured surveillance",
+      "Avoidance of dichloroacetate, glutathione-depleting drugs and protein supplements",
+      "Genetic counselling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma and dried-blood-spot succinylacetone",
+      "Urinary maleic acid"
+    ],
+    "source_file": "Maleylacetoacetate_Isomerase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Maleylacetoacetate_Isomerase_Deficiency.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Malignant Atrophic Papulosis",
@@ -204204,31 +204619,39 @@ window.searchData = [
     "pathophysiology": [
       "Upper Airway Collapse",
       "Intermittent Hypoxia",
+      "TLR4 Upregulation",
+      "MyD88-Dependent NF-\u03baB Activation",
+      "MAPK Cascade Activation",
       "Sleep Fragmentation",
       "Non-Anatomic Endotypic Traits",
       "Sympathetic Overactivation",
+      "NLRP3 Inflammasome Activation",
       "Systemic Inflammation",
       "Ocular Surface Inflammation and Dry Eye Disease"
     ],
     "cell_types": [
       "Genioglossus pharyngeal dilator muscle cell",
       "Sympathetic postganglionic neuron",
-      "Vascular endothelial cell",
       "Macrophage",
+      "Vascular endothelial cell",
       "Meibomian (sebaceous) gland cell"
     ],
     "cell_type_ids": [
       "CL:0002673",
       "CL:0011103",
-      "CL:0002139",
       "CL:0000235",
+      "CL:0002139",
       "CL:2000021"
     ],
     "biological_processes": [
       "Sleep-related loss of pharyngeal dilator muscle tone",
       "Response to Hypoxia",
+      "Toll-like receptor 4 signaling pathway",
+      "Positive regulation of NF-kB transcription factor activity",
+      "MAPK cascade",
       "Sleep Regulation",
       "nervous system control of respiratory gas exchange",
+      "Interleukin-1 Beta Production",
       "Inflammatory Response",
       "Ocular Surface Inflammation",
       "Response to Oxidative Stress",
@@ -204301,11 +204724,11 @@ window.searchData = [
     "source_file": "Obstructive_Sleep_Apnea.yaml",
     "page_url": "../pages/disorders/Obstructive_Sleep_Apnea.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ochoa syndrome",
@@ -228647,6 +229070,115 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "47",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Primary Central Nervous System Lymphoma",
+    "disease_id": "MONDO:0002571",
+    "category": "Complex",
+    "parents": [
+      "Non-Hodgkin Lymphoma",
+      "Central Nervous System Neoplasm"
+    ],
+    "creation_date": "2026-09-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary central nervous system lymphoma is an aggressive diffuse large B-cell lymphoma whose defining feature is where it is not: the brain, spinal cord, leptomeninges and eyes are its exclusive sites at diagnosis, and demonstrable disease outside the central nervous system excludes the diagnosis. That restriction is the entity, and it is why staging deliberately looks for systemic disease it hopes not to find.\nThe tumour arises from a B cell that has acquired a small, stereotyped set of somatic lesions \u2014 MYD88 L265P and CD79B together in the majority of cases \u2014 which switch on Toll-like-receptor and B-cell-receptor signalling without any ligand and drive canonical NF-kB constitutively. Clonal evolution studies of paired primary and relapse samples place those mutations, with TBL1XR1 and BCL6 rearrangement, in a common progenitor cell held in a memory B-cell state, and place the immune-escape lesions much later. The late group is the characteristic one: loss of the HLA locus at 6p21, B2M mutation, and gain or rearrangement of the PD-L1/PD-L2 locus at 9p24.1 all remove the tumour from T-cell view inside a compartment that was already immunologically sheltered. WHO's 2022 classification groups PCNSL with primary testicular and vitreoretinal large B-cell lymphoma on exactly this basis, as lymphomas of immune-privileged sites.\nClinically it is a subacute mass lesion with a deceptive imaging signature \u2014 homogeneous enhancement and restricted diffusion rather than the ring enhancement of glioblastoma or abscess \u2014 and a notorious sensitivity to corticosteroids, which can make the tumour vanish radiographically and render a subsequent biopsy uninterpretable. Treatment is high-dose methotrexate-based induction followed by consolidation, and the consolidation choice is the one that matters most for what survivors are left with: autologous transplant preserves cognition where whole-brain radiotherapy erodes it.",
+    "pathophysiology": [
+      "Acquisition of MYD88 and CD79B Driver Mutations",
+      "Ligand-Independent BCR and Toll-Like Receptor Signaling",
+      "Constitutive Canonical NF-kB Activation",
+      "Aberrant Somatic Hypermutation and CDKN2A Loss",
+      "Acquisition of Immune-Escape Lesions",
+      "Escape from T-Cell Immunosurveillance",
+      "Unchecked Clonal B-Cell Proliferation",
+      "Perivascular Infiltration of CNS Parenchyma",
+      "Mass Effect and Blood-Brain Barrier Disruption",
+      "Vitreoretinal Dissemination",
+      "Loss of EBV-Specific T-Cell Surveillance"
+    ],
+    "cell_types": [
+      "memory-state common progenitor B cell",
+      "CD8-positive, alpha-beta T cell",
+      "microglial cell",
+      "neoplastic B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000787",
+      "CL:0000625",
+      "CL:0000129",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "B cell receptor signaling pathway",
+      "toll-like receptor signaling pathway",
+      "canonical NF-kappaB signal transduction"
+    ],
+    "phenotypes": [
+      "Neoplasm of the nervous system",
+      "Hemiparesis",
+      "Aphasia",
+      "Atypical behavior",
+      "Memory impairment",
+      "Seizure",
+      "Headache",
+      "Papilledema",
+      "Ataxia",
+      "Blurred vision",
+      "Increased CSF protein concentration"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004375",
+      "HP:0001269",
+      "HP:0002381",
+      "HP:0000708",
+      "HP:0002354",
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0001085",
+      "HP:0001251",
+      "HP:0000622",
+      "HP:0002922"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYD88",
+      "CD79B",
+      "CDKN2A",
+      "PIM1",
+      "B2M",
+      "CD274",
+      "CARD11"
+    ],
+    "treatments": [
+      "High-Dose Methotrexate-Based Induction Chemotherapy",
+      "Autologous Haematopoietic Stem Cell Transplantation Consolidation",
+      "Whole-Brain Radiotherapy Consolidation",
+      "Bruton Tyrosine Kinase Inhibition"
+    ],
+    "environmental": [
+      "Prolonged iatrogenic immunosuppression"
+    ],
+    "biochemical": [
+      "Cerebrospinal fluid interleukin-10"
+    ],
+    "source_file": "Primary_Central_Nervous_System_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Primary_Central_Nervous_System_Lymphoma.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 11,
+    "num_genes": 7,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Primary_Ciliary_Dyskinesia",
@@ -280035,6 +280567,81 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "UV-Sensitive Syndrome",
+    "disease_id": "MONDO:0015797",
+    "category": "Genetic",
+    "parents": [
+      "DNA Repair Disorder",
+      "Photosensitivity Disorder"
+    ],
+    "creation_date": "2026-09-09T16:56:20Z",
+    "updated_date": null,
+    "subtypes": [
+      "UVSS1",
+      "UVSS2",
+      "UVSS3"
+    ],
+    "description": "UV-sensitive syndrome is an autosomal recessive photosensitivity disorder caused by biallelic loss of transcription-coupled nucleotide excision repair (TC-NER). Affected individuals sunburn easily after minimal exposure, and develop freckling and telangiectasia on sun-exposed skin. They have no neurological abnormality and no established predisposition to skin cancer.\nThe interest of the entry is the contrast rather than the repair defect on its own. Two of the three causal genes, ERCC6 (CSB) and ERCC8 (CSA), are the Cockayne syndrome genes. Cockayne syndrome is a severe segmental progeroid disease with neurodegeneration, cachectic dwarfism and early death, while UV-sensitive syndrome is confined to the skin and compatible with a normal lifespan. The two share a TC-NER defect, so the TC-NER defect cannot be what makes Cockayne syndrome severe. A homozygous null CSB allele has been found in a person with UV-sensitive syndrome and no Cockayne features, which is the sharpest form of the problem: complete absence of the protein does not produce the severe disease. The favoured explanation is that CSA and CSB have further transcriptional, mitochondrial or repair-independent roles whose loss drives Cockayne syndrome, but this is not settled, and the entry records it as an open question rather than asserting it.\nThe third gene, UVSSA, is the informative comparator: it acts in the same pathway, is the most frequently reported UV-sensitive syndrome gene, and has never been reported to cause Cockayne syndrome.",
+    "pathophysiology": [
+      "Biallelic Loss of a TC-NER Factor",
+      "Failure to Process Stalled RNA Polymerase II",
+      "Persistent Transcription Blockage After UV Exposure",
+      "UV-Induced Keratinocyte Apoptosis"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "transcription-coupled nucleotide-excision repair",
+      "UV-damage excision repair"
+    ],
+    "phenotypes": [
+      "Cutaneous Photosensitivity",
+      "Freckling",
+      "Telangiectasia",
+      "Dry Skin"
+    ],
+    "phenotype_categories": [
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000992",
+      "HP:0001480",
+      "HP:0001009",
+      "HP:0000958"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ERCC6",
+      "ERCC8",
+      "UVSSA"
+    ],
+    "treatments": [
+      "Photoprotection"
+    ],
+    "environmental": [
+      "Ultraviolet radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "UV-Sensitive_Syndrome.yaml",
+    "page_url": "../pages/disorders/UV-Sensitive_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Ulcerative Colitis",
     "disease_id": "MONDO:0005101",
     "category": "Complex",
@@ -292346,17 +292953,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2828,
-  "total_subtypes": 3695,
-  "total_disorders_and_subtypes": 6523,
-  "total_unique_evidence_sources": 39875,
-  "total_unique_publications": 37562,
+  "total_disorder_pages": 2834,
+  "total_subtypes": 3702,
+  "total_disorders_and_subtypes": 6536,
+  "total_unique_evidence_sources": 39977,
+  "total_unique_publications": 37656,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2823,
-  "total_unique_pathological_events": 16914,
+  "total_pathographs": 2829,
+  "total_unique_pathological_events": 16961,
   "total_modules": 173,
-  "total_research_reports": 2957,
+  "total_research_reports": 2962,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
