@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import hierarchy_cache, kb_cache
+from dismech import hierarchy_cache, kb_cache, oak_db
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -26,7 +26,10 @@ from dismech.entity_refs import (
     canonical_kind,
     section_items,
 )
-from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
+from dismech.export.browser_export import (
+    HPO_CATEGORY_CACHE_PATH,
+    HPO_TOP_LEVEL_CATEGORIES,
+)
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
     animal_model_label,
@@ -110,7 +113,10 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     return env
 
 
-_HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
+# Resolved from the package location rather than the working directory, and
+# shared with `browser_export`, which writes it. The exporter now reads it back
+# as its seed, so writer and both readers agree on one path.
+_HPO_CATEGORY_CACHE_PATH = HPO_CATEGORY_CACHE_PATH
 _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
     "surrogate_endpoints/fda_surrogate_endpoints.yaml"
 )
@@ -4074,9 +4080,35 @@ def _mondo_term(term_id: str, label: str | None = None) -> dict:
     }
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+@cache
+def _mondo_adapter():
+    """The MONDO adapter, but only when its build is already on disk.
+
+    `get_adapter("sqlite:obo:mondo")` does not fail on a machine without the
+    build — semsql fetches it, 588 MB uncompressed, with no error and no log
+    line. So the three MONDO call sites below silently downloaded it on any
+    runner that rendered a grouping, the fast test lane included (issue #11299).
+
+    `local_build_present` is the guard #11251 established for exactly this: "did
+    the adapter open?" answers whether the machine has network access, never
+    whether the build was there. The callers already degrade on `None`, so an
+    absent build takes a path they have rather than a new one.
+
+    Page generation needs the real thing and fetches it deliberately
+    (`just fetch-ontology-dbs mondo`) rather than tripping a lazy download
+    mid-render.
+    """
+    if not oak_db.local_build_present(MONDO_ADAPTER):
+        return None
+    return _get_oak_adapter(MONDO_ADAPTER)
+
+
 @lru_cache(maxsize=256)
 def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
         return ()
     try:
@@ -4095,7 +4127,7 @@ def _cached_mondo_descendants(term_id: str) -> tuple[str, ...]:
 
 @lru_cache(maxsize=2048)
 def _cached_mondo_label(term_id: str) -> str:
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
         return term_id
     try:
@@ -4115,9 +4147,22 @@ def _exact_mondo_descendant_terms(
     if not root_ids:
         return {}, set(), set(), None
 
-    adapter = _get_oak_adapter("sqlite:obo:mondo")
+    adapter = _mondo_adapter()
     if adapter is None:
-        return {}, set(), set(), "MONDO descendant lookup unavailable."
+        # The exact roots come from the grouping's own YAML, so they stay in
+        # scope: only their descendants needed MONDO. Dropping them too (as this
+        # branch used to) emptied the scope set and collapsed the coverage
+        # figure to "not assessed" for a grouping whose coverage is computable
+        # from the file alone. The failure branch below already kept them.
+        return (
+            {},
+            set(root_ids),
+            set(),
+            (
+                "MONDO descendant lookup unavailable: no local mondo.db build. "
+                "Coverage counts the mapped exact-match terms only."
+            ),
+        )
 
     descendant_terms: dict[str, dict] = {}
     exact_scope_ids: set[str] = set(root_ids)
@@ -4169,6 +4214,8 @@ def _coverage_conditions_cell(
             "result": "",
             "label": "not evaluated",
             "contradiction": False,
+            "anchor_advisory": False,
+            "anchor_title": "",
             "title": "No membership criteria were evaluated for this row.",
         }
 
@@ -4177,6 +4224,11 @@ def _coverage_conditions_cell(
     contradiction = is_listed and result == "NOT_SATISFIED"
 
     details = []
+    anchor_misses: list[str] = []
+    # Only a block whose *verdict* would change is badged. A leaf miss under an
+    # OR whose sibling passes just says which arm the member is on, and badging
+    # those would put 28 false alarms on the Ciliopathies page (dismech#9403).
+    anchor_advisory = False
     for name, block in entries:
         verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
         semantics = (block.get("semantics") or "").replace("_", " ").lower()
@@ -4187,16 +4239,37 @@ def _coverage_conditions_cell(
         if unmet:
             line += " — unmet: " + "; ".join(unmet)
         details.append(line)
+        for miss in block.get("anchor_misses") or []:
+            if miss not in anchor_misses:
+                anchor_misses.append(miss)
+        if block.get("anchor_exact_result"):
+            anchor_advisory = True
     if contradiction:
         details.append(
             "Contradiction: listed as a member but a necessary criterion is "
             "not satisfied."
         )
 
+    anchor_title = ""
+    if anchor_misses:
+        anchor_title = (
+            "Conforms to the named module but not at the node the criterion "
+            "names: " + "; ".join(anchor_misses) + ". "
+        )
+        anchor_title += (
+            "The verdict would change if the anchors were honoured."
+            if anchor_advisory
+            else "The block verdict is unaffected (another arm of the "
+            "criteria is satisfied)."
+        )
+        details.append(anchor_title)
+
     return {
         "result": result,
         "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
         "contradiction": contradiction,
+        "anchor_advisory": anchor_advisory,
+        "anchor_title": anchor_title,
         "title": " | ".join(details),
     }
 
@@ -4681,6 +4754,16 @@ def _annotate_grouping(
                         for leaf_index, (description, result) in enumerate(ev.leaves)
                     ],
                     "unmet": [d for d, r in ev.leaves if r.value != "SATISFIED"],
+                    # Advisory only — see dismech#9403. `anchor_misses` lists
+                    # criteria satisfied on the module stem but not at the
+                    # named node; `anchor_exact_result` is set only when
+                    # honouring the anchors would change this block's verdict.
+                    "anchor_misses": list(ev.anchor_misses),
+                    "anchor_exact_result": (
+                        ev.anchor_exact_result.value
+                        if ev.anchor_exact_result is not None
+                        else None
+                    ),
                 }
             )
         for name in find_candidate_members(grouping, index, groupings_by_name):
