@@ -14,6 +14,12 @@ This tree answers that question per disease, using
 reimplementation of BOOMER, which resolves competing ontology mappings by finding
 the most probable globally consistent assignment.
 
+**Probability correction (2026-09-10):** the saved batch used a Boomer revision
+that counts repeated search paths to the same solution in its confidence and
+posterior calculations. Those scores should not be used for ranking. A
+[tested local patch and reproduction instructions](patches/README.md) are now
+available; the saved solution files have not yet been rerun with that patch.
+
 ## Layout
 
 ```
@@ -391,9 +397,17 @@ above.
 ## No dependency was added
 
 `build_analyses.py` takes `--boomer-src` pointing at a `boomer-py` checkout;
-`grouping_audit.py` and `crosssource_audit.py` need no solver at all. **Nothing
-in the repo imports boomer.** That is deliberate — boomer-py is early-stage, and
-this analysis does not justify taking it on as a runtime dependency.
+`solve_pending.py` uses the same convention. These analysis scripts add that
+source directory to `sys.path` and import Boomer directly. The justfile defaults
+to `~/repos/boomer-py/src`, overridable with `BOOMER_SRC`. There is no Boomer
+package or Git dependency in dismech's `pyproject.toml` or lockfile, and no
+automatic download during these solves. `grouping_audit.py` and
+`crosssource_audit.py` need no solver at all. Keeping Boomer outside dismech's
+runtime dependencies is deliberate; its use here is confined to analysis.
+
+The September 8 batch used a clean checkout at
+`16769dc84375af522357fc7b67077ee862bbc8e8`; every `solve.json` records that
+commit. See the [probability correction](patches/README.md) before reusing it.
 
 ## Regenerating
 

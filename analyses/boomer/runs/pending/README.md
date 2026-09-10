@@ -1,5 +1,10 @@
 # Boomer batch: new and changed Mendelian inputs
 
+> **Probability scores need correction.** This batch predates the
+> [unique-solutions patch](../../patches/README.md). Repeated search paths affect
+> confidence, whole-solution posteriors, marginal posteriors, and solution counts.
+> The outputs below remain the original run; they have not been silently repaired.
+
 The 2026-09-08 batch targets **1,534 saved inputs**: 1,357 `NOT_RUN` entries
 from the Mendelian expansion and 177 `STALE_INPUT` entries changed by ICD
 enrichment. The other 194 previously completed analyses are outside this run.
