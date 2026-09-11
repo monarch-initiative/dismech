@@ -171518,6 +171518,7 @@ window.searchData = [
       "Endosomal actin polymerization increase",
       "Receptor recycling defect",
       "Proximal tubular endocytic reabsorption failure",
+      "Renal phosphate wasting",
       "Ciliary PI(4,5)P2 imbalance"
     ],
     "cell_types": [
@@ -171532,6 +171533,7 @@ window.searchData = [
       "actin filament organization",
       "receptor-mediated endocytosis",
       "endocytic recycling",
+      "phosphate ion homeostasis",
       "cilium assembly"
     ],
     "phenotypes": [
@@ -171542,13 +171544,16 @@ window.searchData = [
       "Renal tubular dysfunction",
       "Low-molecular-weight proteinuria",
       "Hypercalciuria",
+      "Hypophosphatemia",
+      "Rickets",
       "Chronic kidney disease"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
       "Neurologic",
       "Developmental",
-      "Renal"
+      "Renal",
+      "Skeletal"
     ],
     "phenotype_hpo_categories": [
       "Eye",
@@ -171565,6 +171570,8 @@ window.searchData = [
       "HP:0000124",
       "HP:0000093",
       "HP:0002150",
+      "HP:0002148",
+      "HP:0002748",
       "HP:0012622"
     ],
     "frequencies": [
@@ -171584,12 +171591,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Lowe_Syndrome.yaml",
     "page_url": "../pages/disorders/Lowe_syndrome.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ludwig's Angina",
@@ -242399,6 +242406,7 @@ window.searchData = [
     "pathophysiology": [
       "SLC4A1 Anion Exchanger Dysfunction",
       "Distal Urinary Acidification Failure",
+      "Acidosis-Driven Calciopenic Mineralization Defect",
       "Red Cell Membrane Instability"
     ],
     "cell_types": [
@@ -242413,6 +242421,9 @@ window.searchData = [
       "bicarbonate transport",
       "monoatomic anion transport",
       "acid secretion",
+      "Net renal calcitriol generation",
+      "Calcitriol-dependent vitamin D receptor signaling",
+      "Calcitriol-dependent intestinal calcium absorption",
       "erythrocyte homeostasis"
     ],
     "phenotypes": [
@@ -242475,11 +242486,11 @@ window.searchData = [
     "source_file": "Renal_Tubular_Acidosis_Distal_4_with_Hemolytic_Anemia.yaml",
     "page_url": "../pages/disorders/Renal_Tubular_Acidosis_Distal_4_with_Hemolytic_Anemia.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Renpenning syndrome",
@@ -296527,12 +296538,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2866,
   "total_subtypes": 3715,
   "total_disorders_and_subtypes": 6581,
-  "total_unique_evidence_sources": 40354,
-  "total_unique_publications": 38023,
+  "total_unique_evidence_sources": 40359,
+  "total_unique_publications": 38028,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 280,
   "total_pathographs": 2861,
-  "total_unique_pathological_events": 17181,
+  "total_unique_pathological_events": 17183,
   "total_modules": 173,
   "total_research_reports": 2989,
   "total_classifications": 19,
