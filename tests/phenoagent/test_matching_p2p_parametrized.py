@@ -5,7 +5,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from phenoagent.matching import build_matching_run_from_phenopacket
+from dismech import oak_db
+from phenoagent.matching import HP_ADAPTER_SPEC, build_matching_run_from_phenopacket
+
+# The `exact` case compares two identical CURIEs and needs no ontology. The
+# broader/narrower cases assert that HP:0002123 is-a HP:0001250, which only the
+# `sqlite:obo:hp` build can answer -- and OAK downloads that build (440 MB)
+# rather than failing when it is absent, so these must ask about the file
+# instead of finding out by opening the adapter (issue #11299, rule from #11251).
+_NEEDS_HP_BUILD = pytest.mark.oak_db
 
 MODEL_FREQUENCIES = (
     "OBLIGATE",
@@ -33,6 +41,7 @@ RELATION_CASES = (
         "Focal seizure",
         {"exact": False, "case_is_broader": True, "case_is_narrower": False},
         id="broader",
+        marks=_NEEDS_HP_BUILD,
     ),
     pytest.param(
         "narrower",
@@ -42,6 +51,7 @@ RELATION_CASES = (
         "Seizure",
         {"exact": False, "case_is_broader": False, "case_is_narrower": True},
         id="narrower",
+        marks=_NEEDS_HP_BUILD,
     ),
 )
 
@@ -89,6 +99,9 @@ def test_single_p2p_relation_matrix(
     case_present: bool,
 ):
     """Test case presence x relation x model frequency combinations."""
+    if relation != "exact" and not oak_db.local_build_present(HP_ADAPTER_SPEC):
+        pytest.skip(f"needs a local {HP_ADAPTER_SPEC} build")
+
     disease_slug = "Test_Disease"
     disease_path = tmp_path / f"{disease_slug}.yaml"
     _write_single_model_file(disease_path, model_term_id, model_label, model_frequency)

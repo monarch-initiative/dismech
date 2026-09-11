@@ -73,8 +73,7 @@ enzyme assay explicitly measures conversion of glutaryl-CoA
 
 Brain GCDH status remains an important difference between the Sauer and Barzi
 designs, but it does not establish the report's stated free-GA detoxification
-reaction. The Barzi paper itself says the actual molecule crossing the BBB
-still needs to be identified.
+reaction. The Barzi experiments do not identify the actual molecule crossing the BBB. This limitation follows from their design; it is not a direct molecular transport measurement.
 
 ### 2. “Quantitatively major” is unsupported
 
@@ -145,13 +144,7 @@ from “predominant hepatic generation” to a significant hepatic contribution 
 mouse models. Represent the exact transported species and quantitative
 liver-versus-brain fractions as unresolved.
 
-The current disorder YAML already repeats the provider's “predominant hepatic”
-description and encodes systemic transport as a known-intermediate causal edge,
-even though the Barzi study leaves the transported species unknown. It also
-uses a sentence describing the historical intracerebral view as if it were
-supporting experimental evidence. Those are separate disease-curation
-follow-ups; this assessment-only PR does not edit the disease YAML or reference
-cache.
+The accompanying disease review now represents local production and hepatic contribution separately, with an unresolved-intermediate hepatic-to-brain edge. It replaces the predominance claim, adds measured limited efflux and astrocyte evidence, corrects treatment and biomarker semantics, and distinguishes preclinical rescue from registered clinical research.
 
 ## Most discriminating next evidence
 
@@ -161,3 +154,9 @@ species from brain-local synthesis. It should measure labeled precursors and
 products in plasma, liver, CSF, and brain at baseline and during high-protein
 stress. Independent replication in a second model and eventual paired human
 plasma/CSF data are needed before extrapolating source predominance to patients.
+
+## Updated design and provenance assessment (2026-09-04)
+
+The provider report is a literature synthesis. Its publication counts and negative search claims are not reproducible from the committed files; there are no query exports, raw-data tables, scripts, environments or computational results. All proposed follow-up analyses are marked `SKIPPED` in the YAML. Curator retrieval of references does not establish provider access.
+
+Intravenously delivered labeled lysine can enter brain and be metabolized locally. Thus IV lysine followed by labeled brain GA does not prove hepatic product transport. Tissue-specific perturbations, precursor enrichment and time-course measurements are needed. CSF/plasma gradients also depend on transport and clearance and cannot alone identify the source fraction. Astrocyte dependence is supported in a particular mouse co-culture, not as a universal requirement across every metabolite and neuronal system.
