@@ -9,11 +9,16 @@ numbers can be regenerated after every curation wave:
    ``has_subtypes[].subtype_term`` or an exact/narrow ``mondo_mappings`` term)
    is a reflexive ``is_a`` descendant of ``MONDO:0005027`` (epilepsy). This is
    the authoritative tier: MONDO says the entry *is* an epilepsy.
-2. **Epilepsy-named, outside the closure.** The entry name or the MONDO label
-   contains *epilep*, *seizure*, or *DEE*, but MONDO does not place the term
-   under epilepsy (e.g. ``CDKL5 Deficiency Disorder``, the UNC13A pair). These
-   are entries the KB treats as epilepsies and MONDO does not, and the report
-   lists them so the disagreement is visible.
+2. **Treated as an epilepsy by the KB, outside the closure.** MONDO does not
+   place the term under epilepsy, but the KB does one of four things with it:
+   names it *epilep*/*seizure*/*DEE*, conforms one of its nodes to
+   ``epilepsy_excitation_inhibition_imbalance``, lists it in an epilepsy
+   ``kb/groupings/`` record, or names it in ``ILAE_AGE_GROUP`` below. Any one is
+   enough. The name test alone missed ``CDKL5_Deficiency_Disorder``,
+   ``Sturge-Weber_Syndrome``, ``Hemimegalencephaly``, and
+   ``Ring_Chromosome_20_Syndrome``, which are epilepsies under every reading
+   except their own labels. The report lists this tier separately so the
+   KB-versus-MONDO disagreement stays visible.
 3. **Seizures as a core feature.** Outside tiers 1 and 2, a phenotype bound to
    an HP seizure term carries ``frequency`` OBLIGATE or VERY_FREQUENT. These are
    broader syndromes (tuberous sclerosis, Angelman, lissencephaly) in which
@@ -23,6 +28,8 @@ Each tier-1 named syndrome is then assigned its ILAE 2022 age-at-onset group
 (``ILAE_AGE_GROUP`` below, keyed by KB file stem) from the Task Force position
 papers: neonates and infants (PMID:35503712), childhood (PMID:35503717),
 idiopathic generalized epilepsies (PMID:35503716), variable age (PMID:35503725).
+The syndrome list itself, and the Task Force's definition of what qualifies as
+an epilepsy syndrome, are in the methodology report (PMID:35503715).
 Entries whose MONDO label is a numbered ``developmental and epileptic
 encephalopathy`` are grouped as gene-defined DEEs; DEE onset is in infancy or
 early childhood by definition. The pediatric verdict is derived from that
@@ -42,8 +49,10 @@ Usage:
     uv run python scripts/pediatric_epilepsy_census.py --out research/pediatric_epilepsy_census.md
     uv run python scripts/pediatric_epilepsy_census.py --json           # machine-readable
 
-Requires the local MONDO SQLite build (``sqlite:obo:mondo``); OAK downloads it
-on first use.
+Requires the local MONDO SQLite build (``sqlite:obo:mondo``). Tier 1 *is* the
+MONDO closure, so there is no offline fallback. Fetch the build ahead of time
+with ``just fetch-ontology-dbs mondo`` rather than letting OAK pull roughly
+588 MB on first use.
 """
 
 from __future__ import annotations
@@ -68,6 +77,7 @@ GROUPINGS_DIR = os.path.join(ROOT, "kb", "groupings")
 
 EPILEPSY = "MONDO:0005027"
 GENETIC_DEE = "MONDO:0100062"
+EPILEPSY_MODULE = "epilepsy_excitation_inhibition_imbalance"
 
 # HP seizure terms accepted for the tier-3 "core feature" test. Seizure
 # (HP:0001250) and its commonest children; the point is to catch entries
@@ -320,8 +330,17 @@ def _term_ids(data: dict) -> set[str]:
 
 
 def _normalize_frequency(value) -> str | None:
+    """Normalize a phenotype ``frequency`` to OBLIGATE / VERY_FREQUENT / other.
+
+    The slot's range is ``Any`` with ``any_of: [FrequencyEnum, FrequencyQuantity]``.
+    The quantity branch is a mapping (a numerator over a denominator), which is a
+    count and never one of the two bands this census tests for, so it is reported
+    as ``QUANTITY`` rather than stringified into a dict repr that matches nothing.
+    """
     if value is None:
         return None
+    if isinstance(value, dict):
+        return "QUANTITY"
     text = str(value).upper()
     if "OBLIGATE" in text or text == "HP_0040280":
         return "OBLIGATE"
@@ -339,6 +358,28 @@ def _core_seizure(data: dict) -> bool:
         ):
             return True
     return False
+
+
+def _collect_values(node, key: str) -> set[str]:
+    """Every string value stored under ``key`` anywhere in a parsed entry.
+
+    Walks the parsed structure rather than regexing the file text, so a
+    mention of the slot name inside prose cannot be mistaken for a value.
+    The walk is deliberately depth-unbounded: ``conforms_to`` lives on
+    pathophysiology nodes and ``onset_category`` lives inside ``OnsetDescriptor``
+    blocks that hang off the entry, its subtypes, and its phenotypes.
+    """
+    found: set[str] = set()
+    if isinstance(node, dict):
+        for name, value in node.items():
+            if name == key and isinstance(value, str):
+                found.add(value)
+            else:
+                found |= _collect_values(value, key)
+    elif isinstance(node, list):
+        for item in node:
+            found |= _collect_values(item, key)
+    return found
 
 
 def _grouping_index() -> dict[str, list[str]]:
@@ -367,6 +408,16 @@ def _classify_group(stem: str, mondo_label: str | None, tier: int, in_dee: bool)
 
 
 def _verdict(group: str, onset_categories: list[str]) -> str:
+    """Pediatric verdict for one entry.
+
+    The ILAE age group decides it when there is one. Otherwise the entry's own
+    ``onset_category`` annotations do, and pediatric is tested before adult on
+    purpose: the annotations are collected from the whole entry (its subtypes
+    and phenotypes included), so an entry carrying both a childhood and an adult
+    onset is one that affects children, and YES is the answer to the question
+    this census asks. The raw annotations are printed in the report so a reader
+    can see which entries are mixed.
+    """
     if group == "UMBRELLA":
         return "UMBRELLA"
     if group in PEDIATRIC_GROUPS:
@@ -381,6 +432,18 @@ def _verdict(group: str, onset_categories: list[str]) -> str:
     return "UNKNOWN"
 
 
+def _epilepsy_module_conformer_count() -> int:
+    """Disorder files declaring conformance to the epilepsy E/I module."""
+    count = 0
+    for path in glob.glob(os.path.join(DISORDERS_DIR, "*.yaml")):
+        with open(path, encoding="utf-8") as fh:
+            data = safe_load(fh) or {}
+        values = _collect_values(data, "conforms_to")
+        if any(value.split("#", 1)[0] == EPILEPSY_MODULE for value in values):
+            count += 1
+    return count
+
+
 def collect(adapter) -> list[Entry]:
     epilepsy = _descendants(adapter, EPILEPSY)
     dee = _descendants(adapter, GENETIC_DEE)
@@ -389,14 +452,16 @@ def collect(adapter) -> list[Entry]:
     for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
         stem = os.path.basename(path)[:-5]
         with open(path, encoding="utf-8") as fh:
-            text = fh.read()
-        data = safe_load(text) or {}
+            data = safe_load(fh) or {}
         if not isinstance(data, dict):
             continue
         ids = _term_ids(data)
         term = (data.get("disease_term") or {}).get("term") or {}
         mondo_id, mondo_label = term.get("id"), term.get("label")
         name = data.get("name") or stem
+        conforms = _collect_values(data, "conforms_to")
+        modules = sorted({value.split("#", 1)[0] for value in conforms})
+        in_grouping = groupings.get(name, [])
         tier = 0
         if ids & epilepsy:
             tier = 1
@@ -404,13 +469,16 @@ def collect(adapter) -> list[Entry]:
             NAME_PATTERN.search(stem)
             or NAME_PATTERN.search(name)
             or NAME_PATTERN.search(mondo_label or "")
+            or EPILEPSY_MODULE in modules
+            or in_grouping
+            or stem in ILAE_AGE_GROUP
         ):
             tier = 2
         elif _core_seizure(data):
             tier = 3
         if not tier:
             continue
-        onsets = sorted(set(re.findall(r"onset_category:\s*([A-Z_]+)", text)))
+        onsets = sorted(_collect_values(data, "onset_category"))
         group = _classify_group(stem, mondo_label, tier, bool(ids & dee))
         entries.append(
             Entry(
@@ -422,10 +490,8 @@ def collect(adapter) -> list[Entry]:
                 ilae_group=group,
                 pediatric=_verdict(group, onsets),
                 onset_categories=onsets,
-                conforms_to=sorted(
-                    set(re.findall(r'conforms_to:\s*"?([a-z0-9_]+)', text))
-                ),
-                in_grouping=groupings.get(name, []),
+                conforms_to=modules,
+                in_grouping=in_grouping,
             )
         )
     return entries
@@ -435,7 +501,7 @@ def _link(stem: str) -> str:
     return f"[`{stem}`](../kb/disorders/{stem}.yaml)"
 
 
-def render_markdown(entries: list[Entry]) -> str:
+def render_markdown(entries: list[Entry], kb_module_conformers: int) -> str:
     out: list[str] = []
     out.append("# Pediatric epilepsy census")
     out.append("")
@@ -452,7 +518,9 @@ def render_markdown(entries: list[Entry]) -> str:
     out.append("| Measure | Count |")
     out.append("| --- | --- |")
     out.append(f"| Tier 1: MONDO epilepsy closure (`MONDO:0005027`) | {tiers[1]} |")
-    out.append(f"| Tier 2: epilepsy-named, outside the closure | {tiers[2]} |")
+    out.append(
+        f"| Tier 2: treated as an epilepsy by the KB, outside the closure | {tiers[2]} |"
+    )
     out.append(
         f"| Tier 3: seizures OBLIGATE/VERY_FREQUENT, outside tiers 1-2 | {tiers[3]} |"
     )
@@ -531,7 +599,10 @@ def render_markdown(entries: list[Entry]) -> str:
             )
         out.append("")
 
-    out.append("## Tier 2: epilepsy-named entries MONDO does not place under epilepsy")
+    out.append(
+        "## Tier 2: entries the KB treats as epilepsies and MONDO does not place "
+        "under epilepsy"
+    )
     out.append("")
     out.append(
         "| Entry | MONDO | Verdict | Onset annotations | Modules | Epilepsy groupings |"
@@ -574,6 +645,15 @@ def render_markdown(entries: list[Entry]) -> str:
         f"{total - none} of {total} entries declare at least one `conforms_to`; {none} declare none."
     )
     out.append("")
+    listed = sum(1 for e in entries if EPILEPSY_MODULE in e.conforms_to)
+    out.append(
+        f"Reconciliation against a plain grep: {kb_module_conformers} files in "
+        f"`kb/disorders/` declare `conforms_to: {EPILEPSY_MODULE}`, and "
+        f"{listed} of them are in this census. Tier 2 counts conformance to that "
+        "module as an inclusion signal, so the two numbers should agree; a gap "
+        "would mean an entry was dropped."
+    )
+    out.append("")
     out.append("| Module | Conformers | Tier 1 | Tier 2 | Tier 3 |")
     out.append("| --- | --- | --- | --- | --- |")
     for module, count in counts.most_common():
@@ -597,7 +677,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         payload = json.dumps([asdict(e) for e in entries], indent=2)
     else:
-        payload = render_markdown(entries)
+        payload = render_markdown(entries, _epilepsy_module_conformer_count())
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(payload + "\n")

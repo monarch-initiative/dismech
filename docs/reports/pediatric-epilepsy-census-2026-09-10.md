@@ -1,23 +1,24 @@
 # Pediatric epilepsies in dismech: census, AAP coverage, and the mechanism-module gap
 
 *2026-09-10. Landscape analysis plus one KB addition (a module collection). The
-disorder-level census itself is generated, not hand-written: see
-[`research/pediatric_epilepsy_census.md`](../../research/pediatric_epilepsy_census.md)
-and the script that produces it,
-[`scripts/pediatric_epilepsy_census.py`](../../scripts/pediatric_epilepsy_census.py).*
+disorder-level census itself is generated, not hand-written: it lives in
+`research/pediatric_epilepsy_census.md` and is produced by
+`scripts/pediatric_epilepsy_census.py`. Regenerate it with*
+`uv run python scripts/pediatric_epilepsy_census.py --out research/pediatric_epilepsy_census.md`*,
+which needs the MONDO SQLite build (*`just fetch-ontology-dbs mondo`*).*
 
 ## Summary
 
 dismech has 109 disorder entries inside the MONDO epilepsy closure
-(`MONDO:0005027`), and 84 of them are pediatric. Another 26 entries are named as
-epilepsies or DEEs but sit outside that closure in MONDO, and 48 more carry
+(`MONDO:0005027`), and 84 of them are pediatric. Another 36 entries are treated
+as epilepsies by the KB but sit outside that closure in MONDO, and 46 more carry
 seizures as an obligate or very frequent phenotype without being epilepsy
 entries. The American Academy of Pediatrics list of pediatric epilepsy types is
 almost fully covered: 20 of 23 types have a dedicated entry, and the remaining
 three are partial rather than absent.
 
-The gap is not coverage. It is mechanism. Of the 183 entries in the census, 83
-conform to `epilepsy_excitation_inhibition_imbalance`, and for 71 of them it is
+The gap is not coverage. It is mechanism. Of the 191 entries in the census, 91
+conform to `epilepsy_excitation_inhibition_imbalance`, and for 78 of them it is
 the only module they conform to. That module is a five-node generic chain from
 ion-channel dysfunction to recurrent seizures. Whatever is specific about SCN1A
 in Dravet, about thalamocortical circuits in absence epilepsy, about pyridoxine
@@ -37,8 +38,8 @@ Three tiers, applied by script so the answer survives the next curation wave.
 | Tier | Test | Count |
 | --- | --- | --- |
 | 1 | The entry's `disease_term`, a `has_subtypes[].subtype_term`, or an exact/narrow MONDO mapping is an `is_a` descendant of `MONDO:0005027` | 109 |
-| 2 | Named *epilepsy*, *seizure*, or *DEE* but MONDO does not place the term under epilepsy | 26 |
-| 3 | Outside tiers 1 and 2, a phenotype bound to an HP seizure term with `frequency` OBLIGATE or VERY_FREQUENT | 48 |
+| 2 | MONDO does not place it under epilepsy, but the KB does: named *epilepsy*/*seizure*/*DEE*, or conforming to `epilepsy_excitation_inhibition_imbalance`, or listed in an epilepsy grouping, or named in the script's ILAE syndrome map | 36 |
+| 3 | Outside tiers 1 and 2, a phenotype bound to an HP seizure term with `frequency` OBLIGATE or VERY_FREQUENT | 46 |
 
 Tier 2 is the interesting one. It is where the KB and MONDO disagree about what
 an epilepsy is. `CDKL5_Deficiency_Disorder` is a member of the
@@ -48,6 +49,16 @@ in the `Epilepsy_Excitation_Inhibition_Imbalance_Disorders` grouping. Most of th
 rest are neurodevelopmental disorders whose MONDO label happens to end in "with
 or without seizures". None of this is an error to fix. It is a boundary worth
 knowing about before anyone writes a query that trusts the closure alone.
+
+The tier-2 test began as a name match and that was not enough. Four entries no
+reasonable reader would leave out of a pediatric epilepsy census fell through it:
+CDKL5 deficiency disorder, Sturge-Weber syndrome, hemimegalencephaly, and ring
+chromosome 20 syndrome are epilepsies whose names do not say so. Adding module
+conformance, grouping membership, and presence in the ILAE map as alternative
+signals recovers all of them. The census now reconciles exactly against a grep:
+91 files in `kb/disorders/` conform to `epilepsy_excitation_inhibition_imbalance`
+and all 91 appear, a line the generated report prints so the two can be compared
+without arithmetic.
 
 Age is then assigned from the ILAE 2022 Task Force position papers rather than
 from the entries' own annotations, because the annotations are mostly absent: 28 of the
@@ -91,24 +102,24 @@ tracked in issue #10113.
 
 ## The mechanism gap
 
-Module conformance across all 183 census entries:
+Module conformance across all 191 census entries:
 
 | Module | Conformers |
 | --- | --- |
-| `epilepsy_excitation_inhibition_imbalance` | 83 |
+| `epilepsy_excitation_inhibition_imbalance` | 91 |
 | `synaptic_vesicle_cycle` | 8 |
 | `congenital_disorder_of_glycosylation` | 7 |
 | `microtubule_dependent_neuronal_migration_failure` | 4 |
-| everything else | 1 to 2 each |
+| everything else | 1 to 3 each |
 
-73 of the 183 declare no `conforms_to` at all.
+73 of the 191 declare no `conforms_to` at all.
 
 The shape of that table is the finding. One module absorbs the whole population,
 and it is the most generic one available. `epilepsy_excitation_inhibition_imbalance`
 has five nodes and no treatments, no mechanistic hypotheses, and no discussions.
 It says that something goes wrong with channels or synapses, then excitation
 exceeds inhibition, then neurons fire together, then seizures. That is true of
-every epilepsy, which is why 83 entries reach it, and it is why reaching it
+every epilepsy, which is why 91 entries reach it, and it is why reaching it
 distinguishes nothing.
 
 Meanwhile the recurring mechanism themes are visible in the entries' own
@@ -167,21 +178,35 @@ than its own file.
 
 ### What was added
 
-[`kb/module_collections/Mechanisms_of_the_Epilepsies.yaml`](../../kb/module_collections/Mechanisms_of_the_Epilepsies.yaml),
+`kb/module_collections/Mechanisms_of_the_Epilepsies.yaml`,
 a `MECHANISTIC_FAMILY` collection with six members: the
 excitation-inhibition convergence module plus five upstream lanes
 (interneuron specification and tangential migration failure, the synaptic
 vesicle cycle, excitatory synapse scaffold disruption, PI3K-AKT-mTOR cortical
 overgrowth, and FAME pentanucleotide repeat RNA toxicity).
 
-Three modules that recur in epilepsy entries were deliberately left out, and the
-collection's `notes` records why. `glutamate_excitotoxicity` ends in neuronal
-death rather than in epileptogenesis. `metabolic_intoxication_decompensation`
-ends in acute encephalopathy. `epigenetic_machinery_neurodevelopmental_dysregulation`
-and `congenital_disorder_of_glycosylation` are general neurodevelopmental
-modules in which seizures are one output among many. A collection that admitted
-those would be an inventory of modules epilepsy entries happen to touch, which
-is the failure mode the create-module skill warns about.
+Membership is modules that are an evidenced route to seizures or to
+excitation-inhibition imbalance in at least one curated entry. It is
+deliberately not a rule about a module's terminal node, because two correct
+members would fail that test: `synaptic_vesicle_cycle` ends at neurotransmitter
+release failure and never says the word seizure, and
+`excitatory_synapse_scaffold_disruption` passes through excitation-inhibition
+imbalance at node three and then continues to a generic neurodevelopmental
+terminus. The first has ten conformers in the KB, of which eight are epilepsy
+or DEE entries; the other two, SYT1 Baker-Gordon syndrome and the VAMP2-related
+disorder, are neurodevelopmental disorders that fall outside this census, and
+SYT1 carries no seizure phenotype at all. The module earns its place on the
+eight.
+
+Four modules that recur in epilepsy entries were deliberately left out, and the
+collection's `notes` records why. In each, seizures are incidental to the chain
+rather than its point. `glutamate_excitotoxicity` is a route to neuronal death.
+`metabolic_intoxication_decompensation` is a route to acute encephalopathy.
+`epigenetic_machinery_neurodevelopmental_dysregulation` and
+`congenital_disorder_of_glycosylation` are general neurodevelopmental modules in
+which seizures are one output among many. A collection that admitted those would
+be an inventory of modules epilepsy entries happen to touch, which is the failure
+mode the create-module skill warns about.
 
 The collection is not pediatric-only, on purpose. Mechanism lanes are shared
 across ages and age at onset is a property of the disease entries. That is why

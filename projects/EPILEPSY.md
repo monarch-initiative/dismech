@@ -105,14 +105,14 @@ Pathophysiology modeling rule:
 - Ran a scripted census of every epilepsy entry
   (`scripts/pediatric_epilepsy_census.py` ->
   [`research/pediatric_epilepsy_census.md`](../research/pediatric_epilepsy_census.md)):
-  109 entries in the MONDO epilepsy closure, 84 of them pediatric, plus 26
-  epilepsy-named entries outside the closure and 48 with seizures as an obligate
-  or very frequent phenotype.
+  109 entries in the MONDO epilepsy closure, 84 of them pediatric, plus 36
+  entries the KB treats as epilepsies from outside the closure and 46 with
+  seizures as an obligate or very frequent phenotype.
 - Coverage of the AAP pediatric epilepsy types is 20 of 23 complete; reflex
   epilepsies, self-limited neonatal-infantile seizures, and sleep-related
   hypermotor epilepsy are partial.
-- The gap is mechanism, not coverage: 83 entries conform to
-  `epilepsy_excitation_inhibition_imbalance` and for 71 that is the only module.
+- The gap is mechanism, not coverage: 91 entries conform to
+  `epilepsy_excitation_inhibition_imbalance` and for 78 that is the only module.
   Added the `Mechanisms of the Epilepsies` module collection and proposed five
   new modules; see
   [`docs/reports/pediatric-epilepsy-census-2026-09-10.md`](../docs/reports/pediatric-epilepsy-census-2026-09-10.md).
