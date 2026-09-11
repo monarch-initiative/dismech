@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blount Disease · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Blount Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Blount Disease</h1>
+                
+                <p class="report-subtitle">Blount Disease (Tibia Vara): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017194" target="_blank" rel="noopener noreferrer">MONDO:0017194</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Blount Disease (Tibia Vara): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Blount Disease · <strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017194" target="_blank" rel="noopener noreferrer">MONDO:0017194</a> · <strong>Category:</strong> Biomechanical growth-plate disorder causing progressive tibia vara</p>
+<hr />
+<h2>Summary</h2>
+<p>Blount disease (tibia vara) is an <strong>idiopathic, acquired biomechanical growth disturbance</strong> of the proximal tibial growth plate (physis). Its primary lesion is a <strong>failure of endochondral ossification at the posteromedial proximal tibial physis</strong>: excessive asymmetric compressive load—driven chiefly by childhood and adolescent obesity—suppresses growth of the medial physis (the Hueter-Volkmann principle) while the lateral physis continues to grow normally. The result is a progressive three-dimensional deformity: varus (bowing), internal tibial torsion, procurvatum (apex-anterior angulation), and limb-length shortening. Unlike physiological genu varum, which self-corrects, Blount disease is progressive if the physeal insult continues.</p>
+<p>The disease occurs in a characteristic <strong>bimodal age distribution</strong>: an <strong>infantile/early-onset form</strong> (deformity noted before age 4) and a <strong>late-onset/adolescent form</strong> (after age 4, typically ≥10 years); some authors recognize an intermediate juvenile form. It is <strong>multifactorial</strong> with strong environmental drivers (obesity, early walking, mechanical overload) and a heritable/ethnic predisposition (marked over-representation in populations of African ancestry, frequent positive family history), yet <strong>no single causative gene has been identified</strong>—whole-exome sequencing of familial cases was negative. An obesity-linked endocrine "second hit" via the <strong>leptin–IGF-I axis</strong> on growth-plate chondrocytes is a biologically plausible but, in Blount tissue, unproven cofactor.</p>
+<p>Diagnosis is <strong>radiographic</strong>, anchored by the metaphyseal-diaphyseal (Drennan) angle &gt;16° and Langenskiöld staging (I–VI), with MRI delineating the medial physeal lesion. <strong>Management is stage- and age-dependent</strong>: observation or bracing for early/mild infantile disease (which has substantial spontaneous-resolution potential), guided growth (tension-band plating) for immature moderate cases, and corrective osteotomy with external fixation (± medial plateau elevation) for severe or adolescent disease, complemented by weight management. Untreated, the disease progresses to leg-length inequality, joint incongruity, and premature medial-compartment knee osteoarthritis.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Two age-of-onset forms of an idiopathic growth-plate disorder</h3>
+<p>Blount disease is defined by two clinically and radiographically distinct forms, separated by whether the lower-limb deformity develops <strong>before or after age four</strong>. Sabharwal describes: <em>"Two clinically distinct forms of Blount disease (early-onset and late-onset), based on whether the lower-limb deformity develops before or after the age of four years, have been described"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19571101/">PMID: 19571101</a>). Birch confirms: <em>"Two distinct clinical and radiographic forms have been recognized: infantile and adolescent"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23818028/">PMID: 23818028</a>). The deformity is not simple bowing but a <strong>three-dimensional complex</strong>: tibial varus + procurvatum + internal tibial torsion + limb shortening, with distal femoral varus frequently contributing in the late-onset form.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Infantile / Early-onset</th>
+<th>Adolescent / Late-onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Age deformity noted</td>
+<td>&lt; 4 years</td>
+<td>≥ 10 years (after age 4)</td>
+</tr>
+<tr>
+<td>Laterality</td>
+<td>Often bilateral</td>
+<td>Often unilateral</td>
+</tr>
+<tr>
+<td>Obesity association</td>
+<td>Strong</td>
+<td>Very strong (~100% in surgical cohorts)</td>
+</tr>
+<tr>
+<td>Femoral contribution</td>
+<td>Uncommon</td>
+<td>Distal femoral varus common</td>
+</tr>
+<tr>
+<td>Physeal bar / severe staging</td>
+<td>Can progress to Langenskiöld V–VI</td>
+<td>Less severe staging, but larger patients</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>F002 — Childhood obesity is the strongest established risk factor (mechanical etiology)</h3>
+<p>Obesity is the single risk factor with the most consistent evidence. Lisenda states plainly: <em>"Obesity is the only causative factor proven to be associated with Blount disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27276637/">PMID: 27276637</a>). Surgical Blount cohorts are demographically striking: Jardaly reported patients were <em>"obese (100%), and predominately African American (89%), and male (68%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32433261/">PMID: 32433261</a>).</p>
+<p>The mechanism is mechanical. In a lamb growth-plate model, Grover showed that <em>"loading (cyclical or static) on 1 edge of the tibial surface results in compression through the physis under the site of pressure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17585254/">PMID: 17585254</a>)—directly demonstrating that asymmetric load compresses the physis on the loaded (medial) side and generates tension on the opposite side, the biomechanical basis of the Hueter-Volkmann law. Related work notes obesity's broad musculoskeletal impact (<a href="https://pubmed.ncbi.nlm.nih.gov/19242242/">PMID: 19242242</a>) and that obese children with tibia vara have a 2.5-fold higher prevalence of hypertension, suggesting additional obesity-related physeal changes beyond pure biomechanics (<a href="https://pubmed.ncbi.nlm.nih.gov/26090984/">PMID: 26090984</a>).</p>
+<h3>F003 — No single-gene cause; multifactorial/polygenic predisposition</h3>
+<p>Despite strong familial clustering, no Mendelian cause has been found. In a Ghanaian cross-sectional study of 139 patients, 90% belonged to the Akan tribe and <em>"A positive family history was found in 63 families (62%), of which, almost two-third had a positive family history in a first-degree family member"</em>—yet <em>"The results of the whole exome sequencing did not show a genetic predisposition"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33981863/">PMID: 33981863</a>). Predominance in Black/African-ancestry populations is reported repeatedly (<a href="https://pubmed.ncbi.nlm.nih.gov/36800541/">PMID: 36800541</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">PMID: 38158726</a>, 74% Black). This pattern is most consistent with a <strong>multifactorial/polygenic predisposition</strong> interacting with environmental load, not a single-gene disorder.</p>
+<h3>F004 — Vitamin D deficiency is a contested cofactor</h3>
+<p>Evidence conflicts. Montgomery found that among obese youth, <em>"Patients with very low vitamin D levels were 7.33 times more likely to have Blount disease than patients with higher levels (P=0.002)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21102216/">PMID: 21102216</a>), with a stronger effect in males (8.16× vs females, P=0.01). By contrast, Lisenda found vitamin D deficiency prevalence in Blount patients (16%) comparable to healthy children and concluded <em>"There is no evidence that vitamin D deficiency is a factor in causing Blount disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27276637/">PMID: 27276637</a>). Critically, Blount must be <strong>distinguished radiographically and biochemically from nutritional (calcium-deficiency) rickets</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27059923/">PMID: 27059923</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36187048/">PMID: 36187048</a>); studies in African cohorts show rickets deformities are driven by dietary calcium deficiency, not vitamin D, and that Blount is biochemically normal.</p>
+<h3>F005 — Diagnosis is radiographic; MDA and Langenskiöld stage guide treatment and predict recurrence</h3>
+<p>The <strong>metaphyseal-diaphyseal angle (MDA, Drennan angle) &gt;16°</strong> distinguishes pathologic tibia vara from physiologic bowing, and higher MDA predicts recurrence after osteotomy. Laoharojanaphand reported <em>"The mean preoperative metaphyseal diaphyseal angle (MDA) was 14.75° ± 4.21° in group 1 and 20.11° ± 5.16° in group 2 (P = 0.001)"</em> between non-recurrent and recurrent groups, with medial metaphyseal slope also predictive (<a href="https://pubmed.ncbi.nlm.nih.gov/31243919/">PMID: 31243919</a>). Adulkasem's predictive score identified <em>"preoperative metaphyseal-diaphyseal angle &gt;16 degrees (OR=8.61, P=0.006)"</em> along with age &gt;42 months, Langenskiöld III, and LaMont type C as recurrence predictors (<a href="https://pubmed.ncbi.nlm.nih.gov/36728392/">PMID: 36728392</a>). <strong>Langenskiöld staging (I–VI)</strong> describes progressive metaphyseal beaking and, in advanced stages, physeal bar formation.</p>
+<h3>F006 — Treatment is stage- and age-dependent</h3>
+<p>A graded therapeutic ladder applies:</p>
+<ul>
+<li><strong>Bracing</strong> for early infantile disease (Langenskiöld I–II); realignment osteotomy before age 4 reduces recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/19571101/">PMID: 19571101</a>).</li>
+<li><strong>Guided growth (tension-band plating)</strong> for skeletally immature moderate cases: Raftis reported <em>"On average, there was a 78.99% correction of deformities, with a range of 57.14% to 100%"</em> across 92 infantile Blount limbs (<a href="https://pubmed.ncbi.nlm.nih.gov/38887744/">PMID: 38887744</a>); Hanstein found Langenskiöld stage improved in 84% of limbs at latest follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/37852243/">PMID: 37852243</a>).</li>
+<li><strong>Corrective osteotomy with external fixation</strong> (Taylor spatial frame/hexapod) for adolescent/severe disease: de Pablos notes <em>"Osteotomies with external fixation (hexapodes) are still the most recommended corrective treatment in this condition"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29315109/">PMID: 29315109</a>). Severe stage V–VI cases with medial plateau depression require <strong>plateau elevation</strong> procedures (<a href="https://pubmed.ncbi.nlm.nih.gov/40963115/">PMID: 40963115</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24082956/">PMID: 24082956</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21349783/">PMID: 21349783</a>).</li>
+<li><strong>Adjunct obesity management</strong> (e.g., topiramate) may halt progression and avoid surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/39280740/">PMID: 39280740</a>).</li>
+</ul>
+<h3>F007 — Infantile tibia vara has substantial spontaneous-resolution potential</h3>
+<p>Natural-history data temper aggressive early intervention. In 46 untreated limbs (29 patients, MDA &gt;11°), all 22 limbs not in Langenskiöld II–III resolved spontaneously; of 24 limbs in stage II–III, 18 resolved by age 6. Crucially, Shinohara found <em>"There was no difference in the rate of resolution of the deformity between those patients who had been treated by a brace and those who had received no treatment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11922370/">PMID: 11922370</a>), and FTA/MDA could not predict which limbs would resolve before age 4. The lesion is attributed to <em>"an intrinsic, idiopathic defect in the posteromedial proximal tibial physis resulting in progressive bowing of the leg, intoeing, and lateral knee thrust"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27741108/">PMID: 27741108</a>).</p>
+<h3>F008 — Leptin: a plausible endocrine link between obesity and physeal vulnerability (inferred)</h3>
+<p>Leptin, elevated in obesity, acts <strong>directly on epiphyseal growth-plate chondrocytes</strong> via the Ob-Rb receptor. Maor concluded <em>"leptin acts as a skeletal growth factor with a direct peripheral effect on skeletal growth centers"</em> and stimulates chondrocyte growth partly via IGF-I receptor upregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/12054158/">PMID: 12054158</a>). In leptin-deficient ob/ob mice, Kishida found <em>"Growth plates of ob/ob mice were more fragile than those of wild-type mice in a mechanical test and were broken easily at the chondro-osseous junction"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16039170/">PMID: 16039170</a>), with disturbed columnar structure, decreased type X collagen, increased apoptosis, and premature mineralization. Leptin also regulates angiogenesis in endochondral ossification (<a href="https://pubmed.ncbi.nlm.nih.gov/11799135/">PMID: 11799135</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18403928/">PMID: 18403928</a>). <strong>Caveat:</strong> these data derive from mouse/in-vitro growth-plate biology, <em>not</em> Blount specimens—the leptin link to Blount is inferred, offering a candidate mechanism for why only a minority of obese children develop the disease.</p>
+<h3>F009 — Primary abnormality is failed endochondral ossification of the medial physis, with a characteristic MRI signature</h3>
+<p>MRI of 6 knees in 4 children (ages 6–7) revealed <em>"widening and depression of the medial growth plate; small and deep intrusions of cartilage into the metaphysis; edema of the medial tibial epiphysis and medial and lateral metaphysis"</em>, delayed medial epiphyseal ossification, lateral physeal widening, medial femoral condyle osteochondral injury, medial meniscus hypertrophy, and focal physeal bar. Craig concluded the <em>"MR appearances are consistent with the primary abnormality in Blount disease, which is failure of endochondral ossification of the medial growth plate"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11904688/">PMID: 11904688</a>). This pins the core cellular lesion to the medial physeal chondrocyte column.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating factor → clinical manifestation)</h3>
+<ol>
+<li><strong>Predisposition</strong> (multifactorial: African-ancestry background, positive family history, early walking) <strong>combines with</strong> excess body mass (childhood/adolescent obesity) → elevated compressive load across the knee. <em>[Established association; polygenic basis inferred — WES negative, <a href="https://pubmed.ncbi.nlm.nih.gov/33981863/" target="_blank" rel="noopener noreferrer">PMID 33981863</a>]</em></li>
+<li>Body weight is transmitted asymmetrically across the proximal tibia, concentrating compressive force on the <strong>posteromedial physis</strong> (varus mechanical axis) → focal medial physeal overload. <em>[Demonstrated in lamb model, <a href="https://pubmed.ncbi.nlm.nih.gov/17585254/" target="_blank" rel="noopener noreferrer">PMID 17585254</a>]</em></li>
+<li>Excess medial compression <strong>retards</strong> chondrocyte proliferation and maturation in the medial growth plate (<strong>Hueter-Volkmann principle</strong>) → <strong>failure of endochondral ossification of the medial physis</strong>. <em>[MRI-supported primary lesion, <a href="https://pubmed.ncbi.nlm.nih.gov/11904688/" target="_blank" rel="noopener noreferrer">PMID 11904688</a>]</em></li>
+<li><em>(Inferred branch)</em> Obesity elevates leptin; leptin-altered chondrocyte biology may render the physis mechanically fragile and dysregulate columnar maturation → additional "second hit" on medial physeal integrity. <em>[Inferred from mouse/in-vitro data, <a href="https://pubmed.ncbi.nlm.nih.gov/16039170/" target="_blank" rel="noopener noreferrer">PMID 16039170</a>, 12054158 — not demonstrated in Blount tissue]</em></li>
+<li>Medial growth arrest <strong>with continued lateral growth</strong> → progressive <strong>varus + internal torsion + procurvatum + limb shortening</strong>. <em>[Established]</em></li>
+<li>Persistent asymmetric loading is <strong>self-reinforcing</strong> (varus increases medial load) → progressive deformity, metaphyseal beaking (Langenskiöld I→VI), and eventual <strong>physeal bar</strong> (bony bridge). <em>[Established, staging: <a href="https://pubmed.ncbi.nlm.nih.gov/31243919/" target="_blank" rel="noopener noreferrer">PMID 31243919</a>, 36728392]</em></li>
+<li>Untreated deformity <strong>results in</strong> medial tibial plateau depression, joint incongruity, leg-length discrepancy, and lateral knee thrust → <strong>premature medial-compartment knee osteoarthritis</strong>. <em>[Established]</em></li>
+</ol>
+<pre><code> Genetic/ethnic predisposition        Obesity (excess body mass)
+(polygenic, inferred)                    |
+ \                               v
+  \---------&gt;  Asymmetric compressive load on knee
+                         |
+                         v
+       Posteromedial proximal tibial physis overload
+                         |
+(Hueter-Volkmann)        |     (leptin-IGF-I &quot;second hit&quot;, inferred)
+                         v
+ FAILURE OF ENDOCHONDRAL OSSIFICATION (medial physis)
+                         |
+ medial growth arrest + continued lateral growth
+                         |
+                         v
+3D deformity: varus + internal torsion + procurvatum + shortening
+                         |
+     self-reinforcing load  --&gt;  physeal bar (Langenskiold V-VI)
+                         |
+                         v
+joint incongruity, LLD  --&gt;  premature medial-compartment knee OA
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> The mechanical overload and medial physeal ossification failure are <em>upstream</em> (initiating); deformity progression, physeal bar, and osteoarthritis are <em>downstream</em> consequences. <strong>Cell types:</strong> growth-plate chondrocytes (proliferative and hypertrophic zones; <strong><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></strong> chondrocyte), osteoblasts of the primary spongiosa. <strong>Biological processes:</strong> endochondral ossification (<strong><a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" rel="noopener noreferrer">GO:0001958</a></strong>), growth plate cartilage chondrocyte proliferation (<strong><a href="http://purl.obolibrary.org/obo/GO_0003419" target="_blank" rel="noopener noreferrer">GO:0003419</a></strong>), chondrocyte differentiation (<strong><a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" rel="noopener noreferrer">GO:0002062</a></strong>), bone mineralization (<strong><a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" rel="noopener noreferrer">GO:0030282</a></strong>), response to mechanical stimulus (<strong><a href="http://purl.obolibrary.org/obo/GO_0009612" target="_blank" rel="noopener noreferrer">GO:0009612</a></strong>).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Blount disease is an <strong>idiopathic, acquired developmental disorder of the proximal tibial growth plate</strong> producing progressive tibia vara (bowing). It is <em>not</em> a physiologic bowing (which self-corrects) and <em>not</em> a metabolic/nutritional condition. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017194" target="_blank" rel="noopener noreferrer">MONDO:0017194</a>; MeSH "Osteochondrosis" / "Bowleg"; ICD-10 <strong>Q68.4</strong> (congenital bowing of tibia/fibula) or <strong>M92.5</strong> (juvenile osteochondrosis of tibia and fibula); commonly coded under tibia vara. There is <strong>no OMIM entry for a Mendelian Blount gene</strong> (consistent with negative WES, F003). <strong>Synonyms:</strong> tibia vara, Blount-Barber syndrome, osteochondrosis deformans tibiae, infantile/adolescent tibia vara. <strong>Data source type:</strong> predominantly aggregated disease-level clinical/radiographic case series and cohorts, not EHR/individual-patient omics.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors:</strong> Primarily <strong>mechanical/biomechanical</strong> (asymmetric physeal overload) on a background of multifactorial predisposition; <strong>not infectious, not single-gene</strong> (F002, F003). <strong>Genetic risk factors:</strong> familial clustering (62% positive family history) and African-ancestry predominance suggest polygenic susceptibility, but no causal variant/locus identified (F003). <strong>Environmental risk factors:</strong> obesity (strongest), male sex, African ancestry, early walking age, and socioeconomic deprivation (independently associated with greater varus severity in late-onset disease, <a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">PMID: 38158726</a>). <strong>Protective factors:</strong> none genetically defined; <strong>weight reduction</strong> is the logical protective/modifiable exposure (F006 — topiramate case). <strong>Gene–environment interaction:</strong> the disease is best modeled as a genetic/ethnic predisposition that only manifests under mechanical overload (obesity) — a classic multifactorial threshold model; the inferred leptin "second hit" is a candidate molecular GxE node (F008).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Genu varum / tibia vara (bowing)</td>
+<td>Physical/sign</td>
+<td>Infantile or adolescent</td>
+<td>Defining (~100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" rel="noopener noreferrer">HP:0002970</a> (genu varum)</td>
+</tr>
+<tr>
+<td>Internal tibial torsion (intoeing)</td>
+<td>Sign</td>
+<td>With deformity</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011231" target="_blank" rel="noopener noreferrer">HP:0011231</a> (int. tibial torsion)</td>
+</tr>
+<tr>
+<td>Lateral knee thrust</td>
+<td>Sign</td>
+<td>Progressive</td>
+<td>Common</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Limb-length discrepancy</td>
+<td>Physical</td>
+<td>Progressive/late</td>
+<td>Common in unilateral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100559" target="_blank" rel="noopener noreferrer">HP:0100559</a> (limb-length inequality)</td>
+</tr>
+<tr>
+<td>Procurvatum (apex-anterior)</td>
+<td>Physical</td>
+<td>With deformity</td>
+<td>Frequent</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Knee pain</td>
+<td>Symptom</td>
+<td>Adolescent/late</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" rel="noopener noreferrer">HP:0030838</a> (knee pain)</td>
+</tr>
+<tr>
+<td>Gait disturbance / lateral thrust</td>
+<td>Behavioral/functional</td>
+<td>Progressive</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a> (gait disturbance)</td>
+</tr>
+<tr>
+<td>Early osteoarthritis (untreated)</td>
+<td>Late complication</td>
+<td>Adulthood</td>
+<td>If untreated</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" rel="noopener noreferrer">HP:0002758</a> (osteoarthritis)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression:</strong> variable; <strong>progressive</strong> if physeal insult continues, but infantile disease has substantial <strong>spontaneous-resolution potential</strong> (F007). <strong>Quality of life:</strong> deformity, gait abnormality, and (if untreated) chronic knee pain and premature OA impair mobility; surgical correction generally restores function (<a href="https://pubmed.ncbi.nlm.nih.gov/24082956/">PMID: 24082956</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>No causal gene identified</strong> — WES of familial cases negative (<a href="https://pubmed.ncbi.nlm.nih.gov/33981863/">PMID: 33981863</a>). No established pathogenic variants, modifier genes, epigenetic marks, or chromosomal abnormalities are documented for Blount disease. Susceptibility is presumed <strong>polygenic</strong>. This section is <strong>largely not applicable/unknown</strong> — a notable knowledge gap given the strong heritable/ethnic signal.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental/lifestyle factors:</strong> childhood <strong>obesity</strong> (dominant, F002), early walking, high mechanical loading, socioeconomic deprivation (<a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">PMID: 38158726</a>). Contested: vitamin D deficiency (F004). <strong>Infectious agents:</strong> none — Blount is <strong>not infectious</strong>. CHEBI-relevant entities: leptin (protein hormone), vitamin D / calciol (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_28934" target="_blank" rel="noopener noreferrer">CHEBI:28934</a></strong>), consistent with the metabolic differential diagnosis versus rickets.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the <strong>ordered causal chain and diagram above</strong>. Core: mechanical overload → Hueter-Volkmann suppression of the medial physis → <strong>failure of endochondral ossification</strong> (F009) → asymmetric growth → 3D deformity → self-reinforcing progression → OA. Molecular pathways implicated in growth-plate biology (Wnt, IHH/PTHrP, IGF-1) are the presumed effectors of chondrocyte proliferation/hypertrophy, with leptin–IGF-I as an inferred obesity-linked modulator (F008). No confirmed transcriptomic/proteomic/metabolomic Blount signatures exist.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary site:</strong> posteromedial <strong>proximal tibial growth plate (physis)</strong> — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0006431" target="_blank" rel="noopener noreferrer">UBERON:0006431</a></strong> (tibia epiphyseal plate) / <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000481" target="_blank" rel="noopener noreferrer">UBERON:0000481</a></strong> (metaphysis); tibia <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000979" target="_blank" rel="noopener noreferrer">UBERON:0000979</a></strong>. <strong>Secondary:</strong> medial tibial plateau, medial femoral condyle (osteochondral injury), medial meniscus (hypertrophy), knee joint (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001485" target="_blank" rel="noopener noreferrer">UBERON:0001485</a></strong>); distal femur in late-onset. <strong>Tissue/cell:</strong> hyaline growth-plate cartilage, chondrocytes (<strong><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></strong>), osteoblasts. <strong>Subcellular:</strong> chondrocyte ER/secretory apparatus for matrix (type II/X collagen) — <strong><a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" rel="noopener noreferrer">GO:0005788</a></strong> (ER lumen); extracellular matrix (<strong><a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a></strong>). <strong>Localization:</strong> lower limb; <strong>bilateral</strong> common in infantile, <strong>unilateral</strong> common in adolescent form.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> bimodal — infantile (&lt;4 yr) and adolescent (≥10 yr); <strong>insidious/chronic</strong> progression (F001). <strong>Stages:</strong> Langenskiöld I–VI (progressive metaphyseal beaking → physeal bar). <strong>Course:</strong> progressive if untreated, but infantile disease may spontaneously resolve (F007). <strong>Critical period:</strong> early intervention before age 4 (infantile) and before physeal bar formation optimizes outcomes; realignment osteotomy before age 4 reduces recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/19571101/">PMID: 19571101</a>).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> <strong>multifactorial/polygenic</strong>, not Mendelian (F003). <strong>Epidemiology:</strong> no precise global prevalence; markedly over-represented in populations of <strong>African ancestry</strong> (74–89% Black in cohorts), <strong>male-predominant</strong> (~68% in surgical series), and associated with obesity and socioeconomic deprivation (<a href="https://pubmed.ncbi.nlm.nih.gov/32433261/">PMID: 32433261</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">PMID: 38158726</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36800541/">PMID: 36800541</a>). Family history positive in ~62% of families (F003). Penetrance/expressivity, founder effects, and carrier frequency are <strong>not applicable</strong> (no defined variant).</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Radiographic (primary):</strong> standing full-length AP radiographs; <strong>metaphyseal-diaphyseal angle (Drennan) &gt;16°</strong> distinguishes pathologic tibia vara (F005); <strong>Langenskiöld staging</strong>; medial metaphyseal slope and MDA predict recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/31243919/">PMID: 31243919</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36728392/">PMID: 36728392</a>). <strong>MRI:</strong> delineates medial physeal widening/depression, cartilage intrusions, edema, physeal bar (F009, <a href="https://pubmed.ncbi.nlm.nih.gov/11904688/">PMID: 11904688</a>); useful for surgical planning. <strong>3D CT:</strong> torsional and morphologic assessment (<a href="https://pubmed.ncbi.nlm.nih.gov/33632009/">PMID: 33632009</a>). <strong>Labs:</strong> used mainly to <strong>exclude rickets</strong> (calcium, phosphate, PTH, 25-OHD, alkaline phosphatase) — Blount is biochemically normal (<a href="https://pubmed.ncbi.nlm.nih.gov/27059923/">PMID: 27059923</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36187048/">PMID: 36187048</a>). <strong>Genetic testing:</strong> not indicated (no causal gene). <strong>Differential diagnosis:</strong> physiologic genu varum, nutritional/calcium-deficiency rickets, skeletal dysplasias, focal fibrocartilaginous dysplasia, post-traumatic/infective physeal arrest.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Mortality:</strong> none — Blount is <strong>non-fatal</strong>. <strong>Morbidity:</strong> untreated disease → progressive deformity, leg-length inequality, joint incongruity, and <strong>premature medial-compartment knee osteoarthritis</strong>; gait disability. <strong>Recovery:</strong> good with timely, stage-appropriate treatment — osteotomy series report restored alignment, congruence, and return to activity (<a href="https://pubmed.ncbi.nlm.nih.gov/24082956/">PMID: 24082956</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21349783/">PMID: 21349783</a>). <strong>Prognostic factors (recurrence):</strong> age &gt;42 months, Langenskiöld ≥III, LaMont type C, MDA &gt;16° (OR 8.61), steep medial metaphyseal slope (F005). Higher BMI and socioeconomic deprivation predict greater deformity severity (<a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">PMID: 38158726</a>).</p>
+<h3>12. Treatment</h3>
+<p>See F006. <strong>Non-surgical:</strong> bracing (KAFO) for early infantile Langenskiöld I–II; <strong>weight management</strong> (adjunct pharmacotherapy e.g. topiramate, <a href="https://pubmed.ncbi.nlm.nih.gov/39280740/">PMID: 39280740</a>; NCIT: therapeutic weight loss). <strong>Guided growth / hemiepiphysiodesis:</strong> tension-band plating (~79% correction; NCIT: epiphysiodesis) for skeletally immature moderate cases (<a href="https://pubmed.ncbi.nlm.nih.gov/38887744/">PMID: 38887744</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37852243/">PMID: 37852243</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37642701/">PMID: 37642701</a>). <strong>Osteotomy:</strong> proximal tibial/fibular corrective osteotomy (acute or gradual), with <strong>external fixation</strong> (Ilizarov/hexapod/Taylor spatial frame; NCIT: osteotomy) for adolescent/severe disease (<a href="https://pubmed.ncbi.nlm.nih.gov/29315109/">PMID: 29315109</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34504761/">PMID: 34504761</a>). <strong>Severe stage V–VI:</strong> medial tibial plateau elevation ± double osteotomy ± lateral epiphysiodesis (<a href="https://pubmed.ncbi.nlm.nih.gov/40963115/">PMID: 40963115</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24082956/">PMID: 24082956</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21349783/">PMID: 21349783</a>). No pharmacogenomics, gene/cell/RNA therapy, or immunotherapy applies. Adverse events: pin-tract infection (up to ~62% in frame series, conservatively managed), recurrence (~12–21%), residual LLD (<a href="https://pubmed.ncbi.nlm.nih.gov/40963115/">PMID: 40963115</a>).</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary:</strong> modify the driving risk factor — <strong>childhood obesity prevention/management</strong> (CDC/WHO healthy-weight strategies). <strong>Secondary:</strong> early clinical/radiographic detection of pathologic bowing (MDA screening in obese/at-risk children) enabling guided growth before physeal bar forms. <strong>Tertiary:</strong> stage-appropriate surgery to prevent OA and LLD; lateral hemiepiphysiodesis to prevent recurrence in neglected cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37642701/">PMID: 37642701</a>). <strong>Immunization/infectious control:</strong> not applicable. <strong>Counseling:</strong> genetic counseling not applicable (no Mendelian gene); family/lifestyle counseling on weight management is appropriate.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>No well-established naturally occurring Blount-disease analog is documented in companion animals or wildlife (OMIA has no confirmed ortholog-based entry). Growth-plate mechanobiology is broadly conserved across mammals; the <strong>lamb (Ovis aries, NCBI:txid9940) tibial growth-plate model</strong> experimentally recapitulates the asymmetric-loading mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/17585254/">PMID: 17585254</a>). No zoonotic or cross-species transmission (non-infectious).</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Large-animal biomechanical model:</strong> the <strong>lamb proximal tibial physis</strong> under asymmetric loading is the closest experimental model of the Blount mechanism, demonstrating physeal compression and opposite-side tension (<a href="https://pubmed.ncbi.nlm.nih.gov/17585254/">PMID: 17585254</a>). <strong>Rodent growth-plate models:</strong> leptin-deficient <strong>ob/ob mice</strong> (<em>Mus musculus</em>, NCBI:txid10090) reveal how altered leptin signaling changes growth-plate mechanical integrity, columnar architecture, type X collagen, apoptosis, and mineralization (<a href="https://pubmed.ncbi.nlm.nih.gov/16039170/">PMID: 16039170</a>); in-vitro epiphyseal chondrocyte cultures show direct leptin/IGF-I action (<a href="https://pubmed.ncbi.nlm.nih.gov/12054158/">PMID: 12054158</a>). <strong>Limitations:</strong> no genetic model reproduces Blount disease per se; these are <strong>mechanism-of-vulnerability</strong> models, not disease-recapitulation models. No knockout/transgenic Blount model exists because no causal gene is known.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports / Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19571101/">19571101</a></td>
+<td><em>Blount disease</em> (Sabharwal review)</td>
+<td>Two-form classification; early-osteotomy benefit (F001, F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23818028/">23818028</a></td>
+<td><em>Blount disease</em> (Birch)</td>
+<td>Infantile vs adolescent forms; idiopathic (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27276637/">27276637</a></td>
+<td><em>Vitamin D Status in Blount Disease</em></td>
+<td>Obesity only proven factor; disputes vitamin D (F002, F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17585254/">17585254</a></td>
+<td><em>Lamb growth plate asymmetrical loading</em></td>
+<td>Biomechanical proof of physeal compression (F002, mechanism)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32433261/">32433261</a></td>
+<td><em>Blount and OSA</em></td>
+<td>Demographic risk profile (100% obese, 89% Black, 68% male) (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33981863/">33981863</a></td>
+<td><em>Blount and familial inheritance in Ghana</em></td>
+<td>WES negative; 62% family history (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21102216/">21102216</a></td>
+<td><em>Vitamin D deficiency &amp; Blount</em></td>
+<td>7.33× risk with very low vitamin D (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31243919/">31243919</a></td>
+<td><em>Medial Metaphyseal Slope predictor</em></td>
+<td>MDA/slope predict recurrence (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36728392/">36728392</a></td>
+<td><em>Predictive Score for recurrence</em></td>
+<td>MDA &gt;16° OR 8.61 (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38887744/">38887744</a></td>
+<td><em>Tension-Band Plating review</em></td>
+<td>~79% deformity correction (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37852243/">37852243</a></td>
+<td><em>Guided growth &amp; Langenskiöld stage</em></td>
+<td>84% stage improvement (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29315109/">29315109</a></td>
+<td><em>Adolescent Blount treatment</em></td>
+<td>Osteotomy + external fixation mainstay (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11922370/">11922370</a></td>
+<td><em>Natural history of infantile tibia vara</em></td>
+<td>Spontaneous resolution; brace ≈ observation (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27741108/">27741108</a></td>
+<td><em>Guided growth for tibia vara</em></td>
+<td>Posteromedial physeal defect; cardinal signs (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16039170/">16039170</a></td>
+<td><em>Leptin &amp; chondrocyte differentiation</em></td>
+<td>ob/ob physes mechanically fragile (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12054158/">12054158</a></td>
+<td><em>Leptin as growth factor</em></td>
+<td>Direct chondrocyte/IGF-I action (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11904688/">11904688</a></td>
+<td><em>MR in Blount disease</em></td>
+<td>Primary lesion = failed medial endochondral ossification (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39280740/">39280740</a></td>
+<td><em>Topiramate to slow Blount</em></td>
+<td>Weight management halts progression (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38158726/">38158726</a></td>
+<td><em>Socioeconomic deprivation &amp; deformity</em></td>
+<td>BMI + ADI predict varus severity (F002, epi)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27059923/">27059923</a></td>
+<td><em>Malawi rickets-like deformities</em></td>
+<td>Distinguishes Blount from calcium-deficiency rickets (F004)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No molecular data in Blount tissue.</strong> There are no confirmed transcriptomic, proteomic, metabolomic, or single-cell datasets from Blount growth plates. The mechanism is built from radiographic/MRI phenotype plus extrapolated growth-plate biology.</li>
+<li><strong>Genetic architecture unknown.</strong> Strong familial clustering and African-ancestry predominance imply polygenic susceptibility, but no GWAS, no candidate loci, and negative WES leave the heritable basis undefined.</li>
+<li><strong>Leptin link is inferred, not demonstrated.</strong> All leptin/IGF-I evidence is from mouse/in-vitro models, not Blount patients. The "second hit" hypothesis is plausible but untested in the disease.</li>
+<li><strong>Vitamin D role unresolved</strong> — directly conflicting studies (F004); likely confounded by obesity and population/nutritional differences.</li>
+<li><strong>Epidemiology is imprecise.</strong> No robust global incidence/prevalence figures; cohort demographics are surgical/tertiary-referral, subject to ascertainment bias.</li>
+<li><strong>No true disease-recapitulating animal model</strong> — only mechanistic (lamb loading, ob/ob mouse) surrogates.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Molecular profiling of Blount physeal tissue.</strong> Perform bulk and single-cell RNA-seq (and spatial transcriptomics) on medial vs lateral proximal tibial physeal cartilage obtained at osteotomy, versus age-matched controls, to define the transcriptional signature of the medial ossification failure (GEO/Human Cell Atlas targets).</li>
+<li><strong>Genetic study powered for polygenic risk.</strong> GWAS or targeted sequencing across the well-defined African-ancestry, familial Blount cohorts (e.g., Ghana) to detect susceptibility loci; test polygenic scores against obesity as a GxE interaction.</li>
+<li><strong>Directly test the leptin–IGF-I "second hit."</strong> Measure serum leptin/IGF-I and physeal Ob-Rb/IGF-1R expression in Blount patients vs BMI-matched obese controls without Blount; correlate with Langenskiöld stage and MDA.</li>
+<li><strong>Prospective natural-history/registry study</strong> to derive reliable incidence/prevalence and validate recurrence-prediction scores (MDA &gt;16°, slope, LaMont type) across independent cohorts.</li>
+<li><strong>Randomized comparison</strong> of early guided growth vs bracing vs observation in infantile disease, stratified by Langenskiöld stage, given F007's finding that bracing did not outperform observation.</li>
+<li><strong>Resolve the vitamin D question</strong> with a prospective, obesity-adjusted study measuring 25-OHD and full calcium/phosphate panels at diagnosis.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 37 reviewed papers across 5 investigation iterations; 9 findings confirmed. Evidence types span human clinical cohorts/case series (majority), a large-animal biomechanical model (lamb), rodent/in-vitro growth-plate biology (leptin), and imaging studies (MRI/CT).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Blount_Disease-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Blount_Disease-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Citations</h2>
+<ol>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19571101/" target="_blank" rel="noopener noreferrer">PMID:19571101</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23818028/" target="_blank" rel="noopener noreferrer">PMID:23818028</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27276637/" target="_blank" rel="noopener noreferrer">PMID:27276637</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32433261/" target="_blank" rel="noopener noreferrer">PMID:32433261</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17585254/" target="_blank" rel="noopener noreferrer">PMID:17585254</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19242242/" target="_blank" rel="noopener noreferrer">PMID:19242242</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26090984/" target="_blank" rel="noopener noreferrer">PMID:26090984</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33981863/" target="_blank" rel="noopener noreferrer">PMID:33981863</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36800541/" target="_blank" rel="noopener noreferrer">PMID:36800541</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38158726/" target="_blank" rel="noopener noreferrer">PMID:38158726</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21102216/" target="_blank" rel="noopener noreferrer">PMID:21102216</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27059923/" target="_blank" rel="noopener noreferrer">PMID:27059923</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36187048/" target="_blank" rel="noopener noreferrer">PMID:36187048</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31243919/" target="_blank" rel="noopener noreferrer">PMID:31243919</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36728392/" target="_blank" rel="noopener noreferrer">PMID:36728392</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38887744/" target="_blank" rel="noopener noreferrer">PMID:38887744</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37852243/" target="_blank" rel="noopener noreferrer">PMID:37852243</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29315109/" target="_blank" rel="noopener noreferrer">PMID:29315109</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40963115/" target="_blank" rel="noopener noreferrer">PMID:40963115</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24082956/" target="_blank" rel="noopener noreferrer">PMID:24082956</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21349783/" target="_blank" rel="noopener noreferrer">PMID:21349783</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39280740/" target="_blank" rel="noopener noreferrer">PMID:39280740</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11922370/" target="_blank" rel="noopener noreferrer">PMID:11922370</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27741108/" target="_blank" rel="noopener noreferrer">PMID:27741108</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12054158/" target="_blank" rel="noopener noreferrer">PMID:12054158</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16039170/" target="_blank" rel="noopener noreferrer">PMID:16039170</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11799135/" target="_blank" rel="noopener noreferrer">PMID:11799135</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18403928/" target="_blank" rel="noopener noreferrer">PMID:18403928</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11904688/" target="_blank" rel="noopener noreferrer">PMID:11904688</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33632009/" target="_blank" rel="noopener noreferrer">PMID:33632009</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37642701/" target="_blank" rel="noopener noreferrer">PMID:37642701</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34504761/" target="_blank" rel="noopener noreferrer">PMID:34504761</a></li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Bloom_Syndrome-asta.html">← Bloom syndrome (Asta)</a>
+                
+                
+                <a href="Blue_Cone_Monochromacy-claude_code.html">Blue Cone Monochromacy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Blount_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Blount_Disease-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
