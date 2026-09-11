@@ -1,6 +1,6 @@
 """Unit tests for the entity-reference resolver (issue #9193).
 
-`tests/test_data.py::test_entity_ref_foreign_keys` exercises this against real
+`tests/test_data.py::test_entity_reference_file` (via `check_entity_ref_foreign_keys`) exercises this against real
 content; these cover the resolution rules themselves — in particular the three
 sections that are *not* keyed on `name`, and the two ways a reference is
 skipped rather than failed.
@@ -622,6 +622,39 @@ def test_plain_node_name_in_target_is_not_a_bare_name():
             ],
         }
     ]
+    assert entity_ref_errors(data) == []
+
+
+def test_downstream_self_loop_is_rejected():
+    """A pathophysiology node may not list itself as its own downstream target (#9896).
+
+    A self-reference resolves fine under the ordinary foreign-key check --
+    the target names a real node in the file -- so nothing else catches a
+    node asserting that it causes itself.
+    """
+    data = {
+        "pathophysiology": [
+            {
+                "name": "Node A",
+                "downstream": [{"target": "Node A"}, {"target": "Node B"}],
+            },
+            {"name": "Node B"},
+        ]
+    }
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "targets itself" in errors[0]
+    assert "Node A" in errors[0]
+    assert "phenotype of the same name" in errors[0]
+
+
+def test_downstream_edge_to_a_different_node_is_not_a_self_loop():
+    data = {
+        "pathophysiology": [
+            {"name": "Node A", "downstream": [{"target": "Node B"}]},
+            {"name": "Node B"},
+        ]
+    }
     assert entity_ref_errors(data) == []
 
 

@@ -282,7 +282,7 @@ _test-schema:
 
 # Run the fast Python unit tests (excludes the whole-KB `kb_data` sweep)
 _test-python-code: gen-python
-  uv run python -m pytest -m "not kb_data"
+  uv run python -m pytest -m "not kb_data and not oak_db"
 
 # Run the whole-KB schema-conformance sweep (`kb_data`), parallelized with xdist
 _test-python-kb: gen-python
