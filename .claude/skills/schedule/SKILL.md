@@ -19,6 +19,11 @@ design that `/curate-next` supports is a deliberate later scale-up.
 The skill **never merges, dismisses reviews, or self-approves.** Those are the
 reviewer's and the `auto_merge_ready_prs.py` sweep's job.
 
+> For a plain-language walkthrough aimed at a non-technical user (what to type,
+> what happens each night, how to stop it), see
+> [`docs/schedule-donation.md`](../../../docs/schedule-donation.md). This file is
+> the technical orchestrator spec.
+
 > This is a project skill that composes the Claude Code cloud-routine API
 > (`RemoteTrigger`) — the same mechanism as the built-in `schedule` skill — but
 > wired to the dismech curation loop specifically. When the user types
