@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immunodeficiency 96 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Immunodeficiency 96</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Immunodeficiency 96</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030693" target="_blank" rel="noopener noreferrer">MONDO:0030693</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">2 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<ul>
+<li><strong>Overview.</strong> IMD96 is a Mendelian, autosomal recessive DNA-repair/DNA-
+  replication defect presenting as an immunodeficiency. It results from partial
+  deficiency of DNA ligase I. Onset of recurrent, usually viral, respiratory
+  infections occurs in infancy/early childhood; gastrointestinal and urinary
+  tract infections also occur. (Source: OMIM/MONDO disease definition; human
+  clinical — Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>.)</li>
+<li><strong>Key identifiers.</strong></li>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0030693" target="_blank" rel="noopener noreferrer">MONDO:0030693</a> (immunodeficiency 96)</li>
+<li><strong>OMIM (phenotype):</strong> #619774</li>
+<li><strong>OMIM (gene LIG1):</strong> 126391</li>
+<li><strong>DOID:</strong> <a href="http://purl.obolibrary.org/obo/DOID_0061066" target="_blank" rel="noopener noreferrer">DOID:0061066</a></li>
+<li><strong>MedGen:</strong> C5676930 · <strong>UMLS:</strong> C5676930</li>
+<li><strong>Orphanet:</strong> No dedicated ORPHA code is firmly established for "IMD96"; the
+    entity historically overlaps "DNA ligase I deficiency." <em>(Not confidently
+    available — flag for curator verification.)</em></li>
+<li><strong>ICD-10:</strong> D84.9 (Immunodeficiency, unspecified) / D80.x (predominantly
+    antibody defects) as closest available codes; <strong>ICD-11:</strong> 4A00.x (primary
+    immunodeficiencies). No IMD96-specific code. <em>(Approximate.)</em></li>
+<li><strong>MeSH:</strong> No specific descriptor; nearest terms "Ligases"/"DNA Ligase ATP"
+    and "Immunologic Deficiency Syndromes."</li>
+<li><strong>Synonyms / alternative names:</strong> IMD96; "immunodeficiency, autosomal recessive
+  due to LIG1 deficiency"; DNA ligase I deficiency; DNA ligase 1 deficiency; the
+  index cell line/patient is historically referred to as <strong>46BR</strong>.</li>
+<li><strong>Data provenance:</strong> Aggregated disease-level knowledge derived from a small
+  number of <strong>individual patient case reports</strong> (n ≈ 6) plus biochemical and
+  mouse-model studies — not from large EHR/registry cohorts.</li>
+</ul>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Primary cause — genetic:</strong> Biallelic (homozygous or compound heterozygous)
+  pathogenic variants in <em>LIG1</em>. Alleles are amorphic (null-like) or hypomorphic
+  with residual activity; genotype severity tracks clinical/immunologic severity
+  (human clinical/in vitro — Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>; Barnes 1992, PMID
+  1581963).</li>
+<li><strong>Genetic risk factors:</strong> The disease is monogenic and fully genetically
+  determined; the only "risk factor" is inheritance of two defective <em>LIG1</em>
+  alleles. <strong>Consanguinity</strong> and being from a <strong>kindred segregating LIG1
+  variants</strong> raise recurrence risk (AR inheritance). No established
+  common-variant susceptibility loci or modifier genes are reported.</li>
+<li><strong>Environmental risk factors:</strong> No environmental cause. However, because cells
+  are hypersensitive to DNA-damaging agents, <strong>exposure to genotoxins/UV/ionizing
+  radiation/alkylating chemotherapeutics</strong> may aggravate cellular pathology
+  (in vitro — Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>). Photosensitivity is clinically observed.</li>
+<li><strong>Protective factors:</strong> Retention of <strong>residual LIG1 catalytic activity</strong>
+  (hypomorphic rather than null alleles) is protective — it explains survival and
+  milder phenotypes, since complete loss is embryonic-lethal in mouse (model
+  organism — Bentley 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/11896201/" target="_blank" rel="noopener noreferrer">PMID 11896201</a>). No dietary/lifestyle protective
+  factors are established.</li>
+<li><strong>Gene–environment interactions:</strong> Genotoxic environmental exposures interact
+  with the underlying repair defect (cells show hypersensitivity to a variety of
+  DNA-damaging agents), plausibly increasing mutation load and cancer risk
+  (in vitro — Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>). Direct GxE quantification is unavailable.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p><em>Frequencies below are the </em><em>exact n/N</em><em> from the official HPO annotation of
+<a href="https://bioregistry.io/OMIM:619774" target="_blank" rel="noopener noreferrer">OMIM:619774</a> (sources: <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a> [Maffucci cohort] and <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a> [46BR
+index patient]). Because the total described cohort is ~6 patients, "n/N" is the
+most precise frequency obtainable.</em></p>
+<p><strong>HPO annotation table (curated, with frequencies):</strong>
+| HPO term | ID | Frequency | Source |
+|---|---|---|---|
+| Recurrent infections | <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a> | 5/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Decreased circulating IgG | <a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" rel="noopener noreferrer">HP:0004315</a> | 6/6 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a>, 1581963 |
+| Decreased circulating IgA | <a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" rel="noopener noreferrer">HP:0002720</a> | 6/6 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a>, 1581963 |
+| Decreased circulating IgM | <a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a> | 5/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Increased mean corpuscular volume (macrocytosis) | <a href="http://purl.obolibrary.org/obo/HP_0005518" target="_blank" rel="noopener noreferrer">HP:0005518</a> | 5/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Increased γδ T-cell proportion | <a href="http://purl.obolibrary.org/obo/HP_0500270" target="_blank" rel="noopener noreferrer">HP:0500270</a> | 4/4 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Childhood onset | <a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a> | 3/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Infantile onset | <a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a> | 2/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Multicystic kidney dysplasia | <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" rel="noopener noreferrer">HP:0000003</a> | 2/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Eczematoid dermatitis | <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" rel="noopener noreferrer">HP:0000964</a> | 1/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Recurrent lower respiratory tract infections | <a href="http://purl.obolibrary.org/obo/HP_0002783" target="_blank" rel="noopener noreferrer">HP:0002783</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Recurrent otitis media | <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" rel="noopener noreferrer">HP:0000403</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Growth delay | <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Motor delay | <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Conjunctival telangiectasia | <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" rel="noopener noreferrer">HP:0000524</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Abnormal T-cell proliferation | <a href="http://purl.obolibrary.org/obo/HP_0031379" target="_blank" rel="noopener noreferrer">HP:0031379</a> | 1/1 | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |
+| Intellectual disability (ABSENT) | <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> | 0/5 | <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID:30395541</a> |
+| Autosomal recessive inheritance | <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> | — | <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID:1581963</a> |</p>
+<p><em>Narrative detail follows.</em></p>
+<p><strong>Infectious / immunologic (clinical signs &amp; laboratory abnormalities)</strong>
+- <strong>Recurrent respiratory infections, usually viral</strong> — infancy/early-childhood
+  onset; core presenting feature. HPO: <em>Recurrent respiratory infections</em>
+  (<a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" rel="noopener noreferrer">HP:0002205</a>); <em>Recurrent viral infections</em> (<a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" rel="noopener noreferrer">HP:0004429</a>).
+- <strong>Gastrointestinal infections / diarrhea</strong> — HP: <em>Chronic diarrhea</em>
+  (<a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" rel="noopener noreferrer">HP:0002028</a>); <em>Recurrent gastrointestinal infections</em> (<a href="http://purl.obolibrary.org/obo/HP_0004798" target="_blank" rel="noopener noreferrer">HP:0004798</a>).
+- <strong>Urinary tract infections</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" rel="noopener noreferrer">HP:0000010</a>.
+- <strong>Hypogammaglobulinemia</strong> (laboratory) — reduced immunoglobulins across
+  isotypes: <strong>decreased IgG (<a href="http://purl.obolibrary.org/obo/HP_0004315" target="_blank" rel="noopener noreferrer">HP:0004315</a>, 6/6)</strong>, <strong>decreased IgA (<a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" rel="noopener noreferrer">HP:0002720</a>,
+  6/6)</strong>, <strong>decreased IgM (<a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a>, 5/5)</strong>; near-universal antibody deficiency
+  (Maffucci 2018).
+- <strong>Lymphopenia</strong> (laboratory) — <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" rel="noopener noreferrer">HP:0001888</a>.
+- <strong>Increased circulating γδ T cells</strong> (laboratory; distinctive) — HP: <em>Abnormal
+  proportion of gamma-delta T cells</em>/<em>Abnormal T cell subset distribution</em>
+  (<a href="http://purl.obolibrary.org/obo/HP_0011848" target="_blank" rel="noopener noreferrer">HP:0011848</a> / <a href="http://purl.obolibrary.org/obo/HP_0011840" target="_blank" rel="noopener noreferrer">HP:0011840</a>).
+- <strong>Combined immunodeficiency</strong> in severe cases — <a href="http://purl.obolibrary.org/obo/HP_0005387" target="_blank" rel="noopener noreferrer">HP:0005387</a> (severe combined
+  immunodeficiency spectrum); severe end required HSCT.</p>
+<p><strong>Hematologic</strong>
+- <strong>Erythrocyte macrocytosis</strong> (laboratory; distinctive) — HP: <em>Macrocytic
+  anemia</em>/<em>Increased mean corpuscular volume</em> (<a href="http://purl.obolibrary.org/obo/HP_0001972" target="_blank" rel="noopener noreferrer">HP:0001972</a> / <a href="http://purl.obolibrary.org/obo/HP_0005518" target="_blank" rel="noopener noreferrer">HP:0005518</a>).</p>
+<p><strong>Other organ involvement / dermatologic / renal</strong>
+- <strong>Multicystic kidney dysplasia</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" rel="noopener noreferrer">HP:0000003</a> (2/5; Maffucci 2018) — notable
+  extra-immune feature.
+- <strong>Eczematoid dermatitis</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" rel="noopener noreferrer">HP:0000964</a> (1/5; Maffucci 2018).
+- <strong>Conjunctival telangiectasia</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000524" target="_blank" rel="noopener noreferrer">HP:0000524</a> (1/1; 46BR) — mimics
+  ataxia-telangiectasia (differential-diagnosis clue).
+- <strong>Recurrent otitis media</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" rel="noopener noreferrer">HP:0000403</a> (1/1; 46BR).</p>
+<p><strong>Growth / neurologic / neoplastic (from index patient, 46BR)</strong>
+- <strong>Growth retardation / growth delay</strong> — <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a> (1/1; Webster/Barnes 1992).
+- <strong>Motor delay</strong> — <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a> (1/1; 46BR). <strong>Intellectual disability is ABSENT</strong>
+  (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>, 0/5) — helps distinguish from ataxia-telangiectasia.
+- <strong>Cutaneous photosensitivity / sun sensitivity</strong> — <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" rel="noopener noreferrer">HP:0000992</a> (Webster 1992).
+- <strong>Predisposition to malignancy — lymphoma</strong> — <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" rel="noopener noreferrer">HP:0002665</a> (<em>Lymphoma</em>); the
+  index patient died at 19 with lymphoma (Webster 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1351188/" target="_blank" rel="noopener noreferrer">PMID 1351188</a>).</p>
+<p><strong>Phenotype characteristics.</strong> Age of onset: <strong>infancy/early childhood</strong> (some
+features, e.g., growth retardation, congenital/early). Severity: <strong>variable</strong>
+(mild isolated antibody deficiency → combined immunodeficiency). Progression:
+<strong>chronic</strong>, with risk of progressive immune compromise and late malignancy.
+Frequency among affected individuals: infections, hypogammaglobulinemia,
+lymphopenia, γδ-T-cell increase and macrocytosis were seen in most reported
+patients (small n).</p>
+<p><strong>Quality-of-life impact.</strong> Recurrent infections and, in severe cases, need for
+immunoglobulin replacement or HSCT substantially affect daily functioning;
+malignancy risk and growth impairment add long-term burden. No formal EQ-5D/SF-36
+data exist for this ultra-rare disorder.</p>
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal gene:</strong> <strong><em>LIG1</em></strong> — DNA ligase 1. <a href="https://bioregistry.io/HGNC:6598" target="_blank" rel="noopener noreferrer">HGNC:6598</a>; NCBI Gene 3978; Ensembl
+  ENSG00000105486; OMIM gene 126391; UniProt <strong>P18858</strong>. Locus <strong>19q13.33</strong>
+  (GRCh38 chr19:48,115,444–48,170,654, minus strand). (Computational/database —
+  MyGene/Ensembl; MONDO xrefs.)</li>
+<li><strong>Pathogenic variants.</strong></li>
+<li><em>Variant class/type:</em> Predominantly <strong>missense</strong> hypomorphic alleles in the
+    conserved catalytic domain, plus <strong>frameshift/null</strong> alleles. The index 46BR
+    patient was <strong>compound heterozygous</strong> for <strong>p.Glu566Lys (c.1696G&gt;A)</strong> and
+    <strong>p.Arg771Trp (c.2311C&gt;T)</strong> (NM_000234.3); p.Arg771 lies in the
+    adenylation/AMP-binding active-site pocket, and p.Glu566Lys behaves as a
+    near-null (Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>; Webster 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1351188/" target="_blank" rel="noopener noreferrer">PMID 1351188</a>). Maffucci
+    2018 expanded the spectrum across 3 kindreds. Additional ClinVar
+    Pathogenic/Likely-pathogenic loss-of-function alleles include <strong>c.1244del
+    (p.Thr415fs)</strong> and <strong>c.2444del (p.Leu815fs)</strong>. (Database — ClinVar.)</li>
+<li><em>Classification (ACMG/AMP):</em> Reported disease alleles are <strong>pathogenic /
+    likely pathogenic</strong> (e.g., p.Glu566Lys = Pathogenic in ClinVar), supported by
+    segregation, functional (enzymatic) assays, and cellular repair-deficiency
+    phenotypes.</li>
+<li><em>Functional consequence:</em> <strong>Loss of function</strong> — amorphic or hypomorphic
+    alleles with <strong>variably decreased ligase enzymatic activity</strong> and a
+    <strong>strongly reduced ability to form the enzyme–adenylate intermediate</strong>,
+    leading to <strong>premature release of unligated adenylated DNA</strong> (in vitro —
+    Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>; Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>).</li>
+<li><em>Allele frequency:</em> Individual pathogenic alleles are ultra-rare in gnomAD;
+    biallelic loss is extremely rare (carrier frequency not formally established).
+    gnomAD v2.1.1 gene constraint shows LIG1 is <strong>not haploinsufficient</strong>
+    (pLI≈0.004; oe_lof≈0.29, 90% CI 0.19–0.45; missense Z≈0.82), i.e.
+    heterozygous loss is tolerated — consistent with recessive inheritance and
+    healthy obligate carriers (index patient's mother and two brothers).</li>
+<li><em>Somatic vs germline:</em> <strong>Germline</strong>, inherited.</li>
+<li><strong>Modifier genes:</strong> None established; residual <em>LIG1</em> activity itself is the
+  main modifier of severity. Functional redundancy from DNA ligase III (LIG3)/XRCC1
+  in some repair contexts may partially compensate (biological rationale).</li>
+<li><strong>Epigenetic information:</strong> No disease-specific epigenetic signatures reported.</li>
+<li><strong>Chromosomal abnormalities:</strong> None; IMD96 is a single-gene point-mutation
+  disorder (chromosome 19). No aneuploidy/translocation etiology.</li>
+</ul>
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> Not causal. Cellular <strong>hypersensitivity to
+  DNA-damaging agents</strong> (UV, ionizing radiation, alkylating agents) means such
+  exposures are biologically relevant aggravators (in vitro — Barnes 1992,
+  <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>); photosensitivity is clinically evident.</li>
+<li><strong>Lifestyle factors:</strong> No established lifestyle contributors; sun protection is
+  prudent given photosensitivity.</li>
+<li><strong>Infectious agents:</strong> Infections are a <strong>consequence</strong> of immunodeficiency, not
+  a cause. Reported/expected pathogens: <strong>respiratory viruses</strong> predominate;
+  bacterial respiratory, gastrointestinal and urinary infections also occur.</li>
+</ul>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic hypomorphic/amorphic <em>LIG1</em> mutations</strong> <em>lead to</em> reduced or absent
+   functional DNA ligase I protein / enzymatic activity (in vitro — Maffucci 2018;
+   Barnes 1992).</li>
+<li>Impaired formation of the <strong>enzyme–adenylate intermediate</strong> <em>results in</em>
+   inefficient nick sealing and <strong>premature release of unligated, adenylated DNA</strong>
+   (in vitro — Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>; Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>).</li>
+<li>This <em>leads to</em> <strong>retarded joining of Okazaki fragments</strong> during lagging-strand
+   DNA replication and <strong>incomplete excision repair</strong> (in vitro — Barnes 1992).</li>
+<li>Which <em>results in</em> <strong>accumulation of DNA replication intermediates, unligated
+   nicks, replication stress and genome instability</strong> (model organism — Bentley
+   2002, <a href="https://pubmed.ncbi.nlm.nih.gov/11896201/" target="_blank" rel="noopener noreferrer">PMID 11896201</a>; <em>inferred</em> to operate similarly in human hematopoietic
+   precursors).</li>
+<li>Genome instability + replication stress <em>lead to</em> <strong>reduced proliferation and
+   survival of rapidly dividing cells</strong>, disproportionately affecting <strong>lymphoid
+   and erythroid precursors</strong> (model organism — Bentley 2002; <em>inferred</em> for human
+   lineage-specific effects).</li>
+<li>Branch A (lymphoid): <em>results in</em> <strong>lymphopenia, impaired B-cell/antibody
+   output (hypogammaglobulinemia), skewed T-cell subsets with increased γδ T
+   cells</strong> → <strong>recurrent viral/bacterial infections and combined
+   immunodeficiency</strong>.</li>
+<li>Branch B (erythroid): <em>results in</em> <strong>impaired erythropoiesis with erythrocyte
+   macrocytosis</strong> (phenocopying impaired DNA synthesis).</li>
+<li>Branch C (genome-wide, long-term): cumulative genome instability <em>leads to</em>
+   <strong>cancer predisposition (lymphoma)</strong>, and in skin, UV-hypersensitivity
+   <em>contributes to</em> <strong>photosensitivity</strong>; systemic replication impairment
+   <em>contributes to</em> <strong>growth retardation</strong> (human clinical — Webster 1992,
+   <a href="https://pubmed.ncbi.nlm.nih.gov/1351188/" target="_blank" rel="noopener noreferrer">PMID 1351188</a>).</li>
+</ol>
+<p><strong>Category detail supporting these steps</strong>
+- <strong>Molecular pathways / processes:</strong> DNA replication (lagging-strand Okazaki
+  fragment maturation), <strong>long-patch base excision repair</strong>, nucleotide/excision
+  repair completion. GO: <em>DNA ligation</em> (<a href="http://purl.obolibrary.org/obo/GO_0006266" target="_blank" rel="noopener noreferrer">GO:0006266</a>), <em>DNA replication</em>
+  (<a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" rel="noopener noreferrer">GO:0006260</a>), <em>base-excision repair</em> (<a href="http://purl.obolibrary.org/obo/GO_0006284" target="_blank" rel="noopener noreferrer">GO:0006284</a>), <em>DNA repair</em> (<a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" rel="noopener noreferrer">GO:0006281</a>),
+  <em>lagging strand elongation</em> (<a href="http://purl.obolibrary.org/obo/GO_0006273" target="_blank" rel="noopener noreferrer">GO:0006273</a>).
+- <strong>Cellular processes:</strong> Replication stress, cell-cycle impairment, reduced
+  proliferation/survival of precursors, genome instability. GO: <em>cellular
+  response to DNA damage stimulus</em> (<a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" rel="noopener noreferrer">GO:0006974</a>).
+- <strong>Protein dysfunction:</strong> Loss/hypomorphic <strong>DNA ligase I</strong> (UniProt <strong>P18858</strong>,
+  919 aa; ATP-dependent ligase; PCNA-interacting replicative ligase). Domain map:
+  N-terminal disordered regulatory region (1–270) carrying the <strong>PCNA-interacting/
+  replication-factory-targeting sequence</strong> and CDK phosphosites; central
+  <strong>adenylation (catalytic) domain</strong> with <strong>active-site Lys568</strong> (forms the
+  N6-AMP-lysine enzyme–adenylate intermediate) and AMP/ATP-binding residues at
+  566, 573, 621, 720, 725, 744; C-terminal <strong>OB-fold DNA-binding domain</strong>.
+  Disease variants map directly onto catalysis: <strong>p.Glu566Lys alters an
+  AMP-binding residue adjacent to catalytic Lys568</strong> (abolishing adenylation —
+  matching the measured loss of enzyme–adenylate formation), and <strong>p.Arg771Trp</strong>
+  disrupts the OB-fold DNA/nick-binding surface. GO cellular component:
+  <em>nucleus</em> (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>), <em>replication fork</em> (<a href="http://purl.obolibrary.org/obo/GO_0005657" target="_blank" rel="noopener noreferrer">GO:0005657</a>). PDB: <strong>1X9N</strong>
+  (human LIG1–DNA complex). (Database — UniProt/PDB; in vitro — Barnes 1992.)
+- <strong>Immune system involvement:</strong> <strong>Immunodeficiency</strong> (combined + humoral) from
+  impaired lymphocyte development/proliferation and antibody production.
+- <strong>Tissue-damage mechanism:</strong> Genotoxic stress/genome instability rather than
+  inflammation or ischemia.
+- <strong>Cell types (CL):</strong> hematopoietic stem/progenitor cell (<a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" rel="noopener noreferrer">CL:0000037</a>), T cell
+  (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>) incl. γδ T cell (<a href="http://purl.obolibrary.org/obo/CL_0000798" target="_blank" rel="noopener noreferrer">CL:0000798</a>), B cell (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), erythroid
+  progenitor (<a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" rel="noopener noreferrer">CL:0000038</a>).
+- <strong>Molecular profiling:</strong> No large omics datasets; functional biochemistry
+  (ligase/adenylation assays) and cellular DNA-damage survival assays are the
+  principal readouts (Barnes 1992; Maffucci 2018).</p>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ/system level:</strong> <strong>Immune (hematolymphoid) system</strong> is primary —
+  bone marrow, thymus, lymphoid tissues (<a href="http://purl.obolibrary.org/obo/UBERON_0002405" target="_blank" rel="noopener noreferrer">UBERON:0002405</a> immune system;
+  <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> bone marrow; <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a> thymus). Secondary involvement:
+  <strong>respiratory tract</strong> (recurrent infection; <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a>), <strong>gastrointestinal
+  tract</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001555" target="_blank" rel="noopener noreferrer">UBERON:0001555</a>), <strong>urinary tract</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0011143" target="_blank" rel="noopener noreferrer">UBERON:0011143</a>), <strong>kidney</strong>
+  (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>; multicystic kidney dysplasia in 2/5 — developmental/structural
+  involvement), <strong>skin</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>; eczema, photosensitivity, conjunctival
+  telangiectasia), and systemic growth.</li>
+<li><strong>Tissue/cell level:</strong> Hematopoietic tissue; <strong>lymphocytes</strong> (T incl. γδ, B),
+  <strong>erythroid lineage</strong>; skin epithelium (UV sensitivity). CL terms as in §6.</li>
+<li><strong>Subcellular level:</strong> <strong>Nucleus</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) — site of DNA replication/repair
+  where DNA ligase I acts (GO cellular component: <em>replication fork</em>, <a href="http://purl.obolibrary.org/obo/GO_0005657" target="_blank" rel="noopener noreferrer">GO:0005657</a>;
+  <em>nuclear replication fork</em>, <a href="http://purl.obolibrary.org/obo/GO_0043596" target="_blank" rel="noopener noreferrer">GO:0043596</a>).</li>
+<li><strong>Localization / lateralization:</strong> Systemic (not lateralized); infections and
+  manifestations are bilateral/diffuse.</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Infancy/early childhood</strong> for infections; growth retardation and
+  photosensitivity may be evident early. Pattern: <strong>chronic/insidious</strong> with
+  recurrent acute infective episodes.</li>
+<li><strong>Progression:</strong> Variable — from <strong>stable mild antibody deficiency</strong> to
+  <strong>progressive combined immunodeficiency</strong>. Genome instability confers
+  <strong>late-onset malignancy risk</strong> (lymphoma in the index patient at age 19).</li>
+<li><strong>Course &amp; duration:</strong> <strong>Chronic, lifelong.</strong> Recurrent-infection pattern;
+  severe cases progress to transplant dependence.</li>
+<li><strong>Remission / critical windows:</strong> No spontaneous remission; <strong>HSCT can be
+  curative</strong> for the immune defect. Early diagnosis before severe infections or
+  malignancy is the key intervention window.</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong> (homozygous or compound heterozygous
+  <em>LIG1</em>); parents are typically asymptomatic carriers (Webster 1992: one mutation
+  inherited from the mother and also present in two healthy brothers — carriers).</li>
+<li><strong>Penetrance / expressivity:</strong> Presumed high penetrance for biallelic damaging
+  genotypes but <strong>markedly variable expressivity/severity</strong>, correlating with
+  residual ligase activity (Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>).</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects:</strong> None reported.</li>
+<li><strong>Consanguinity:</strong> Relevant, as for AR disorders (homozygous cases).</li>
+<li><strong>Carrier frequency:</strong> Not established; individual alleles ultra-rare in gnomAD.</li>
+<li><strong>Epidemiology:</strong> <strong>Ultra-rare</strong> — only ~6 molecularly confirmed patients
+  described (1 index case + 5 in Maffucci 2018). Prevalence/incidence per 100,000
+  are not calculable and are effectively unknown/&lt;1 in 10^6.</li>
+<li><strong>Demographics:</strong> Reported across more than one kindred/ethnicity; no strong
+  sex predilection established (index case female). No defined geographic focus.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Laboratory tests (LOINC-type):</strong> CBC showing <strong>erythrocyte macrocytosis
+  (elevated MCV)</strong> and <strong>lymphopenia</strong>; <strong>serum immunoglobulins</strong> showing
+  <strong>hypogammaglobulinemia</strong>; specific antibody responses (impaired).</li>
+<li><strong>Immunophenotyping (flow cytometry):</strong> <strong>Increased proportion of circulating
+  γδ T cells</strong>, altered T-cell subsets; a distinctive combination with macrocytosis
+  and hypogammaglobulinemia should prompt LIG1 testing (Maffucci 2018).</li>
+<li><strong>Functional/cellular assays (in vitro):</strong> <strong>Cellular hypersensitivity to
+  DNA-damaging agents</strong>; <strong>retarded Okazaki-fragment joining</strong>; <strong>reduced DNA
+  ligase I adenylation/enzymatic activity</strong> — historically used to characterize
+  46BR (Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>).</li>
+<li><strong>Biomarkers:</strong> The <strong>triad (macrocytosis + γδ-T-cell increase +
+  hypogammaglobulinemia)</strong> is a useful clinical flag; premature release of
+  unligated adenylated DNA is a research biochemical marker.</li>
+<li><strong>Genetic testing (primary confirmatory):</strong> <strong>WES/WGS or IEI gene panels</strong>
+  including <em>LIG1</em>; confirm biallelic variants by <strong>Sanger</strong>. Single-gene <em>LIG1</em>
+  sequencing where phenotype is suggestive. CMA/karyotype/FISH generally
+  uninformative (point-mutation disorder).</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> Distinguish from <strong>Bloom
+  syndrome</strong> (BLM; the index patient resembled Bloom's but lacked BLM mutation —
+  Webster 1992), other <strong>DNA-repair/genome-instability syndromes</strong> (Fanconi
+  anemia, ataxia-telangiectasia, Nijmegen breakage syndrome), <strong>common variable
+  immunodeficiency</strong>, and combined immunodeficiencies. Macrocytosis + γδ-T-cell
+  increase help separate IMD96 from typical CVID.</li>
+<li><strong>Screening:</strong> Cascade/carrier testing within affected families; no
+  population newborn screening.</li>
+</ul>
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Severity spectrum:</strong> From <strong>mild antibody deficiency</strong> (favorable with Ig
+  replacement) to <strong>severe combined immunodeficiency requiring HSCT</strong> (Maffucci
+  2018).</li>
+<li><strong>Mortality/survival:</strong> No formal survival statistics (ultra-rare). Severe,
+  untreated disease carries risk of fatal infection; <strong>the index patient died at
+  age 19 of lymphoma</strong> (Webster 1992), illustrating malignancy-related mortality.</li>
+<li><strong>Morbidity:</strong> Recurrent infections, growth retardation, treatment burden
+  (immunoglobulin therapy, transplant), and long-term cancer risk.</li>
+<li><strong>Prognostic factors:</strong> <strong>Residual LIG1 enzymatic activity / genotype</strong> is the
+  key determinant; earlier diagnosis and definitive therapy (HSCT) improve
+  immune outcomes. No validated QoL instruments for this disease.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p><em>No disease-specific approved drug exists; management follows inborn-errors-of-
+immunity principles.</em>
+- <strong>Supportive / pharmacotherapy:</strong> <strong>Immunoglobulin replacement therapy (IVIG/
+  SCIG)</strong> for hypogammaglobulinemia; <strong>antimicrobial prophylaxis and aggressive
+  treatment of infections</strong>. NCIT: <em>Intravenous Immunoglobulin Therapy</em>
+  (approx.), <em>Antibiotic Therapy</em>.
+- <strong>Definitive/advanced therapy:</strong> <strong>Allogeneic hematopoietic stem cell
+  transplantation (HSCT)</strong> for the severe combined-immunodeficiency end of the
+  spectrum (used in Maffucci 2018 cohort). NCIT: <em>Hematopoietic Stem Cell
+  Transplantation</em> (C15431). Gene therapy is conceptually plausible but <strong>not</strong>
+  reported/established for IMD96.
+- <strong>Caution — genotoxic agents:</strong> Given DNA-repair deficiency and cellular
+  hypersensitivity, use <strong>radiation and alkylating/DNA-damaging chemotherapeutics
+  with caution</strong> (e.g., in transplant conditioning or any cancer therapy)
+  (in vitro rationale — Barnes 1992).
+- <strong>Pharmacogenomics / personalized:</strong> Genotype (residual ligase activity) informs
+  whether Ig replacement suffices vs. need for HSCT.
+- <strong>Treatment outcomes / adverse events:</strong> HSCT can restore immune function;
+  standard transplant risks apply, potentially heightened by conditioning-related
+  genotoxic sensitivity. Formal response-rate data are lacking (small n).</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable (germline). <strong>Genetic counseling</strong> for
+  AR recurrence risk (25% per pregnancy for carrier couples); <strong>carrier/cascade
+  testing</strong> in affected families; <strong>prenatal or preimplantation genetic testing</strong>
+  where a familial variant is known.</li>
+<li><strong>Secondary prevention:</strong> Early recognition of the lab triad → early molecular
+  diagnosis → early institution of Ig replacement/prophylaxis or HSCT before
+  irreversible complications; <strong>malignancy surveillance</strong> given lymphoma risk.</li>
+<li><strong>Tertiary prevention:</strong> Infection prophylaxis, immunizations as appropriate for
+  immune status, <strong>sun protection</strong> (photosensitivity), avoidance of unnecessary
+  genotoxic exposures.</li>
+<li><strong>Public health / behavioral:</strong> No population-level measures beyond counseling.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>LIG1</em> is highly conserved. Mouse <em>Lig1</em> (NCBI Gene
+  16881; NCBI Taxon 10090); orthologs across vertebrates and lower eukaryotes
+  (CDC9 in <em>S. cerevisiae</em>). Evolutionary conservation of the replicative-ligase
+  function is strong.</li>
+<li><strong>Natural disease in animals:</strong> No well-characterized spontaneous <em>LIG1</em>
+  immunodeficiency reported in companion animals/wildlife (OMIA — none prominent).</li>
+<li><strong>Comparative biology:</strong> Complete loss is <strong>embryonic lethal in mouse</strong> (Bentley
+  2002, <a href="https://pubmed.ncbi.nlm.nih.gov/11896201/" target="_blank" rel="noopener noreferrer">PMID 11896201</a>), underscoring conserved essentiality; human patients
+  survive due to residual activity of hypomorphic alleles — a key cross-species
+  contrast.</li>
+<li><strong>Transmission / zoonosis:</strong> Not applicable (non-infectious genetic disease).</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus<em>, NCBI Taxon 10090):</em>* </em></strong>Lig1<em> knockout</em><em> — two
+  independent null alleles; </em><em>embryos develop normally to mid-gestation then die
+  from a specific hematopoietic (fetal-liver) defect</em><em> that is a </em><em>quantitative
+  proliferation deficiency</em><em> rather than a lineage block; </em>Lig1<em>-null fibroblasts
+  accumulate replication intermediates and show </em><em>increased genome instability</em>*
+  despite grossly normal repair activity (Bentley 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/11896201/" target="_blank" rel="noopener noreferrer">PMID 11896201</a>). MGI-type
+  resources apply.</li>
+<li><strong>Cellular models (in vitro):</strong> The human <strong>46BR fibroblast strain</strong> (index
+  patient) and <strong>engineered LIG1-deficient cell lines</strong> demonstrating chemical/
+  radiation repair defects and reduced ligase activity (Barnes 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1581963/" target="_blank" rel="noopener noreferrer">PMID 1581963</a>;
+  Maffucci 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30395541/" target="_blank" rel="noopener noreferrer">PMID 30395541</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> Mouse null captures the <strong>hematopoietic
+  proliferation defect and genome instability</strong> central to human pathology but is
+  <strong>more severe (lethal)</strong> and does not model the survivable, variable human
+  immunodeficiency (embryonic lethality precludes study of mature adaptive
+  immunity). Human hypomorphic cell lines better model the partial-deficiency
+  disease.</li>
+</ul>
+<hr />
+<h2>Supported vs. refuted hypotheses</h2>
+<ul>
+<li><strong>Supported:</strong> IMD96 = autosomal recessive <strong>LIG1 (DNA ligase I) deficiency</strong>
+  (<a href="http://purl.obolibrary.org/obo/MONDO_0030693" target="_blank" rel="noopener noreferrer">MONDO:0030693</a> / OMIM 619774). Mechanism = impaired Okazaki-fragment ligation +
+  excision-repair completion → genome instability → lymphoid/erythroid
+  proliferation failure. Characteristic labs: hypogammaglobulinemia, lymphopenia,
+  increased γδ T cells, erythrocyte macrocytosis. HSCT curative for severe cases.</li>
+<li><strong>Supported (residue-level mechanism):</strong> disease variants map onto the LIG1
+  catalytic pocket — <strong>p.Glu566Lys</strong> hits an AMP-binding residue adjacent to
+  <strong>active-site Lys568</strong> (abolishing the enzyme–adenylate step measured by Barnes
+  1992), while <strong>p.Arg771Trp</strong> disrupts the OB-fold DNA-binding domain — a direct
+  structural explanation for the loss-of-function biochemistry. gnomAD confirms
+  LIG1 is not haploinsufficient (pLI≈0.004), consistent with recessive inheritance
+  and healthy carriers.</li>
+<li><strong>Supported (phenotype frequencies):</strong> curated HPO annotations give
+  near-complete penetrance for decreased IgG/IgA (6/6), decreased IgM (5/5),
+  macrocytosis (5/5), increased γδ T cells (4/4) and recurrent infections (5/5);
+  intellectual disability is explicitly absent (0/5), and renal (multicystic
+  kidney dysplasia 2/5) plus dermatologic features broaden the spectrum.</li>
+<li><strong>Refuted / corrected:</strong> Initial assumption that "Immunodeficiency 96" was the
+  REL/c-Rel disorder was <strong>wrong</strong> — c-Rel deficiency is <strong>Immunodeficiency 92
+  (IMD92)</strong>. This was corrected by resolving <a href="http://purl.obolibrary.org/obo/MONDO_0030693" target="_blank" rel="noopener noreferrer">MONDO:0030693</a> to LIG1.</li>
+<li><strong>Refuted historically:</strong> The index patient was NOT Bloom syndrome despite
+  clinical resemblance (Webster 1992) — a distinct genetic entity.</li>
+</ul>
+<h2>Limitations &amp; future directions</h2>
+<ul>
+<li><strong>Ultra-rare</strong> with ~6 molecularly confirmed patients; frequencies, penetrance,
+  survival and QoL are not quantifiable. Orphanet/ICD-specific codes are
+  uncertain and need curator confirmation.</li>
+<li>No omics (transcriptomic/proteomic/metabolomic) disease datasets; no dedicated
+  gene therapy program.</li>
+<li>Future work: define exact recurrent <em>LIG1</em> alleles and genotype–phenotype/
+  residual-activity correlations; systematic malignancy-risk surveillance;
+  conditional/hypomorphic mouse or patient-iPSC models to study lineage-specific
+  immune defects and to test safer (reduced-genotoxicity) transplant conditioning.</li>
+</ul>
+<h2>Key references (PMID)</h2>
+<ul>
+<li><strong>30395541</strong> — Maffucci et al. 2018, <em>J Clin Invest</em>: biallelic LIG1 mutations
+  underlie a spectrum of immune deficiencies (5 patients/3 kindreds). <em>(Human
+  clinical + in vitro.)</em></li>
+<li><strong>1351188</strong> — Webster et al. 1992, <em>Lancet</em>: growth retardation and
+  immunodeficiency with LIG1 mutations (index patient; lymphoma at 19). <em>(Human
+  clinical.)</em></li>
+<li><strong>1581963</strong> — Barnes et al. 1992, <em>PNAS</em>: LIG1 mutations in 46BR; Okazaki-
+  fragment/excision-repair defect; reduced enzyme-adenylate formation. <em>(In vitro/
+  biochemical.)</em></li>
+<li><strong>11896201</strong> — Bentley et al. 2002: <em>Lig1</em>-null mouse; embryonic-lethal
+  hematopoietic proliferation defect and genome instability. <em>(Model organism.)</em></li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Immunodeficiency_96-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Immunodeficiency_96-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>4</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>56</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>53</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000003</code> (2 mentions) - the report calls it "Multicystic kidney dysplasia", "2/5; Maffucci 2018"; HP calls it <strong>Multicystic kidney dysplasia</strong></li>
+<li><code>HP:0000964</code> (2 mentions) - the report calls it "Eczematoid dermatitis", "1/5; Maffucci 2018"; HP calls it <strong>Eczematoid dermatitis</strong></li>
+<li><code>HP:0000403</code> (2 mentions) - the report calls it "Recurrent otitis media", "1/1; 46BR"; HP calls it <strong>Recurrent otitis media</strong></li>
+<li><code>HP:0001510</code> (2 mentions) - the report calls it "Growth delay", "1/1; Webster/Barnes 1992"; HP calls it <strong>Growth delay</strong></li>
+<li><code>HP:0001270</code> (2 mentions) - the report calls it "Motor delay", "1/1; 46BR"; HP calls it <strong>Motor delay</strong></li>
+<li><code>HP:0000524</code> (2 mentions) - the report calls it "Conjunctival telangiectasia", "1/1; 46BR"; HP calls it <strong>Conjunctival telangiectasia</strong></li>
+<li><code>HP:0000992</code> (1 mention) - the report calls it "Webster 1992"; HP calls it <strong>Cutaneous photosensitivity</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0006266</code> (obsolete DNA ligation) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0004315</code> (2 mentions) - the report calls it "Decreased circulating IgG"; HP calls it <strong>Decreased circulating IgG concentration</strong>, and lists "Decreased circulating IgG level" among its other names</li>
+<li><code>HP:0002720</code> (2 mentions) - the report calls it "Decreased circulating IgA"; HP calls it <strong>Decreased circulating IgA concentration</strong>, and lists "Decreased circulating IgA level" among its other names</li>
+<li><code>HP:0002850</code> (2 mentions) - the report calls it "Decreased circulating IgM"; HP calls it <strong>Decreased circulating IgM concentration</strong></li>
+<li><code>HP:0005518</code> (2 mentions) - the report calls it "Increased mean corpuscular volume (macrocytosis)"; HP calls it <strong>Increased mean corpuscular volume</strong></li>
+<li><code>HP:0500270</code> (1 mention) - the report calls it "Increased γδ T-cell proportion"; HP calls it <strong>Increased gamma-delta T cell proportion</strong></li>
+<li><code>HP:0001249</code> (2 mentions) - the report calls it "Intellectual disability (ABSENT)"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>GO:0006266</code> (1 mention) - the report calls it "DNA ligation"; GO calls it <strong>obsolete DNA ligation</strong></li>
+<li><code>GO:0005634</code> (2 mentions) - the report calls it "nucleus", "Nucleus", "Subcellular level:<strong> </strong>Nucleus"; GO calls it <strong>nucleus</strong>, and lists "cell nucleus" among its other names</li>
+<li><code>UBERON:0011143</code> (1 mention) - the report calls it "urinary tract"; UBERON calls it <strong>upper urinary tract</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000003</code> - called "Multicystic kidney dysplasia", "2/5; Maffucci 2018"</li>
+<li><code>HP:0000964</code> - called "Eczematoid dermatitis", "1/5; Maffucci 2018"</li>
+<li><code>HP:0000403</code> - called "Recurrent otitis media", "1/1; 46BR"</li>
+<li><code>HP:0001510</code> - called "Growth delay", "1/1; Webster/Barnes 1992"</li>
+<li><code>HP:0001270</code> - called "Motor delay", "1/1; 46BR"</li>
+<li><code>HP:0000524</code> - called "Conjunctival telangiectasia", "1/1; 46BR"</li>
+<li><code>GO:0005634</code> - called "nucleus", "Nucleus", "Subcellular level:<strong> </strong>Nucleus"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Immunodeficiency_93_and_Hypertrophic_Cardiomyopathy-falcon.html">← Immunodeficiency 93 and Hypertrophic Cardiomyopathy (Falcon)</a>
+                
+                
+                <a href="Immunodeficiency_Common_Variable_4-perplexity.html">Immunodeficiency Common Variable 4 (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Immunodeficiency_96.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Immunodeficiency_96-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
