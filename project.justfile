@@ -45,6 +45,10 @@ validate-all:
 
     just fix-references-cache "${files[@]}"
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
     echo "Schema validation (batch)..."
@@ -59,7 +63,7 @@ validate-all:
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation completed with errors (see above)"
         exit $exit_code
@@ -90,14 +94,18 @@ validate-all:
 validate file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
-    just normalize-cache
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # Fast, non-mutating validation of a single disorder file, for the pre-edit hook
@@ -127,7 +135,8 @@ validate-pre-edit file:
     #!/usr/bin/env bash
     set -e
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation (advisory, cache-bound)..."
@@ -162,6 +171,10 @@ validate-disorders *files:
         exit 0
     fi
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#existing[@]} disorder file(s) (batched)..."
     echo "Schema validation (batch)..."
@@ -177,7 +190,7 @@ validate-disorders *files:
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation failed for one or more disorder files (see above)"
         exit $exit_code
@@ -187,7 +200,50 @@ validate-disorders *files:
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    #!/usr/bin/env bash
+    set -e
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
+
+# Print the path of a `linkml-validate --config` file that points at a
+# pre-generated JSON Schema for `target_class`.
+#
+# Generating the JSON Schema from dismech.yaml is about a third of a single-file
+# `linkml-validate` call (~0.7 s of ~2.2 s) and produces the same document every
+# time, so it is generated once into tmp/linkml-validate/ and regenerated only
+# when something under the schema directory, or uv.lock (which pins the
+# generator), is newer than the cached copy. The cached document is byte-identical
+# to what `JsonschemaValidationPlugin(closed=True)` builds in memory, so results
+# do not change. Used by the single-file recipes, where the per-call cost is felt;
+# the batched recipes pay it once per run and keep the plain form. (#11005)
+#
+# Two things about the generated config are load-bearing. It must not carry a
+# `data_sources` key: linkml-validate lets the config override the command line,
+# so that key would make it ignore its file arguments and report "No issues
+# found" for everything. And `closed: true` is documentary only: with
+# `json_schema_path` set the plugin takes the document's own openness, which is
+# closed because it was generated with --closed. Callers should assign the
+# printed path to a variable before use so a generation failure aborts there
+# rather than as a confusing empty `--config`.
+[private]
+_linkml-validate-config target_class="Disease":
+    #!/usr/bin/env bash
+    set -e
+    dir=tmp/linkml-validate
+    json="$dir/{{target_class}}.closed.json"
+    cfg="$dir/{{target_class}}.yaml"
+    mkdir -p "$dir"
+    if [ ! -s "$json" ] || [ ! -s "$cfg" ] \
+       || [ -n "$(find {{parent_directory(schema_path)}} uv.lock -newer "$json" -print -quit)" ]; then
+        echo "Regenerating cached JSON Schema for {{target_class}} -> $json" >&2
+        # Private temp name: two concurrent runs (the pre-edit hook can overlap)
+        # must not truncate each other's half-written document into place.
+        tmp_json=$(mktemp "$dir/{{target_class}}.closed.json.XXXXXX")
+        uv run gen-json-schema --closed --top-class {{target_class}} --include-range-class-descendants --indent 0 {{schema_path}} > "$tmp_json"
+        mv "$tmp_json" "$json"
+        printf 'schema: %s\ntarget_class: %s\nplugins:\n  JsonschemaValidationPlugin:\n    closed: true\n    json_schema_path: %s\n' "{{schema_path}}" "{{target_class}}" "$json" > "$cfg"
+    fi
+    echo "$cfg"
 
 # Scaffold a new append-only history record (pass-through to scripts/new_history.py).
 # Run `just new-history --help` for all options. Prints the created path.
@@ -599,11 +655,25 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Measure the CONFORMS_TO_MODULE `#Node` anchor gap (dismech#9403): how many
+# (member, criterion) pairs are satisfied on the module stem but not at the
+# node the criterion names, and how many of those would change a block verdict.
+# Report-only; `--format tsv` for machine-readable output.
+[group('QC')]
+grouping-anchor-audit *args="":
+    uv run python scripts/grouping_module_anchor_audit.py {{args}}
+
+# Report the declared grouping-of-grouping tree plus undeclared member-set
+# containments between groupings (advisory; a containment is a lead, not a ruling)
+[group('QC')]
+grouping-nesting-audit *args="":
+    uv run python -m dismech.groupings --nesting {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
-validate-terms-schema:
+validate-terms-schema *flags:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}} {{flags}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -681,6 +751,27 @@ check-cache-order:
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
+
+# Rebuild the committed ICD10CM/NCIT ancestor-path cache the renderer reads for
+# mapping breadcrumbs (cache/<prefix>/hierarchy.csv). Walking these live costs
+# ~75 s per rendered page against the local OAK SQLite builds (#11186); the
+# cache turns that into a dict lookup. Needs the local sqlite:obo:* DB for each
+# prefix, so run `just fetch-ontology-dbs icd10cm ncit` first if they are absent.
+# Rebuild all, or only the named prefixes:
+#   just build-hierarchy-cache
+#   just build-hierarchy-cache NCIT
+[group('QC')]
+build-hierarchy-cache *prefixes="":
+    uv run python scripts/build_hierarchy_cache.py {{prefixes}}
+
+# Report mapped ICD10CM/NCIT CURIEs that are missing from the hierarchy cache.
+# Advisory: a miss costs render time, never a wrong page, so this is not in `qc`
+# and does not gate a curation PR. It exits 1 when anything is missing, and runs
+# as a non-blocking step in the nightly sweep, which is where the drift that
+# actually happens shows up -- a curator adds a mapping and nobody rebuilds.
+[group('QC')]
+check-hierarchy-cache:
+    uv run python scripts/build_hierarchy_cache.py --check
 
 # --- Curation stub queue (stubs/) ------------------------------------------
 # The outstanding curation queue: one YAML per disease we intend to curate but
@@ -764,17 +855,28 @@ next-unclaimed count="5" claims="tmp/claims.json" *args="":
 seed-stubs source *args="":
     uv run dismech-stubs seed {{source}} {{args}}
 
-# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
-# stub, so the lump/split call can be made from the file. Needs the MONDO
-# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Adds MONDO parents, subclass descendants (+ total), causal genes, and
+# retirement status to each stub, so the lump/split call can be made from the
+# file. Needs the MONDO database (`just fetch-ontology-dbs mondo`). Idempotent;
+# preserves hand edits.
 # Add MONDO context to the stub files
 [group('Curation')]
 enrich-stubs *args="":
     uv run python scripts/enrich_curation_stubs.py {{args}}
 
+# Asks MONDO directly which stub terms it has retired (`owl:deprecated`, with
+# `term_replaced_by`) or decided to retire (its `obsoletion_candidate` subset).
+# The exact version of the signal `check-stubs` reads out of the committed stub
+# files. Needs the MONDO database; without it this says so and exits 0 — a
+# census for a person, never a gate.
+# Report stub terms MONDO has retired or scheduled for retirement
+[group('Curation')]
+stub-obsolescence *args="":
+    uv run dismech-stubs obsolescence {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -798,6 +900,37 @@ qc-deep-research-strict:
 [group('QC')]
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
+# Compare each model->mechanism link's `model_scale` against its target node's
+# `biological_scale`. Reports upward extrapolation (model below its target's
+# scale -- it cannot observe the outcome it is cited for) separately from the
+# benign reverse direction. Advisory by default; --strict exits non-zero on an
+# upward-extrapolating link carrying no `limitations`.
+#   just model-scale-audit
+#   just model-scale-audit --format list --verdict MODEL_BELOW_TARGET
+[group('QC')]
+model-scale-audit *args="":
+    uv run python scripts/model_scale_audit.py {{args}}
+
+# Census of how diet is represented, on its two INDEPENDENT tracks: causal
+# (environmental[] food_source/exposure_term -> influences_mechanisms) and
+# intervention (treatments[] dietary_modifications -> target_mechanisms). The
+# headline is not binding coverage but the evidence-backed entries that are OFF
+# the pathograph, since a diet annotation earns a mechanism edge only when the
+# evidence supports one. FREE_TEXT is reported as a state to review, never an
+# error -- food components and dietary patterns have no home in FoodTerm.
+# Advisory by default; --strict exits non-zero on a linked-but-uncited entry.
+[group('QC')]
+diet-audit *args="":
+    uv run python scripts/diet_audit.py {{args}}
+
+# Census of how antigens on B and T cells are represented across immune entries.
+# Report-only, offline, never a gate. --format tsv gives a per-entry table;
+# --entry <stem> audits one file. See
+# docs/reports/immune-antigen-representation-gap-analysis-2026-09-03.md
+[group('QC')]
+immune-antigen-audit *args="":
+    uv run python scripts/immune_antigen_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1039,7 +1172,7 @@ check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
-# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# run in `check_entity_ref_foreign_keys`, but that test is selected by the
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
 # skips it entirely. This lane is ungated in CI for the same reason
 # check-duplicate-keys is: the PRs that break the invariant are exactly the ones
@@ -1071,6 +1204,34 @@ list-causal-targets *files:
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
 
+# Derive each neoplasm entry's cell of origin from its own pathograph, and
+# report where the derivation fails. There is no `cell_of_origin:` slot: a node
+# carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
+# lesion happened, and that node's `cell_types` are the cell it happened in.
+# Advisory -- most of the corpus is unmarked, so this reports rather than gates.
+# The finding worth reading is MULTI_ORIGIN_CELL: more than one derived cell of
+# origin is the lump/split signal (grouping vs. cell-of-origin subtypes vs. an
+# unsettled origin). See docs/cancer-cell-of-origin.md.
+[group('QC')]
+check-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py {{args}}
+
+# Full census: every neoplasm entry, the rule that identified its origin node,
+# and the cell of origin derived from it. --format tsv/json for machine use.
+[group('QC')]
+list-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py --format list {{args}}
+
+# Propose (and with --apply, write) the somatic-origin marking on neoplasm
+# entries whose prose already states the lesion. Marks only nodes whose NAME
+# says mutation/fusion/translocation/amplification/inactivation, never a pathway
+# state, a germline variant, a microenvironment node, or an acquired-resistance
+# node. --bind-single-cell also copies the entry's cell type onto the lesion node
+# when the entry names exactly one. Re-validate the changed files afterwards.
+[group('QC')]
+backfill-cancer-origin *args="":
+    uv run python scripts/backfill_cancer_origin.py {{args}}
+
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
 # `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
@@ -1090,6 +1251,28 @@ list-qualifier-terms *files:
 [group('QC')]
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
+
+# Report gene bindings whose HGNC label is not the gene the entry names (#10948).
+# `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
+# against nothing else, so a self-consistent binding to the WRONG gene passes --
+# `hgnc:20856` labelled `THAP1` under an entry whose `name` and `preferred_term`
+# both say `THAP11` validates clean. This compares the resolved label with that
+# free text. Offline, cache-first, and REPORT-ONLY: it exits 0 even with findings
+# and is deliberately not in `just qc` while its real rate is being established.
+# Pass `--strict` to exit 1 on the confident class only.
+[group('QC')]
+list-gene-term-mismatches *files:
+    uv run python scripts/check_gene_term_identity.py "$@"
+
+# Also ask HGNC about the rows the cache cannot settle. Note this covers MORE
+# than `check-qualifier-terms --resolve`, whose `--resolve` means the uncached
+# CURIEs only: here it does those AND the advisory rows, which offline cannot be
+# told apart -- a previous/alias symbol the OBO build lags on (#10102) is benign
+# and is reclassified, while a symbol resolving to a DIFFERENT gene is promoted
+# to the confident class. Needs network; run when auditing, not in CI.
+[group('QC')]
+list-gene-term-mismatches-online *files:
+    uv run python scripts/check_gene_term_identity.py --resolve "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
@@ -1688,7 +1871,7 @@ export-cx2-all *args="":
         echo "Skipped $skipped disorder(s) with no pathograph edges"
     fi
 
-# Upload a single disorder pathograph to the NDEx test server as a public network.
+# Upload a single disorder pathograph to the NDEx test server as a private network.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
@@ -1697,7 +1880,7 @@ export-cx2-all *args="":
 upload-cx2-test file *args="":
     NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
 
-# Upload all disorder pathographs to the NDEx test server as public networks.
+# Upload all disorder pathographs to the NDEx test server as private networks.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test-all
@@ -1871,10 +2054,10 @@ research-datasets provider disorder *args="":
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
-    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     requested_provider="{{provider}}"
-    echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
+    echo "Dataset discovery: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template {{templates_dir}}/disease_datasets_research.md \
@@ -1984,16 +2167,17 @@ research-disorder provider disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
-    echo "Researching: $disease_name ({{provider}}) -> $output_file"
+    echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
         --output "$output_file" \
@@ -2218,14 +2402,15 @@ research-disorder-cyberian-codex disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
-    echo "Researching: $disease_name (cyberian-codex) -> $output_file"
+    echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
@@ -3012,6 +3197,33 @@ normalize-cache:
         cat "$tmp" >> "$f"
     done
     echo "✓ All caches normalized"
+
+# Run `normalize-cache` only if something under cache/ changed since `stamp`
+# was created (`mktemp tmp/dismech_cache_stamp.XXXXXX` at the top of the calling
+# recipe). The term validator writes to cache/ only when it learns a new term,
+# so on a typical single-entry run nothing changed and the ~3 s re-sort of every
+# cache file is skipped.
+#
+# What this gives up: before, every `validate*` run re-sorted the caches whether
+# or not it had touched them, which quietly repaired ordering broken some other
+# way, most often by a merge of two branches that each appended rows to the same
+# cache file. That case is no longer self-healed here. Ordering is audited only
+# by `check-cache-order`, which is advisory and not part of `qc` or CI;
+# `check-term-cache-integrity` checks row structure, not order. Run
+# `just normalize-cache` by hand after such a merge. A missing or unreadable
+# stamp falls back to normalizing, so a degraded run fails safe. (#11005)
+[private]
+_normalize-cache-if-changed stamp:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -f "{{stamp}}" ]; then
+        echo "No cache stamp at '{{stamp}}'; normalizing caches to be safe"
+        just normalize-cache
+    elif [ -n "$(find cache -type f -newer "{{stamp}}" -print -quit)" ]; then
+        just normalize-cache
+    else
+        echo "Caches unchanged since validation started; skipping normalize-cache"
+    fi
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
@@ -3209,13 +3421,19 @@ cron-profile name:
 # ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
 
 # Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
-# approved, unassigned, conflict-free, green, and older than `days`.
+# approved, not human-assigned, conflict-free, green, and older than `days`.
 # Example: just auto-merge-preview 3
 [group('Auto-merge')]
 auto-merge-preview days='3':
     uv run --no-project python scripts/auto_merge_ready_prs.py \
         --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --min-age-days {{days}} --dry-run
+
+# Preview failed review Action retries without changing any workflow runs.
+[group('Auto-merge')]
+review-retry-preview:
+    uv run --no-project python scripts/retry_failed_reviews.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 
