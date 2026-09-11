@@ -645,6 +645,7 @@ def test_downstream_self_loop_is_rejected():
     assert len(errors) == 1
     assert "targets itself" in errors[0]
     assert "Node A" in errors[0]
+    assert "phenotype of the same name" in errors[0]
 
 
 def test_downstream_edge_to_a_different_node_is_not_a_self_loop():

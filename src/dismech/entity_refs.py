@@ -398,9 +398,17 @@ def downstream_self_loop_errors(data: dict) -> list[str]:
 
     ``downstream`` asserts causal progression from one mechanism node to
     another; a node cannot progress to itself, so a self-referencing edge is
-    never meaningful. ``target`` is exempt from the ``<kind>#<name>`` grammar
-    (it holds plain node names), so a self-loop resolves fine under
-    ``entity_ref_errors`` and is invisible to every other check (#9896).
+    never meaningful. ``target`` is in ``REF_SLOTS``, but a bare value with no
+    ``#`` is not parsed as an entity reference (``parse_entity_ref`` returns
+    ``None`` for it), so it never reaches the resolution logic in
+    ``entity_ref_errors`` -- a self-loop resolves fine as a plain node name
+    and was invisible to every other check (#9896).
+
+    In practice this is rarely a literal self-causation claim: both cases
+    found on ``main`` were a pathophysiology node and a same-named phenotype,
+    which the flat node graph namespace (``dismech.graph.collect_graph_nodes``)
+    collapses into one node, turning an intended mechanism-to-phenotype edge
+    into an apparent self-loop.
     """
     if not isinstance(data, dict):
         return []
@@ -415,7 +423,9 @@ def downstream_self_loop_errors(data: dict) -> list[str]:
             if isinstance(edge, dict) and edge.get("target") == name:
                 errors.append(
                     f"pathophysiology[{i}].downstream[{j}] targets itself "
-                    f"({name!r}); a node cannot cause itself"
+                    f"({name!r}); a node cannot cause itself -- if a "
+                    "phenotype of the same name was intended, merge this "
+                    "edge onto the real upstream edge instead (#9896)"
                 )
     return errors
 
