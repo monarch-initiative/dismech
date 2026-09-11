@@ -310,6 +310,18 @@
             color: #166534;
         }
 
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
         .tag-role {
             background: #e0e7ff;
             color: #3730a3;
@@ -1397,6 +1409,75 @@
     <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}"{% if describedby %} aria-describedby="{{ describedby }}"{% else %} title="Open {{ curie }}"{% endif %}>{{ curie }}</a>
     {% endif %}
     {% endmacro %}
+
+    {# Treatment platform rows. Twin of render_treatment_platform in
+       disorder.html.j2 -- update both. The enum display labels come from the
+       shared `treatment_platform_label` global rather than a per-template map,
+       so the two pages cannot disagree about what SIRNA or GALNAC is called.
+
+       delivery_platform and conjugation are separate chips on purpose: they are
+       orthogonal, and collapsing them would show "no targeting" versus "GalNAc"
+       when the real distinction is nanoparticle versus conjugate. aso_details /
+       aso_mechanism / aso_chemistry are the deprecated spellings, read as
+       fallbacks so entries authored before the slot was generalized render. #}
+    {% macro render_treatment_platform(tx) %}
+    {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
+    {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or (oligo and (oligo.delivery_platform or oligo.conjugation)) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        {% if tx.therapeutic_modality %}
+        <span class="tag tag-treatment">{{ treatment_platform_label(tx.therapeutic_modality) }}</span>
+        {% endif %}
+        {% if oligo_mechanism %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
+        {% endif %}
+        {% if oligo and oligo.delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(oligo.delivery_platform) }}</span>
+        {% endif %}
+        {% if oligo and oligo.conjugation %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: {{ treatment_platform_label(oligo.conjugation) }}</span>
+        {% endif %}
+        {% if oligo_chemistry %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+        {% if oligo.target_gene %}
+        {% set gene_label = oligo.target_gene.preferred_term or (oligo.target_gene.term.label if oligo.target_gene.term else '') %}
+        {% set tooltip = term_tooltip(oligo.target_gene, "treatment.target_gene") %}
+        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+        {% set has_chip = oligo.target_gene.term and oligo.target_gene.term.id %}
+        <span class="tag tag-gene"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
+            {{ gene_label }}
+            {% if has_chip %}{{ render_curie_link(oligo.target_gene.term.id, describedby=tip_id) }}{% endif %}
+            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if oligo.target_transcript %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_transcript }}</span>
+        {% endif %}
+        {% if oligo.target_exon %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_exon }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if tx.dosing_interval or tx.dosing_interval_days %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Dosing:</strong>
+        {% if tx.dosing_interval %}
+        <span class="tag tag-treatment">{{ tx.dosing_interval }}</span>
+        {% endif %}
+        {% if tx.dosing_interval_days %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">every {{ tx.dosing_interval_days | round(1) | int if tx.dosing_interval_days == tx.dosing_interval_days | round(0) else tx.dosing_interval_days }} days</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1907,6 +1988,98 @@
                         {% endfor %}
                     </ul>
                 </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Treatments. Module pages rendered none of these until now, even though
+           42 modules carry a treatments block: a module that models a therapy
+           (the antibiotic, antiviral, antifungal and oligonucleotide modules)
+           had its drugs curated and invisible. Leaner than the disorder card by
+           design -- this template renders no evidence expanders anywhere, so the
+           evidence behind a mechanism link is summarised as a count. #}
+        {% if module.treatments %}
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">{{ module.treatments | length }}</span>
+            </div>
+            {% for tx in module.treatments %}
+            <div class="item-box" data-dismech-node="{{ tx.name | e }}" data-dismech-type="treatment">
+                <div class="item-name">{{ tx.name }}</div>
+                {% if tx.action_category or (tx.treatment_term and tx.treatment_term.term) %}
+                <div class="item-meta">
+                    {% if tx.action_category %}
+                    <span class="tag tag-treatment">{{ tx.action_category | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if tx.treatment_term and tx.treatment_term.term %}
+                    {% set tooltip = term_tooltip(tx.treatment_term, "treatment.treatment_term") %}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-treatment">
+                        {{ tx.treatment_term.preferred_term or tx.treatment_term.term.label }}
+                        {{ render_curie_link(tx.treatment_term.term.id, describedby=tip_id) }}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if tx.treatment_term and tx.treatment_term.therapeutic_agent %}
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    {% for agent in tx.treatment_term.therapeutic_agent %}
+                    {% set tooltip = term_tooltip(agent, "treatment.therapeutic_agent") %}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    {% set has_chip = agent.term and agent.term.id %}
+                    <span class="tag tag-treatment"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
+                        {{ agent.preferred_term or (agent.term.label if agent.term else '') }}
+                        {% if has_chip %}{{ render_curie_link(agent.term.id, describedby=tip_id) }}{% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {{ render_treatment_platform(tx) }}
+                {% if tx.description %}
+                <div class="item-desc">{{ tx.description }}</div>
+                {% endif %}
+                {% if tx.target_mechanisms %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    {% for tm in tx.target_mechanisms %}
+                    {# Link to the node's card. The anchor id is assigned per
+                       pathophysiology node at load time, so it is looked up by
+                       name here rather than recomputed. #}
+                    {% set node = namespace(anchor='') %}
+                    {% for patho in module.pathophysiology or [] %}
+                    {% if patho.name == tm.target and patho._anchor_id %}{% set node.anchor = patho._anchor_id %}{% endif %}
+                    {% endfor %}
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        {% if tm.treatment_effect %}
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">{{ tm.treatment_effect }}</span>
+                        {% endif %}
+                        {% if node.anchor %}
+                        <a href="#{{ node.anchor }}"><strong>{{ tm.target }}</strong></a>
+                        {% else %}
+                        <strong style="color: #5b21b6;">{{ tm.target }}</strong>
+                        {% endif %}
+                        {% if tm.description %}<span> — {{ tm.description }}</span>{% endif %}
+                        {% if tm.evidence %}
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: {{ tm.evidence | length }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if tx.evidence %}
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: {{ tx.evidence | length }}</span>
+                </div>
+                {% endif %}
+                {% if tx.notes %}
+                <div class="item-desc" style="font-size: 0.85rem;">{{ tx.notes }}</div>
                 {% endif %}
             </div>
             {% endfor %}
