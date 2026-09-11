@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02213926"
+reference_id: clinicaltrials:NCT02213926
 title: "An Open-label, Phase 2 Study of ACP-196 in Subjects With Mantle Cell Lymphoma"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-label, Phase 2 Study of ACP-196 in Subjects With Mantle Cell Lymphoma

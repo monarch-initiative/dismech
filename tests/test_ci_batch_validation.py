@@ -59,7 +59,11 @@ def test_ci_validates_hypothesis_review_artifacts_on_report_or_yaml_changes() ->
     assert "- 'kb/hypotheses/**'" in workflow_text
 
     step = _step_named("main.yaml", "Validate hypothesis review artifacts")
-    assert step["if"] == "steps.changes.outputs.kb_hypotheses == 'true'"
+    # Forced on merge_group: queue builds run the full suite (#10168).
+    assert step["if"] == (
+        "github.event_name == 'merge_group' "
+        "|| steps.changes.outputs.kb_hypotheses == 'true'"
+    )
     assert "just validate-hypothesis-assessment-all" in step["run"]
     assert "just validate-hypothesis-reconciliation-all" in step["run"]
 

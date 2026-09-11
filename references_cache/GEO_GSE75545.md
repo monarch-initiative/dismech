@@ -1,0 +1,12 @@
+---
+reference_id: GEO:GSE75545
+title: Urine-sample-derived human induced pluripotent stem cells as a model to study PCSK9-mediated autosomal dominant hypercholesterolemia
+content_type: summary
+full_text_attempted: true
+---
+
+# Urine-sample-derived human induced pluripotent stem cells as a model to study PCSK9-mediated autosomal dominant hypercholesterolemia
+
+## Content
+
+Proprotein convertase subtilisin kexin type 9 (PCSK9) is a critical modulator of cholesterol homeostasis. Whereas PCSK9 gain-of-function (GOF) mutations are associated with autosomal dominant hypercholesterolemia (ADH) and premature atherosclerosis, PCSK9 loss-of-function (LOF) mutations have a cardio-protective effect and in some cases can lead to familial hypobetalipoproteinemia (FHBL). However, limitations of the currently available cellular models preclude deciphering the consequences of PCSK9 mutation further. We aimed to validate urine-sample-derived human induced pluripotent stem cells (UhiPSCs) as an appropriate tool to model PCSK9-mediated ADH and FHBL. To achieve our goal, urine-sample-derived somatic cells were reprogrammed into hiPSCs by using episomal vectors. UhiPSC were efficiently differentiated into hepatocyte-like cells (HLCs). Compared to control cells, cells originally derived AQ3 from an individual with ADH (HLC-S127R) secreted less PCSK9 in the media (−38.5%; P=0.038) and had a 71% decrease (P<0.001) of low-density lipoprotein (LDL) uptake, whereas cells originally derived from an individual with FHBL (HLC-R104C/V114A) displayed a strong decrease in PCSK9 secretion (−89.7%; P<0.001) and had a 106% increase (P=0.0104) of LDL uptake. Pravastatin treatment significantly enhanced LDL receptor (LDLR) and PCSK9 mRNA gene expression, as well as PCSK9 secretion and LDL uptake in both control and S127R HLCs. Pravastatin treatment of multiple clones led to an average increase of LDL uptake of 2.19±0.77-fold in HLC-S127R compared to 1.38±0.49 fold in control HLCs (P<0.01), in line with the good response to statin treatment of individuals carrying the S127R mutation (mean LDL cholesterol reduction=60.4%, n=5). In conclusion, urine samples provide an attractive and convenient source of somatic cells for reprogramming and hepatocyte differentiation, but also a powerful tool to further decipher PCSK9 mutations and function.
