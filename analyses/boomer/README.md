@@ -22,6 +22,10 @@ from 0.5 to 0.95. The 321 earlier timeouts and 194 older analyses remain
 unrefreshed; their probability scores still predate the correction. See the
 [pinned solver and reproduction instructions](patches/README.md).
 
+[Three low-confidence case investigations](low-confidence/README.md) trace
+ADan amyloidosis, CANVAS, and cblE ties to namespace non-equivalence assumptions,
+then compare source definitions, merge history, and primary evidence.
+
 ## Layout
 
 ```
