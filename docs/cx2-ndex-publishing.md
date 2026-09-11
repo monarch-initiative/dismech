@@ -230,9 +230,21 @@ registry, and it refuses to run if the configured registry already exists.
 Later releases require the configured registry path to exist; a missing or
 misspelled path fails rather than minting duplicate networks.
 
-The workflow currently refuses to publish a corpus containing orphan/unknown
-nodes or missing disease metadata. Its failed export still uploads the manifest
-artifact, so the reported defects serve as the release worklist.
+The workflow refuses to publish any new or changed orphan/unknown-node or
+missing-disease-metadata defect. Networks matching the exact reviewed backlog in
+`conf/ndex-production-defect-allowlist.txt` are quarantined: they remain in the
+manifest as `SKIPPED_EXPORT_DEFECT`, but are not uploaded. Fixing a quarantined
+network automatically makes it publishable; changing or introducing a defect
+fails the release audit until the finding is reviewed explicitly. The manifest
+therefore exposes both the release exclusions and the remaining remediation
+work without placing broken networks in production.
+
+The manifest reports allowlist lines that no longer match a defect as
+`unmatched_allowed_export_defects`; remove those stale lines as the backlog is
+repaired. `BLOCKED_EXPORT_DEFECT` identifies a network with a new or changed
+finding. The manual `--allow-export-defects` CLI escape hatch suppresses that
+audit failure but still does not upload the defective network; if it already has
+an NDEx UUID, the registry preserves the mapping to the last verified network.
 
 `META` indexing covers network attributes such as disease and tissue. Select
 `ALL` only when node/gene search is intended and its resource cost has been

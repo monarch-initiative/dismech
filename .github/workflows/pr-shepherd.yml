@@ -33,13 +33,76 @@ on:
         required: false
         default: "3"
         type: string
+      max_enqueue_per_run:
+        description: >-
+          Queue-mode enqueue-attempt budget. Lower this to reduce one run's
+          API load; direct-merge mode ignores it.
+        default: "50"
+        type: choice
+        options:
+          - "10"
+          - "25"
+          - "50"
       model:
         description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
         default: ""
         type: string
+      review_retry_delay_hours:
+        description: "Minimum hours after a failed review attempt (0 bypasses backoff)"
+        default: "1"
+        type: string
+      max_review_retries:
+        description: "Maximum failed review runs to retry (0 disables retries)"
+        default: "5"
+        type: string
 
 jobs:
+  retry-reviews:
+    # Independent of the agent, its shortlist, and the merge controller.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pr-shepherd-review-retries
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    env:
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      RETRY_DELAY: ${{ inputs.review_retry_delay_hours || '1' }}
+      RETRY_LIMIT: ${{ inputs.max_review_retries || '5' }}
+      SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Generate scoped retry token
+        id: retry-token
+        if: ${{ env.DRY_RUN != 'true' }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-actions: write
+      - name: Retry failed reviews (deterministic)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_RETRY_TOKEN: ${{ steps.retry-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --min-delay-hours "$RETRY_DELAY" --max-retries "$RETRY_LIMIT")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$SPECIFIC_PR" ]; then args+=(--specific-pr "$SPECIFIC_PR"); fi
+          python scripts/retry_failed_reviews.py "${args[@]}"
+
   shepherd:
     if: >-
       ${{ github.event_name == 'workflow_dispatch' ||
@@ -192,6 +255,11 @@ jobs:
             `synchronize` event and automatically starts the claude-code-review workflow — so after
             pushing a fix commit you do NOT need to (and should NOT) manually re-trigger review; the
             push itself is enough.
+
+            Failed/timed-out claude-code-review runs belong to the independent deterministic
+            retry-reviews job. Do not rerun or dispatch replacements for those runs here,
+            including when the PR remains REVIEW_REQUIRED. Missing/cancelled reviews remain
+            in this agent's recovery scope.
 
             Start by reading the full contents of CLAUDE.md. Follow all repository conventions,
             especially the rule that references_cache/*.md must never be created or hand-edited.
@@ -353,6 +421,7 @@ jobs:
     env:
       DRY_RUN: ${{ inputs.dry_run || false }}
       MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
+      MAX_ENQUEUE_PER_RUN: ${{ inputs.max_enqueue_per_run || '50' }}
       SPECIFIC_PR: ${{ inputs.pr_number || '' }}
 
     steps:
@@ -381,7 +450,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Merge at most one ready PR (deterministic)
+      - name: Process ready PRs (deterministic)
         env:
           # The fixed controller receives the writer, but strips it from every
           # discovery subprocess. Only mark-ready, merge, rollback, and the
@@ -393,6 +462,7 @@ jobs:
           args=(
             --repo "$GITHUB_REPOSITORY"
             --min-age-days "$MIN_AGE_DAYS"
+            --max-enqueue-per-run "$MAX_ENQUEUE_PER_RUN"
           )
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
