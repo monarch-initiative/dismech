@@ -289,6 +289,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -375,6 +385,75 @@
             font-weight: 500;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -388,6 +467,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -565,9 +656,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -905,6 +994,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -913,7 +1016,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1449,6 +1552,10 @@
     
 
     
+    
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1482,15 +1589,20 @@
         <header class="page-header">
             <h1>Heme Biosynthesis and Porphyria Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes."
+                      style="background: hsl(258, 68%, 96%); border-color: hsl(258, 52%, 78%); color: hsl(258, 62%, 26%);">Metabolism</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">heme_biosynthesis_porphyria</span>
-                <span class="badge badge-count">3 disorders</span>
+                <span class="badge badge-count">5 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
                 
             </div>
             
-            <div class="header-description">A conserved final-common-pathway module for the porphyrias — the inherited disorders of heme biosynthesis. Each porphyria results from a partial defect (or, for X-linked protoporphyria, a gain of function) at a different one of the eight enzymatic steps of the heme biosynthetic pathway (ALAD, HMBS, UROS, UROD, CPOX, PPOX, FECH; ALAS2). The enzymatic block impairs pathway flux and causes accumulation of the pathway intermediates immediately upstream of the lesion — the porphyrin precursors 5-aminolevulinic acid (ALA) and porphobilinogen (PBG) and/or the porphyrins (uroporphyrin, coproporphyrin, protoporphyrin IX). The porphyrias split into two clinical arms that share this accumulation hub but diverge in the identity of the accumulating metabolite and its target tissue: (1) the acute hepatic porphyrias (ALAD porphyria, acute intermittent porphyria, hereditary coproporphyria, variegate porphyria), in which hepatic ALAS1 induction by porphyrogenic triggers (drugs, fasting, alcohol, hormonal cycling, infection) drives overproduction of the neurotoxic precursors ALA and PBG and precipitates acute neurovisceral attacks; and (2) the cutaneous and erythropoietic porphyrias (congenital erythropoietic porphyria, porphyria cutanea tarda, hepatoerythropoietic porphyria, erythropoietic protoporphyria, X-linked protoporphyria), in which photoreactive porphyrins accumulate and, on absorbing visible light, generate reactive oxygen species that injure skin and erythrocytes. Conforming disorder entries declare conformance via conforms_to on their pathophysiology nodes, substituting the disorder-specific deficient enzyme, accumulating intermediate, and clinical arm while preserving the conserved block -&gt; accumulation -&gt; tissue-toxicity chain.</div>
+            <div class="header-description">A conserved final-common-pathway module for the porphyrias — inherited disorders of heme biosynthesis — and for acquired phenocopies that block the same enzymatic step by a chemical rather than a genetic lesion. Each porphyria results from a partial defect (or, for X-linked protoporphyria, a gain of function) at a different one of the eight enzymatic steps of the heme biosynthetic pathway (ALAD, HMBS, UROS, UROD, CPOX, PPOX, FECH; ALAS2). The enzymatic block impairs pathway flux and causes accumulation of the pathway intermediates immediately upstream of the lesion — the porphyrin precursors 5-aminolevulinic acid (ALA) and porphobilinogen (PBG) and/or the porphyrins (uroporphyrin, coproporphyrin, protoporphyrin IX). The porphyrias split into two clinical arms that share this accumulation hub but diverge in the identity of the accumulating metabolite and its target tissue: (1) the acute hepatic porphyrias (ALAD porphyria, acute intermittent porphyria, hereditary coproporphyria, variegate porphyria), in which hepatic ALAS1 induction by porphyrogenic triggers (drugs, fasting, alcohol, hormonal cycling, infection) drives overproduction of the neurotoxic precursors ALA and PBG and precipitates acute neurovisceral attacks; and (2) the cutaneous and erythropoietic porphyrias (congenital erythropoietic porphyria, porphyria cutanea tarda, hepatoerythropoietic porphyria, erythropoietic protoporphyria, X-linked protoporphyria), in which photoreactive porphyrins accumulate and, on absorbing visible light, generate reactive oxygen species that injure skin and erythrocytes. Conforming disorder entries declare conformance via conforms_to on their pathophysiology nodes, substituting the disorder-specific deficient enzyme, accumulating intermediate, and clinical arm while preserving the conserved block -&gt; accumulation -&gt; tissue-toxicity chain.</div>
             
         </header>
 
@@ -1515,16 +1627,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-cell">
                         Hepatocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1535,6 +1652,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-cell">
                         Erythroblast
@@ -1542,10 +1661,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000765">CL:0000765</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000765</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Erythroblast (CL:0000765). CL:0000765 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1556,6 +1678,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-cell">
                         Neuron
@@ -1563,10 +1687,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1577,6 +1704,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-cell">
                         Keratinocyte
@@ -1584,10 +1713,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000312</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1599,16 +1731,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-cell">
                         Erythrocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000232</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1633,16 +1770,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Heme Biosynthetic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006783</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves decreased Heme Biosynthetic Process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1656,16 +1798,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Porphyrin-Containing Compound Metabolic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006778">GO:0006778</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006778</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Porphyrin-Containing Compound Metabolic Process (GO:0006778). GO:0006778 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1678,6 +1825,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Heme Biosynthetic Process
@@ -1685,10 +1834,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006783</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Heme Biosynthetic Process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1702,16 +1854,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Response to Oxidative Stress
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006979</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1736,8 +1893,12 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is a mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;heme_biosynthesis_porphyria#Accumulation of Porphyrin Precursors and Porphyrins&#34;). The single best key conformance target is the central &#34;Accumulation of Porphyrin Precursors and Porphyrins&#34; node — the one event every porphyria shares regardless of arm. Conforming nodes should substitute the disorder-specific lesion: the deficient (or, for ALAS2, hyperactive) enzyme at the trigger node, the accumulating intermediate at the central node (ALA/PBG for the acute hepatic arm; uroporphyrin/coproporphyrin/protoporphyrin IX for the cutaneous-erythropoietic arm), and the relevant effector arm (neurovisceral vs. cutaneous). An acute-hepatic conformer routes through the neurovisceral-neurotoxicity effector; a cutaneous or erythropoietic conformer routes through the phototoxicity effector; overlap porphyrias (hereditary coproporphyria, variegate porphyria) may route through both. Chemistry (ALA, PBG, porphyrins) and the enzyme/gene identities are given in prose; modules bind GO and CL terms only and do not use CHEBI or gene bindings. Disease-specific chronic sequelae (AIP hepatocellular carcinoma and chronic kidney disease, EPP hepatobiliary liver injury, CEP transfusion-dependent hemolytic anemia) belong on the individual disorder entries, not this module.</div>
+            <div class="item-desc">This is a mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;heme_biosynthesis_porphyria#Accumulation of Porphyrin Precursors and Porphyrins&#34;). The single best key conformance target is the central &#34;Accumulation of Porphyrin Precursors and Porphyrins&#34; node — the one event every porphyria shares regardless of arm. Conforming nodes should substitute the disorder-specific lesion: the deficient (or, for ALAS2, hyperactive) enzyme at the trigger node, the accumulating intermediate at the central node (ALA/PBG for the acute hepatic arm; uroporphyrin/coproporphyrin/protoporphyrin IX for the cutaneous-erythropoietic arm), and the relevant effector arm (neurovisceral vs. cutaneous). An acute-hepatic conformer routes through the neurovisceral-neurotoxicity effector; a cutaneous or erythropoietic conformer routes through the phototoxicity effector; overlap porphyrias (hereditary coproporphyria, variegate porphyria) may route through both. Chemistry (ALA, PBG, porphyrins) and the enzyme/gene identities are given in prose; modules bind GO and CL terms only and do not use CHEBI or gene bindings. Disease-specific chronic sequelae (AIP hepatocellular carcinoma and chronic kidney disease, EPP hepatobiliary liver injury, CEP transfusion-dependent hemolytic anemia) belong on the individual disorder entries, not this module. Acquired chemical inhibition of a single heme-pathway enzyme — lead&#39;s inhibition of ALAD and ferrochelatase, or succinylacetone&#39;s inhibition of ALAD in hereditary tyrosinemia type I — produces the same block -&gt; accumulation chain as the genetic porphyrias and conforms to the same node set; conforms_to here is a claim about the shared enzymatic-block mechanism, not about heritability. See Lead_Poisoning for a worked acquired conformer.</div>
         </div>
+        
+
+        
+
         
 
         
@@ -1750,7 +1911,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="crosslink-list">
@@ -1781,6 +1942,31 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Harderoporphyria.html">Harderoporphyria</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Biallelic CPOX Variant in the Substrate-Retention Region → Heme Biosynthesis Enzymatic Block
+                        
+                        
+                        , 
+                        
+                        Harderoporphyrin Accumulation → Accumulation of Porphyrin Precursors and Porphyrins
+                        
+                        
+                        , 
+                        
+                        Cutaneous Porphyrin Phototoxicity
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Inherited_Porphyria.html">Inherited Porphyria</a>
                     
                     <span class="crosslink-desc">
@@ -1804,6 +1990,36 @@
                         , 
                         
                         Cutaneous Phototoxicity → Cutaneous Porphyrin Phototoxicity
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Inhibition of delta-aminolevulinic acid dehydratase → Heme Biosynthesis Enzymatic Block
+                        
+                        
+                        , 
+                        
+                        ALA and Coproporphyrin Accumulation → Accumulation of Porphyrin Precursors and Porphyrins
+                        
+                        
+                        , 
+                        
+                        ALA-Mediated Neurovisceral Neurotoxicity → Neurovisceral Precursor Neurotoxicity
+                        
+                        
+                        , 
+                        
+                        Ferrochelatase Inhibition → Heme Biosynthesis Enzymatic Block
                         
                         
                     </span>
@@ -1886,16 +2102,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Hepatocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1907,16 +2128,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Erythroblast
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000765">CL:0000765</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000765</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroblast (CL:0000765). CL:0000765 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1934,16 +2160,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Heme Biosynthetic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006783</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Heme Biosynthetic Process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1957,16 +2188,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Porphyrin-Containing Compound Metabolic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006778">GO:0006778</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006778</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Porphyrin-Containing Compound Metabolic Process (GO:0006778). GO:0006778 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1998,9 +2234,30 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Harderoporphyria.html">Harderoporphyria</a>
+                            
+                            <span class="crosslink-desc">as Biallelic CPOX Variant in the Substrate-Retention Region</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Inherited_Porphyria.html">Inherited Porphyria</a>
                             
                             <span class="crosslink-desc">as Heme Biosynthesis Enzyme Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                            <span class="crosslink-desc">as Ferrochelatase Inhibition</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                            <span class="crosslink-desc">as Inhibition of delta-aminolevulinic acid dehydratase</span>
                             
                         </div>
                         
@@ -2044,16 +2301,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Hepatocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000182</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2065,16 +2327,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Erythroblast
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000765">CL:0000765</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000765</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythroblast (CL:0000765). CL:0000765 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2092,16 +2359,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Porphyrin-Containing Compound Metabolic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006778">GO:0006778</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006778" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006778</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Porphyrin-Containing Compound Metabolic Process (GO:0006778). GO:0006778 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2115,16 +2387,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Heme Biosynthetic Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006783">GO:0006783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006783</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Heme Biosynthetic Process (GO:0006783). GO:0006783 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2156,9 +2433,23 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Harderoporphyria.html">Harderoporphyria</a>
+                            
+                            <span class="crosslink-desc">as Harderoporphyrin Accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Inherited_Porphyria.html">Inherited Porphyria</a>
                             
                             <span class="crosslink-desc">as Porphyrin Precursor and Porphyrin Accumulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                            <span class="crosslink-desc">as ALA and Coproporphyrin Accumulation</span>
                             
                         </div>
                         
@@ -2207,16 +2498,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2234,16 +2530,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Oxidative Stress
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006979</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2282,6 +2583,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                            <span class="crosslink-desc">as ALA-Mediated Neurovisceral Neurotoxicity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Porphyria_due_to_ALA_Dehydratase_Deficiency.html">Porphyria due to ALA Dehydratase Deficiency</a>
                             
                             <span class="crosslink-desc">as ALA-mediated neurovisceral attack susceptibility</span>
@@ -2309,16 +2617,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Keratinocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000312</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2330,16 +2643,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Erythrocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000232</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2357,16 +2675,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Oxidative Stress
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006979</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2391,6 +2714,11 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Harderoporphyria.html">Harderoporphyria</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Inherited_Porphyria.html">Inherited Porphyria</a>
                             
                             <span class="crosslink-desc">as Cutaneous Phototoxicity</span>
@@ -2405,6 +2733,9 @@
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
@@ -2437,5 +2768,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
