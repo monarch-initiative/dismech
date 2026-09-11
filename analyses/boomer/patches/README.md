@@ -38,7 +38,7 @@ checkpoints; a changed configuration requires a new run name.
 
 The opt-in tests in
 [`test_boomer_unique_solutions.py`](../../../tests/test_boomer_unique_solutions.py)
-compare two real KBs against exhaustive Boolean enumeration, including every
+compare three real KBs against exhaustive Boolean enumeration, including every
 marginal posterior and reversed hypothesis order. They also verify the raw
 candidate cap and retention of separate priors for the same logical fact.
 They skip when `BOOMER_SRC` is absent.

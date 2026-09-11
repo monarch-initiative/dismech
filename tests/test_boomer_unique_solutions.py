@@ -36,6 +36,7 @@ def boomer(monkeypatch):
     [
         ("2-Methylbutyryl-CoA_Dehydrogenase_Deficiency", 128, 0.9),
         ("ADan_amyloidosis", 192, 0.5),
+        ("CANVAS", 384, 0.5),
     ],
 )
 def test_solution_probabilities_match_exhaustive_assignments(

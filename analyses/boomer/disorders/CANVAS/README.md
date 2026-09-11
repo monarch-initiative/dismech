@@ -20,6 +20,7 @@ Boomer rejected the following high-prior mapping hypotheses:
 
 ## Files
 
+- [Top five distinct solutions](../../low-confidence/CANVAS-alternatives.md): complete alternatives with separate priors and posteriors.
 - [`kb.yaml`](kb.yaml): unchanged input.
 - [`solution.yaml`](solution.yaml): current machine-readable solver output.
 - [`solution.md`](solution.md): rendered solver output.

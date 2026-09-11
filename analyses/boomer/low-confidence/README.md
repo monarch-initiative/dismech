@@ -5,6 +5,16 @@ cblE** from the 32 completed results with confidence 0.5. These cover ICD-11
 Foundation, Orphanet, and Disease Ontology conflicts. Selection was illustrative,
 not random. Investigation date: 2026-09-11.
 
+Compare the **top five distinct complete assignments**, including input priors
+and marginal posteriors in separate columns:
+
+- [CANVAS alternatives](CANVAS-alternatives.md)
+- [ADan alternatives](ADan_amyloidosis-alternatives.md)
+- [cblE alternatives](Methylcobalamin_Deficiency_Type_cblE-alternatives.md)
+
+These views are generated alongside `experiments.json` by the reproduction
+command below. They show ties explicitly instead of only displaying one optimum.
+
 **All three ties are caused by two equal-prior equivalence mappings plus an
 assumed prohibition on equating distinct IDs within the target vocabulary.**
 Biological evidence distinguishes the cases: CANVAS follows a documented,
