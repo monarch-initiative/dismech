@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melorheostosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Melorheostosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Melorheostosis</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0007970" target="_blank" rel="noopener noreferrer">MONDO:0007970</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Melorheostosis is a rare, benign, progressive sclerosing bone dysplasia of mesodermal origin featuring exuberant cortical bone overgrowth, most often in a single limb, that flows along the bone like melted wax. It was first described by Léri and Joanny (1922). <em>[review]</em> "Melorheostosis is a rare bone disease characterized by abundant bone formation with a characteristic radiographic appearance that resembles 'dripping candle wax'" (<a href="https://pubmed.ncbi.nlm.nih.gov/39776616/" target="_blank" rel="noopener noreferrer">PMID 39776616</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0007970" target="_blank" rel="noopener noreferrer">MONDO:0007970</a>
+- <strong>OMIM:</strong> 155950 (Melorheostosis, isolated)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:2485" target="_blank" rel="noopener noreferrer">ORPHA:2485</a>
+- <strong>ICD-10:</strong> Q78.8 (Other specified osteochondrodysplasias); <strong>ICD-11:</strong> LD24.Y / FB80.Y (other specified osteopathies) — often coded under other specified osteochondrodysplasias
+- <strong>MeSH:</strong> D008586 (Melorheostosis; MeSH tree C05.116.099.708.410)
+- <strong>UMLS/SNOMED CT:</strong> Melorheostosis (disorder), SCTID 43994001</p>
+<p><strong>Synonyms / alternative names.</strong> Léri disease; Léri–Joanny syndrome; "flowing hyperostosis"; "candle wax bone disease"; rheostosis; osteosis eburnisans monomelica.</p>
+<p><strong>Source of information.</strong> Derived predominantly from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet) and from <strong>individual-patient case reports/case series</strong> plus a single institution's prospective <strong>natural-history cohort</strong> (NIH; PMIDs 31485554, 35403375). There is no large EHR/registry dataset given the rarity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal factor: genetic (somatic mosaicism).</strong> Melorheostosis is caused by <strong>post-zygotic (somatic) mosaic activating mutations</strong> arising in mesenchymal/osteoblast-lineage precursors during development. There is <strong>no infectious, environmental, or dietary cause</strong>; it is not inherited.</p>
+<p><strong>Genetic risk factors (causal variants).</strong>
+- <strong><em>MAP2K1</em> (MEK1)</strong> — the major driver. Recurrent activating missense variants cluster in the MEK1 negative-regulatory domain: <strong>p.Gln56Pro (Q56P), p.Lys57Glu (K57E), p.Lys57Asn (K57N)</strong>, and a catalytic-domain variant <strong>p.Cys121Ser (C121S)</strong> (PMIDs 29643386, 32387835). <em>[human clinical / in vitro]</em> "we identify somatic mosaic MAP2K1 mutations in affected, but not unaffected, bone of eight unrelated patients ... The activating mutations (Q56P, K57E and K57N) cluster tightly in the MEK1 negative regulatory domain" (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>).
+- <strong><em>SMAD3</em></strong> — somatic activating mutations in <strong>endosteal-pattern</strong> melorheostosis (<a href="https://pubmed.ncbi.nlm.nih.gov/32232430/" target="_blank" rel="noopener noreferrer">PMID 32232430</a>).
+- <strong><em>KRAS</em></strong> — somatic activating variants in a subset (osteopathia-striata-like pattern) (<a href="https://pubmed.ncbi.nlm.nih.gov/30989250/" target="_blank" rel="noopener noreferrer">PMID 30989250</a>).
+- <strong><em>LEMD3</em> (MAN1)</strong> — <strong>germline</strong> loss-of-function mutations cause osteopoikilosis (OPK) and Buschke–Ollendorff syndrome (BOS); they do <strong>not</strong> cause isolated sporadic melorheostosis (PMIDs 17087626, 19438932, 31129707).</p>
+<p><strong>Modifier genes.</strong> None firmly established. Because lesions are clonal and mosaic, disease extent likely reflects the developmental timing and location of the somatic mutation rather than trans-acting modifiers.</p>
+<p><strong>Environmental risk factors.</strong> None identified (toxins, occupation, radiation, age, sex, family history all non-contributory). Trauma is sometimes an incidental discovery trigger, not a cause (<a href="https://pubmed.ncbi.nlm.nih.gov/41938408/" target="_blank" rel="noopener noreferrer">PMID 41938408</a>).</p>
+<p><strong>Protective factors.</strong> None identified (genetic or environmental).</p>
+<p><strong>Gene–environment interactions.</strong> None documented; the disease is monogenic-somatic.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Melorheostosis is highly variable ("variable severity, progressive/insidious course"). Core phenotypes with suggested HPO terms and frequency (from the 47-patient natural-history cohort and case series; PMIDs 31485554, 35403375, 39776616):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Severity/Course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bone/limb pain</td>
+<td>Symptom</td>
+<td>Bone pain <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" rel="noopener noreferrer">HP:0002653</a></td>
+<td>Childhood–adult</td>
+<td>Chronic, progressive</td>
+<td>Very frequent (presenting complaint)</td>
+</tr>
+<tr>
+<td>Cortical hyperostosis / sclerosis</td>
+<td>Physical sign (imaging)</td>
+<td>Cortical thickening of long bones <a href="http://purl.obolibrary.org/obo/HP_0005791" target="_blank" rel="noopener noreferrer">HP:0005791</a>; Hyperostosis <a href="http://purl.obolibrary.org/obo/HP_0100774" target="_blank" rel="noopener noreferrer">HP:0100774</a></td>
+<td>Congenital lesion, symptoms later</td>
+<td>Progressive</td>
+<td>Defining feature (~100%)</td>
+</tr>
+<tr>
+<td>Joint contracture</td>
+<td>Clinical sign</td>
+<td>Joint contracture <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" rel="noopener noreferrer">HP:0034392</a></td>
+<td>Childhood–adult</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Limited range of motion</td>
+<td>Clinical sign</td>
+<td>Limitation of joint mobility <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" rel="noopener noreferrer">HP:0001376</a></td>
+<td>Variable</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Limb deformity / length discrepancy</td>
+<td>Physical</td>
+<td>Limb deformity; Limb undergrowth</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Limb swelling / soft-tissue mass</td>
+<td>Sign</td>
+<td>Localized skin lesion; Soft tissue swelling</td>
+<td>Variable</td>
+<td>Stable/progressive</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Overlying skin changes (hyperpigmentation, sclerotic/nevoid skin, hemangioma)</td>
+<td>Physical</td>
+<td>Abnormality of the skin <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" rel="noopener noreferrer">HP:0000951</a></td>
+<td>Variable</td>
+<td>Stable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Neurological compromise (nerve entrapment, myelopathy in spinal disease)</td>
+<td>Sign</td>
+<td>Peripheral neuropathy; Myelopathy</td>
+<td>Variable</td>
+<td>Progressive</td>
+<td>Rare (axial disease)</td>
+</tr>
+<tr>
+<td>Fatigue (general/physical)</td>
+<td>Symptom</td>
+<td>Fatigue <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>Adult</td>
+<td>Chronic</td>
+<td>Prominent functional burden</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Laboratory abnormalities:</strong> characteristically <strong>absent</strong> — serum calcium, phosphate, alkaline phosphatase, ESR, CRP are <strong>normal</strong> (PMIDs 42559563, 41938408). Normal biochemistry is itself a diagnostic clue.</p>
+<p><strong>Age of onset.</strong> Lesions are congenital/developmental but frequently present in childhood or adulthood; late-onset monomelic presentations occur (<a href="https://pubmed.ncbi.nlm.nih.gov/42559563/" target="_blank" rel="noopener noreferrer">PMID 42559563</a>).</p>
+<p><strong>Quality-of-life impact.</strong> <em>[human clinical]</em> Substantial functional burden: high-demand leisure activities were the least retained and most often given up (27%); general and physical fatigue were the most limiting constructs, with physical fatigue moderately negatively correlated with activity engagement (r = −0.524, p &lt; .001) (<a href="https://pubmed.ncbi.nlm.nih.gov/35403375/" target="_blank" rel="noopener noreferrer">PMID 35403375</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal genes (gene symbol; HGNC; OMIM; locus).</strong>
+- <strong><em>MAP2K1</em></strong> — <a href="https://bioregistry.io/HGNC:6840" target="_blank" rel="noopener noreferrer">HGNC:6840</a>; NCBI Gene 5604; OMIM 176872; 15q22.31; encodes MEK1 (UniProt Q02750). Major driver.
+- <strong><em>SMAD3</em></strong> — <a href="https://bioregistry.io/HGNC:6769" target="_blank" rel="noopener noreferrer">HGNC:6769</a>; NCBI Gene 4088; OMIM 603109; 15q22.33. Endosteal subtype.
+- <strong><em>KRAS</em></strong> — <a href="https://bioregistry.io/HGNC:6407" target="_blank" rel="noopener noreferrer">HGNC:6407</a>; NCBI Gene 3845; OMIM 190070; 12p12.1. Rare subset.
+- <strong><em>LEMD3</em></strong> — <a href="https://bioregistry.io/HGNC:28887" target="_blank" rel="noopener noreferrer">HGNC:28887</a>; NCBI Gene 23592; OMIM 607844; 12q14.3. Germline; OPK/BOS spectrum (not isolated MEL).</p>
+<p><strong>Pathogenic variants.</strong>
+- <strong>Type/class:</strong> missense, gain-of-function (activating). <em>MAP2K1</em>: Q56P, K57E, K57N (negative-regulatory domain, exon 2 hotspot); C121S (catalytic domain).
+- <strong>Classification:</strong> Pathogenic (activating) per functional evidence; these are established oncogenic hotspots (also seen in Langerhans-cell histiocytosis, arteriovenous malformations, and some cancers).
+- <strong>Somatic vs germline:</strong> <strong>Somatic/mosaic</strong>, present in affected bone and overlying skin but <strong>not</strong> in unaffected tissue or blood (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>); mosaicism detected in overlying skin in 4/5 patients tested. Skin distribution of somatic variants was mapped in <a href="https://pubmed.ncbi.nlm.nih.gov/32791068/" target="_blank" rel="noopener noreferrer">PMID 32791068</a>.
+- <strong>Allele frequency:</strong> Absent from population databases (gnomAD/1000G) as constitutional variants — they are somatic and, as germline events, would be embryonic-lethal or oncogenic.
+- <strong>Functional consequence:</strong> Gain of function → constitutive MEK1 kinase activity → increased phospho-ERK1/2 (<em>MAP2K1</em>); enhanced TGF-β/SMAD transcriptional activity (<em>SMAD3</em>).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No established modifier genes, no recurrent epigenetic signature, and <strong>no chromosomal abnormalities</strong> (aneuploidy/translocation/CNV) are implicated. A subset of clinically classical cases has <strong>no identifiable mutation</strong> in <em>MAP2K1/SMAD3/LEMD3/KRAS</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32387835/" target="_blank" rel="noopener noreferrer">PMID 32387835</a>), indicating additional undiscovered drivers.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None implicated (no toxin, radiation, pollution, or occupational association).</li>
+<li><strong>Lifestyle factors:</strong> None (no smoking/diet/alcohol/exercise association).</li>
+<li><strong>Infectious agents:</strong> <strong>Not applicable</strong> — melorheostosis is not infectious.</li>
+</ul>
+<p><em>This section is largely not applicable: melorheostosis is a somatic genetic disease with no known environmental contribution.</em></p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<p><strong>MAPK branch (classical "dripping candle wax", MAP2K1):</strong>
+1. A <strong>post-zygotic somatic <em>MAP2K1</em> mutation</strong> arises in an osteoblast/mesenchymal precursor during development → <strong>leads to</strong> a mosaic clone of mutant cells confined to a sclerotome/limb segment.
+2. The mutation (e.g., K57N) <strong>causes</strong> constitutive MEK1 kinase activity (loss of negative autoregulation).
+3. Constitutive MEK1 <strong>results in</strong> increased phospho-ERK1/2 signaling, detectable as a mosaic pattern (two osteoblast populations with distinct p-ERK levels) (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>).
+4. ERK hyperactivation <strong>leads to</strong> increased osteoprogenitor proliferation via cell-cycle activation (elevated phospho-Rb, Ki-67, higher S-phase fraction; CDK4-dependent) (PMIDs 29643386, 41395834).
+5. Mutant cells <strong>secrete increased VEGF</strong>, driving hypervascularity/angiogenesis; VEGF is <em>sufficient alone</em> to increase mineralization of osteogenic cultures (<a href="https://pubmed.ncbi.nlm.nih.gov/37737377/" target="_blank" rel="noopener noreferrer">PMID 37737377</a>). <em>[in vitro]</em>
+6. In parallel, the mutation <strong>impairs BMP2-mediated terminal mineralization/differentiation</strong>, which <strong>results in</strong> accumulation of excess unmineralized osteoid alongside dense cortical/woven bone (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>).
+7. The net effect <strong>results in</strong> segmental cortical/medullary hyperostosis → clinically pain, deformity, contractures, limb swelling; paradoxically the bone is <em>harder and mechanically stronger</em> despite decreased mineral density (inferred from geometry/microstructure; <a href="https://pubmed.ncbi.nlm.nih.gov/31689526/" target="_blank" rel="noopener noreferrer">PMID 31689526</a>). <em>[model organism]</em></p>
+<p><strong>TGF-β/SMAD branch (endosteal pattern, SMAD3):</strong>
+1b. A <strong>somatic <em>SMAD3</em>-activating mutation</strong> → <strong>enhances</strong> TGF-β/SMAD nuclear translocation and target-gene expression in osteoblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/32232430/" target="_blank" rel="noopener noreferrer">PMID 32232430</a>).
+2b. This <strong>stimulates</strong> osteoblast differentiation and mineralization (antagonized by BMP2) → <strong>endosteal-pattern</strong> hyperostosis.</p>
+<p><em>(KRAS-driven cases converge on RAS–MAPK activation, upstream of MEK1.)</em></p>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> RAS–<strong>MAPK/ERK</strong> cascade (KEGG hsa04010; Reactome R-HSA-5673001 "RAF/MAP kinase cascade"); <strong>TGF-β/SMAD</strong> signaling (KEGG hsa04350; Reactome R-HSA-170834). BMP signaling is antagonistic/dysregulated. GO: MAPK cascade <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" rel="noopener noreferrer">GO:0000165</a>; ERK1/ERK2 cascade <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" rel="noopener noreferrer">GO:0070371</a>; transforming growth factor beta receptor signaling pathway <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a>.</li>
+<li><strong>Cellular processes:</strong> increased cell proliferation (<a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" rel="noopener noreferrer">GO:0008284</a>), dysregulated osteoblast differentiation (<a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" rel="noopener noreferrer">GO:0001649</a>) and ossification (<a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a>), angiogenesis (<a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a>). Cell-cycle dysregulation (phospho-Rb/CDK4). No apoptosis or inflammation signature is prominent.</li>
+<li><strong>Protein dysfunction:</strong> <strong>Gain of function</strong> — constitutively active MEK1 kinase; hyperactive SMAD3 transcription factor. Not misfolding/aggregation.</li>
+<li><strong>Metabolic changes:</strong> No systemic metabolic derangement (normal Ca/PO4/ALP). Local: increased collagen I/IV secretion by mutant iMSCs (<a href="https://pubmed.ncbi.nlm.nih.gov/37737377/" target="_blank" rel="noopener noreferrer">PMID 37737377</a>).</li>
+<li><strong>Immune system involvement:</strong> Not a primary feature; co-expression clustering noted altered interferon signaling in SMAD3 lesions (<a href="https://pubmed.ncbi.nlm.nih.gov/32232430/" target="_blank" rel="noopener noreferrer">PMID 32232430</a>) — significance uncertain.</li>
+<li><strong>Tissue damage mechanisms:</strong> Mechanical (mass effect → contracture, nerve/cord compression), not oxidative/ischemic/fibronecrotic.</li>
+<li><strong>Molecular profiling:</strong> RNAseq/GSEA of lesional tissue shows <strong>upregulation of proliferative pathways</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32387835/" target="_blank" rel="noopener noreferrer">PMID 32387835</a>) and TGF-β/ossification/ECM-organization programs (<a href="https://pubmed.ncbi.nlm.nih.gov/32232430/" target="_blank" rel="noopener noreferrer">PMID 32232430</a>). Proteomic: elevated VEGF and collagen secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/37737377/" target="_blank" rel="noopener noreferrer">PMID 37737377</a>).</li>
+<li><strong>Functional genomics:</strong> iPSC→iMSC→osteoblast patient models and MEK1DD mouse (see §15).</li>
+</ul>
+<p><strong>Cell types (CL):</strong> osteoblast <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>; osteoprogenitor/mesenchymal stem cell <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a>; fibroblast <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (overlying skin carries the mutation). <strong>Chemical entities (CHEBI):</strong> zoledronic acid <a href="http://purl.obolibrary.org/obo/CHEBI_46557" target="_blank" rel="noopener noreferrer">CHEBI:46557</a>; palbociclib <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" rel="noopener noreferrer">CHEBI:85993</a>; trametinib <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" rel="noopener noreferrer">CHEBI:75998</a> (MEK inhibitor class).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> Bone (<a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" rel="noopener noreferrer">UBERON:0002481</a> bone tissue; <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> bone element), predominantly <strong>long bones of the limbs</strong> (appendicular skeleton). Lower-extremity long bones (femur, tibia, fibula) most common; upper extremity (humerus, radius, ulna, hand) frequent. Cohort: 30/47 lower extremity, 14/47 upper extremity, 1 both (<a href="https://pubmed.ncbi.nlm.nih.gov/35403375/" target="_blank" rel="noopener noreferrer">PMID 35403375</a>).</li>
+<li><strong>Secondary involvement / body systems:</strong> <strong>Musculoskeletal</strong> (joints — contracture; muscle/soft tissue — swelling, sclerosis, ossification), <strong>integumentary</strong> (overlying skin — hyperpigmentation, scleroderma-like/nevoid changes), <strong>nervous</strong> (peripheral nerve entrapment; spinal cord compression/myelopathy in rare axial disease, <a href="https://pubmed.ncbi.nlm.nih.gov/41852826/" target="_blank" rel="noopener noreferrer">PMID 41852826</a>), <strong>vascular</strong> (hemangioma/hypervascularity). Axial sites reported: spine (C-spine, <a href="https://pubmed.ncbi.nlm.nih.gov/41852826/" target="_blank" rel="noopener noreferrer">PMID 41852826</a>), pubis (<a href="https://pubmed.ncbi.nlm.nih.gov/42047352/" target="_blank" rel="noopener noreferrer">PMID 42047352</a>).</li>
+<li><strong>Tissue/cell level:</strong> cortical and endosteal <strong>bone</strong> (dense cortical, woven bone, hypervascular); connective tissue of skin (collagen/elastin). Target cells: osteoblasts (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>), osteoprogenitors/MSCs (<a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a>).</li>
+<li><strong>Subcellular (GO cellular component):</strong> nucleus <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> (SMAD3 translocation), cytoplasm/plasma membrane (MEK1/ERK signaling <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>), extracellular region/matrix <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a> (osteoid, collagen).</li>
+<li><strong>Localization/UBERON:</strong> femur <a href="http://purl.obolibrary.org/obo/UBERON_0000981" target="_blank" rel="noopener noreferrer">UBERON:0000981</a>; tibia <a href="http://purl.obolibrary.org/obo/UBERON_0000979" target="_blank" rel="noopener noreferrer">UBERON:0000979</a>; fibula <a href="http://purl.obolibrary.org/obo/UBERON_0001446" target="_blank" rel="noopener noreferrer">UBERON:0001446</a>; humerus <a href="http://purl.obolibrary.org/obo/UBERON_0000976" target="_blank" rel="noopener noreferrer">UBERON:0000976</a>; radius <a href="http://purl.obolibrary.org/obo/UBERON_0001423" target="_blank" rel="noopener noreferrer">UBERON:0001423</a>; ulna <a href="http://purl.obolibrary.org/obo/UBERON_0001424" target="_blank" rel="noopener noreferrer">UBERON:0001424</a>; vertebral column <a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a>.</li>
+<li><strong>Lateralization:</strong> Characteristically <strong>unilateral, asymmetric, monomelic</strong>, in a <strong>sclerotomal</strong> distribution; bilateral/multifocal is uncommon (PMIDs 41938408, 39776616).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/developmental lesion (somatic mutation occurs in utero); clinical onset is typically <strong>insidious</strong>, presenting in childhood or adulthood; late-onset adult presentations occur.</li>
+<li><strong>Onset pattern:</strong> Chronic, insidious (not acute).</li>
+<li><strong>Progression:</strong> <strong>Slowly progressive</strong>, lifelong. Bone overgrowth and contractures accrue over years to decades (e.g., 20-year progressive history, <a href="https://pubmed.ncbi.nlm.nih.gov/42555496/" target="_blank" rel="noopener noreferrer">PMID 42555496</a>). No formal staging system exists.</li>
+<li><strong>Course pattern:</strong> Progressive/stable; not relapsing-remitting or episodic.</li>
+<li><strong>Duration:</strong> Chronic, lifelong (not self-limited).</li>
+<li><strong>Remission:</strong> No spontaneous remission of bone lesions; symptom control (pain) is achievable with treatment.</li>
+<li><strong>Critical periods:</strong> Developmental window (timing/location of the somatic mutation) determines lesion distribution/extent; there is no defined therapeutic "critical window," though early physiotherapy may limit contractures.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology — prevalence:</strong> ultra-rare, <strong>~0.9 per million</strong> (i.e., ~0.00009 per 100,000); global prevalence <strong>&lt; 1 per million</strong> (PMIDs 41938408, 42559563). Incidence not reliably estimated. <em>[review/case series]</em> "an estimated prevalence of 0.9 per million" (<a href="https://pubmed.ncbi.nlm.nih.gov/41938408/" target="_blank" rel="noopener noreferrer">PMID 41938408</a>).</li>
+<li><strong>Inheritance pattern:</strong> <strong>Sporadic, non-hereditary</strong> — driven by somatic mosaicism; <strong>not</strong> Mendelian. (Germline <em>LEMD3</em> → autosomal dominant OPK/BOS is a separate, related entity.)</li>
+<li><strong>Penetrance/expressivity:</strong> Not applicable in the classical sense (somatic); lesion expressivity is highly variable.</li>
+<li><strong>Genetic anticipation / germline mosaicism / founder effects / consanguinity / carrier frequency:</strong> <strong>Not applicable</strong> — no vertical transmission, no carriers, no founder or consanguinity effect.</li>
+<li><strong>Population demographics:</strong> No ethnic or geographic predilection; reported worldwide. <strong>Sex ratio ~1:1</strong> (no strong sex predilection). <strong>Age distribution:</strong> diagnosed across pediatric to older-adult ages.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnosis is primarily radiographic</strong>, supported by normal biochemistry and (non-specific) histology; molecular confirmation requires <strong>lesional tissue</strong>.</p>
+<ul>
+<li><strong>Imaging (cornerstone):</strong> Plain radiograph/<strong>CT</strong> — flowing cortical <strong>hyperostosis resembling "dripping/melting candle wax"</strong> in a sclerotomal distribution (pathognomonic). <em>[review/case]</em> "a pathognomonic imaging appearance of flowing hyperostosis resembling melted candle wax" (<a href="https://pubmed.ncbi.nlm.nih.gov/32994853/" target="_blank" rel="noopener noreferrer">PMID 32994853</a>). <strong>MRI</strong> delineates soft-tissue involvement/extent; <strong>Tc-99m-MDP bone scintigraphy</strong> shows increased uptake reflecting activity (<a href="https://pubmed.ncbi.nlm.nih.gov/42555496/" target="_blank" rel="noopener noreferrer">PMID 42555496</a>); <strong>FDG/PSMA PET</strong> may be positive incidentally (PMIDs 42313078, 42047352). RadLex: hyperostosis.</li>
+<li><strong>Laboratory tests/biomarkers:</strong> No diagnostic blood/urine biomarker; serum Ca, PO4, ALP, ESR, CRP <strong>normal</strong> (LOINC panels for these analytes). Normality helps exclude Paget disease and metabolic bone disease.</li>
+<li><strong>Biopsy/histopathology (supportive, non-specific):</strong> dense cortical bone (73.3%), woven bone (60%), hypervascularity/increased porosity (66.7%), prominent cement lines (33%) (<a href="https://pubmed.ncbi.nlm.nih.gov/31386640/" target="_blank" rel="noopener noreferrer">PMID 31386640</a>); hyalinized collagen with dystrophic calcification also described (<a href="https://pubmed.ncbi.nlm.nih.gov/42559563/" target="_blank" rel="noopener noreferrer">PMID 42559563</a>). Biopsy is often <em>avoidable</em> when imaging is classic.</li>
+<li><strong>Genetic testing:</strong> <strong>Sequencing of affected lesional tissue (bone and/or overlying skin), not blood</strong>, because variants are somatic/mosaic. WES, WGS, and RNAseq of affected-vs-unaffected tissue are the definitive research/clinical approach and identified <em>MAP2K1</em>/<em>SMAD3</em>/novel variants (PMIDs 29643386, 32232430, 32387835). Targeted single-gene/panel testing (<em>MAP2K1, SMAD3, KRAS, LEMD3</em>) on lesional DNA is reasonable. Karyotype/CMA/FISH/mtDNA/repeat testing: <strong>not indicated</strong> (no such abnormalities).</li>
+<li><strong>Omics-based diagnostics:</strong> RNAseq of lesion (proliferative-pathway upregulation) is research-grade; no validated clinical omics/liquid-biopsy assay exists.</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> No formal consensus criteria; diagnosis is clinicoradiologic. <strong>Differential:</strong> osteoma/osteoid osteoma, <strong>osteoblastoma</strong> (can mimic and recur — <a href="https://pubmed.ncbi.nlm.nih.gov/42004422/" target="_blank" rel="noopener noreferrer">PMID 42004422</a>), <strong>osteosarcoma/parosteal osteosarcoma</strong>, fibrous dysplasia, <strong>Paget disease of bone</strong>, osteopathia striata, <strong>osteopoikilosis</strong>, and mixed sclerosing bone dysplasia; distinguishing features are the flowing candle-wax pattern, sclerotomal distribution, normal labs, and benign non-aggressive behavior (PMIDs 32994853, 41214899).</li>
+<li><strong>Screening:</strong> No population/newborn/carrier screening is applicable (somatic, non-heritable).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> <strong>Benign</strong> disease; <strong>normal life expectancy</strong>; not directly life-limiting. No disease-specific mortality data (deaths are not attributable to melorheostosis itself). Malignant transformation is a <em>theoretical</em> concern but has <strong>not been clinically reported</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41938408/" target="_blank" rel="noopener noreferrer">PMID 41938408</a>).</li>
+<li><strong>Morbidity/disability:</strong> Chief morbidity is <strong>chronic pain, deformity, contracture, and reduced mobility</strong>, producing disability and reduced participation in high-demand activities; fatigue is prominent (<a href="https://pubmed.ncbi.nlm.nih.gov/35403375/" target="_blank" rel="noopener noreferrer">PMID 35403375</a>). Rare severe morbidity: neurological deficit from nerve entrapment or spinal cord compression (PMIDs 41852826, 41717511).</li>
+<li><strong>Quality of life:</strong> Impaired via pain/fatigue/loss of leisure activities (natural-history cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/35403375/" target="_blank" rel="noopener noreferrer">PMID 35403375</a>). No disease-specific validated QoL instrument; generic tools used (Activity Card Sort, Multidimensional Fatigue Inventory, Lower/Upper Extremity Functional scales).</li>
+<li><strong>Complications:</strong> contractures, limb-length discrepancy, joint dysfunction, soft-tissue ossification, fibrolipomatous/vascular masses, nerve/cord compression; rare fragility fracture at unaffected sites (<a href="https://pubmed.ncbi.nlm.nih.gov/32057643/" target="_blank" rel="noopener noreferrer">PMID 32057643</a>).</li>
+<li><strong>Recovery potential:</strong> Bone lesions do not regress; symptoms are manageable. Function may improve with physiotherapy/analgesia and appropriately timed surgery.</li>
+<li><strong>Prognostic factors:</strong> Lesion extent, axial (spinal) involvement (worse — neurological risk), degree of contracture, and pain severity. <strong>Prognostic biomarkers:</strong> none validated; <em>MAP2K1</em> vs <em>SMAD3</em> genotype correlates with radiographic subtype and may predict therapy response (predictive, not prognostic).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No cure and no established guideline exist; management is multidisciplinary and symptom-directed</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42273437/" target="_blank" rel="noopener noreferrer">PMID 42273437</a>). <em>[review/case]</em> "There are no established guidelines for its management, as it is not a curable condition. Treatment primarily focuses on symptom relief."</p>
+<ul>
+<li><strong>Pharmacotherapy:</strong></li>
+<li><strong>NSAIDs</strong> (e.g., celecoxib) for pain — VAS pain reduced to 1/10 with celecoxib + physiotherapy (<a href="https://pubmed.ncbi.nlm.nih.gov/42559563/" target="_blank" rel="noopener noreferrer">PMID 42559563</a>). NCIT: Nonsteroidal Anti-inflammatory Agent.</li>
+<li><strong>Bisphosphonates</strong> — IV <strong>zoledronic acid</strong> and <strong>pamidronate</strong> reduce pain and disease severity (PMIDs 42273437, 34169026, 32057643). NCIT: Bisphosphonate; Zoledronic Acid (<a href="http://purl.obolibrary.org/obo/CHEBI_46557" target="_blank" rel="noopener noreferrer">CHEBI:46557</a>).</li>
+<li><strong>Pharmacogenomics:</strong> none specific.</li>
+<li><strong>Targeted / advanced therapeutics (experimental):</strong></li>
+<li><strong>MEK inhibitors</strong> (trametinib/selumetinib class) — mechanistically rational (block MEK1→ERK); proposed by discovery authors as a treatment avenue (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>). NCIT: MEK Inhibitor.</li>
+<li><strong>CDK4/6 inhibitor palbociclib</strong> — FDA-approved; reduced phospho-Rb, proliferation, and mineralization in <em>MAP2K1</em>-mutant patient iMSCs/osteoblasts, "opening a pathway to treatment" (<a href="https://pubmed.ncbi.nlm.nih.gov/41395834/" target="_blank" rel="noopener noreferrer">PMID 41395834</a>). <em>[in vitro]</em> NCIT: Cyclin-Dependent Kinase Inhibitor.</li>
+<li>Gene/cell/RNA therapy: none in use.</li>
+<li><strong>Surgical/interventional:</strong> osteotomy/contracture release, excision of exostoses/soft-tissue masses, limb-lengthening/deformity correction, and <strong>decompression/fusion</strong> for spinal cord compression; reserved for severe deformity, refractory pain, or neurological compromise (PMIDs 41852826, 41938408). Recurrence after excision is common. NCIT: Orthopedic Surgery; Osteotomy.</li>
+<li><strong>Supportive/rehabilitative:</strong> <strong>Physical/occupational therapy</strong> for range of motion, contracture prevention, and function; pain management; splinting (PMIDs 35403375, 41717511). NCIT: Physical Therapy; Rehabilitation Therapy.</li>
+<li><strong>Experimental / clinical trials:</strong> An NIH natural-history study (NCT02504879) has characterized the disease; no approved disease-modifying drug trial has reported results. MEK/CDK4 inhibition remains preclinical.</li>
+<li><strong>Treatment outcomes/adverse events:</strong> Bisphosphonate response is variable (only ~9 zoledronate reports to date; <a href="https://pubmed.ncbi.nlm.nih.gov/42273437/" target="_blank" rel="noopener noreferrer">PMID 42273437</a>); adverse events per drug class (bisphosphonate: acute-phase reaction, osteonecrosis of the jaw; MEK inhibitors: rash, ocular/cardiac toxicity; CDK4/6i: cytopenias).</li>
+<li><strong>Personalized medicine:</strong> Genotype-guided targeting (MEK inhibitor for <em>MAP2K1</em>; potential TGF-β–directed approaches for <em>SMAD3</em>) is the emerging paradigm.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> <strong>Not possible</strong> — the causal somatic mutation arises sporadically in utero; no modifiable risk factor exists.</li>
+<li><strong>Secondary prevention (early detection):</strong> Early radiographic recognition prevents misdiagnosis, unnecessary biopsy, and enables early physiotherapy to limit contractures (PMIDs 30647832, 34169026).</li>
+<li><strong>Tertiary prevention:</strong> Physiotherapy, analgesia, bisphosphonates, and timely surgery to prevent/limit contracture, deformity, and neurological complications.</li>
+<li><strong>Immunization / behavioral / public-health / environmental interventions:</strong> <strong>Not applicable.</strong></li>
+<li><strong>Genetic counseling:</strong> Reassurance that the disease is <strong>sporadic and non-heritable</strong>, with <strong>negligible recurrence risk</strong> to offspring or siblings (the mutation is somatic, not germline). Prenatal/carrier/PGD testing not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / natural disease:</strong> Melorheostosis is essentially a <strong>human-specific</strong> clinical entity; a well-defined naturally occurring homolog in companion animals or wildlife is <strong>not established</strong> (no OMIA entry for a melorheostosis phenotype). Human: <em>Homo sapiens</em> NCBI:txid9606.</li>
+<li><strong>Orthologous genes:</strong> <em>Map2k1</em> (mouse, NCBI Gene 26395; NCBI:txid10090), <em>smad3</em> (mouse 17127), <em>Kras</em> (mouse 16653) — highly conserved.</li>
+<li><strong>Comparative biology / evolutionary conservation:</strong> The RAS–MAPK and TGF-β/SMAD pathways are deeply conserved across vertebrates; the disease mechanism is modeled in mouse (see §15). <strong>Zoonotic potential:</strong> none (not transmissible).</li>
+</ul>
+<p><em>This section is largely not applicable as a naturally occurring cross-species disease; relevance is via engineered model organisms.</em></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mammalian (mouse):</strong> <strong>MEK1DD conditional transgenic mouse</strong> expressing constitutively active MEK1 in osteoprogenitors postnatally. <em>[model organism]</em> Recapitulates "extra-cortical bone formation, abundant osteoid formation, decreased mineral density, and increased porosity," with paradoxically stronger bone due to altered geometry/microstructure (<a href="https://pubmed.ncbi.nlm.nih.gov/31689526/" target="_blank" rel="noopener noreferrer">PMID 31689526</a>). Model type: conditional/transgenic gain-of-function (Cre-driven in osteoprogenitors). Resources: MGI (<em>Map2k1</em>, <a href="https://bioregistry.io/MGI:1346866" target="_blank" rel="noopener noreferrer">MGI:1346866</a>).</li>
+<li><strong>Limitations:</strong> does not reproduce the <strong>mosaic/segmental (sclerotomal)</strong> distribution, the overlying soft-tissue/skin involvement, or the natural somatic-mutation timing; expression is broader than the human clonal patch.</li>
+<li><strong>Human in vitro / iPSC models:</strong> Patient-derived iPSCs reprogrammed (Sendai) from <em>MAP2K1</em>-mutant <strong>skin fibroblasts</strong>, differentiated to <strong>induced MSCs → osteoblasts</strong>; retain the mutation, show elevated MEK1/ERK activity, increased <strong>VEGF</strong>, proliferation, collagen I/IV, and mineralization (PMIDs 37737377, 41395834). Isogenic unaffected fibroblasts serve as controls. Cellosaurus/ATCC: patient-specific lines (not standardized).</li>
+<li><strong>Applications:</strong> dissecting MAPK→proliferation/VEGF mechanisms, testing MEK and CDK4/6 inhibitors (palbociclib), and modeling the mineralization paradox.</li>
+<li><strong>Model databases:</strong> MGI (mouse), Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Supported vs Refuted Hypotheses</h2>
+<p><strong>Supported:</strong>
+- Somatic mosaic activating <em>MAP2K1</em> mutations cause classical melorheostosis via MEK1→ERK hyperactivation (<a href="https://pubmed.ncbi.nlm.nih.gov/29643386/" target="_blank" rel="noopener noreferrer">PMID 29643386</a>). ✔
+- Genetic heterogeneity: <em>SMAD3</em>/TGF-β drives the endosteal subtype; <em>KRAS</em> a rare subset (PMIDs 32232430, 30989250). ✔
+- VEGF is a sufficient downstream driver of increased bone mineralization in mutant cells (<a href="https://pubmed.ncbi.nlm.nih.gov/37737377/" target="_blank" rel="noopener noreferrer">PMID 37737377</a>). ✔
+- MEK1DD mouse recapitulates core skeletal features (<a href="https://pubmed.ncbi.nlm.nih.gov/31689526/" target="_blank" rel="noopener noreferrer">PMID 31689526</a>). ✔
+- CDK4 inhibition (palbociclib) reduces mutant-cell proliferation/mineralization (<a href="https://pubmed.ncbi.nlm.nih.gov/41395834/" target="_blank" rel="noopener noreferrer">PMID 41395834</a>). ✔</p>
+<p><strong>Refuted / not supported:</strong>
+- Germline <em>LEMD3</em> mutation causes isolated sporadic melorheostosis — <strong>refuted</strong>; <em>LEMD3</em> underlies OPK/BOS but not isolated MEL (PMIDs 17087626, 19438932, 31129707).
+- Environmental/infectious/inherited causation — <strong>not supported</strong>; disease is sporadic-somatic.</p>
+<h2>Limitations and Future Directions</h2>
+<ul>
+<li>Evidence rests on <strong>small cohorts and case reports</strong> (ultra-rare disease); a subset of classical cases has <strong>no identified mutation</strong>, implying additional drivers to discover.</li>
+<li><strong>No controlled therapeutic trials</strong>; bisphosphonate and targeted-therapy evidence is anecdotal/preclinical. MEK- and CDK4/6-inhibitor efficacy/safety in patients is unproven.</li>
+<li>Genotype–phenotype correlations (subtype-specific therapy) and single-cell/spatial characterization of the mosaic lesion are priority future work.</li>
+</ul>
+<hr />
+<h3>Key ontology annotations (summary)</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0007970" target="_blank" rel="noopener noreferrer">MONDO:0007970</a> · <strong>HPO:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" rel="noopener noreferrer">HP:0002653</a>, <a href="http://purl.obolibrary.org/obo/HP_0100774" target="_blank" rel="noopener noreferrer">HP:0100774</a>, <a href="http://purl.obolibrary.org/obo/HP_0005791" target="_blank" rel="noopener noreferrer">HP:0005791</a>, <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" rel="noopener noreferrer">HP:0034392</a>, <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" rel="noopener noreferrer">HP:0001376</a>, <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></li>
+<li><strong>Genes (HGNC):</strong> MAP2K1 (<a href="https://bioregistry.io/HGNC:6840" target="_blank" rel="noopener noreferrer">HGNC:6840</a>), SMAD3 (<a href="https://bioregistry.io/HGNC:6769" target="_blank" rel="noopener noreferrer">HGNC:6769</a>), KRAS (<a href="https://bioregistry.io/HGNC:6407" target="_blank" rel="noopener noreferrer">HGNC:6407</a>), LEMD3 (<a href="https://bioregistry.io/HGNC:28887" target="_blank" rel="noopener noreferrer">HGNC:28887</a>)</li>
+<li><strong>GO:</strong> <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" rel="noopener noreferrer">GO:0000165</a>, <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" rel="noopener noreferrer">GO:0070371</a>, <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a>, <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a>, <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" rel="noopener noreferrer">GO:0001649</a>, <a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" rel="noopener noreferrer">GO:0008284</a>, <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a></li>
+<li><strong>CL:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> (osteoblast), <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a> (MSC), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast)</li>
+<li><strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> (bone element), <a href="http://purl.obolibrary.org/obo/UBERON_0000981" target="_blank" rel="noopener noreferrer">UBERON:0000981</a> (femur), <a href="http://purl.obolibrary.org/obo/UBERON_0000979" target="_blank" rel="noopener noreferrer">UBERON:0000979</a> (tibia), <a href="http://purl.obolibrary.org/obo/UBERON_0001446" target="_blank" rel="noopener noreferrer">UBERON:0001446</a> (fibula)</li>
+<li><strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_46557" target="_blank" rel="noopener noreferrer">CHEBI:46557</a> (zoledronic acid), <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" rel="noopener noreferrer">CHEBI:85993</a> (palbociclib), <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" rel="noopener noreferrer">CHEBI:75998</a> (trametinib)</li>
+<li><strong>NCIT:</strong> Bisphosphonate Therapy, NSAID, MEK Inhibitor, CDK Inhibitor, Orthopedic Surgery, Physical Therapy</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Melorheostosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Melorheostosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Melkersson_Rosenthal_syndrome-falcon.html">← Melkersson-Rosenthal syndrome (Falcon)</a>
+                
+                
+                <a href="Membranous_Nephropathy-asta.html">Membranous nephropathy (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Melorheostosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Melorheostosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

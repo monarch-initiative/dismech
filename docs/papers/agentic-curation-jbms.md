@@ -403,7 +403,7 @@ the architectural mechanism that catches each.
 | Frequency claim backed by association evidence | Editorial rule in schema and contributor guide; AI review flag; human verification. |
 | Veterinary or model-organism evidence classified as human-clinical | `evidence_source` enum with editorial rule; AI review flag; schema documentation. |
 | Silent removal of inconvenient REFUTE evidence | Git diff at PR review; AI review flags significant deletions. |
-| Subtype foreign-key inconsistency | Dedicated test (`test_subtype_foreign_keys`) verifies subtype references resolve. |
+| Subtype foreign-key inconsistency | Dedicated test (`check_subtype_foreign_keys`) verifies subtype references resolve. |
 
 ## Comparison with alternative safety architectures
 
