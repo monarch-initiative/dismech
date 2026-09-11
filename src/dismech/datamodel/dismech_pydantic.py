@@ -4455,6 +4455,10 @@ class DatasetTypeEnum(str, Enum):
     """
     Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
     """
+    IMAGING = "IMAGING"
+    """
+    Image collection or image-derived morphometric dataset (e.g., micro-CT embryo phenotyping series, MRI cohorts, histology image repositories such as IMPC embryo imaging, IDR, or TCIA)
+    """
 
 
 class ExperimentalModelTypeEnum(str, Enum):
@@ -4911,6 +4915,10 @@ class ImagingModalityEnum(str, Enum):
     """
     X-ray computed tomography
     """
+    Micro_Computed_Tomography = "MICRO_CT"
+    """
+    High-resolution X-ray computed tomography with micrometer-scale voxels, including contrast-enhanced (diceCT) micro-CT of embryos and ex vivo specimens; the modality behind registration-based whole-embryo morphometry
+    """
     Positron_Emission_Tomography = "PET"
     """
     Positron emission tomography (e.g., FDG-PET, amyloid-PET)
@@ -5135,13 +5143,17 @@ class TherapeuticModalityEnum(str, Enum):
     """
 
 
-class AsoMechanismEnum(str, Enum):
+class OligonucleotideMechanismEnum(str, Enum):
     """
-    Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+    Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation, and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched transcript.
     """
     RNase_H_knockdown = "RNASE_H_KNOCKDOWN"
     """
     ASO:RNA heteroduplex recruits RNase H1 to cleave the target mRNA, reducing a toxic or gain-of-function protein
+    """
+    RNAi_knockdown = "RNAI_KNOCKDOWN"
+    """
+    Double-stranded siRNA guide strand is loaded into RISC and Argonaute-2 catalytically cleaves the sequence-matched mRNA, reducing a toxic or gain-of-function protein (e.g., patisiran, vutrisiran, inclisiran)
     """
     Splice_modulation_LEFT_PARENTHESISexon_skippingRIGHT_PARENTHESIS = "SPLICE_MODULATION_EXON_SKIPPING"
     """
@@ -5161,9 +5173,9 @@ class AsoMechanismEnum(str, Enum):
     """
 
 
-class AsoChemistryEnum(str, Enum):
+class OligonucleotideChemistryEnum(str, Enum):
     """
-    Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.
+    Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity, and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should record the modification most characteristic of its design and describe the rest in the treatment description.
     """
     Phosphorothioate_backbone = "PHOSPHOROTHIOATE"
     """
@@ -5175,7 +5187,11 @@ class AsoChemistryEnum(str, Enum):
     """
     number_2APOSTROPHE_O_methyl = "TWO_PRIME_O_METHYL"
     """
-    2'-O-methyl (2'-OMe) ribose modification
+    2'-O-methyl (2'-OMe) ribose modification; the dominant sugar chemistry of stabilized siRNA duplexes
+    """
+    number_2APOSTROPHE_fluoro = "TWO_PRIME_FLUORO"
+    """
+    2'-fluoro (2'-F) ribose modification, alternated with 2'-O-methyl in enhanced-stabilization siRNA duplexes
     """
     number_2APOSTROPHE_O_methoxyethyl_LEFT_PARENTHESIS2APOSTROPHE_MOERIGHT_PARENTHESIS = "TWO_PRIME_O_METHOXYETHYL"
     """
@@ -5195,9 +5211,9 @@ class AsoChemistryEnum(str, Enum):
     """
 
 
-class AsoConjugationEnum(str, Enum):
+class OligonucleotideConjugationEnum(str, Enum):
     """
-    Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve pharmacokinetics.
+    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).
     """
     UNCONJUGATED = "UNCONJUGATED"
     """
@@ -5222,6 +5238,40 @@ class AsoConjugationEnum(str, Enum):
     OTHER = "OTHER"
     """
     Conjugate not covered by the above categories
+    """
+
+
+class OligonucleotideDeliveryPlatformEnum(str, Enum):
+    """
+    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.
+    """
+    Unformulated_SOLIDUS_free_uptake = "UNFORMULATED"
+    """
+    Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)
+    """
+    Ligand_conjugate = "CONJUGATE"
+    """
+    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)
+    """
+    Lipid_nanoparticle_LEFT_PARENTHESISLNPRIGHT_PARENTHESIS = "LIPID_NANOPARTICLE"
+    """
+    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)
+    """
+    POLYMER_NANOPARTICLE = "POLYMER_NANOPARTICLE"
+    """
+    Encapsulated in a polymeric or dendrimer nanoparticle
+    """
+    VIRAL_VECTOR = "VIRAL_VECTOR"
+    """
+    Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)
+    """
+    Exosome_SOLIDUS_extracellular_vesicle = "EXOSOME"
+    """
+    Delivered in an exosome or other extracellular vesicle
+    """
+    OTHER = "OTHER"
+    """
+    Delivery platform not covered by the above categories
     """
 
 
@@ -8563,7 +8613,14 @@ class HostDescriptor(OrganismDescriptor):
                       'or paratenic host'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -9104,7 +9161,14 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ModuleCollection',
                        'ModuleCollectionMember'],
          'recommended': True} })
-    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
+    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'comments': ['On a Pathophysiology node, `variant_origin: SOMATIC` (or '
+                      'GERMLINE_AND_SOMATIC) additionally marks that node as where the '
+                      'transforming lesion occurred. For a neoplasm entry that makes '
+                      "it the origin node, and the disease's cell of origin is read "
+                      "from the same node's `cell_types` -- which is why there is no "
+                      '`cell_of_origin:` slot (design decisions 3d, '
+                      'docs/cancer-cell-of-origin.md).'],
+         'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
     sex: Optional[SexEnum] = Field(default=None, description="""Sex-specific stratum, if applicable""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Demographics']} })
     population: Optional[str] = Field(default=None, description="""Population or cohort description (e.g., for prevalence or association signals)""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'ReferenceRange',
@@ -15629,7 +15693,14 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Stage',
                        'Treatment'],
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     conforms_to: Optional[str] = Field(default=None, description="""Reference to a mechanism module that this pathophysiology node is an organ-specific instance of. Value is a path relative to kb/modules/ (e.g., \"fibrotic_response\") plus an optional node name after a hash (e.g., \"fibrotic_response#Mesenchymal Cell Activation\"). Used for cross-disorder consistency checking: if a node declares conformance, it should include the expected cell types, biological processes, and causal edges defined in the referenced module node.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -15753,7 +15824,14 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ImagingFinding',
                        'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
-    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
+    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'comments': ['On a Pathophysiology node, `variant_origin: SOMATIC` (or '
+                      'GERMLINE_AND_SOMATIC) additionally marks that node as where the '
+                      'transforming lesion occurred. For a neoplasm entry that makes '
+                      "it the origin node, and the disease's cell of origin is read "
+                      "from the same node's `cell_types` -- which is why there is no "
+                      '`cell_of_origin:` slot (design decisions 3d, '
+                      'docs/cancer-cell-of-origin.md).'],
+         'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
     pdb_structures: Optional[list[ProteinStructure]] = Field(default=None, description="""Experimental or predicted 3D protein structures relevant to this treatment's mechanism of action. Typically co-crystal structures of the drug bound to its target protein, or AlphaFold predictions of the drug target.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Treatment']} })
     mechanism_confidence: Optional[MechanismConfidenceEnum] = Field(default=None, description="""Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     biological_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale of the substrate this pathophysiology node primarily describes — molecular, cellular, tissue/organ, or organism. Optional tag; each value covers both ongoing processes and persistent states at that scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
@@ -17888,7 +17966,14 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Genetic',
@@ -18740,7 +18825,14 @@ class Treatment(ConfiguredBaseModel):
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     therapeutic_modality: Optional[TherapeuticModalityEnum] = Field(default=None, description="""Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
-    aso_details: Optional[AntisenseOligonucleotideDetail] = Field(default=None, description="""Structured detail specific to antisense oligonucleotide treatments. Populate only when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    oligonucleotide_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Structured detail specific to nucleic-acid treatments that act by base-pairing with a target RNA. Populate when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    aso_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Deprecated alias of oligonucleotide_details, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_details, which covers siRNA as well '
+                       'as antisense oligonucleotides. Existing entries carrying '
+                       'aso_details remain valid; do not populate it on new '
+                       'treatments.',
+         'domain_of': ['Treatment']} })
+    dosing_interval: Optional[str] = Field(default=None, description="""Human-readable maintenance dosing interval as stated by the label or trial (e.g., \"once every 3 weeks\", \"twice yearly\"). Record loading or induction doses in the treatment description rather than here.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    dosing_interval_days: Optional[float] = Field(default=None, description="""The maintenance dosing interval normalized to days, so treatments are comparable across entries (3 weeks = 21; monthly = 30; quarterly = 90; twice yearly = 182.5). Populate alongside dosing_interval, which keeps the source phrasing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
                       'phenotypes list',
                       'Enables linking treatments/trials to the '
@@ -18901,7 +18993,14 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     mechanism: Optional[list[Mechanism]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -18912,18 +19011,24 @@ class Treatment(ConfiguredBaseModel):
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
 
 
-class AntisenseOligonucleotideDetail(ConfiguredBaseModel):
+class OligonucleotideDetail(ConfiguredBaseModel):
     """
-    Structured attributes specific to an antisense oligonucleotide (ASO) treatment: its molecular mechanism, RNA target, splice exon (for splice-switching ASOs), backbone chemistry, and targeting conjugate. Attach via the aso_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate, and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the same target, chemistry, and delivery attributes.
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'aliases': ['AntisenseOligonucleotideDetail'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    aso_mechanism: Optional[AsoMechanismEnum] = Field(default=None, description="""Molecular mechanism of action of an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_gene: Optional[GeneDescriptor] = Field(default=None, description="""The gene whose transcript an antisense oligonucleotide targets (bindable to HGNC).""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by an antisense oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    aso_chemistry: Optional[AsoChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    conjugation: Optional[AsoConjugationEnum] = Field(default=None, description="""Targeting ligand or conjugate attached to an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
+    oligonucleotide_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Molecular mechanism of action of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_gene: Optional[GeneDescriptor] = Field(default=None, description="""The gene whose transcript a therapeutic oligonucleotide targets (bindable to HGNC).""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by a therapeutic oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\"). Not applicable to siRNA, which acts on mature mRNA rather than on splicing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    oligonucleotide_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    conjugation: Optional[OligonucleotideConjugationEnum] = Field(default=None, description="""Targeting ligand covalently attached to a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    delivery_platform: Optional[OligonucleotideDeliveryPlatformEnum] = Field(default=None, description="""How the oligonucleotide is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation: an unconjugated oligonucleotide may still be delivered in a nanoparticle.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    aso_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_mechanism.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_mechanism.',
+         'domain_of': ['OligonucleotideDetail']} })
+    aso_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_chemistry.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_chemistry.',
+         'domain_of': ['OligonucleotideDetail']} })
 
 
 class InfectiousAgent(ConfiguredBaseModel):
@@ -27190,7 +27295,7 @@ AgentLifeCycle.model_rebuild()
 AgentLifeCycleStage.model_rebuild()
 AnimalModel.model_rebuild()
 Treatment.model_rebuild()
-AntisenseOligonucleotideDetail.model_rebuild()
+OligonucleotideDetail.model_rebuild()
 InfectiousAgent.model_rebuild()
 Transmission.model_rebuild()
 Assay.model_rebuild()

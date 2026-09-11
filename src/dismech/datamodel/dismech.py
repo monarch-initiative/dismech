@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-09-04T15:48:50
+# Generation date: 2026-09-11T00:21:20
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -4292,7 +4292,10 @@ class Treatment(YAMLRoot):
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     therapeutic_modality: Optional[Union[str, "TherapeuticModalityEnum"]] = None
-    aso_details: Optional[Union[dict, "AntisenseOligonucleotideDetail"]] = None
+    oligonucleotide_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
+    aso_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
+    dosing_interval: Optional[str] = None
+    dosing_interval_days: Optional[float] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
     target_mechanisms: Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]] = empty_list()
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
@@ -4325,8 +4328,17 @@ class Treatment(YAMLRoot):
         if self.therapeutic_modality is not None and not isinstance(self.therapeutic_modality, TherapeuticModalityEnum):
             self.therapeutic_modality = TherapeuticModalityEnum(self.therapeutic_modality)
 
-        if self.aso_details is not None and not isinstance(self.aso_details, AntisenseOligonucleotideDetail):
-            self.aso_details = AntisenseOligonucleotideDetail(**as_dict(self.aso_details))
+        if self.oligonucleotide_details is not None and not isinstance(self.oligonucleotide_details, OligonucleotideDetail):
+            self.oligonucleotide_details = OligonucleotideDetail(**as_dict(self.oligonucleotide_details))
+
+        if self.aso_details is not None and not isinstance(self.aso_details, OligonucleotideDetail):
+            self.aso_details = OligonucleotideDetail(**as_dict(self.aso_details))
+
+        if self.dosing_interval is not None and not isinstance(self.dosing_interval, str):
+            self.dosing_interval = str(self.dosing_interval)
+
+        if self.dosing_interval_days is not None and not isinstance(self.dosing_interval_days, float):
+            self.dosing_interval_days = float(self.dosing_interval_days)
 
         self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
@@ -4360,29 +4372,35 @@ class Treatment(YAMLRoot):
 
 
 @dataclass(repr=False)
-class AntisenseOligonucleotideDetail(YAMLRoot):
+class OligonucleotideDetail(YAMLRoot):
     """
-    Structured attributes specific to an antisense oligonucleotide (ASO) treatment: its molecular mechanism, RNA
-    target, splice exon (for splice-switching ASOs), backbone chemistry, and targeting conjugate. Attach via the
-    aso_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA
+    target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate,
+    and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is
+    ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately
+    - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the
+    same target, chemistry, and delivery attributes.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
-    class_class_uri: ClassVar[URIRef] = DISMECH["AntisenseOligonucleotideDetail"]
-    class_class_curie: ClassVar[str] = "dismech:AntisenseOligonucleotideDetail"
-    class_name: ClassVar[str] = "AntisenseOligonucleotideDetail"
-    class_model_uri: ClassVar[URIRef] = DISMECH.AntisenseOligonucleotideDetail
+    class_class_uri: ClassVar[URIRef] = DISMECH["OligonucleotideDetail"]
+    class_class_curie: ClassVar[str] = "dismech:OligonucleotideDetail"
+    class_name: ClassVar[str] = "OligonucleotideDetail"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OligonucleotideDetail
 
-    aso_mechanism: Optional[Union[str, "AsoMechanismEnum"]] = None
+    oligonucleotide_mechanism: Optional[Union[str, "OligonucleotideMechanismEnum"]] = None
     target_gene: Optional[Union[dict, GeneDescriptor]] = None
     target_transcript: Optional[str] = None
     target_exon: Optional[str] = None
-    aso_chemistry: Optional[Union[str, "AsoChemistryEnum"]] = None
-    conjugation: Optional[Union[str, "AsoConjugationEnum"]] = None
+    oligonucleotide_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
+    conjugation: Optional[Union[str, "OligonucleotideConjugationEnum"]] = None
+    delivery_platform: Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]] = None
+    aso_mechanism: Optional[Union[str, "OligonucleotideMechanismEnum"]] = None
+    aso_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, AsoMechanismEnum):
-            self.aso_mechanism = AsoMechanismEnum(self.aso_mechanism)
+        if self.oligonucleotide_mechanism is not None and not isinstance(self.oligonucleotide_mechanism, OligonucleotideMechanismEnum):
+            self.oligonucleotide_mechanism = OligonucleotideMechanismEnum(self.oligonucleotide_mechanism)
 
         if self.target_gene is not None and not isinstance(self.target_gene, GeneDescriptor):
             self.target_gene = GeneDescriptor(**as_dict(self.target_gene))
@@ -4393,11 +4411,20 @@ class AntisenseOligonucleotideDetail(YAMLRoot):
         if self.target_exon is not None and not isinstance(self.target_exon, str):
             self.target_exon = str(self.target_exon)
 
-        if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, AsoChemistryEnum):
-            self.aso_chemistry = AsoChemistryEnum(self.aso_chemistry)
+        if self.oligonucleotide_chemistry is not None and not isinstance(self.oligonucleotide_chemistry, OligonucleotideChemistryEnum):
+            self.oligonucleotide_chemistry = OligonucleotideChemistryEnum(self.oligonucleotide_chemistry)
 
-        if self.conjugation is not None and not isinstance(self.conjugation, AsoConjugationEnum):
-            self.conjugation = AsoConjugationEnum(self.conjugation)
+        if self.conjugation is not None and not isinstance(self.conjugation, OligonucleotideConjugationEnum):
+            self.conjugation = OligonucleotideConjugationEnum(self.conjugation)
+
+        if self.delivery_platform is not None and not isinstance(self.delivery_platform, OligonucleotideDeliveryPlatformEnum):
+            self.delivery_platform = OligonucleotideDeliveryPlatformEnum(self.delivery_platform)
+
+        if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, OligonucleotideMechanismEnum):
+            self.aso_mechanism = OligonucleotideMechanismEnum(self.aso_mechanism)
+
+        if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, OligonucleotideChemistryEnum):
+            self.aso_chemistry = OligonucleotideChemistryEnum(self.aso_chemistry)
 
         super().__post_init__(**kwargs)
 
@@ -8375,6 +8402,9 @@ class DatasetTypeEnum(EnumDefinitionImpl):
     MULTI_OMICS_PERTURBATION = PermissibleValue(
         text="MULTI_OMICS_PERTURBATION",
         description="""Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)""")
+    IMAGING = PermissibleValue(
+        text="IMAGING",
+        description="""Image collection or image-derived morphometric dataset (e.g., micro-CT embryo phenotyping series, MRI cohorts, histology image repositories such as IMPC embryo imaging, IDR, or TCIA)""")
 
     _defn = EnumDefinition(
         name="DatasetTypeEnum",
@@ -8868,6 +8898,10 @@ class ImagingModalityEnum(EnumDefinitionImpl):
         title="Computed Tomography",
         description="X-ray computed tomography",
         meaning=NCIT["C17204"])
+    MICRO_CT = PermissibleValue(
+        text="MICRO_CT",
+        title="Micro-Computed Tomography",
+        description="""High-resolution X-ray computed tomography with micrometer-scale voxels, including contrast-enhanced (diceCT) micro-CT of embryos and ex vivo specimens; the modality behind registration-based whole-embryo morphometry""")
     PET = PermissibleValue(
         text="PET",
         title="Positron Emission Tomography",
@@ -9132,16 +9166,24 @@ class TherapeuticModalityEnum(EnumDefinitionImpl):
         description="""Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term. Captures the \"kind of thing\" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases.""",
     )
 
-class AsoMechanismEnum(EnumDefinitionImpl):
+class OligonucleotideMechanismEnum(EnumDefinitionImpl):
     """
-    Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase
-    H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+    Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense
+    (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation,
+    and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA
+    therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched
+    transcript.
     """
     RNASE_H_KNOCKDOWN = PermissibleValue(
         text="RNASE_H_KNOCKDOWN",
         title="RNase H knockdown",
         description="""ASO:RNA heteroduplex recruits RNase H1 to cleave the target mRNA, reducing a toxic or gain-of-function protein""",
         meaning=GO["0004523"])
+    RNAI_KNOCKDOWN = PermissibleValue(
+        text="RNAI_KNOCKDOWN",
+        title="RNAi knockdown",
+        description="""Double-stranded siRNA guide strand is loaded into RISC and Argonaute-2 catalytically cleaves the sequence-matched mRNA, reducing a toxic or gain-of-function protein (e.g., patisiran, vutrisiran, inclisiran)""",
+        meaning=GO["0070551"])
     SPLICE_MODULATION_EXON_SKIPPING = PermissibleValue(
         text="SPLICE_MODULATION_EXON_SKIPPING",
         title="Splice modulation (exon skipping)",
@@ -9160,14 +9202,17 @@ class AsoMechanismEnum(EnumDefinitionImpl):
         description="ASO sequesters or inhibits a microRNA (antimiR) or blocks a miRNA binding site")
 
     _defn = EnumDefinition(
-        name="AsoMechanismEnum",
-        description="""Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).""",
+        name="OligonucleotideMechanismEnum",
+        description="""Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation, and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched transcript.""",
     )
 
-class AsoChemistryEnum(EnumDefinitionImpl):
+class OligonucleotideChemistryEnum(EnumDefinitionImpl):
     """
-    Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and
-    whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.
+    Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity,
+    and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts
+    purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose
+    modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should
+    record the modification most characteristic of its design and describe the rest in the treatment description.
     """
     PHOSPHOROTHIOATE = PermissibleValue(
         text="PHOSPHOROTHIOATE",
@@ -9181,7 +9226,11 @@ class AsoChemistryEnum(EnumDefinitionImpl):
     TWO_PRIME_O_METHYL = PermissibleValue(
         text="TWO_PRIME_O_METHYL",
         title="2'-O-methyl",
-        description="2'-O-methyl (2'-OMe) ribose modification")
+        description="""2'-O-methyl (2'-OMe) ribose modification; the dominant sugar chemistry of stabilized siRNA duplexes""")
+    TWO_PRIME_FLUORO = PermissibleValue(
+        text="TWO_PRIME_FLUORO",
+        title="2'-fluoro",
+        description="""2'-fluoro (2'-F) ribose modification, alternated with 2'-O-methyl in enhanced-stabilization siRNA duplexes""")
     TWO_PRIME_O_METHOXYETHYL = PermissibleValue(
         text="TWO_PRIME_O_METHOXYETHYL",
         title="2'-O-methoxyethyl (2'-MOE)",
@@ -9199,14 +9248,16 @@ class AsoChemistryEnum(EnumDefinitionImpl):
         description="Chemistry not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="AsoChemistryEnum",
-        description="""Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.""",
+        name="OligonucleotideChemistryEnum",
+        description="""Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity, and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should record the modification most characteristic of its design and describe the rest in the treatment description.""",
     )
 
-class AsoConjugationEnum(EnumDefinitionImpl):
+class OligonucleotideConjugationEnum(EnumDefinitionImpl):
     """
-    Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve
-    pharmacokinetics.
+    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve
+    pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a
+    conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may
+    still be formulated in a lipid nanoparticle (e.g., patisiran).
     """
     UNCONJUGATED = PermissibleValue(
         text="UNCONJUGATED",
@@ -9230,8 +9281,48 @@ class AsoConjugationEnum(EnumDefinitionImpl):
         description="Conjugate not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="AsoConjugationEnum",
-        description="""Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve pharmacokinetics.""",
+        name="OligonucleotideConjugationEnum",
+        description="""Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).""",
+    )
+
+class OligonucleotideDeliveryPlatformEnum(EnumDefinitionImpl):
+    """
+    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the
+    targeting ligand (see conjugation) and not the route of administration: it is what solves the stability,
+    cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing -
+    patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed
+    intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three
+    months without it.
+    """
+    UNFORMULATED = PermissibleValue(
+        text="UNFORMULATED",
+        title="Unformulated / free uptake",
+        description="""Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)""")
+    CONJUGATE = PermissibleValue(
+        text="CONJUGATE",
+        title="Ligand conjugate",
+        description="""Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)""")
+    LIPID_NANOPARTICLE = PermissibleValue(
+        text="LIPID_NANOPARTICLE",
+        title="Lipid nanoparticle (LNP)",
+        description="""Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)""")
+    POLYMER_NANOPARTICLE = PermissibleValue(
+        text="POLYMER_NANOPARTICLE",
+        description="Encapsulated in a polymeric or dendrimer nanoparticle")
+    VIRAL_VECTOR = PermissibleValue(
+        text="VIRAL_VECTOR",
+        description="Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)")
+    EXOSOME = PermissibleValue(
+        text="EXOSOME",
+        title="Exosome / extracellular vesicle",
+        description="Delivered in an exosome or other extracellular vesicle")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Delivery platform not covered by the above categories")
+
+    _defn = EnumDefinition(
+        name="OligonucleotideDeliveryPlatformEnum",
+        description="""How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.""",
     )
 
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
@@ -13191,11 +13282,17 @@ slots.pdb_structures = Slot(uri=DISMECH.pdb_structures, name="pdb_structures", c
 slots.therapeutic_modality = Slot(uri=DISMECH.therapeutic_modality, name="therapeutic_modality", curie=DISMECH.curie('therapeutic_modality'),
                    model_uri=DISMECH.therapeutic_modality, domain=None, range=Optional[Union[str, "TherapeuticModalityEnum"]])
 
+slots.oligonucleotide_details = Slot(uri=DISMECH.oligonucleotide_details, name="oligonucleotide_details", curie=DISMECH.curie('oligonucleotide_details'),
+                   model_uri=DISMECH.oligonucleotide_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
+
 slots.aso_details = Slot(uri=DISMECH.aso_details, name="aso_details", curie=DISMECH.curie('aso_details'),
-                   model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, AntisenseOligonucleotideDetail]])
+                   model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
+
+slots.oligonucleotide_mechanism = Slot(uri=DISMECH.oligonucleotide_mechanism, name="oligonucleotide_mechanism", curie=DISMECH.curie('oligonucleotide_mechanism'),
+                   model_uri=DISMECH.oligonucleotide_mechanism, domain=None, range=Optional[Union[str, "OligonucleotideMechanismEnum"]])
 
 slots.aso_mechanism = Slot(uri=DISMECH.aso_mechanism, name="aso_mechanism", curie=DISMECH.curie('aso_mechanism'),
-                   model_uri=DISMECH.aso_mechanism, domain=None, range=Optional[Union[str, "AsoMechanismEnum"]])
+                   model_uri=DISMECH.aso_mechanism, domain=None, range=Optional[Union[str, "OligonucleotideMechanismEnum"]])
 
 slots.target_gene = Slot(uri=DISMECH.target_gene, name="target_gene", curie=DISMECH.curie('target_gene'),
                    model_uri=DISMECH.target_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
@@ -13206,11 +13303,23 @@ slots.target_transcript = Slot(uri=DISMECH.target_transcript, name="target_trans
 slots.target_exon = Slot(uri=DISMECH.target_exon, name="target_exon", curie=DISMECH.curie('target_exon'),
                    model_uri=DISMECH.target_exon, domain=None, range=Optional[str])
 
+slots.oligonucleotide_chemistry = Slot(uri=DISMECH.oligonucleotide_chemistry, name="oligonucleotide_chemistry", curie=DISMECH.curie('oligonucleotide_chemistry'),
+                   model_uri=DISMECH.oligonucleotide_chemistry, domain=None, range=Optional[Union[str, "OligonucleotideChemistryEnum"]])
+
 slots.aso_chemistry = Slot(uri=DISMECH.aso_chemistry, name="aso_chemistry", curie=DISMECH.curie('aso_chemistry'),
-                   model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "AsoChemistryEnum"]])
+                   model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "OligonucleotideChemistryEnum"]])
 
 slots.conjugation = Slot(uri=DISMECH.conjugation, name="conjugation", curie=DISMECH.curie('conjugation'),
-                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "AsoConjugationEnum"]])
+                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "OligonucleotideConjugationEnum"]])
+
+slots.delivery_platform = Slot(uri=DISMECH.delivery_platform, name="delivery_platform", curie=DISMECH.curie('delivery_platform'),
+                   model_uri=DISMECH.delivery_platform, domain=None, range=Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]])
+
+slots.dosing_interval = Slot(uri=DISMECH.dosing_interval, name="dosing_interval", curie=DISMECH.curie('dosing_interval'),
+                   model_uri=DISMECH.dosing_interval, domain=None, range=Optional[str])
+
+slots.dosing_interval_days = Slot(uri=DISMECH.dosing_interval_days, name="dosing_interval_days", curie=DISMECH.curie('dosing_interval_days'),
+                   model_uri=DISMECH.dosing_interval_days, domain=None, range=Optional[float])
 
 slots.mechanism_confidence = Slot(uri=DISMECH.mechanism_confidence, name="mechanism_confidence", curie=DISMECH.curie('mechanism_confidence'),
                    model_uri=DISMECH.mechanism_confidence, domain=None, range=Optional[Union[str, "MechanismConfidenceEnum"]])
