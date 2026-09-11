@@ -96,12 +96,68 @@ work is absent from phase 1 — and absent from phase 2 too, since the stub
 survives until that PR merges. That is why step 5 searches open PRs as a third
 surface. Assume neither phase knows about a PR.
 
+## The stub already holds the lump/split evidence
+
+`just enrich-stubs` has **already** written `mondo_parents`, `mondo_descendants`,
+`mondo_descendant_count` and `genes` into the stubs. That is the evidence the
+`entry_type` decision turns on. Read the stub file. Do **not** re-derive it with
+per-candidate ontology lookups.
+
+**An empty block is omitted, not written as zero** (`render()` in
+`scripts/enrich_curation_stubs.py` only emits a block when it has content), so
+most stubs carry only some of these fields:
+
+| field | stubs carrying it (of 1,842) |
+|---|---|
+| `mondo_parents` | 1,841 — 99.9% |
+| `genes` | 1,317 — 71.5% |
+| `mondo_descendants` / `mondo_descendant_count` | 178 — **9.7%** |
+
+**Absence is the answer, not a missing answer.** No `mondo_descendant_count:`
+line means MONDO records no descendants — the overwhelmingly common case, and a
+*positive* signal that the term is a leaf rather than a grouping. No `genes:`
+means no causal gene. Neither is a sign that enrichment was skipped, and neither
+is a reason to reach for `runoak`.
+
+This is the single largest avoidable cost in a claim run, and it is worse than
+it looks:
+
+- **It is slow.** A *warm* `runoak -i sqlite:obo:mondo info` call is ~28s, and
+  the first one builds a 1.2 GB local MONDO database. Reading the stub is free.
+  A run that looked up eight candidates spent minutes re-reading fields it had
+  already printed.
+- **It cannot help.** `enrich-stubs` reads the *same* MONDO release `runoak`
+  does. Where a stub's `genes:` is empty, MONDO records no causal gene either —
+  a blank stub means a blank ontology, not an unasked question. Re-querying
+  returns the same blank, slowly.
+
+So:
+
+- **`mondo_descendant_count` is the grouping test, and so is its absence.**
+  20 descendants, several already in `kb/disorders/`, is a GROUPING — decided,
+  without a single query. No descendant block at all is the leaf case, and is
+  equally decisive; it is what ~90% of the queue looks like.
+- **`genes:` is the entity-identity anchor.** If it names one gene, that is the
+  gene; do not "verify" it from memory-driven doubt. (One run guessed *SCN10A*,
+  then spent a 28s lookup correcting itself, when the stub said `hgnc:10583
+  SCN11A` on the line above.)
+- **When the stub is blank and the decision hinges on identity**, go to the
+  source MONDO *doesn't* have — Orphanet or OMIM via the stub's xrefs — not back
+  to MONDO.
+- **`just check-stubs` and `just tidy-stubs` already report duplicates** against
+  `kb/`, for free, in one pass over the whole queue. Run them once, up front,
+  instead of rediscovering the same overlap per candidate.
+
+Reach for `runoak` only for a fact the stub genuinely lacks *and* the decision
+turns on. Enriching an issue body with a definition or an OMIM ID is not that.
+
 ## Workflow
 
 1. **Read N** from the user's argument (default 1).
 
-2. **Resolve the current GitHub user**: `gh api user -q .login`. This is the
-   assignee — the person driving the agent, never a hardcoded name.
+2. **Resolve the current GitHub user**: `gh api user -q .login`, or
+   `mcp__github__get_me` where there is no `gh`. This is the assignee — the
+   person driving the agent, never a hardcoded name.
 
 3. **Fetch the claims and pick, in one pass:**
 
@@ -114,20 +170,58 @@ surface. Assume neither phase knows about a PR.
    `next-unclaimed` takes `--json` if you want it machine-readable. Ask for
    headroom (`N + 20`), because you will skip candidates.
 
+   **No `gh` CLI (web and remote sessions).** `just fetch-claims` shells out to
+   `gh`, which is absent there — and `curl https://api.github.com` fails too:
+   the agent proxy denies it even though `GH_TOKEN` is set. GitHub is reachable
+   only through the GitHub MCP server. Build the claims file from
+   `mcp__github__list_issues` with `labels: ["claim"]`, `state: "OPEN"`,
+   `perPage: 100`.
+
+   Keep it minimal. `next-unclaimed` matches the MONDO ID out of the **title**
+   and reads nothing else, so this is enough, and gives a byte-identical pool:
+
+   ```json
+   [{"title": "Curate scrub typhus (MONDO:0019365)"}, {"title": "..."}]
+   ```
+
+   Do not hand-transcribe full issue records — that is minutes of typing for
+   fields nothing reads. `list_issues` takes a `fields` projection, so ask for
+   `fields: ["number","title","created_at"]` — and keep only those — if you also
+   want `check-claims`' hygiene report
+   (double-claims, unkeyed titles); the parser already accepts REST-shaped
+   `created_at`/`html_url`. Note `check-claims` cannot see linked PRs over this
+   path, so its **stale** list over-reports — it errs toward flagging, and a
+   stale claim is only ever reported for a human, never auto-taken.
+
 4. **Read the pool and choose deliberately.** Do not take rows in order — within
    a priority band the order is an arbitrary hash spread. Prefer candidates you
    can curate well; apply the suspicion list above. Note what you skipped and
    why; you will report it.
 
-5. **Duplicate preflight, for each candidate you intend to claim.** The claim
+5. **Duplicate preflight, for every candidate you intend to claim.** The claim
    check is by MONDO ID, so it cannot see a disease curated or claimed under a
-   different term:
+   different term. Do this for **all** your candidates in one pass, not one
+   candidate at a time:
+
+   Search the **label as well as the MONDO ID**, and search both against
+   `origin/main` — that is what the `git fetch` is for, and a disease curated
+   under a different term is the whole case this step exists to catch. `git
+   grep` takes many `-e` patterns at once, so the batched form is one process,
+   not N:
 
    ```bash
    git fetch origin main
-   git grep -n -i -e "<MONDO_ID>" -e "<label>" origin/main -- kb/disorders kb/groupings || true
-   grep -rli "<distinctive word from the label>" kb/disorders/ kb/groupings/
+   git grep -l -i \
+     -e "<MONDO_ID_1>" -e "<label_1>" \
+     -e "<MONDO_ID_2>" -e "<label_2>" \
+     -e "<MONDO_ID_3>" -e "<label_3>" \
+     origin/main -- kb/disorders kb/groupings || true
    ```
+
+   The `|| true` is load-bearing: `git grep` exits 1 on no match, which is the
+   common (good) case, and without it the block aborts under `set -o pipefail`.
+   If you want per-candidate attribution rather than one file list, loop — but
+   keep both patterns per candidate: `git grep -l -i -e "$m" -e "$label" origin/main ...`.
 
    Also scan `tmp/claims.json` titles for the label and its synonyms — an
    agent may have claimed the same disease under a different MONDO ID. If a
@@ -146,6 +240,9 @@ surface. Assume neither phase knows about a PR.
 
    Search the **label as well as the MONDO ID** — a curation PR title often
    names the disease and no term at all, so an ID-only search misses it.
+
+   Without `gh`, use `mcp__github__search_pull_requests` with the same query
+   (`repo:monarch-initiative/dismech is:pr is:open "<MONDO_ID>" OR "<label>"`).
 
    If an open PR already curates the candidate, **do not claim it**. Say so,
    pick something else, and leave the stub alone — the stub is correct until
@@ -182,6 +279,10 @@ The `claim` label already exists in `monarch-initiative/dismech`. **Do not run
 would silently overwrite its colour and description. If `gh issue create` fails
 because the label is missing (a fork, a new repo), say so and ask; do not
 recreate it yourself.
+
+Where there is no `gh`, file it with `mcp__github__issue_write`
+(`method: "create"`, `labels: ["claim","curation","enhancement"]`, `assignees`
+from `get_me`) — the title and label rules below are what matter, not the tool.
 
 ```bash
 gh issue create \
@@ -220,6 +321,72 @@ on the claim. This provides a "second opinion" mechanism.
 It may take a few minutes for the agent comment to appear, so you can start
 work and check back later.
 
+## One PR per disease
+
+**N diseases means N branches and N pull requests.** Never package a multi-disease
+claim run into a single branch or a single commit. Each disease gets its own
+branch off `main`, carrying only:
+
+```
++ kb/disorders/<Disease>.yaml
++ history/disorders/<Disease>/...
++ references_cache/PMID_*.md        <- only the PMIDs THAT entry cites
+  cache/**/*.csv                    <- only the term rows THAT entry introduced
+- stubs/<Disease>.yaml
+```
+
+The shared files are the part people get wrong. `references_cache/` and
+`cache/**/*.csv` are repository-wide, so a lazy `git add references_cache/ cache/`
+sweeps another disease's rows into this PR. Derive the ownership instead of
+eyeballing it: a reference belongs to the entry that cites its PMID, and a cache
+row belongs to the entry that uses that CURIE. Rows land in canonical sorted
+position (`just normalize-cache`), never appended at end-of-file — see the cache
+ordering rules in `CLAUDE.md`.
+
+Unrelated cleanup found along the way — a stale stub for a disease somebody else
+already curated, say — is its own small PR. Do not attach it to a curation PR it
+has nothing to do with.
+
+**Why this matters and is not bookkeeping.** The claim/stub machinery is
+per-disease: one `Closes #<issue>` releases one claim and retires one stub. A
+combined PR cannot release three claims cleanly, presents reviewers with a diff
+several thousand lines long, and lets one contested lump/split call block two
+diseases that nobody disputes.
+
+### When the environment hands you one branch
+
+Some runners inject a single pre-named branch for the whole invocation (e.g.
+`claude/claim-disease-3-<id>`) together with an instruction not to push anywhere
+else without permission. That instruction does not scale with N, and it
+**conflicts** with the rule above.
+
+Do not resolve that conflict silently in either direction. Say so, and ask:
+
+> The run gave me one branch, but dismech convention is one PR per disease.
+> Shall I open three branches instead?
+
+Raise it **before** committing, not after the work is packaged — re-splitting a
+finished single commit is recoverable but wasteful, and a reviewer should never
+be the one to discover the packaging is wrong.
+
+## After the PRs are open
+
+Opening the PR is not the end of the task. Keep the worktrees in place and stay
+available to respond to review feedback — the automated reviewer usually comments
+within a few minutes, and CI may go red.
+
+Work each PR until it is **approved**, then stop:
+
+- Address review comments and push fixes to that PR's branch.
+- Fix CI failures that your diff caused.
+- Reply where a reviewer asked something you are not going to change, with the
+  reason.
+
+Once a PR is approved, stop working it. Do not merge it yourself, do not dismiss
+a review to clear a gate, and do not keep polishing an approved PR. Approved is
+the finish line. Only tear the worktrees down once every PR in the run is
+approved (or closed).
+
 ## Finishing a curation
 
 The curation PR **should delete the stub** alongside adding the KB entry, and
@@ -246,9 +413,18 @@ close the claim issue explaining it. That is a completed curation.
 
 - **Taking the first row because it is first.** Within a priority band the order
   is an arbitrary hash spread. It means nothing. Choose.
+- **Re-deriving the stub's own fields with `runoak`.** `mondo_descendants`,
+  `mondo_descendant_count` and `genes` are already in the file. A warm MONDO
+  lookup costs ~28s, builds a 1.2 GB database, and reads the same release
+  `enrich-stubs` did — so it cannot know anything the stub does not.
+- **Hand-transcribing claim issues into `tmp/claims.json`.** When `gh` is
+  missing, a titles-only array from MCP gives an identical pool. Typing out
+  number/assignees/url/createdAt for 50 issues is minutes spent on fields
+  `next-unclaimed` never reads.
 - **Filing a curation issue for a grouping.** Check the suspicion list. Editing
   the stub's `entry_type` is the right output, and it counts as work done.
-- **Hardcoding a username.** Always resolve via `gh api user -q .login`.
+- **Hardcoding a username.** Always resolve via `gh api user -q .login`, or
+  `mcp__github__get_me` where there is no `gh`.
 - **Claiming a disease that already has a KB entry or claim.** Run the
   duplicate preflight. Both checks are by MONDO ID only;
   conceptual coverage under a different term (e.g. "Zellweger spectrum
@@ -269,6 +445,14 @@ close the claim issue explaining it. That is a completed curation.
 - **Treating an old claim as free.** A claim with an open PR is live however old
   it is. `just check-claims` flags old-with-no-PR claims; ask the assignee or
   the user before taking one — do not just take it.
+- **Packaging N diseases into one branch or one commit.** One PR per disease. If
+  the runner handed you a single branch, surface the conflict and ask rather than
+  quietly accepting it — see "When the environment hands you one branch".
+- **`git add references_cache/ cache/` on a multi-disease run.** That sweeps other
+  diseases' reference and term-cache rows into this PR. Assign them by which entry
+  cites the PMID / uses the CURIE.
+- **Walking away once the PR is open.** Stay on it until approved — see
+  "After the PRs are open".
 - **Filing fewer issues than requested without saying so.** Report the shortfall.
 
 ## Adding to the queue

@@ -1,12 +1,12 @@
 ---
-reference_id: DOI:10.1523/jneurosci.1959-22.2023
+reference_id: DOI:10.1523/JNEUROSCI.1959-22.2023
 title: A New Mouse Model of Giant Axonal Neuropathy with Overt Phenotypes and Neurodegeneration Driven by Neurofilament Disorganization
 authors:
 - Banshi Nath
 - Jean-Pierre Julien
 journal: The Journal of Neuroscience
 year: '2023'
-doi: 10.1523/jneurosci.1959-22.2023
+doi: 10.1523/JNEUROSCI.1959-22.2023
 content_type: abstract_only
 is_preprint: false
 ---
@@ -14,7 +14,7 @@ is_preprint: false
 # A New Mouse Model of Giant Axonal Neuropathy with Overt Phenotypes and Neurodegeneration Driven by Neurofilament Disorganization
 **Authors:** Banshi Nath, Jean-Pierre Julien
 **Journal:** The Journal of Neuroscience (2023)
-**DOI:** [10.1523/jneurosci.1959-22.2023](https://doi.org/10.1523/jneurosci.1959-22.2023)
+**DOI:** [10.1523/JNEUROSCI.1959-22.2023](https://doi.org/10.1523/JNEUROSCI.1959-22.2023)
 
 ## Content
 

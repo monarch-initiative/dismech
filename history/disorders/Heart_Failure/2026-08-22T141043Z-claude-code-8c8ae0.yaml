@@ -1,0 +1,40 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Heart_Failure
+  path: kb/disorders/Heart_Failure.yaml
+session:
+  id: 2026-08-22T141043Z-claude-code-8c8ae0
+  timestamp: '2026-08-22T14:10:43Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9244
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  - treatments
+  summary: 'Review response: wire RAAS into the convergence node, bind MRA agents,
+    split the oestrogen node (PR #9244)'
+  details: |
+    Response to the ai4c-reviewer review on PR #9244, which requested changes on two IMPORTANT findings and offered three suggestions. All five applied; one could not be implemented as proposed and was implemented differently, with the reason recorded.
+
+    FINDING 1 (blocking) - Neurohormonal Activation had no edge into the convergence node it feeds. Correct, and the omission was conspicuous given this PR's own content: the curated snippet on the convergence node names angiotensin II and aldosterone among the inputs to TGF-beta-Smad, and the whole rationale added to the MRA treatment is about RAAS blockade failing to reach the terminal mineralocorticoid receptor programme - yet the pathograph showed no path from the RAAS node to the convergence node. Added a downstream edge from Neurohormonal Activation to Endocrine Convergence on Shared Profibrotic Effectors, carrying its own evidence item (the same inputs snippet, cited on the edge rather than only on the target node).
+
+    FINDING 2 (blocking) - the rewritten MRA treatment had no therapeutic_agent despite naming three drugs and using the generic NCIT:C15986 Pharmacotherapy term. Correct per CLAUDE.md, which recommends therapeutic_agent whenever treatment_term is NCIT:C15986. Bound spironolactone (CHEBI:9241), eplerenone (CHEBI:31547) and finerenone (CHEBI:747008). Every CURIE was verified against OAK rather than taken from the review comment - the reviewer's CHEBI:9241 and CHEBI:31547 were both correct, and finerenone's canonical CHEBI label is capitalised as 'Finerenone', which term validation requires to match exactly.
+
+    SUGGESTION 3 - the mineralocorticoid receptor is the drug target but was not a descriptor on the target node, so the INHIBITS edge landed on nothing the node asserted. The substance is right, but it could NOT be implemented as proposed: GO's mineralocorticoid receptor activity term, GO:0017082, is OBSOLETE, with no replaced_by recorded, and a GO search for 'mineralocorticoid' returns only the CHEBI chemical. Implemented instead by binding GO:0003707 nuclear steroid receptor activity with the more specific preferred_term 'mineralocorticoid receptor activity' - the documented pattern for an ontology term too broad for the intended meaning. The node's notes record the obsolescence and the asymmetry that makes it notable: the glucocorticoid counterpart GO:0004883 nuclear glucocorticoid receptor activity is live and is used on the 11beta-HSD1 node in this same PR, so GO has one and not the other. Recorded as an OBO gap rather than worked around silently.
+
+    SUGGESTION 4 - record the deliberate choice to keep three mixed-direction effectors on one node. Applied. The notes now state why splitting would be wrong here rather than merely that the choice was deliberate: convergence is the claim being modelled, so separating the effectors into three nodes would preserve the parts and lose the thing the node exists to assert. The mixed direction is the substance, not an inconsistency - two effectors are driven up and the third, a brake, is pushed down, which is why they act together.
+
+    SUGGESTION 5 - Postmenopausal Oestrogen Withdrawal was tagged ORGANISM while carrying a cardiac fibroblast cell type and an ER signalling process, bundling systemic disinhibition with a direct myocardial arm. Applied, and applied because it is the same bundling tell that was accepted as blocking on an earlier PR in this session (Congenital Zika Syndrome, PR #9213, where a TISSUE-tagged node describing an ORGANISM-scale outcome was split). Consistency argues for treating it the same way here even though this reviewer marked it non-blocking. Split into Postmenopausal Oestrogen Withdrawal (ORGANISM, systemic three-axis disinhibition) and Loss of Myocardial Oestrogen Receptor Signalling (CELLULAR, cardiac fibroblast, GO:0030520 DECREASED), wired ORGANISM -> CELLULAR -> convergence, with the ORGANISM node also retaining its direct edge to the convergence node since the systemic disinhibition acts on the shared effectors independently of the myocardial arm. One new evidence item was added to the CELLULAR node (the menopause/ECM-balance sentence); no snippet was invented, and the WHI/HERS caveat travels with the ORGANISM node where the hormone-therapy question belongs.
+
+    Validation re-run after the edits: just validate (passed); just validate-terms (passed); just count-verified-snippets (45/45 verified, up from 43); just validate-disorders on the changed file (schema, terms and references all passed, 45/45); just check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets (all passed, no new findings); pytest tests/test_data.py -k Heart_Failure.yaml (18 passed). Cache additions this round: CHEBI:747008 and GO:0003707, plus their enum caches, written by linkml-term-validator; spironolactone and eplerenone were already cached, as the reviewer said. Seven unrelated references_cache files rewritten by just validate were reverted, as in the first commit.
