@@ -28062,7 +28062,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
   },
   {
@@ -48301,6 +48301,141 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "CARMIL2 Deficiency",
+    "disease_id": "MONDO:0029134",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Inborn error of immunity",
+      "Primary immunodeficiency"
+    ],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CARMIL2 deficiency is an autosomal recessive combined immunodeficiency caused by biallelic loss-of-function variants in CARMIL2 (16q22.1, previously RLTPR), which encodes the capping protein regulator and myosin 1 linker 2. CARMIL2 is the cytosolic scaffold that bridges the CD28 co-stimulatory receptor to the CARD11/CARMA1 adaptor, and through it to canonical NF-kB. Losing it therefore breaks the second signal of the two-signal model of T cell activation from the inside: the receptor is present and the T cell receptor arm is intact, but CD28 engagement no longer activates NF-kB. The consequences are a striking deficit of regulatory T cells, of CD4+ and CD8+ memory T cells and of the Th1 and Th17 fates, together with poor T cell proliferation on CD3/CD28 stimulation.\nClinically this produces recalcitrant viral warts and molluscum contagiosum, mucocutaneous candidiasis, a broad burden of bacterial, mycobacterial and fungal infection, atopic and psoriasiform dermatitis, inflammatory bowel disease with failure to thrive, and a characteristic predisposition to Epstein-Barr-virus-positive smooth muscle tumours. It is fully penetrant by the age of 10 years.\nThe entry is best read against Immunodeficiency_123_With_HPV-related_Verrucosis, the CD28-deficiency entry, which is its mechanistic near-twin and its closest differential. The two share a broken CD28 axis and share recalcitrant warts and low memory T cell and Treg counts. They diverge sharply everywhere else: CD28 deficiency turns out to be almost entirely restricted to skin papillomaviruses, whereas CARMIL2 deficiency is a full combined immunodeficiency with low NK and memory B cell counts, weak antibody responses, tumours and gut inflammation. That divergence is the argument, made by the study that assembled 89 patients, that CARMIL2 governs immunological pathways beyond CD28 - and it is why this entry carries two mechanism branches that hang off the genetic lesion directly rather than off the co-stimulation node: a B-cell-intrinsic B cell receptor signalling defect, and a cytoskeletal defect.\nTwo things are recorded rather than asserted. The cytoskeletal branch is contested - the original description reported perturbed cytoskeletal organization with T cell polarity and migration defects, while a later prospective cohort found normal morphology in a three-dimensional migration assay - so it is curated as a node carrying both the supporting and the refuting observation and is not given a downstream edge. And although CARMIL2 is an actin-uncapping protein, that activity is dispensable for CD28 co-stimulation; it is the scaffolding function that the disease turns on, so the pathograph runs through scaffolding rather than through actin.\nAllogeneic haematopoietic cell transplantation is the one disease-modifying treatment, and a 17-patient multicentre series reports it as curative across infection, inflammation and treatment-refractory EBV+ smooth muscle tumours.",
+    "pathophysiology": [
+      "Biallelic CARMIL2 Loss of Function",
+      "Loss of CARMIL2 Scaffolding of CD28 to CARD11",
+      "Failure of CD28-Dependent Canonical NF-kB Activation",
+      "Regulatory T Cell Deficit",
+      "Memory T Cell Deficit",
+      "Th1 and Th17 Differentiation Failure",
+      "Failure of Cell-Mediated Control of Chronic Viral and Fungal Infection",
+      "Uncontrolled Cutaneous Papillomavirus and Poxvirus Replication",
+      "Uncontrolled EBV Infection of Smooth Muscle",
+      "B Cell Receptor-Proximal NF-kB Signaling Failure",
+      "Impaired Humoral Memory and Antibody Response",
+      "Perturbed T Cell Cytoskeletal Organization",
+      "Mucocutaneous and Intestinal Immune Dysregulation"
+    ],
+    "cell_types": [
+      "T cell",
+      "FOXP3+ regulatory T cell",
+      "memory T cell",
+      "CD4-positive, alpha-beta T cell",
+      "keratinocyte",
+      "smooth muscle cell",
+      "B cell",
+      "memory B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000815",
+      "CL:0000813",
+      "CL:0000624",
+      "CL:0000312",
+      "CL:0000192",
+      "CL:0000236",
+      "CL:0000787"
+    ],
+    "biological_processes": [
+      "T cell costimulation",
+      "CD28-dependent canonical NF-kB activation",
+      "regulatory T cell differentiation",
+      "memory T cell differentiation",
+      "T-helper 17 cell differentiation",
+      "T-helper 1 cell differentiation",
+      "T cell mediated immunity",
+      "B cell receptor signaling pathway",
+      "actin cytoskeleton organization"
+    ],
+    "phenotypes": [
+      "Recalcitrant Cutaneous Warts",
+      "Persistent Molluscum Contagiosum",
+      "Recurrent Mucocutaneous Candidiasis",
+      "Recurrent Infections",
+      "EBV-Positive Smooth Muscle Tumor",
+      "Dermatitis",
+      "Inflammatory Bowel Disease",
+      "Chronic Diarrhea",
+      "Failure to Thrive",
+      "Decreased Regulatory T Cell Proportion",
+      "Decreased Memory T Cell Proportion",
+      "Decreased Memory B Cell Proportion",
+      "Reduced Natural Killer Cell Count",
+      "Impaired Specific Antibody Response",
+      "Abnormal T Cell Physiology"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Infectious",
+      "Neoplastic",
+      "Gastrointestinal",
+      "Growth",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0200043",
+      "HP:0032163",
+      "HP:0002728",
+      "HP:0002719",
+      "HP:0031459",
+      "HP:0001047",
+      "HP:0002583",
+      "HP:0002028",
+      "HP:0001508",
+      "HP:0020113",
+      "HP:0032183",
+      "HP:0030374",
+      "HP:0040218",
+      "HP:0012475",
+      "HP:0011840"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CARMIL2"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Cell Transplantation",
+      "Immunoglobulin Replacement Therapy",
+      "Interleukin-2 Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CARMIL2_Deficiency.yaml",
+    "page_url": "../pages/disorders/CARMIL2_Deficiency.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "CASQ2 CPVT",
     "disease_id": "MONDO:0012762",
     "category": "Genetic",
@@ -51656,6 +51791,81 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "COA6-Related Fatal Infantile Cardioencephalomyopathy",
+    "disease_id": "MONDO:0014668",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-09-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COA6-related fatal infantile cardioencephalomyopathy (CEMCOX4 / MC4DN13) is an ultra-rare autosomal recessive mitochondrial disorder caused by biallelic loss-of-function variants in COA6, a small twin-CX9C protein of the mitochondrial intermembrane space. Its best-supported role is as a thiol-disulfide oxidoreductase that reduces the copper-coordinating cysteines of SCO1, SCO2 and the mitochondrially encoded subunit COX2, which is the step that allows copper to be loaded into the binuclear CuA centre of COX2 in the oxidizing intermembrane space. Without that reduction, newly synthesized COX2 is not metallated, turns over rapidly, and the cytochrome c oxidase holoenzyme is never completed, leaving stalled COX1-containing assembly intermediates and a cytochrome c oxidase deficiency. Reported patients presented in the neonatal period with severe hypertrophic cardiomyopathy and died in infancy. The disorder sits in the copper-delivery arm of the Complex IV assembly pathway alongside SCO1, SCO2, COX16 and COX17, and is distinct from the earlier assembly step blocked in COA5 deficiency.\nTwo caveats belong in the same breath as the description. The \"encephalo-\" half of the disease name is inherited from the SCO2-defined syndrome the name was coined for and is not established for COA6 from any source cited here, so no encephalopathy phenotype is curated. And whether the enzyme lesion is isolated to Complex IV or also involves Complex I is genuinely contested in the literature; both readings are recorded rather than reconciled.\n",
+    "pathophysiology": [
+      "COA6 Loss and Failure of Thiol-Disulfide Reduction",
+      "Impaired CuA Metallation of COX2",
+      "COX2 Turnover and Stalled Assembly Intermediates",
+      "Cytochrome c Oxidase Deficiency",
+      "Cardiomyocyte Energy Failure and Hypertrophic Remodeling",
+      "Anaerobic Glycolytic Shift and Lactic Acidosis"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex IV assembly",
+      "cytochrome complex assembly",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "oxidative phosphorylation",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Lactic acidosis",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Neuromuscular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0003128",
+      "HP:0001252"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COA6"
+    ],
+    "treatments": [
+      "Copper Supplementation",
+      "Supportive and Palliative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Cytochrome c oxidase (Complex IV) activity"
+    ],
+    "source_file": "COA6-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml",
+    "page_url": "../pages/disorders/COA6-Related_Fatal_Infantile_Cardioencephalomyopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "COA8-Related COX Deficiency",
@@ -80149,7 +80359,8 @@ window.searchData = [
     "biochemical": [
       "LDL Cholesterol",
       "HDL Cholesterol",
-      "C-Reactive Protein"
+      "C-Reactive Protein",
+      "Troponin I"
     ],
     "source_file": "Coronary_Artery_Disease.yaml",
     "page_url": "../pages/disorders/Coronary_Artery_Disease.html",
@@ -157585,7 +157796,7 @@ window.searchData = [
       "HP:0002069",
       "HP:0011147",
       "HP:0002392",
-      "HP:0001327"
+      "HP:0010852"
     ],
     "frequencies": [],
     "genes": [
@@ -223253,7 +223464,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -296313,17 +296524,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2864,
+  "total_disorder_pages": 2866,
   "total_subtypes": 3715,
-  "total_disorders_and_subtypes": 6579,
-  "total_unique_evidence_sources": 40327,
-  "total_unique_publications": 37997,
+  "total_disorders_and_subtypes": 6581,
+  "total_unique_evidence_sources": 40354,
+  "total_unique_publications": 38023,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 280,
-  "total_pathographs": 2859,
-  "total_unique_pathological_events": 17162,
+  "total_pathographs": 2861,
+  "total_unique_pathological_events": 17181,
   "total_modules": 173,
-  "total_research_reports": 2988,
+  "total_research_reports": 2989,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
