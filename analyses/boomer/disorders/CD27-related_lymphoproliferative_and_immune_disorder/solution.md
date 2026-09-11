@@ -1,15 +1,15 @@
 
  ## dismech-CD27-related_lymphoproliferative_and_immune_disorder
  * 145 combinations
- * 144 satisfiable combinations
+ * 64 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.5 confidence
+ * 0.9 confidence
  * 0.626484769875 prior probability
- * 0.186624317419 posterior probability
+ * 0.687176169133 posterior probability
 Grounding:
- * True dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) ≡ MONDO:0014054 (lymphoproliferative syndrome 2) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) ⊂ MONDO:0014054 (lymphoproliferative syndrome 2) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0014054 (lymphoproliferative syndrome 2) ⊂ dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
+ * True dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) ≡ MONDO:0014054 (lymphoproliferative syndrome 2) :: prior: 0.9 posterior: 0.890542734293
+ * False dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) ⊂ MONDO:0014054 (lymphoproliferative syndrome 2) :: prior: 0.07 posterior: 0.007447788698
+ * False MONDO:0014054 (lymphoproliferative syndrome 2) ⊂ dismech:CD27-related_lymphoproliferative_and_immune_disorder (CD27-related lymphoproliferative and immune disorder (dismech entry)) :: prior: 0.03 posterior: 0.00306028431
  * True MONDO:0014054 (lymphoproliferative syndrome 2) ≡ DOID:0060708 (lymphoproliferative syndrome 2) :: prior: 0.95 posterior: 0.95
  * True MONDO:0014054 (lymphoproliferative syndrome 2) ≡ OMIM:615122 (lymphoproliferative syndrome 2) :: prior: 0.95 posterior: 0.95
  * True MONDO:0014054 (lymphoproliferative syndrome 2) ≡ ORDO:238505 (Combined immunodeficiency due to CD27 deficiency) :: prior: 0.95 posterior: 0.95

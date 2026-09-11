@@ -1,15 +1,15 @@
 
  ## dismech-Spondyloepimetaphyseal_Dysplasia_Bieganski_Type
  * 438 combinations
- * 432 satisfiable combinations
+ * 192 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.5 confidence
  * 0.029758026569 prior probability
- * 0.090919539256 posterior probability
+ * 0.33477813368 posterior probability
 Grounding:
- * True dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) ≡ MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) ⊂ MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) ⊂ dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
+ * True dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) ≡ MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) :: prior: 0.9 posterior: 0.890542734293
+ * False dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) ⊂ MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) :: prior: 0.07 posterior: 0.007447788698
+ * False MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) ⊂ dismech:Spondyloepimetaphyseal_Dysplasia_Bieganski_Type (Spondyloepimetaphyseal Dysplasia Bieganski Type (dismech entry)) :: prior: 0.03 posterior: 0.00306028431
  * False MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) ≡ MESH:C536671 (Sketetal dysplasia coarse facies mental retardation) :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) ≡ MESH:C567065 (Leukoencephalopathy With Metaphyseal Chondrodysplasia) :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0010275 (spondyloepimetaphyseal dysplasia, Bieganski type) ≡ OMIM:300232 (spondyloepimetaphyseal dysplasia, x-linked, with hypomyelinating leukodystrophy) :: prior: 0.95 posterior: 0.95

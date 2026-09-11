@@ -1,15 +1,16 @@
 
  ## dismech-Cerebrotendinous_Xanthomatosis
- * 1153 combinations
- * 1152 satisfiable combinations
- * 1.0 proportion of combinations explored
- * 0.5 confidence
+ * 833 combinations
+ * 512 satisfiable combinations
+ * 0.9375 proportion of combinations explored
+ * 0.9 confidence
  * 0.566973067326 prior probability
- * 0.162798623274 posterior probability
+ * 0.625183944387 posterior probability
+ * Search timed out (exceeded time limit)
 Grounding:
- * True dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) ≡ MONDO:0008948 (cerebrotendinous xanthomatosis) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) ⊂ MONDO:0008948 (cerebrotendinous xanthomatosis) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0008948 (cerebrotendinous xanthomatosis) ⊂ dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) ≡ MONDO:0008948 (cerebrotendinous xanthomatosis) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) ⊂ MONDO:0008948 (cerebrotendinous xanthomatosis) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0008948 (cerebrotendinous xanthomatosis) ⊂ dismech:Cerebrotendinous_Xanthomatosis (Cerebrotendinous xanthomatosis (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0008948 (cerebrotendinous xanthomatosis) ≡ DOID:4810 (cerebrotendinous xanthomatosis) :: prior: 0.95 posterior: 0.95
  * True MONDO:0008948 (cerebrotendinous xanthomatosis) ≡ MESH:D019294 (Xanthomatosis, Cerebrotendinous) :: prior: 0.95 posterior: 0.95
  * True MONDO:0008948 (cerebrotendinous xanthomatosis) ≡ NCIT:C84628 (Cerebrotendinous Xanthomatosis) :: prior: 0.95 posterior: 0.95

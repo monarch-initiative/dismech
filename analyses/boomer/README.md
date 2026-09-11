@@ -14,11 +14,13 @@ This tree answers that question per disease, using
 reimplementation of BOOMER, which resolves competing ontology mappings by finding
 the most probable globally consistent assignment.
 
-**Probability correction (2026-09-10):** the saved batch used a Boomer revision
-that counts repeated search paths to the same solution in its confidence and
-posterior calculations. Those scores should not be used for ranking. A
-[tested local patch and reproduction instructions](patches/README.md) are now
-available; the saved solution files have not yet been rerun with that patch.
+**Probability correction (2026-09-11):** the upstream fix is merged and the
+[1,213 previously completed Mendelian searches have been rerun](runs/unique-solutions-completed/README.md).
+The refreshed results are 1,176 consistent, 32 retracted, and 5 timed out;
+no chosen mapping assignments changed. Completed confidence scores now range
+from 0.5 to 0.95. The 321 earlier timeouts and 194 older analyses remain
+unrefreshed; their probability scores still predate the correction. See the
+[pinned solver and reproduction instructions](patches/README.md).
 
 ## Layout
 
@@ -333,7 +335,7 @@ of.
 That is a real but bounded benefit. It is not a case for taking on boomer as a
 dependency, and none has been taken.
 
-## Reproducibility
+## Original subtype-run reproducibility
 
 Regeneration is **partially** reproducible, and it is worth being precise about
 which half:
@@ -406,8 +408,9 @@ automatic download during these solves. `grouping_audit.py` and
 runtime dependencies is deliberate; its use here is confined to analysis.
 
 The September 8 batch used a clean checkout at
-`16769dc84375af522357fc7b67077ee862bbc8e8`; every `solve.json` records that
-commit. See the [probability correction](patches/README.md) before reusing it.
+`16769dc84375af522357fc7b67077ee862bbc8e8`; the September 11 refresh used
+`744038e30741009930f57919ca2f03c6473ed198`. Each refreshed folder's `solve.json`
+records its current solver commit. See the [probability correction](patches/README.md).
 
 ## Regenerating
 

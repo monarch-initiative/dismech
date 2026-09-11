@@ -1,15 +1,16 @@
 
  ## dismech-Canavan_Disease
- * 1153 combinations
- * 1152 satisfiable combinations
- * 1.0 proportion of combinations explored
- * 0.5 confidence
+ * 833 combinations
+ * 512 satisfiable combinations
+ * 0.9375 proportion of combinations explored
+ * 0.9 confidence
  * 0.566973067326 prior probability
- * 0.162798623274 posterior probability
+ * 0.625183944387 posterior probability
+ * Search timed out (exceeded time limit)
 Grounding:
- * True dismech:Canavan_Disease (Canavan disease (dismech entry)) ≡ MONDO:0010079 (Canavan disease) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:Canavan_Disease (Canavan disease (dismech entry)) ⊂ MONDO:0010079 (Canavan disease) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0010079 (Canavan disease) ⊂ dismech:Canavan_Disease (Canavan disease (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:Canavan_Disease (Canavan disease (dismech entry)) ≡ MONDO:0010079 (Canavan disease) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:Canavan_Disease (Canavan disease (dismech entry)) ⊂ MONDO:0010079 (Canavan disease) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0010079 (Canavan disease) ⊂ dismech:Canavan_Disease (Canavan disease (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0010079 (Canavan disease) ≡ DOID:3613 (Canavan disease) :: prior: 0.95 posterior: 0.95
  * True MONDO:0010079 (Canavan disease) ≡ MESH:D017825 (Canavan Disease) :: prior: 0.95 posterior: 0.95
  * True MONDO:0010079 (Canavan disease) ≡ NCIT:C84611 (Canavan Disease) :: prior: 0.95 posterior: 0.95

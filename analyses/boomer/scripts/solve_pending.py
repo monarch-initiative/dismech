@@ -273,6 +273,11 @@ def main():
     )
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--run-name", default="pending", help="Directory under runs/")
+    parser.add_argument(
+        "--rerun-from", type=Path, help="Previous attempts.tsv to rerun"
+    )
+    parser.add_argument("--status", nargs="+", help="Select statuses in --rerun-from")
     parser.add_argument("--worker", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--workdir", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -281,6 +286,10 @@ def main():
         return
     if args.timeout <= 0 or args.workers < 1:
         parser.error("Positive timeout and worker count required")
+    if Path(args.run_name).name != args.run_name or args.run_name in {".", ".."}:
+        parser.error("--run-name must be a single directory name")
+    if args.status and not args.rerun_from:
+        parser.error("--status requires --rerun-from")
     index_path = args.base / "index.tsv"
     index_hash = sha(index_path.read_bytes())
     with index_path.open() as stream:
@@ -288,11 +297,9 @@ def main():
         if reader.fieldnames != list(INDEX_FIELDNAMES):
             raise ValueError("Unexpected index columns")
         index = {row["slug"]: row for row in reader}
-    pending = sorted(
-        (r for r in index.values() if r["status"] in PENDING),
-        key=lambda r: (int(r["n_pfacts"]), r["slug"]),
-    )
-    run_dir = args.base / "runs/pending"
+    run_dir = args.base / "runs" / args.run_name
+    if args.rerun_from and args.rerun_from.resolve().parent == run_dir.resolve():
+        parser.error("Reruns require a different output directory from the source run")
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / "attempts.tsv"
     results = {}
@@ -310,6 +317,61 @@ def main():
     ).strip()
     if dirty:
         raise ValueError("Boomer checkout is dirty; need a reproducible solver version")
+    if args.rerun_from:
+        with args.rerun_from.open() as stream:
+            source_rows = list(csv.DictReader(stream, delimiter="\t"))
+        selected = {
+            row["slug"]: row
+            for row in source_rows
+            if not args.status or row["status"] in args.status
+        }
+        if not selected:
+            raise ValueError("No matching inputs in the source run")
+        if set(selected) - set(index) or set(results) - set(selected):
+            raise ValueError("Run cohort does not match index or existing results")
+        hashes = {}
+        for slug, row in sorted(selected.items()):
+            hashes[slug] = sha(
+                (args.base / "disorders" / slug / "kb.yaml").read_bytes()
+            )
+            if hashes[slug] != row["input_sha256"]:
+                raise ValueError(f"Input changed since source run: {slug}")
+        manifest = {
+            "boomer_commit": version,
+            "timeout_seconds": args.timeout,
+            "workers": args.workers,
+            "source_sha256": sha(args.rerun_from.read_bytes()),
+            "inputs": hashes,
+        }
+        manifest_path = run_dir / "manifest.json"
+        if manifest_path.exists():
+            if json.loads(manifest_path.read_text()) != manifest:
+                raise ValueError("Run manifest changed; use a new --run-name")
+        elif results:
+            raise ValueError("Existing rerun results have no manifest")
+        else:
+            atomic_text(manifest_path, json.dumps(manifest, indent=2) + "\n")
+        # The ledger is written before the index. Require both checkpoints so
+        # an interrupted install is completed on resume.
+        pending = []
+        for slug in selected:
+            recorded = results.get(slug)
+            metadata_path = args.base / "disorders" / slug / "solve.json"
+            metadata = (
+                json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
+            )
+            if (
+                not recorded
+                or recorded["status"] != index[slug]["status"]
+                or recorded["input_sha256"] != hashes[slug]
+                or metadata.get("boomer_commit") != version
+                or metadata.get("input_sha256") != hashes[slug]
+                or metadata.get("status") != recorded["status"]
+            ):
+                pending.append(index[slug])
+    else:
+        pending = [r for r in index.values() if r["status"] in PENDING]
+    pending.sort(key=lambda r: (int(r["n_pfacts"]), r["slug"]))
     print(
         f"Running {len(pending)} saved inputs with {args.workers} workers, {args.timeout}s each; Boomer {version}",
         flush=True,

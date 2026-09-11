@@ -1,15 +1,15 @@
 
  ## dismech-CANVAS
  * 868 combinations
- * 864 satisfiable combinations
+ * 384 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.5 confidence
  * 0.028270125241 prior probability
- * 0.083255209005 posterior probability
+ * 0.319719042516 posterior probability
 Grounding:
- * True dismech:CANVAS (CANVAS (dismech entry)) ≡ MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:CANVAS (CANVAS (dismech entry)) ⊂ MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) ⊂ dismech:CANVAS (CANVAS (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:CANVAS (CANVAS (dismech entry)) ≡ MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:CANVAS (CANVAS (dismech entry)) ⊂ MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) ⊂ dismech:CANVAS (CANVAS (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) ≡ DOID:0070148 (cerebellar ataxia, neuropathy, and vestibular areflexia syndrome) :: prior: 0.95 posterior: 0.95
  * True MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) ≡ MESH:C564296 (Neuropathy, Hereditary Sensory And Autonomic, Type I, With Cough And Gastroesophageal Reflux) :: prior: 0.95 posterior: 0.95
  * True MONDO:0044720 (cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome) ≡ OMIM:614575 (cerebellar ataxia, neuropathy, and vestibular areflexia syndrome) :: prior: 0.95 posterior: 0.95

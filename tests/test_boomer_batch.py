@@ -7,6 +7,8 @@ import subprocess
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parents[1] / "analyses/boomer/scripts"
 sys.path.insert(0, str(SCRIPTS))
 import solve_pending as batch  # noqa: E402
@@ -50,8 +52,9 @@ def test_watchdog_retains_existing_solutions(tmp_path, monkeypatch):
         assert (folder / name).read_text() == "historical solution\n"
 
 
+@pytest.mark.parametrize("rerun", [False, True])
 def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, rerun
 ):
     rows = []
     for slug, status in [
@@ -66,11 +69,42 @@ def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
             f"# {slug}\n\n## What boomer did\n\nOld result\n"
         )
         row = dict.fromkeys(batch.INDEX_FIELDNAMES, "0")
-        row.update(slug=slug, status=status, n_pfacts="3")
+        row.update(
+            slug=slug,
+            status="ALL_MAPPINGS_CONSISTENT" if rerun else status,
+            n_pfacts="3",
+        )
         rows.append(row)
     index = tmp_path / "index.tsv"
     index.write_text(batch.table(rows, batch.INDEX_FIELDNAMES))
     inputs = {p: p.read_bytes() for p in tmp_path.glob("disorders/*/kb.yaml")}
+    argv = ["solve_pending", "--base", str(tmp_path), "--boomer-src", str(tmp_path)]
+    source = tmp_path / "historical.tsv"
+    if rerun:
+        source.write_text(
+            batch.table(
+                [
+                    dict(
+                        slug=slug,
+                        status="ALL_MAPPINGS_CONSISTENT",
+                        input_sha256=batch.sha(
+                            inputs[tmp_path / "disorders" / slug / "kb.yaml"]
+                        ),
+                    )
+                    for slug in ("Fresh", "Stale")
+                ],
+                ("slug", "status", "input_sha256"),
+            )
+        )
+        argv += [
+            "--rerun-from",
+            str(source),
+            "--run-name",
+            "corrected",
+            "--status",
+            "ALL_MAPPINGS_CONSISTENT",
+        ]
+    source_before = source.read_bytes() if rerun else None
     calls = []
 
     def run(row, args):
@@ -99,7 +133,7 @@ def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["solve_pending", "--base", str(tmp_path), "--boomer-src", str(tmp_path)],
+        argv,
     )
     batch.main()
     assert set(calls) == {"Fresh", "Stale"}
@@ -118,3 +152,14 @@ def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
     assert len(calls) == 2
     assert before == {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
     assert all(p.read_bytes() == content for p, content in inputs.items())
+    if rerun:
+        assert source.read_bytes() == source_before
+        # A different solver cannot silently reuse a previous run's ledger.
+        monkeypatch.setattr(
+            batch.subprocess,
+            "check_output",
+            lambda command, **kwargs: "other-commit\n" if command[-1] == "HEAD" else "",
+        )
+        with pytest.raises(ValueError, match="Run manifest changed"):
+            batch.main()
+        assert before == {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}

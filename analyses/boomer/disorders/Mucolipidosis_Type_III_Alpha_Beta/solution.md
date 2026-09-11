@@ -1,15 +1,15 @@
 
  ## dismech-Mucolipidosis_Type_III_Alpha_Beta
  * 436 combinations
- * 432 satisfiable combinations
+ * 192 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.5 confidence
  * 0.029758026569 prior probability
- * 0.08763706211 posterior probability
+ * 0.336546360544 posterior probability
 Grounding:
- * True dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) ≡ MONDO:0018931 (mucolipidosis type III, alpha/beta) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) ⊂ MONDO:0018931 (mucolipidosis type III, alpha/beta) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0018931 (mucolipidosis type III, alpha/beta) ⊂ dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) ≡ MONDO:0018931 (mucolipidosis type III, alpha/beta) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) ⊂ MONDO:0018931 (mucolipidosis type III, alpha/beta) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0018931 (mucolipidosis type III, alpha/beta) ⊂ dismech:Mucolipidosis_Type_III_Alpha_Beta (Mucolipidosis Type III Alpha/Beta (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0018931 (mucolipidosis type III, alpha/beta) ≡ DOID:0080071 (mucolipidosis III alpha/beta) :: prior: 0.95 posterior: 0.95
  * True MONDO:0018931 (mucolipidosis type III, alpha/beta) ≡ OMIM:252600 (mucolipidosis 3 alpha/beta) :: prior: 0.95 posterior: 0.95
  * False MONDO:0018931 (mucolipidosis type III, alpha/beta) ≡ ORDO:423461 (Mucolipidosis type III alpha/beta) :: prior: 0.95 posterior: 0.487179487179

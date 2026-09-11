@@ -12,9 +12,10 @@ subtype assertion, and agreement does not validate a subtype hierarchy.
 
 ## What boomer did
 
-**Status: `ALL_MAPPINGS_CONSISTENT`**
+**Status: `TIMED_OUT`**
 
-The completed search accepted all high-prior mapping hypotheses together.
+The full joint search reached its time limit. Any assignment and posterior
+below are provisional; this is not a completed consistency verdict.
 
 ## Files
 

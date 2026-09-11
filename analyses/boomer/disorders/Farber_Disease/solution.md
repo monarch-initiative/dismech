@@ -1,15 +1,15 @@
 
  ## dismech-Farber_Disease
  * 577 combinations
- * 576 satisfiable combinations
+ * 256 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.5 confidence
+ * 0.9 confidence
  * 0.59681375508 prior probability
- * 0.171366971868 posterior probability
+ * 0.658088362513 posterior probability
 Grounding:
- * True dismech:Farber_Disease (Farber Disease (dismech entry)) ≡ MONDO:0009218 (Farber lipogranulomatosis) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:Farber_Disease (Farber Disease (dismech entry)) ⊂ MONDO:0009218 (Farber lipogranulomatosis) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0009218 (Farber lipogranulomatosis) ⊂ dismech:Farber_Disease (Farber Disease (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:Farber_Disease (Farber Disease (dismech entry)) ≡ MONDO:0009218 (Farber lipogranulomatosis) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:Farber_Disease (Farber Disease (dismech entry)) ⊂ MONDO:0009218 (Farber lipogranulomatosis) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0009218 (Farber lipogranulomatosis) ⊂ dismech:Farber_Disease (Farber Disease (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0009218 (Farber lipogranulomatosis) ≡ DOID:0050464 (Farber lipogranulomatosis) :: prior: 0.95 posterior: 0.95
  * True MONDO:0009218 (Farber lipogranulomatosis) ≡ MESH:D055577 (Farber Lipogranulomatosis) :: prior: 0.95 posterior: 0.95
  * True MONDO:0009218 (Farber lipogranulomatosis) ≡ NCIT:C84710 (Farber Lipogranulomatosis) :: prior: 0.95 posterior: 0.95

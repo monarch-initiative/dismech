@@ -1,6 +1,6 @@
-"""Opt-in regression checks for the pinned Boomer unique-solutions patch.
+"""Opt-in regression checks for the merged Boomer unique-solutions fix.
 
-Run with BOOMER_SRC=/path/to/patched/boomer-py/src. Boomer is deliberately
+Run with BOOMER_SRC=/path/to/merged/boomer-py/src. Boomer is deliberately
 not a dismech runtime dependency; these checks skip when no source is supplied.
 """
 
@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 def boomer(monkeypatch):
     source = os.environ.get("BOOMER_SRC")
     if not source:
-        pytest.skip("Set BOOMER_SRC to the patched Boomer source directory")
+        pytest.skip("Set BOOMER_SRC to the merged Boomer source directory")
     source = Path(source).expanduser().resolve()
     monkeypatch.syspath_prepend(str(source))
     model = importlib.import_module("boomer.model")
@@ -83,7 +83,7 @@ def test_solution_probabilities_match_exhaustive_assignments(
 
 
 @pytest.mark.parametrize("prior", [0.5, 0.8])
-def test_duplicate_paths_do_not_consume_candidate_cap(boomer, monkeypatch, prior):
+def test_duplicate_paths_preserve_raw_candidate_cap(boomer, monkeypatch, prior):
     model, search = boomer
     kb = model.KB(
         pfacts=[
@@ -107,9 +107,10 @@ def test_duplicate_paths_do_not_consume_candidate_cap(boomer, monkeypatch, prior
     ]
     monkeypatch.setattr(search, "search", lambda *args: iter(nodes))
     solution = search.solve(kb, model.SearchConfig(max_candidate_solutions=2))
-    assert solution.number_of_satisfiable_combinations == 2
-    assert solution.confidence == pytest.approx(prior)
-    assert solution.solved_pfacts[0].posterior_prob == pytest.approx(prior)
+    assert solution.number_of_combinations == 2
+    assert solution.number_of_satisfiable_combinations == 1
+    assert solution.confidence == 1.0
+    assert solution.solved_pfacts[0].posterior_prob == 1.0
 
 
 def test_separate_priors_for_same_logical_fact_are_preserved(boomer):

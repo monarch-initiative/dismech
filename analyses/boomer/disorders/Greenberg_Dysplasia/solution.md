@@ -1,15 +1,15 @@
 
  ## dismech-Greenberg_Dysplasia
  * 577 combinations
- * 576 satisfiable combinations
+ * 256 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.5 confidence
+ * 0.9 confidence
  * 0.59681375508 prior probability
- * 0.171366971868 posterior probability
+ * 0.658088362513 posterior probability
 Grounding:
- * True dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) ≡ MONDO:0008974 (Greenberg dysplasia) :: prior: 0.95 posterior: 0.984297944247
- * False dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) ⊂ MONDO:0008974 (Greenberg dysplasia) :: prior: 0.07 posterior: 0.001949656369
- * False MONDO:0008974 (Greenberg dysplasia) ⊂ dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) ≡ MONDO:0008974 (Greenberg dysplasia) :: prior: 0.95 posterior: 0.944982302154
+ * False dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) ⊂ MONDO:0008974 (Greenberg dysplasia) :: prior: 0.07 posterior: 0.003743563166
+ * False MONDO:0008974 (Greenberg dysplasia) ⊂ dismech:Greenberg_Dysplasia (Greenberg Dysplasia (dismech entry)) :: prior: 0.03 posterior: 0.00153822404
  * True MONDO:0008974 (Greenberg dysplasia) ≡ DOID:0111588 (Greenberg dysplasia) :: prior: 0.95 posterior: 0.95
  * True MONDO:0008974 (Greenberg dysplasia) ≡ MESH:C535858 (HEM dysplasia) :: prior: 0.95 posterior: 0.95
  * True MONDO:0008974 (Greenberg dysplasia) ≡ OMIM:215140 (greenberg dysplasia) :: prior: 0.95 posterior: 0.95
