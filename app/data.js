@@ -21974,21 +21974,31 @@ window.searchData = [
       "Nephrocalcinosis",
       "Hypercalciuria",
       "Polyuria",
-      "Failure to thrive"
+      "Failure to thrive",
+      "Brittle hair",
+      "Depressed nasal bridge",
+      "Frontal bossing",
+      "Long eyelashes",
+      "Preauricular skin tag"
     ],
     "phenotype_categories": [
       "Cardiovascular",
       "Metabolic",
       "Endocrine",
       "Growth",
-      "Renal"
+      "Renal",
+      "Dermatologic",
+      "Craniofacial"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Endocrine",
       "Genitourinary",
       "Growth",
-      "Metabolism"
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0000822",
@@ -22000,9 +22010,16 @@ window.searchData = [
       "HP:0000121",
       "HP:0002150",
       "HP:0000103",
-      "HP:0001508"
+      "HP:0001508",
+      "HP:0002299",
+      "HP:0005280",
+      "HP:0002007",
+      "HP:0000527",
+      "HP:0000384"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_RARE"
+    ],
     "genes": [
       "HSD11B2"
     ],
@@ -22017,7 +22034,7 @@ window.searchData = [
     ],
     "source_file": "Apparent_Mineralocorticoid_Excess.yaml",
     "page_url": "../pages/disorders/apparent_mineralocorticoid_excess.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 15,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
@@ -46362,6 +46379,7 @@ window.searchData = [
       "Hypertonia",
       "Axial Hypotonia with Peripheral Hypertonia",
       "Developmental Regression",
+      "Gait Disturbance",
       "Spasticity",
       "Camptocormia",
       "Paroxysmal Dyskinesia",
@@ -46380,6 +46398,7 @@ window.searchData = [
       "Small Posterior Fossa",
       "Corpus Callosum Dysgenesis",
       "Cortical Developmental Abnormalities",
+      "Cerebral Cortical Atrophy",
       "Delayed Myelination",
       "Ventriculomegaly",
       "Oculomotor Dysfunction",
@@ -46421,7 +46440,6 @@ window.searchData = [
       "Growth",
       "Head and Neck",
       "Integument",
-      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -46433,6 +46451,7 @@ window.searchData = [
       "HP:0001276",
       "HP:0008936",
       "HP:0002376",
+      "HP:0001288",
       "HP:0001257",
       "HP:0100595",
       "HP:0007166",
@@ -46447,21 +46466,22 @@ window.searchData = [
       "HP:0000256",
       "HP:0004322",
       "HP:0001508",
-      "HP:0002060",
+      "HP:0012443",
       "HP:0040010",
       "HP:0007370",
       "HP:0002538",
+      "HP:0002120",
       "HP:0012448",
       "HP:0002119",
-      "HP:0012373",
+      "HP:0000496",
       "HP:0000486",
       "HP:0000483",
       "HP:0002650",
       "HP:0001382",
-      "HP:0001631",
+      "HP:0001627",
       "HP:0000078",
       "HP:0000028",
-      "HP:0001212",
+      "HP:0001574",
       "HP:0000717",
       "HP:0000821",
       "HP:0002019",
@@ -46490,12 +46510,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_2.yaml",
     "page_url": "../pages/disorders/Bryant-Li-Bhoj_Neurodevelopmental_Syndrome_2.html",
-    "num_phenotypes": 42,
+    "num_phenotypes": 44,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Budd-Chiari Syndrome",
@@ -66720,14 +66740,14 @@ window.searchData = [
       "HP:0003763",
       "HP:0100785",
       "HP:0002870",
-      "HP:0000539",
-      "HP:0002757",
+      "HP:0012373",
+      "HP:0033127",
       "HP:0000965",
       "HP:0002205",
       "HP:0011968",
       "HP:0002020",
       "HP:0002019",
-      "HP:0004322",
+      "HP:0001510",
       "HP:0000252",
       "HP:0000400",
       "HP:0000286",
@@ -66766,7 +66786,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "5"
   },
   {
@@ -110751,15 +110771,18 @@ window.searchData = [
       "Regionally Selective PrP-Sc Accumulation in Gray Matter",
       "Preferential Thalamic Neuronal Loss and Astrogliosis",
       "Collapse of Thalamocortical Sleep Oscillation",
-      "Loss of Thalamolimbic Autonomic Restraint"
+      "Loss of Thalamolimbic Autonomic Restraint",
+      "Extrathalamic Olivocerebellar and Cortical Degeneration"
     ],
     "cell_types": [
       "thalamic projection neuron",
-      "reactive astrocyte"
+      "reactive astrocyte",
+      "cerebellar Purkinje cell"
     ],
     "cell_type_ids": [
       "CL:0000679",
-      "CL:0000127"
+      "CL:0000127",
+      "CL:0000121"
     ],
     "biological_processes": [
       "protein folding",
@@ -110778,6 +110801,8 @@ window.searchData = [
       "Dysautonomia",
       "Tachycardia",
       "Hyperhidrosis",
+      "Hyperthermia",
+      "Hypertension",
       "Myoclonus",
       "Ataxia",
       "Dysarthria",
@@ -110787,41 +110812,42 @@ window.searchData = [
       "Memory impairment",
       "Progressive confusional state",
       "Bilateral tonic-clonic seizure",
-      "Urinary incontinence",
+      "Impaired sphincter control",
       "Progressive neurologic deterioration"
     ],
     "phenotype_categories": [
       "Neurological",
       "Autonomic",
-      "Gastrointestinal",
-      "Genitourinary"
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
       "Digestive",
-      "Genitourinary",
       "Integument",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0100785",
-      "HP:0002360",
+      "HP:5200298",
       "HP:5200291",
       "HP:0012332",
       "HP:0001649",
       "HP:0000975",
+      "HP:0004370",
+      "HP:0000822",
       "HP:0001336",
       "HP:0001251",
       "HP:0001260",
       "HP:0002015",
       "HP:0001257",
-      "HP:0000736",
+      "HP:0032044",
       "HP:0002354",
       "HP:0001289",
       "HP:0002069",
-      "HP:0000020",
+      "HP:0031064",
       "HP:0002344"
     ],
     "frequencies": [
@@ -110847,12 +110873,12 @@ window.searchData = [
     ],
     "source_file": "Fatal_Familial_Insomnia.yaml",
     "page_url": "../pages/disorders/Fatal_Familial_Insomnia.html",
-    "num_phenotypes": 17,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 19,
+    "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Febrile Infection-Related Epilepsy Syndrome",
@@ -117970,7 +117996,9 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
       "Gastric ulcer"
     ],
@@ -119751,7 +119779,10 @@ window.searchData = [
       "Pyramidal signs",
       "Delayed gross motor development",
       "Feeding difficulties",
-      "Cerebral white matter abnormality"
+      "Cerebral white matter abnormality",
+      "Macrocephaly",
+      "Dysarthria",
+      "Precocious puberty"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -119759,11 +119790,14 @@ window.searchData = [
       "Ophthalmologic",
       "Musculoskeletal",
       "Respiratory",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Endocrine",
       "Eye",
+      "Head and Neck",
       "Integument",
       "Limbs",
       "Musculoskeletal",
@@ -119794,13 +119828,16 @@ window.searchData = [
       "HP:0007256",
       "HP:0002194",
       "HP:0011968",
-      "HP:0002500"
+      "HP:0030890",
+      "HP:0000256",
+      "HP:0001260",
+      "HP:0000826"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "OCCASIONAL",
-      "OBLIGATE",
-      "FREQUENT"
+      "FREQUENT",
+      "OBLIGATE"
     ],
     "genes": [
       "GAN"
@@ -119813,12 +119850,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Giant_Axonal_Neuropathy_1.yaml",
     "page_url": "../pages/disorders/Giant_Axonal_Neuropathy_1.html",
-    "num_phenotypes": 24,
+    "num_phenotypes": 27,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Giant Cell Arteritis",
@@ -165097,6 +165134,7 @@ window.searchData = [
       "Reduced Bone Mineral Density",
       "Bone Fragility with Multiple Fractures",
       "Kyphoscoliosis",
+      "Craniocervical Instability",
       "Craniosynostosis",
       "Foot Deformity",
       "Broad Fingertips",
@@ -165111,16 +165149,20 @@ window.searchData = [
       "Short Neck",
       "Blue Sclerae",
       "Glaucoma",
+      "Corneal Clouding",
+      "Lymphedema",
+      "Abnormally Lax or Hyperextensible Skin",
       "Hypotonia",
       "Developmental Delay",
       "Congenital Diaphragmatic Hernia",
-      "Sensorineural Hearing Loss"
+      "Hearing Loss"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
       "Cardiovascular",
       "Craniofacial",
       "Ophthalmologic",
+      "Dermatologic",
       "Neurologic",
       "Other",
       "Otologic"
@@ -165131,12 +165173,14 @@ window.searchData = [
       "Eye",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001373",
+      "HP:0012095",
       "HP:0001382",
       "HP:0034392",
       "HP:0004322",
@@ -165144,6 +165188,7 @@ window.searchData = [
       "HP:0000938",
       "HP:0002659",
       "HP:0002751",
+      "HP:0008462",
       "HP:0001363",
       "HP:0001762",
       "HP:0011300",
@@ -165151,17 +165196,20 @@ window.searchData = [
       "HP:0000768",
       "HP:0001647",
       "HP:0002616",
-      "HP:0001629",
+      "HP:0001671",
       "HP:0001634",
       "HP:0000316",
       "HP:0011800",
       "HP:0000470",
       "HP:0000592",
       "HP:0000501",
+      "HP:0007957",
+      "HP:0001004",
+      "HP:0008067",
       "HP:0001252",
       "HP:0001263",
       "HP:0000776",
-      "HP:0000407"
+      "HP:0000365"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -165181,12 +165229,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Larsen-like_Syndrome_B3GAT3_Type.yaml",
     "page_url": "../pages/disorders/Larsen-like_Syndrome_B3GAT3_Type.html",
-    "num_phenotypes": 26,
+    "num_phenotypes": 30,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Larsen Syndrome",
@@ -168547,7 +168595,11 @@ window.searchData = [
       "Infection and Fever Prevention",
       "ISR Modulation (eIF2B activity enhancement, investigational)"
     ],
-    "environmental": [],
+    "environmental": [
+      "Febrile infection",
+      "Minor head trauma",
+      "Exposure to ISR-activating inhalation anaesthetics"
+    ],
     "biochemical": [],
     "source_file": "Leukoencephalopathy_With_Vanishing_White_Matter.yaml",
     "page_url": "../pages/disorders/Leukoencephalopathy_With_Vanishing_White_Matter.html",
@@ -168555,7 +168607,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -174988,24 +175040,28 @@ window.searchData = [
       "Impaired Cortical Excitatory Synaptic Maturation and Network Activity",
       "Excitatory-Inhibitory Synaptic Imbalance via GluN2B Downregulation",
       "Splice-Dependent Regional Specialisation of CASK Function",
+      "Retinal Ganglion Cell Deficit and Optic Nerve Axonopathy",
       "Progressive Pontine and Cerebellar Hypoplasia",
       "Postnatal Brain Growth Failure and Progressive Microcephaly"
     ],
     "cell_types": [
       "cerebellar granule cell",
       "Purkinje cell",
-      "cerebral cortex neuron"
+      "cerebral cortex neuron",
+      "retinal ganglion cell"
     ],
     "cell_type_ids": [
       "CL:0001031",
       "CL:0000121",
-      "CL:0010012"
+      "CL:0010012",
+      "CL:0000740"
     ],
     "biological_processes": [
       "synapse organization",
       "apoptotic process",
       "cerebellar granular layer morphogenesis",
       "synapse assembly",
+      "optic nerve development",
       "cerebellum development"
     ],
     "phenotypes": [
@@ -175068,7 +175124,7 @@ window.searchData = [
       "HP:0012110",
       "HP:0001251",
       "HP:0008936",
-      "HP:0001257",
+      "HP:0034353",
       "HP:0001332",
       "HP:0001250",
       "HP:0011097",
@@ -175077,7 +175133,7 @@ window.searchData = [
       "HP:0100704",
       "HP:0000407",
       "HP:0002360",
-      "HP:0000733",
+      "HP:5200018",
       "HP:0100716",
       "HP:0011968",
       "HP:0001510",
@@ -175109,10 +175165,10 @@ window.searchData = [
     "source_file": "MICPCH_Syndrome.yaml",
     "page_url": "../pages/disorders/MICPCH_Syndrome.html",
     "num_phenotypes": 27,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "6"
   },
   {
@@ -176781,7 +176837,7 @@ window.searchData = [
     "phenotypes": [
       "Lactic Acidosis",
       "Hypertrophic Cardiomyopathy",
-      "Global Developmental Delay and Intellectual Disability",
+      "Global Developmental Delay",
       "Intellectual Disability",
       "Hypotonia",
       "Feeding Difficulties",
@@ -176834,7 +176890,7 @@ window.searchData = [
       "HP:0002079",
       "HP:0001324",
       "HP:0001716",
-      "HP:0031865",
+      "HP:0001410",
       "HP:0003348",
       "HP:0002490",
       "HP:0008347",
@@ -176871,8 +176927,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MUTYH-Associated Polyposis",
@@ -181320,7 +181376,7 @@ window.searchData = [
       "Microtia",
       "Patellar aplasia",
       "Patellar hypoplasia",
-      "Patellar dislocation",
+      "Recurrent patellar dislocation",
       "Short stature",
       "Intrauterine growth retardation",
       "Microcephaly",
@@ -181337,7 +181393,21 @@ window.searchData = [
       "Hearing impairment",
       "Decreased response to growth hormone stimulation test",
       "Decreased total neutrophil count",
-      "Lipodystrophy"
+      "Lipodystrophy",
+      "Bronchomalacia",
+      "Laryngomalacia",
+      "Tracheomalacia",
+      "Gastroesophageal reflux",
+      "Joint contracture",
+      "Motor delay",
+      "Delayed speech and language development",
+      "Ventricular septal defect",
+      "Patent ductus arteriosus",
+      "Premature birth",
+      "Recurrent respiratory infections",
+      "Genu recurvatum",
+      "Joint hypermobility",
+      "Pes planus"
     ],
     "phenotype_categories": [
       "Craniofacial",
@@ -181349,11 +181419,13 @@ window.searchData = [
       "Gastrointestinal",
       "Respiratory",
       "Otologic",
-      "Hematologic"
+      "Hematologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Breast",
+      "Cardiovascular",
       "Digestive",
       "Ear",
       "Endocrine",
@@ -181364,13 +181436,14 @@ window.searchData = [
       "Limbs",
       "Musculoskeletal",
       "Nervous System",
+      "Prenatal and Birth",
       "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0008551",
       "HP:0006443",
       "HP:0003065",
-      "HP:0002999",
+      "HP:0005001",
       "HP:0004322",
       "HP:0001511",
       "HP:0000252",
@@ -181387,13 +181460,26 @@ window.searchData = [
       "HP:0000365",
       "HP:0000824",
       "HP:0001875",
-      "HP:0009125"
+      "HP:0009125",
+      "HP:0002780",
+      "HP:0001601",
+      "HP:0002779",
+      "HP:0002020",
+      "HP:0034392",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001629",
+      "HP:0001643",
+      "HP:0001622",
+      "HP:0002205",
+      "HP:0002816",
+      "HP:0001382",
+      "HP:0001763"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL",
-      "VERY_RARE"
+      "OCCASIONAL"
     ],
     "genes": [
       "ORC1",
@@ -181420,14 +181506,16 @@ window.searchData = [
       "Craniofacial surgery for craniosynostosis"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Low circulating IGF-1"
+    ],
     "source_file": "Meier-Gorlin_Syndrome.yaml",
     "page_url": "../pages/disorders/Meier-Gorlin_syndrome.html",
-    "num_phenotypes": 21,
+    "num_phenotypes": 35,
     "num_pathophysiology": 11,
     "num_genes": 13,
     "num_treatments": 7,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "6"
   },
   {
@@ -200630,6 +200718,9 @@ window.searchData = [
       "Periventricular leukomalacia",
       "Delayed myelination",
       "Craniofacial dysmorphism",
+      "Bitemporal narrowing",
+      "Wide mouth",
+      "Epicanthal folds",
       "Strabismus"
     ],
     "phenotype_categories": [
@@ -200647,10 +200738,10 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0000407",
+      "HP:0008619",
       "HP:0001263",
       "HP:0001249",
-      "HP:0001344",
+      "HP:0000750",
       "HP:0100021",
       "HP:0001257",
       "HP:0001332",
@@ -200664,11 +200755,12 @@ window.searchData = [
       "HP:0006970",
       "HP:0012448",
       "HP:0001999",
-      "HP:0000486"
+      "HP:0000341",
+      "HP:0000154",
+      "HP:0000286",
+      "HP:0000577"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "AFG2B"
     ],
@@ -200681,12 +200773,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Neurodevelopmental_Disorder_with_Hearing_Loss_and_Spasticity.yaml",
     "page_url": "../pages/disorders/Neurodevelopmental_Disorder_with_Hearing_Loss_and_Spasticity.html",
-    "num_phenotypes": 18,
+    "num_phenotypes": 21,
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Neurodevelopmental Disorder with Hypotonia, Feeding Difficulties, Facial Dysmorphism, and Brain Abnormalities",
@@ -216408,7 +216500,7 @@ window.searchData = [
       "Delayed Speech and Language Development",
       "Microcephaly",
       "Cognitive Impairment In Heterozygous Females",
-      "Developmental Regression",
+      "Cognitive Regression",
       "Abnormal Facial Shape"
     ],
     "phenotype_categories": [
@@ -216432,21 +216524,20 @@ window.searchData = [
       "HP:0007256",
       "HP:0002313",
       "HP:0001300",
-      "HP:0003693",
+      "HP:0008944",
       "HP:0002174",
-      "HP:0001332",
+      "HP:0002451",
       "HP:0001251",
       "HP:0001260",
       "HP:0000750",
       "HP:0000252",
       "HP:0100543",
-      "HP:0002376",
+      "HP:0034332",
       "HP:0001999"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "MECP2"
@@ -216465,8 +216556,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "PPP2R3C-Related Gonadal Dysgenesis Syndrome",
@@ -217718,10 +217809,10 @@ window.searchData = [
       "HP:0001508",
       "HP:0000280",
       "HP:0002352",
-      "HP:0001273",
+      "HP:0006989",
       "HP:0001321",
       "HP:0000556",
-      "HP:0000089",
+      "HP:0012583",
       "HP:0001627",
       "HP:0000750",
       "HP:0001270",
@@ -217749,8 +217840,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "PUS7-Related Neurodevelopmental Disorder",
@@ -248090,6 +248181,7 @@ window.searchData = [
       "Reduced SHH Signaling in Forebrain Patterning",
       "Impaired Forebrain Midline Separation",
       "Craniofacial Midline Deficiency",
+      "Basal Ganglia Non-Separation",
       "Hypothalamic Non-Separation",
       "Hypothalamic Autonomic and Homeostatic Dysfunction",
       "Central Diabetes Insipidus",
@@ -248105,7 +248197,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "Smoothened signaling pathway",
-      "Forebrain dorsal/ventral pattern formation"
+      "Forebrain dorsal/ventral pattern formation",
+      "eye development"
     ],
     "phenotypes": [
       "Holoprosencephaly",
@@ -248116,6 +248209,11 @@ window.searchData = [
       "Intellectual Disability",
       "Seizures",
       "Hydrocephalus",
+      "Dystonia",
+      "Hypotonia",
+      "Spasticity",
+      "Olfactory Bulb Aplasia",
+      "Anosmia",
       "Feeding Difficulties",
       "Microcephaly",
       "Hypotelorism",
@@ -248158,6 +248256,11 @@ window.searchData = [
       "HP:0001249",
       "HP:0001250",
       "HP:0000238",
+      "HP:0001332",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0032466",
+      "HP:0000458",
       "HP:0011968",
       "HP:0000252",
       "HP:0000601",
@@ -248201,11 +248304,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "SHH_Holoprosencephaly_Spectrum.yaml",
     "page_url": "../pages/disorders/SHH_Holoprosencephaly_Spectrum.html",
-    "num_phenotypes": 25,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 30,
+    "num_pathophysiology": 10,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "5"
   },
   {
@@ -261983,7 +262086,7 @@ window.searchData = [
       "Craniofacial",
       "Renal",
       "Ophthalmologic",
-      "Immunologic",
+      "Respiratory",
       "Audiologic",
       "Gastrointestinal",
       "Growth"
@@ -262060,7 +262163,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "6"
   },
   {
@@ -290314,7 +290417,7 @@ window.searchData = [
       "Increased Body Weight",
       "Genitourinary Anomalies",
       "Male Genital Abnormalities",
-      "Structural Brain Malformation",
+      "Abnormal Brain Morphology",
       "Gait Abnormality",
       "Broad Forehead",
       "Midface Retrusion",
@@ -290396,7 +290499,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -290949,7 +291052,7 @@ window.searchData = [
       "Renal Artery Stenosis",
       "Intellectual Disability",
       "Impaired Visuospatial Constructive Cognition",
-      "Generalized Hypotonia",
+      "Hypotonia",
       "Overfriendliness",
       "Attention Deficit Hyperactivity Disorder",
       "Anxiety",
@@ -291018,7 +291121,7 @@ window.searchData = [
       "HP:0001920",
       "HP:0001249",
       "HP:0010794",
-      "HP:0001290",
+      "HP:0001252",
       "HP:0100025",
       "HP:0007018",
       "HP:0000739",
@@ -291075,7 +291178,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
   {
@@ -296213,12 +296316,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2864,
   "total_subtypes": 3715,
   "total_disorders_and_subtypes": 6579,
-  "total_unique_evidence_sources": 40315,
-  "total_unique_publications": 37989,
+  "total_unique_evidence_sources": 40327,
+  "total_unique_publications": 37997,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 280,
   "total_pathographs": 2859,
-  "total_unique_pathological_events": 17159,
+  "total_unique_pathological_events": 17162,
   "total_modules": 173,
   "total_research_reports": 2988,
   "total_classifications": 19,
