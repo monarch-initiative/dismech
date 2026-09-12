@@ -1,9 +1,9 @@
 ---
-name: schedule
-description: Donate this Claude Code instance to dismech curation on a recurring local window (e.g. "8pm-12am every day"). Runs as an Anthropic cloud routine on the user's own subscription; each fire reconciles against GitHub and either finishes the one item that still needs the user's work or, if nothing does, claims and curates one new disease. Also `/schedule` (run once now), `/schedule status`, `/schedule stop`. Active concurrency is 1.
+name: donate-curation
+description: Donate this Claude Code instance to dismech curation on a recurring local window (e.g. "8pm-12am every day"). Runs as an Anthropic cloud routine on the user's own subscription; each fire reconciles against GitHub and either finishes the one item that still needs the user's work or, if nothing does, claims and curates one new disease. Also `/donate-curation` (run once now), `/donate-curation status`, `/donate-curation stop`. Active concurrency is 1.
 ---
 
-# schedule
+# donate-curation
 
 Donate this Claude Code instance to dismech curation for a timeframe the user
 chooses. The skill **produces PRs and keeps them unblocked** during the window;
@@ -24,27 +24,30 @@ reviewer's and the `auto_merge_ready_prs.py` sweep's job.
 > [`docs/schedule-donation.md`](../../../docs/schedule-donation.md). This file is
 > the technical orchestrator spec.
 
-> This is a project skill that composes the Claude Code cloud-routine API
-> (`RemoteTrigger`) — the same mechanism as the built-in `schedule` skill — but
-> wired to the dismech curation loop specifically. When the user types
-> `/schedule ...` inside this repo, this is the skill they mean.
+> This skill composes the Claude Code cloud-routine API (`RemoteTrigger`) — the
+> same mechanism as the built-in `schedule` skill — but wired to the dismech
+> curation loop specifically. It is named `donate-curation`, **not** `schedule`,
+> on purpose: a project skill named `schedule` collides with the built-in one,
+> and `/schedule` resolves to the built-in generic routine-creator (which asks
+> "what should the agent do?") rather than to this fixed claim→curate→PR loop.
+> Always invoke it as `/donate-curation`.
 
 ## Commands
 
-- **`/schedule`** — run once, now: reconcile against GitHub and either finish the
+- **`/donate-curation`** — run once, now: reconcile against GitHub and either finish the
   one item that needs the user's work or (if nothing does) claim and curate one
   disease. No routine is registered.
-- **`/schedule <window> [<recurrence>] [for <expiry>]`** — register a recurring
+- **`/donate-curation <window> [<recurrence>] [for <expiry>]`** — register a recurring
   cloud routine for the window (see **Schedule syntax**), after a one-off proving
   fire.
-- **`/schedule status`** — show the active routine (cron / window / expiry) and
+- **`/donate-curation status`** — show the active routine (cron / window / expiry) and
   the one in-flight item's state.
-- **`/schedule stop`** — disable the recurring routine and print the hard-delete
+- **`/donate-curation stop`** — disable the recurring routine and print the hard-delete
   link.
 
 ## The one rule everything hangs on
 
-Every invocation — manual `/schedule`, or a scheduled cloud fire — begins by
+Every invocation — manual `/donate-curation`, or a scheduled cloud fire — begins by
 **reconciling against GitHub, which is the only state** (there is no local
 ledger to go stale). The gate for claiming a **new** disease is:
 
@@ -67,21 +70,27 @@ Fetch the user's in-flight work and classify it with
 
 ```bash
 gh pr list --author @me --state open \
-  --json number,title,url,headRefName,isDraft,reviewDecision,mergeable,statusCheckRollup \
+  --json number,title,url,headRefName,reviewDecision,mergeable,statusCheckRollup \
   > /tmp/schedule_prs.json
 
 gh issue list --assignee @me --state open --label claim \
   --json number,title,closedByPullRequestsReferences \
   > /tmp/schedule_claims.json
 
-uv run python - <<'PY'
-import json
+WHOAMI=$(gh api user --jq .login)   # identity gate: must match config github_login
+
+uv run python - "$WHOAMI" <<'PY'
+import json, sys
+import yaml
 from dismech.schedule.reconcile import reconcile
+authenticated = sys.argv[1]
+cfg = yaml.safe_load(open(".claude/schedule-config.yaml"))
+expected = cfg.get("github_login")   # None -> gate is skipped (caller's call)
 prs = json.load(open("/tmp/schedule_prs.json"))
 claims = json.load(open("/tmp/schedule_claims.json"))
-r = reconcile(prs, claims)
+r = reconcile(prs, claims, authenticated_login=authenticated, expected_login=expected)
 print(r.summary)
-print("SHOULD_CLAIM_NEW:", r.should_claim_new)
+print("IDENTITY_OK:", r.identity_ok, "SHOULD_CLAIM_NEW:", r.should_claim_new)
 if r.item_needing_work:
     print("ITEM:", json.dumps(r.item_needing_work))
 for c in r.pr_classifications:
@@ -90,7 +99,10 @@ PY
 ```
 
 `reconcile()` returns `should_claim_new` and, when something needs work, the
-single `item_needing_work` to finish this fire. **Trust its verdict.**
+single `item_needing_work` to finish this fire. **Trust its verdict.** If
+`identity_ok` is false — the fire authenticated as someone other than the
+config's `github_login` — the fire does **nothing** (no claim, no fix); report
+the mismatch and stop.
 
 ## Step 2 — finish-first (if anything needs my work)
 
@@ -136,7 +148,7 @@ claimed or the fire deferred because a PR needed work. Leave awaiting-review and
 approved-waiting PRs to the review / `auto_merge_ready_prs.py` automation — report
 their state only, never merge them.
 
-## Registering a recurring window (`/schedule <window> ...`)
+## Registering a recurring window (`/donate-curation <window> ...`)
 
 ### Which scheduler
 
@@ -147,7 +159,7 @@ Claude Code exposes two schedulers; only one runs unattended:
   **cannot** run when Claude is closed → **not usable here.**
 - **`RemoteTrigger` cloud routine (CCR)** — each fire spawns a fully isolated
   cloud session with its own git checkout, on the user's own subscription; the
-  Mac need not be on. **This is what `/schedule <window>` uses.**
+  Mac need not be on. **This is what `/donate-curation <window>` uses.**
 
 ### Expand the config to a UTC cron (do not hand-compute)
 
@@ -171,13 +183,22 @@ Key facts the module encodes, so you don't re-derive them:
    running. `window_end_local` is passed into the prompt so the session stops
    claiming new work past it.
 3. **Minimum interval is one hour** (validated by the config parser).
+4. **`once` / "tonight" is a heartbeat, not a single fire.** It registers the
+   *same* hourly crons across the window, bounded by an `expiry_date` on the
+   window's own date, so it fires 8/9/10/11pm once and then self-disables the
+   next day. `self_disabling: true` in the expansion flags this. There is no
+   single-instant `run_once_at` — the diagnostic/proving fire uses
+   `RemoteTrigger {action:"run"}` instead.
 
 ### `RemoteTrigger {action:"create"}` mapping
 
-- `cron_expression` — each string in `utc_crons` (register one event per cron);
-  or `run_once_at` (the module's RFC3339 UTC value) for `once` / `for 1 day`.
-- `job_config.ccr.environment_id` — `routine.environment_id` from the config
-  (the dismech cloud env).
+- `cron_expression` — each string in `utc_crons` (register one event per cron).
+  There is one set of crons for every schedule, `once` included.
+- `job_config.ccr.environment_id` — `routine.environment_id` from the config.
+  It ships `null` because a cloud env id may be account-scoped; **prompt the user
+  for it on first registration** (or have them confirm the #11657 value is
+  project-scoped) and write it back to the config. Do not register with a null
+  env.
 - `job_config.ccr.session_context.sources` —
   `https://github.com/monarch-initiative/dismech`.
 - `job_config.ccr.session_context.model` — the config `model`.
@@ -215,8 +236,9 @@ the recurring routine is enabled.
 
 ### The frozen routine prompt
 
-Substitute `<WINDOW_END_LOCAL>` and `<EXPIRY_DATE>` from the expansion. If Step 0
-finds project skills do **not** load in-session, expand the `claim-disease` /
+Substitute `<WINDOW_END_LOCAL>`, `<EXPIRY_DATE>`, `<GITHUB_LOGIN>`, and
+`<DST_DATES>` from the config and expansion. If Step 0 finds project skills do
+**not** load in-session, expand the `claim-disease` /
 `initiate-new-disorder-creation` references into inline instructions.
 
 ```
@@ -227,11 +249,23 @@ Commit and push after every meaningful step so a token/rate limit loses nothing.
 1. SINGLE-FLIGHT: If RemoteTrigger is available, call list_runs on this routine; if another
    run is still active, STOP now (do nothing). If RemoteTrigger is unavailable, rely on the
    reconcile gate below plus the claim label as the lock.
-2. RECONCILE from GitHub (the only state) using dismech.schedule.reconcile:
+2. IDENTITY: assert `gh api user --jq .login` == <GITHUB_LOGIN>. If it does not match (a bot/
+   App token, the wrong account), STOP now — do NOT claim or fix anything. `--author @me`
+   would otherwise return an empty list and the one-disease gate would claim every fire.
+3. EXPIRY (check before doing any work, so a self-disabling "once"/tonight schedule's
+   morning-after heartbeat disables cleanly instead of claiming): if today is past
+   <EXPIRY_DATE>, disable this routine (RemoteTrigger update enabled:false if available;
+   otherwise do nothing this fire — a disabled cron is then the operator's job) and STOP.
+4. DST: if today is one of <DST_DATES>, the registered UTC cron is now an hour off local.
+   Re-register by re-running /donate-curation with the same window (RemoteTrigger update with
+   the freshly expanded cron) before doing work; if RemoteTrigger is unavailable, note it in
+   the report so the operator re-runs /donate-curation. (Empty list -> nothing to do.)
+5. RECONCILE from GitHub (the only state) using dismech.schedule.reconcile, passing
+   authenticated_login (step 2) and expected_login=<GITHUB_LOGIN>:
    - my open PRs (gh pr list --author @me ...), classified as needs-my-work / awaiting-review /
      waiting-to-merge;
    - my open `claim` issues with no linked PR.
-3. FINISH-FIRST: If any PR needs my work, or an un-PR'd claim issue exists, handle that ONE item:
+6. FINISH-FIRST: If any PR needs my work, or an un-PR'd claim issue exists, handle that ONE item:
    - PR CHANGES_REQUESTED/failing/conflicted -> fix everything in ONE push (blocking findings,
      worthwhile optional suggestions, the history/ record, conflicts), following CLAUDE.md's
      review rules; re-request review via scripts/retry_failed_reviews.py. Do NOT push while a
@@ -239,13 +273,11 @@ Commit and push after every meaningful step so a token/rate limit loses nothing.
    - Un-PR'd claim issue -> resume curating it to a pushed PR (initiate-new-disorder-creation
      workflow; work in a git worktree; root all file ops in the worktree).
    Then STOP. Claim nothing new this fire.
-4. CLAIM ONE only if NOTHING needs my work and no un-PR'd claim issue exists: claim exactly one
+7. CLAIM ONE only if NOTHING needs my work and no un-PR'd claim issue exists: claim exactly one
    disease (claim-disease logic: two-phase pick, file the `Curate <label> (MONDO:NNNNNNN)` issue),
    then curate it end-to-end to a pushed PR carrying `Closes #<issue>`, in its own worktree.
-5. WINDOW END: stop claiming new work after <WINDOW_END_LOCAL>; let in-flight subagent work commit.
-6. EXPIRY: if today is past <EXPIRY_DATE>, disable this routine (RemoteTrigger update enabled:false
-   if available; otherwise do nothing each fire — a disabled cron is the operator's job).
-7. Report what you did: the one item's final state, and whether a disease was claimed or deferred.
+8. WINDOW END: stop claiming new work after <WINDOW_END_LOCAL>; let in-flight subagent work commit.
+9. Report what you did: the one item's final state, and whether a disease was claimed or deferred.
 ```
 
 ## Concurrency control across hourly fires
@@ -261,7 +293,7 @@ concurrency 1, two guards suffice and are already encoded above:
    restarts, so at most one disease is ever actively in hand and a crashed
    predecessor's item is *resumed*, not duplicated.
 
-## `/schedule status`
+## `/donate-curation status`
 
 Read `routine.trigger_id` from the config; if set, `RemoteTrigger
 {action:"list_runs"}` (and/or `get_run_log` on the latest) to show cron / window
@@ -269,7 +301,7 @@ Read `routine.trigger_id` from the config; if set, `RemoteTrigger
 the one in-flight item's classification. If no `trigger_id` is set, say no
 recurring routine is registered and show only the reconcile result.
 
-## `/schedule stop`
+## `/donate-curation stop`
 
 Routines **cannot be hard-deleted via the API** — only disabled. So:
 
@@ -283,21 +315,28 @@ subagents are allowed to commit/push; `pr-shepherd` carries the tail.
 
 ## Schedule syntax
 
-`/schedule <window> [<recurrence>] [for <expiry>]`. The user says **when** it
+`/donate-curation <window> [<recurrence>] [for <expiry>]`. The user says **when** it
 starts, **how long** each window runs, and **how long the routine lives**. Map
 the phrasing onto `.claude/schedule-config.yaml`:
 
 - **window** → `window.start_local` / `window.end_local` (whole hours).
   `8pm-12am` → `20:00` / `00:00`.
 - **recurrence** → `every day` = `every-day`, `every workday`/`weekdays` =
-  `workday`, `weekends` = `weekends`, `once`/`tonight` = `once`, an explicit
-  local cron = `custom` + `custom_cron_local`.
+  `workday`, `weekends` = `weekends`, `once`/`tonight`/`for 1 day` = `once`, an
+  explicit local cron = `custom` + `custom_cron_local`.
 - **expiry** → `for N days` = `expiry.mode: days` / `value: N`; `for N weeks` =
-  `weeks`/N; `until YYYY-MM-DD` = `date`; `once` / `for 1 day` = `once`; no
-  phrase = `none` (never expires).
+  `weeks`/N; `until YYYY-MM-DD` = `date`; no phrase = `none` (never expires).
+  `once` / `tonight` / `for 1 day` set `expiry.mode: once` (equivalently
+  `recurrence: once`).
 
-Always confirm the derived UTC cron and DST-transition dates back to the user
-before registering — the local→UTC conversion is the easiest thing to get wrong.
+`once` / `tonight` does **not** mean a single 8pm fire — it means run the
+window's hourly heartbeat tonight (8/9/10/11pm), then self-disable. Use it for a
+bounded proving run; the expansion reports `self_disabling: true` and an
+`expiry_date` on tonight's date.
+
+Always confirm the derived UTC cron, `self_disabling`, and DST-transition dates
+back to the user before registering — the local→UTC conversion is the easiest
+thing to get wrong.
 
 ## Rate-limit behaviour
 

@@ -3466,3 +3466,14 @@ matching-graph disease matching_report *flags:
 [group('Phenoagent')]
 phenopacket-eval paths="tests/phenoagent/data/phenopackets":
     uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md
+
+# ============== Curation-donation schedule (/donate-curation) ==============
+
+# Expand .claude/schedule-config.yaml (or another path) into its UTC cron(s),
+# expiry, self-disable flag, and DST-transition dates -- the deterministic core
+# of the /donate-curation skill. Pass --now to pin a reference instant.
+# Example: just schedule-expand
+# Example: just schedule-expand .claude/schedule-config.yaml --now 2026-07-15T09:00:00
+[group('Schedule')]
+schedule-expand config=".claude/schedule-config.yaml" *flags:
+    uv run python -m dismech.schedule --config {{config}} {{flags}}

@@ -37,9 +37,17 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 #: CheckRun conclusions that count as a hard failure the curator must fix.
+#: ``CANCELLED`` is deliberately *not* here (review #11658, item 9): a cancelled
+#: run is almost always a superseded workflow (a newer push cancelled the old
+#: run), which ``scripts/retry_failed_reviews.py`` recovers on its own backoff —
+#: it is not something the curator fixes by editing, so it is treated as pending
+#: rather than as a blocking failure. This diverges from the issue's original
+#: classifier spec on purpose.
 FAILING_CONCLUSIONS = frozenset(
-    {"FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"}
+    {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"}
 )
+#: Conclusions treated as "not my problem, will resolve/retry itself" -> pending.
+SUPERSEDED_CONCLUSIONS = frozenset({"CANCELLED"})
 #: StatusContext states that count as a failure (the legacy commit-status shape).
 FAILING_STATES = frozenset({"FAILURE", "ERROR", "ACTION_REQUIRED"})
 
@@ -71,7 +79,9 @@ def classify_checks(rollup: list[dict[str, Any]] | None) -> ChecksState:
             conclusion = (entry.get("conclusion") or "").upper()
             if conclusion in FAILING_CONCLUSIONS:
                 return "failing"
-            if status != "COMPLETED" or not conclusion:
+            if conclusion in SUPERSEDED_CONCLUSIONS:
+                pending = True  # superseded run; a newer run is the real signal
+            elif status != "COMPLETED" or not conclusion:
                 pending = True
         else:
             state = (entry.get("state") or "").upper()
@@ -154,6 +164,10 @@ class Reconciliation:
     #: The single item this fire must finish (a PR or a claim issue), or None.
     item_needing_work: dict[str, Any] | None = None
     summary: str = ""
+    #: False when an identity check was requested and the authenticated login did
+    #: not match the expected one. When False the fire does nothing at all — it
+    #: neither claims nor tries to finish work that is not the curator's.
+    identity_ok: bool = True
 
     @property
     def needs_work_prs(self) -> tuple[PRClassification, ...]:
@@ -171,21 +185,52 @@ class Reconciliation:
 def reconcile(
     prs: list[dict[str, Any]],
     claim_issues: list[dict[str, Any]],
+    *,
+    authenticated_login: str | None = None,
+    expected_login: str | None = None,
 ) -> Reconciliation:
     """Reduce the user's open PRs and claim issues to a claim-or-finish decision.
 
     ``prs`` is ``gh pr list --author @me --state open --json
-    number,title,url,headRefName,isDraft,reviewDecision,mergeable,statusCheckRollup``;
-    ``claim_issues`` is ``gh issue list --assignee @me --state open --label claim
-    --json number,title,closedByPullRequestsReferences``.
+    number,title,url,reviewDecision,mergeable,statusCheckRollup``; ``claim_issues``
+    is ``gh issue list --assignee @me --state open --label claim --json
+    number,title,closedByPullRequestsReferences``.
 
     The result's ``should_claim_new`` is true only when nothing needs the user's
     work. When something does, ``item_needing_work`` names the single item to
-    finish this fire (PRs that need work take precedence over un-PR'd claim
-    issues, so an active fix cycle completes before a crashed claim is resumed).
+    finish this fire — PRs that need work take precedence over un-PR'd claim
+    issues, and both are considered in ascending number order so the choice is
+    stable across fires (review #11658, item 10).
+
+    **Identity gate (review #11658, item 4).** ``reconcile`` fails *open* by
+    design — an empty ``prs``/``claim_issues`` means "clean account, claim one".
+    But those lists come from ``--author @me`` / ``--assignee @me``, so a cloud
+    fire authenticated as the wrong account (a bot/App) sees empty lists every
+    fire and would claim a new disease hourly. When ``expected_login`` is given
+    and ``authenticated_login`` does not match it, the fire does **nothing**:
+    ``identity_ok`` is False, ``should_claim_new`` is False, and no item is
+    selected. Pass both from the skill (``gh api user --jq .login`` vs the
+    config's ``github_login``).
     """
-    classifications = tuple(classify_pr(pr) for pr in prs)
-    unclaimed = tuple(unclaimed_claim_issues(claim_issues))
+    if expected_login is not None and (authenticated_login or "") != expected_login:
+        return Reconciliation(
+            pr_classifications=(),
+            unclaimed_issues=(),
+            should_claim_new=False,
+            item_needing_work=None,
+            identity_ok=False,
+            summary=(
+                f"refusing to act: authenticated as {authenticated_login or 'nobody'}, "
+                f"expected {expected_login}. Not this curator's account -> no claim, no fix."
+            ),
+        )
+
+    classifications = tuple(
+        classify_pr(pr) for pr in sorted(prs, key=lambda p: int(p.get("number", 0)))
+    )
+    unclaimed = tuple(
+        sorted(unclaimed_claim_issues(claim_issues), key=lambda i: int(i.get("number", 0)))
+    )
 
     needs_work = [c for c in classifications if c.needs_my_work]
     should_claim = not needs_work and not unclaimed

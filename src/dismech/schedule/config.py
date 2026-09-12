@@ -25,7 +25,7 @@ Three facts about the ``RemoteTrigger`` API shape everything here (see issue
 
 The public surface is :func:`load_config` / :func:`parse_config` (validate the
 YAML into a :class:`ScheduleConfig`) and :func:`expand` (turn a config into the
-UTC cron list, ``run_once_at``, and the prompt substitutions).
+UTC cron list, expiry date, and the prompt substitutions).
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ import yaml
 # --------------------------------------------------------------------------- #
 
 #: Recurrence aliases -> the *local* cron day-of-week field they expand to.
-#: ``once`` and ``custom`` are handled separately (``run_once_at`` and a
-#: user-supplied local cron respectively) and are intentionally absent here.
+#: ``once`` fires on any day (bounded by expiry, see :func:`_active_py_dows`) and
+#: ``custom`` uses a user-supplied local cron; both are intentionally absent here.
 RECURRENCE_DOW: dict[str, str] = {
     "every-day": "*",
     "workday": "1-5",
@@ -144,6 +144,13 @@ class ScheduleConfig:
     expiry: Expiry = field(default_factory=Expiry)
     max_active: int = 1
     model: str = "claude-sonnet-5"
+    #: The GitHub login this donation runs as. The skill asserts
+    #: ``gh api user --jq .login`` matches it before claiming, so a cloud fire
+    #: authenticated as a bot/App (whose ``--author @me`` returns nothing) can
+    #: never mistake an empty in-flight list for "clean, claim a new disease"
+    #: (review #11658, item 4). ``None`` means the check is the skill's caller's
+    #: responsibility.
+    github_login: str | None = None
     routine: Routine = field(default_factory=Routine)
 
     @property
@@ -200,7 +207,7 @@ def parse_config(data: dict[str, Any]) -> ScheduleConfig:
         start_local=_parse_hhmm(win.get("start_local"), "window.start_local"),
         end_local=_parse_hhmm(win.get("end_local"), "window.end_local"),
     )
-    window.duration_hours  # validate hour alignment eagerly
+    _ = window.duration_hours  # validate hour alignment eagerly
 
     recurrence = data.get("recurrence")
     if recurrence not in VALID_RECURRENCES:
@@ -210,16 +217,26 @@ def parse_config(data: dict[str, Any]) -> ScheduleConfig:
 
     custom_cron_local = data.get("custom_cron_local")
     if recurrence == "custom":
-        if not isinstance(custom_cron_local, str) or len(custom_cron_local.split()) != 5:
+        if not isinstance(custom_cron_local, str):
             raise ScheduleConfigError(
                 "recurrence: custom requires a 5-field custom_cron_local string"
             )
+        _validate_custom_cron(custom_cron_local)  # full field validation, at load time
     elif custom_cron_local not in (None, ""):
         raise ScheduleConfigError(
             "custom_cron_local is only valid with recurrence: custom"
         )
 
     expiry = _parse_expiry(data.get("expiry") or {})
+    if recurrence == "custom" and expiry.mode == "once":
+        # A hand-authored recurring cron has no "window" for the once/tonight
+        # self-disable to bound, so honouring one would mean silently ignoring
+        # the other. Reject the pair rather than pick one (review #11658, item 1).
+        raise ScheduleConfigError(
+            "recurrence: custom cannot be combined with expiry.mode: once "
+            "(a custom cron has no window to bound a one-night run); use an "
+            "explicit expiry.mode: date instead"
+        )
 
     max_active = data.get("max_active", 1)
     if not isinstance(max_active, int) or max_active < 1:
@@ -234,6 +251,10 @@ def parse_config(data: dict[str, Any]) -> ScheduleConfig:
     model = data.get("model", "claude-sonnet-5")
     if not isinstance(model, str) or not model:
         raise ScheduleConfigError("model must be a non-empty string")
+
+    github_login = data.get("github_login")
+    if github_login is not None and not (isinstance(github_login, str) and github_login):
+        raise ScheduleConfigError("github_login must be a non-empty string or null")
 
     routine_data = data.get("routine") or {}
     if not isinstance(routine_data, dict):
@@ -252,8 +273,63 @@ def parse_config(data: dict[str, Any]) -> ScheduleConfig:
         expiry=expiry,
         max_active=max_active,
         model=model,
+        github_login=github_login,
         routine=routine,
     )
+
+
+def _validate_custom_cron(cron: str) -> None:
+    """Validate a 5-field LOCAL cron for the ``custom`` recurrence, at load time.
+
+    Minute and hour must be single integers (they are converted to a UTC
+    instant); day-of-month and month pass through; day-of-week must be ``*`` or a
+    comma/range of integers 0-6 so it can be shifted across the local->UTC day
+    rollover. Anything else is rejected here rather than raising a bare
+    ``ValueError`` deep inside :func:`expand` (review #11658, item 3).
+    """
+    parts = cron.split()
+    if len(parts) != 5:
+        raise ScheduleConfigError(
+            f"custom_cron_local must have 5 fields, got {len(parts)}: {cron!r}"
+        )
+    minute_f, hour_f, _dom, _mon, dow_f = parts
+    for name, val, hi in (("minute", minute_f, 59), ("hour", hour_f, 23)):
+        if not val.isdigit() or not (0 <= int(val) <= hi):
+            raise ScheduleConfigError(
+                f"custom_cron_local {name} must be a single integer 0-{hi}, got {val!r}"
+            )
+    _parse_cron_dow(dow_f)  # raises on steps, names, or out-of-range values
+
+
+def _parse_cron_dow(dow_f: str) -> list[int] | None:
+    """Parse a cron day-of-week field to a sorted int list, or ``None`` for ``*``.
+
+    Supports single values, comma lists, and ascending ``a-b`` ranges over
+    0-6 (Sun-Sat). Step syntax, names, ``7``, and descending ranges are rejected.
+    """
+    if dow_f == "*":
+        return None
+    if "/" in dow_f:
+        raise ScheduleConfigError(f"custom_cron_local day-of-week step syntax unsupported: {dow_f!r}")
+    days: set[int] = set()
+    for token in dow_f.split(","):
+        if "-" in token:
+            lo_s, hi_s = token.split("-", 1)
+            if not (lo_s.isdigit() and hi_s.isdigit()):
+                raise ScheduleConfigError(f"custom_cron_local day-of-week range invalid: {token!r}")
+            lo, hi = int(lo_s), int(hi_s)
+            if not (0 <= lo <= hi <= 6):
+                raise ScheduleConfigError(
+                    f"custom_cron_local day-of-week range must be 0<=a<=b<=6: {token!r}"
+                )
+            days.update(range(lo, hi + 1))
+        else:
+            if not token.isdigit() or not (0 <= int(token) <= 6):
+                raise ScheduleConfigError(
+                    f"custom_cron_local day-of-week must be 0-6 (Sun-Sat): {token!r}"
+                )
+            days.add(int(token))
+    return sorted(days)
 
 
 def _parse_expiry(data: dict[str, Any]) -> Expiry:
@@ -302,16 +378,24 @@ def load_config(path: str | Path) -> ScheduleConfig:
 class ExpansionResult:
     """The registration payload derived from a :class:`ScheduleConfig`.
 
-    ``utc_crons`` is empty for a one-shot schedule; ``run_once_at`` is set only
-    for a one-shot. Exactly one of the two is populated.
+    Every schedule — including a ``once`` / "tonight" one — registers the same
+    way: hourly ``utc_crons`` across the window, acting as restart heartbeats
+    that the skill's single-flight guard keeps from overlapping. A bounded
+    schedule carries an ``expiry_date`` the frozen prompt checks each fire to
+    self-disable; a ``once`` schedule's expiry is simply the window's own date,
+    so it self-disables the morning after. There is no separate single-instant
+    ``run_once_at`` path — the diagnostic/proving fire uses ``RemoteTrigger
+    {action:"run"}`` instead.
     """
 
     timezone: str
     reference_date: str
     utc_crons: list[str]
-    run_once_at: str | None
     window_end_local: str
     expiry_date: str | None
+    #: True when the schedule runs its window once and then self-disables
+    #: (``recurrence: once`` or ``expiry.mode: once``).
+    self_disabling: bool
     dst_transitions: list[str]
     model: str
     environment_id: str | None
@@ -328,19 +412,27 @@ def utc_offset_hours(tz: ZoneInfo, moment: datetime) -> float:
     return offset.total_seconds() / 3600.0
 
 
+def _active_py_dows(recurrence: str) -> set[int]:
+    """Python ``weekday()`` values (Mon=0..Sun=6) a recurrence fires on.
+
+    ``once`` fires on any day (its single window is bounded by expiry, not by a
+    weekday filter); ``custom`` is handled separately and never reaches here.
+    """
+    dow_field = RECURRENCE_DOW.get(recurrence, "*")
+    if dow_field == "1-5":
+        return {0, 1, 2, 3, 4}
+    if dow_field == "0,6":  # cron Sun(0)/Sat(6) == py Sun(6)/Sat(5)
+        return {5, 6}
+    return set(range(7))
+
+
 def _local_fire_datetimes(config: ScheduleConfig, ref: date) -> list[datetime]:
     """Naive local datetimes for every fire on the active weekdays of one week.
 
-    The week is anchored on the Monday of ``ref``'s week. For ``once`` /
-    ``custom`` recurrences this is not used (see :func:`expand`).
+    The week is anchored on the Monday of ``ref``'s week. ``custom`` recurrence
+    is not routed here (see :func:`expand`).
     """
-    dow_field = RECURRENCE_DOW[config.recurrence]
-    if dow_field == "*":
-        active_py_dows = set(range(7))  # 0=Mon..6=Sun
-    elif dow_field == "1-5":
-        active_py_dows = {0, 1, 2, 3, 4}
-    else:  # "0,6" -> Sun, Sat in cron == py Sun(6), Sat(5)
-        active_py_dows = {5, 6}
+    active_py_dows = _active_py_dows(config.recurrence)
 
     monday = ref - timedelta(days=ref.weekday())
     fires: list[datetime] = []
@@ -411,48 +503,42 @@ def _cron_sort_key(cron: str) -> tuple:
     return (dow, first_hour, int(minute))
 
 
-def _next_local_start(config: ScheduleConfig, now_local: datetime) -> datetime:
-    """The next local window-start instant at or after ``now_local``.
+def _next_window_date(config: ScheduleConfig, now_local: datetime) -> date:
+    """Date of the next window-start occurrence at or after ``now_local``.
 
-    Respects the recurrence's active weekdays (and, for ``custom``, is not
-    used — one-shot ``custom`` is disallowed).
+    Respects the recurrence's active weekdays. Used to bound a ``once`` /
+    "tonight" schedule so it self-disables the day after its one window.
     """
     start = time(config.window.start_hour, config.window.start_minute)
-    dow_field = RECURRENCE_DOW.get(config.recurrence, "*")
-    if dow_field == "1-5":
-        active = {0, 1, 2, 3, 4}
-    elif dow_field == "0,6":
-        active = {5, 6}
-    else:
-        active = set(range(7))
+    active = _active_py_dows(config.recurrence)
     for add in range(8):
         day = (now_local + timedelta(days=add)).date()
         if day.weekday() not in active:
             continue
-        candidate = datetime.combine(day, start)
-        if candidate >= now_local.replace(tzinfo=None):
-            return candidate
-    raise ScheduleConfigError("could not find a next start instant")  # pragma: no cover
+        if datetime.combine(day, start) >= now_local.replace(tzinfo=None):
+            return day
+    raise ScheduleConfigError("could not find a next window date")  # pragma: no cover
 
 
-def _rfc3339_utc(local_dt: datetime, tz: ZoneInfo) -> str:
-    aware = local_dt.replace(tzinfo=tz)
-    utc = aware.astimezone(ZoneInfo("UTC"))
-    return utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+def _is_self_disabling(config: ScheduleConfig) -> bool:
+    """A ``once`` recurrence, or an explicit ``expiry.mode: once``, runs its
+    window once and then self-disables."""
+    return config.recurrence == "once" or config.expiry.mode == "once"
 
 
-def _expiry_date(config: ScheduleConfig, ref: date) -> str | None:
+def _expiry_date(config: ScheduleConfig, now_local: datetime) -> str | None:
+    ref = now_local.date()
     exp = config.expiry
-    if exp.mode == "none":
-        return None
+    if _is_self_disabling(config):
+        # Self-disable the morning after the one window it runs.
+        return _next_window_date(config, now_local).isoformat()
     if exp.mode == "days":
         return (ref + timedelta(days=int(exp.value))).isoformat()
     if exp.mode == "weeks":
         return (ref + timedelta(weeks=int(exp.value))).isoformat()
     if exp.mode == "date":
         return _coerce_date(exp.value).isoformat()
-    # mode == "once": expires by firing; no standing expiry date.
-    return None
+    return None  # mode == "none"
 
 
 def _format_local_time(t: time) -> str:
@@ -469,7 +555,12 @@ def dst_transitions(config: ScheduleConfig, start: date, end: date) -> list[str]
     """
     tz = config.tzinfo
     transitions: list[str] = []
-    probe = time(config.window.start_hour, config.window.start_minute)
+    # Probe at midday, not at the window start: a window starting inside the
+    # spring-forward gap (e.g. 02:00-03:00) resolves with the pre-transition
+    # offset and reports the transition a day late, and a custom schedule never
+    # fires at window.start anyway (review #11658, item 6). The offset changes on
+    # the same calendar date regardless of probe hour.
+    probe = time(12, 0)
     prev = utc_offset_hours(tz, datetime.combine(start, probe))
     day = start
     while day <= end:
@@ -497,14 +588,10 @@ def expand(config: ScheduleConfig, *, now: datetime | None = None) -> ExpansionR
         now_local = now
     ref = now_local.date()
 
-    one_shot = config.recurrence == "once" or config.expiry.mode == "once"
-
-    utc_crons: list[str] = []
-    run_once_at: str | None = None
-    if one_shot:
-        start_local = _next_local_start(config, now_local)
-        run_once_at = _rfc3339_utc(start_local, tz)
-    elif config.recurrence == "custom":
+    # Every schedule registers as hourly heartbeat crons across the window —
+    # including a "once"/tonight one, which is just such a window bounded by an
+    # expiry that self-disables it the next day.
+    if config.recurrence == "custom":
         # A local 5-field cron: convert only the hour/minute against the
         # reference offset, leaving the day fields as authored. Weekday-shift
         # across the offset is the operator's call for a hand-written cron.
@@ -512,18 +599,29 @@ def expand(config: ScheduleConfig, *, now: datetime | None = None) -> ExpansionR
     else:
         utc_crons = _utc_crons(config, ref)
 
+    self_disabling = _is_self_disabling(config)
+    expiry_date = _expiry_date(config, now_local)
+    if (
+        config.expiry.mode == "date"
+        and expiry_date is not None
+        and _coerce_date(expiry_date) < ref
+    ):
+        # A recurring cron with an already-past expiry would register live and
+        # fire until someone notices (review #11658, item 14).
+        raise ScheduleConfigError(
+            f"expiry date {expiry_date} is in the past (reference date {ref.isoformat()})"
+        )
     # DST transitions across the routine's life (bounded by expiry, else a year).
-    expiry_date = _expiry_date(config, ref)
     horizon = _coerce_date(expiry_date) if expiry_date else ref + timedelta(days=365)
-    transitions = [] if one_shot else dst_transitions(config, ref, horizon)
+    transitions = dst_transitions(config, ref, horizon)
 
     return ExpansionResult(
         timezone=config.timezone,
         reference_date=ref.isoformat(),
         utc_crons=utc_crons,
-        run_once_at=run_once_at,
         window_end_local=_format_local_time(config.window.end_local),
         expiry_date=expiry_date,
+        self_disabling=self_disabling,
         dst_transitions=transitions,
         model=config.model,
         environment_id=config.routine.environment_id,
@@ -531,15 +629,32 @@ def expand(config: ScheduleConfig, *, now: datetime | None = None) -> ExpansionR
 
 
 def _convert_custom_cron(config: ScheduleConfig, ref: date) -> str:
+    # Fields are already validated by _validate_custom_cron at parse time.
     minute_f, hour_f, dom_f, mon_f, dow_f = config.custom_cron_local.split()
-    if minute_f in ("*",) or hour_f in ("*",) or "," in hour_f or "/" in hour_f or "-" in hour_f:
-        raise ScheduleConfigError(
-            "custom_cron_local hour/minute must be single values for UTC conversion"
-        )
     tz = config.tzinfo
     local_dt = datetime.combine(ref, time(int(hour_f), int(minute_f)))
     utc = local_dt.replace(tzinfo=tz).astimezone(ZoneInfo("UTC"))
-    return f"{utc.minute} {utc.hour} {dom_f} {mon_f} {dow_f}"
+    # The local->UTC conversion can roll the calendar day over; shift the
+    # day-of-week field by the same delta so a "Mon 8pm Pacific" cron does not
+    # silently become "Sun 8pm" (review #11658, item 2). The non-custom path
+    # already does this shift.
+    delta = (utc.date() - local_dt.date()).days
+    if delta != 0 and dom_f != "*":
+        raise ScheduleConfigError(
+            "custom_cron_local pins a day-of-month and the local->UTC "
+            "conversion rolls the day over; author this cron directly in UTC"
+        )
+    dow_out = _shift_cron_dow(dow_f, delta)
+    return f"{utc.minute} {utc.hour} {dom_f} {mon_f} {dow_out}"
+
+
+def _shift_cron_dow(dow_f: str, delta_days: int) -> str:
+    """Shift a validated cron day-of-week field by ``delta_days`` (mod 7)."""
+    days = _parse_cron_dow(dow_f)
+    if days is None:  # "*" is unaffected by a day rollover
+        return "*"
+    shifted = sorted({(d + delta_days) % 7 for d in days})
+    return ",".join(str(d) for d in shifted)
 
 
 # --------------------------------------------------------------------------- #

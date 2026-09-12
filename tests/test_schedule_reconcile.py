@@ -48,11 +48,13 @@ def test_classify_checks():
         ([status_context("SUCCESS")], "green"),
         ([status_context("PENDING")], "pending"),
         ([status_context("FAILURE")], "failing"),
+        # CANCELLED is a superseded run, not a curator-fixable failure -> pending.
+        ([check_run("SUCCESS"), check_run("CANCELLED")], "pending"),
     ]
     for rollup, expected in cases:
         assert classify_checks(rollup) == expected, rollup
-    # every hard-failure conclusion counts as failing.
-    for c in ("FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"):
+    # every hard-failure conclusion counts as failing (CANCELLED excluded above).
+    for c in ("FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"):
         assert classify_checks([check_run("SUCCESS"), check_run(c)]) == "failing", c
 
 
@@ -115,9 +117,26 @@ def test_reconcile_finishes_the_one_item_before_claiming():
     r2 = reconcile(prs=[], claim_issues=[{"number": 20, "closedByPullRequestsReferences": []}])
     assert r2.should_claim_new is False and r2.item_needing_work["kind"] == "claim_issue"
 
-    # A needs-work PR takes precedence over an un-PR'd claim issue.
+    # A needs-work PR takes precedence over an un-PR'd claim issue, and the one
+    # chosen is deterministic (lowest number) regardless of input order.
     r3 = reconcile(
-        prs=[pr(number=8, rollup=[check_run("FAILURE")])],
+        prs=[pr(number=12, rollup=[check_run("FAILURE")]), pr(number=8, review="CHANGES_REQUESTED")],
         claim_issues=[{"number": 21, "closedByPullRequestsReferences": []}],
     )
     assert r3.item_needing_work["kind"] == "pr" and r3.item_needing_work["number"] == 8
+
+
+def test_reconcile_identity_gate():
+    # Right account: behaves normally (clean -> claim).
+    ok = reconcile([], [], authenticated_login="alice", expected_login="alice")
+    assert ok.identity_ok is True and ok.should_claim_new is True
+
+    # Wrong / missing account: do nothing at all, even though lists are empty.
+    for who in ("bot[bot]", None, ""):
+        r = reconcile([], [], authenticated_login=who, expected_login="alice")
+        assert r.identity_ok is False
+        assert r.should_claim_new is False and r.item_needing_work is None
+        assert "expected alice" in r.summary
+
+    # No expected_login configured -> gate is the caller's responsibility (open).
+    assert reconcile([], []).should_claim_new is True
