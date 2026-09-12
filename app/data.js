@@ -41332,7 +41332,8 @@ window.searchData = [
       "Guided Self-Help CBT-E",
       "Cognitive Behavioral Therapy",
       "Lisdexamfetamine Pharmacotherapy",
-      "Combined CBT and Lisdexamfetamine"
+      "Combined CBT and Lisdexamfetamine",
+      "Juniver (App-Based Digital Intervention)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -41341,8 +41342,8 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 3,
     "num_genes": 2,
-    "num_treatments": 4,
-    "causal_graph_edges": "9",
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
   },
   {
@@ -299070,8 +299071,8 @@ window.searchMetrics = {
   "total_disorder_pages": 2883,
   "total_subtypes": 3716,
   "total_disorders_and_subtypes": 6599,
-  "total_unique_evidence_sources": 40652,
-  "total_unique_publications": 38302,
+  "total_unique_evidence_sources": 40662,
+  "total_unique_publications": 38311,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
   "total_pathographs": 2878,
