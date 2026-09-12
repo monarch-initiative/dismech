@@ -1,0 +1,266 @@
+schema_version: "1.0"
+provider: openscientist
+assessor: claude-code
+source_report: ../openscientist.md
+hypothesis_id: etr_lipid_metabolism_acsl5_macrophage
+assessed_at: "2026-09-06T18:50:00Z"
+overall_verdict: PARTIALLY_SUPPORTED
+summary: >-
+  The provider retrieved the GSE65914 series matrix and GPL570 annotation,
+  ran the prespecified ETR-versus-control contrast on gene-level log2
+  expression, and produced a complete, replayable bundle. The descriptive
+  half of the hypothesis reproduces with very large effects: ACSL5 is 5.6x
+  higher in ETR (q = 3e-13, d = 4.2), PPARG 4.5x and ACADVL 2.0x, with CPT1A
+  unchanged as an internal negative control, and all three macrophage
+  markers (CD68, CD163, CD86) are 1.4-1.8x higher. The provider's own
+  subject-level sensitivity analysis (7 vs 10, averaging replicate arrays)
+  shows this is not a pseudoreplication artifact. The mechanistic half does
+  not hold: within ETR, ACSL5 is uncorrelated with every macrophage marker
+  (all q > 0.45 at both granularities), and the CD86/CD163 balance shifts
+  toward the M2 marker CD163 (p = 0.018, d = -0.85) while PPARG, an M2
+  regulator, is among the most up-regulated genes. Lipid-metabolic
+  reprogramming and macrophage infiltration co-occur in ETR; an
+  ACSL5-driven M1 program is not supported by these data. Because the
+  originating study (PMID:40195491) derived its signature from this same
+  series, this is a reproduction of the analysis rather than an
+  independent-cohort replication. Provenance: the runner's download dropped
+  the manifest, code and environment file (client extension allowlist);
+  they were recovered from the provider API, the manifest was given the
+  field names the repository gate requires without changing any analysis
+  bytes, and an independent replay with the pinned versions reproduced all
+  four output tables byte-identically.
+artifacts:
+  - openscientist-assessment-by-claude-code.yaml
+artifact_root: ../openscientist_artifacts
+data_sources:
+  - data_source_id: geo-gse65914
+    source_type: PUBLIC_DATASET
+    name: Th1/Th17 Immune Response in Rosacea
+    identifier: geo:GSE65914
+    uri: https://ftp.ncbi.nlm.nih.gov/geo/series/GSE65nnn/GSE65914/matrix/GSE65914_series_matrix.txt.gz
+    retrieved_at: "2026-09-06T18:07:42Z"
+    access_status: ACCESSED
+    cohort: 14 ETR arrays (7 subjects x 2 replicate arrays) and 20 healthy-control arrays (10 subjects x 2); 12 PPR and 12 PhR arrays excluded from the prespecified contrast
+    organism: Homo sapiens
+    tissue: facial skin biopsy
+    assay: Affymetrix HG-U133 Plus 2.0 microarray (GPL570), GEO-normalized log2 values
+    source_artifacts:
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/methods.md
+    notes: >-
+      Series matrix sha256 70566f61... and byte count recorded in
+      MANIFEST.yaml; raw download lives under the gitignored raw/ directory
+      and was re-obtained from the provider job's artifacts zip for the
+      assessor replay. Relevance is direct: this is the entry's primary human
+      biopsy dataset and the series from which the ACSL5 study (PMID:40195491)
+      derived its signature. GEO-supplied normalized values were used as
+      provided; no CEL reprocessing.
+  - data_source_id: geo-gpl570-annotation
+    source_type: PUBLIC_DATASET
+    name: GPL570 platform annotation (Affymetrix HG-U133 Plus 2.0)
+    identifier: geo:GPL570
+    uri: https://ftp.ncbi.nlm.nih.gov/geo/platforms/GPLnnn/GPL570/annot/GPL570.annot.gz
+    retrieved_at: "2026-09-06T18:09:04Z"
+    access_status: ACCESSED
+    assay: probe-to-gene-symbol mapping via the curated Gene symbol column
+    source_artifacts:
+      - ../openscientist_artifacts/probe_gene_map.csv
+    notes: >-
+      Annotation sha256 d7cd4435... recorded in MANIFEST.yaml. Fifteen probes
+      map to the seven target genes; CD68 is represented only by the
+      multi-gene probe 203507_at (LOC101928634///SNORA67///CD68), which the
+      provider flags as a limitation.
+analyses:
+  - analysis_id: gse65914-etr-vs-control
+    status: SUCCEEDED
+    auditability: REPRODUCIBLE
+    method: >-
+      Gene-level expression as the arithmetic mean of curated-annotation
+      probes on the GEO log2 scale; per-gene Welch two-sample t-test ETR vs
+      healthy control; Benjamini-Hochberg across the seven prespecified
+      genes; Cohen's d with pooled SD; within-ETR Spearman correlation of
+      ACSL5 with CD68, CD163 and CD86 with BH over three tests.
+    comparison: >-
+      ETR (n = 14 arrays) vs healthy control (n = 20 arrays), array-level;
+      ACSL5-macrophage Spearman within the 14 ETR arrays.
+    input_data_source_ids:
+      - geo-gse65914
+      - geo-gpl570-annotation
+    software:
+      - software_name: python
+        software_version: "3.12.13"
+      - software_name: numpy
+        software_version: "2.3.5"
+      - software_name: pandas
+        software_version: "3.0.3"
+      - software_name: scipy
+        software_version: "1.17.1"
+      - software_name: statsmodels
+        software_version: "0.14.6"
+    parameters:
+      - "target genes: ACSL5, ACADVL, PPARG, CPT1A (lipid); CD68, CD163, CD86 (macrophage)"
+      - "group labels: exact GSE65914 characteristics 'erythematotelangiectatic rosacea (ETR)' and 'Healthy volunteer'"
+      - "probe aggregation: arithmetic mean of mapped probes per gene, log2 scale, no re-transform"
+      - "test: Welch t-test, equal_var=False; BH over 7 genes; Spearman BH over 3 pairs"
+      - "replicate arrays per subject treated as independent observations in the prespecified contrast"
+    code_artifacts:
+      - ../openscientist_artifacts/analysis.py
+    environment_artifact: ../openscientist_artifacts/environment.txt
+    output_artifacts:
+      - ../openscientist_artifacts/gene_results.csv
+      - ../openscientist_artifacts/spearman_acsl5_macrophage.csv
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/probe_gene_map.csv
+      - ../openscientist_artifacts/comparison.md
+      - ../openscientist_artifacts/replay/gene_results.csv
+      - ../openscientist_artifacts/replay/spearman_acsl5_macrophage.csv
+      - ../openscientist_artifacts/replay/samples.csv
+      - ../openscientist_artifacts/replay/probe_gene_map.csv
+    status_reason: >-
+      Execution is substantiated by committed code, environment and
+      checksummed outputs, by the provider's replay copies, and by an
+      assessor replay in an isolated environment with the pinned versions
+      that regenerated samples.csv, gene_results.csv,
+      spearman_acsl5_macrophage.csv and probe_gene_map.csv byte-identically.
+      The runner's download had omitted MANIFEST.yaml, analysis.py and
+      environment.txt (deep-research-client OpenScientist extension
+      allowlist); the assessor restored them from the job's artifacts zip
+      and removed thirteen flattened duplicate copies after confirming each
+      was byte-identical. The provider manifest recorded inputs under
+      url/path/accession/retrieval_date; the assessor added
+      canonical_url/local_path/identifier/retrieved_at duplicates and a
+      provider field so it meets the repository field contract, recording
+      the pre-correction sha256
+      (09890c7ea97534358a7aea8eee607804175f0bb7f746c104796cd002b390e331) in
+      assessor_corrections. No input, code or output bytes were altered,
+      which is why the status is kept at SUCCEEDED rather than PARTIAL.
+    limitations: >-
+      The prespecified contrast counts each subject twice (two replicate
+      arrays), so array-level p-values are anticonservative; the provider's
+      subject-level sensitivity tables under sensitivity/ show the same
+      pattern at 7 vs 10 but sit outside the locked bundle. Cross-sectional
+      expression cannot establish causal direction. Bulk marker ratios are
+      population averages and CD86, CD163 and CD68 are not macrophage
+      specific, so the M1/M2 skew is directional evidence only. CD68 rests
+      on a single multi-gene probe. GEO-normalized values were used without
+      CEL reprocessing.
+  - analysis_id: gse65914-sensitivity-subject-level-and-m1m2
+    status: PARTIAL
+    auditability: PARTIALLY_AUDITABLE
+    method: >-
+      Provider-initiated diagnostics: the same contrast after averaging the
+      two arrays per subject (ETR n = 7, control n = 10), the within-ETR
+      Spearman correlations at subject level, and a CD86-minus-CD163 (M1
+      minus M2) log2 skew index plus CD86-CD68 and CD163-CD68 indices
+      compared between ETR and control by Welch t-test.
+    comparison: >-
+      Subject-level ETR (7) vs control (10); ETR vs control on three
+      marker-difference indices.
+    input_data_source_ids:
+      - geo-gse65914
+      - geo-gpl570-annotation
+    output_artifacts:
+      - ../openscientist_artifacts/sensitivity/gene_results_subject_level.csv
+      - ../openscientist_artifacts/sensitivity/spearman_subject_level.csv
+      - ../openscientist_artifacts/sensitivity/m1_m2_skew.csv
+    status_reason: >-
+      The three tables are committed and their numbers match the report,
+      but they are not produced by analysis.py, are not listed in
+      MANIFEST.yaml outputs, and have no replay copies, so the assessor could
+      not regenerate them from code. They are treated as reported-with-data
+      rather than reproducible: informative for interpretation, not part of
+      the locked bundle.
+    limitations: >-
+      No code artifact regenerates these tables; the M1/M2 indices are
+      provider-chosen constructions rather than prespecified endpoints.
+claims:
+  - claim_id: lipid-genes-and-macrophage-markers-up-in-etr
+    statement: >-
+      ACSL5, ACADVL and PPARG, and the macrophage markers CD68, CD163 and
+      CD86, are significantly higher in ETR skin than in healthy control
+      skin in GSE65914, with CPT1A unchanged.
+    disposition: RETAINED
+    report_quote: >-
+      The six-gene up-regulation signal is unambiguous and the effect sizes are exceptionally large.
+    rationale: >-
+      Reproduced by the assessor replay: six of seven genes at q < 0.001
+      with d 1.65-4.23, CPT1A at q = 0.97. The subject-level sensitivity
+      tables show the same fold changes at 7 vs 10 subjects (all six q <
+      0.02), so the result is not an artifact of the replicate arrays. This
+      confirms the descriptive observation behind the entry's ACSL5 node.
+      It is a reproduction on the originating series, not an independent
+      cohort, and the fold changes are on GEO-normalized log2 values with
+      probe averaging.
+    citations:
+      - PMID:40195491
+    analysis_ids:
+      - gse65914-etr-vs-control
+  - claim_id: acsl5-uncoupled-from-macrophage-markers-within-etr
+    statement: >-
+      Within ETR samples, ACSL5 expression does not correlate with CD68,
+      CD163 or CD86 expression.
+    disposition: RETAINED
+    report_quote: >-
+      Within ETR samples, ACSL5 shows no significant correlation with any macrophage marker (all Spearman q > 0.45), so there is no expression-level coupling to support a driver relationship.
+    rationale: >-
+      Reproduced by the assessor replay (rho 0.30, 0.04, 0.31; all q >=
+      0.45) and repeated at subject level. With n = 14 arrays or 7 subjects
+      the test is underpowered, so a modest true association is not
+      excluded, but the data give no positive support for the coupling the
+      hypothesis label asserts.
+    analysis_ids:
+      - gse65914-etr-vs-control
+  - claim_id: no-m1-skew-leans-m2
+    statement: >-
+      The macrophage signal in ETR reflects increased abundance without an
+      M1 bias; marker balance and PPARG up-regulation lean toward M2.
+    disposition: QUALIFIED
+    report_quote: >-
+      shifts *toward* the M2 marker CD163 in ETR (p = 0.018, Cohen's d = −0.85)
+    rationale: >-
+      The skew table is committed and matches the report, and the PPARG
+      result (4.5x, q = 8e-10) is in the reproducible bundle. Qualified
+      because the M1/M2 indices are provider-chosen post hoc constructions
+      not regenerated by analysis.py, and because bulk CD86/CD163/CD68
+      ratios are population averages of markers that are not
+      macrophage-specific. The direction is nonetheless consistent across
+      three indices and directly contradicts the M1 wording of the
+      hypothesis label, which should be revised.
+    analysis_ids:
+      - gse65914-sensitivity-subject-level-and-m1m2
+  - claim_id: acsl5-driven-m1-axis-not-supported
+    statement: >-
+      The specific claim that ACSL5-centred lipid reprogramming drives M1
+      macrophage infiltration is not supported by GSE65914.
+    disposition: RETAINED
+    report_quote: >-
+      the specific ACSL5-driven-M1 axis is not supported by these transcriptomic data
+    rationale: >-
+      Follows from the two preceding claims and from the cross-sectional
+      design, which cannot test causal direction. The co-occurrence the
+      hypothesis was built on is real and strong; the driver and M1
+      components are not demonstrated. The entry's ACSL5 node already
+      carries mechanism_confidence PROVISIONAL and an indirect edge; this
+      run supports keeping that status and rewording the hypothesis to drop
+      the M1 attribution. The M2-leaning skew that reinforces this reading
+      comes from the provider's partially auditable sensitivity tables and
+      is assessed separately under the no-m1-skew-leans-m2 claim; this
+      claim rests on the reproducible contrast and correlation analysis.
+    analysis_ids:
+      - gse65914-etr-vs-control
+  - claim_id: replay-verified-bundle
+    statement: >-
+      The run produced a complete, replay-verified artifact bundle.
+    disposition: QUALIFIED
+    report_quote: >-
+      the GSE65914 series matrix and the GPL570 annotation were downloaded from the NCBI GEO FTP mirror, samples were classified, probes were mapped and aggregated to gene level, and the prespecified statistical contrast was executed and locked as reproducible artifacts
+    rationale: >-
+      True of what the provider generated, and confirmed by the assessor's
+      independent replay. It was not true of what reached the repository:
+      the runner's download discarded the manifest, code and environment
+      file, and the manifest's input records did not use the field names
+      the repository gate requires. Both were repaired without touching
+      analysis bytes, as recorded in the manifest and in the analysis
+      status_reason.
+    analysis_ids:
+      - gse65914-etr-vs-control

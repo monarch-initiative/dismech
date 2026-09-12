@@ -1,0 +1,213 @@
+schema_version: "1.0"
+provider: openscientist
+assessor: claude-code
+source_report: ../openscientist.md
+hypothesis_id: ll37_nlrp3_il1b_papulopustular
+assessed_at: "2026-09-06T18:45:00Z"
+overall_verdict: PARTIALLY_SUPPORTED
+summary: >-
+  The provider retrieved GSE155141, ran the two prespecified paired contrasts
+  on log2(CPM+1) for the eight target genes, and produced a complete,
+  replayable bundle. Its central observation is reproducible: IL-1beta raises
+  NLRP3 mRNA in non-lesional papulopustular-rosacea explants (paired t p =
+  0.025, dz = 1.57, fold 1.19), the only gene reaching raw significance, with
+  IL1B (2.0x) and IL1RN (1.6x) trending up. No gene survives BH correction
+  (NLRP3 q = 0.196) and the Wilcoxon test is not significant at n = 5, so
+  the priming signal is directionally consistent but statistically fragile.
+  The lesional-versus-non-lesional contrast is null for every inflammasome
+  gene, and CAMP/KLK5 are flat in both contrasts, so the dataset does not
+  show steady-state transcriptional up-regulation of the NLRP3 module in
+  lesions and cannot speak to the post-translational assembly and IL-1beta
+  maturation steps that define the hypothesis. The report is candid about
+  all of this. Two provenance facts qualify the "succeeded" claim: the
+  runner's artifact download dropped the manifest, code and environment
+  file (a client extension allowlist), and they were recovered from the
+  provider API by the assessor; and the provider manifest needed metadata
+  field additions to pass the repository gate. Analysis bytes were never
+  changed, and an independent replay with the provider's pinned package
+  versions reproduced both result tables byte-identically.
+artifacts:
+  - openscientist-assessment-by-claude-code.yaml
+artifact_root: ../openscientist_artifacts
+data_sources:
+  - data_source_id: geo-gse155141
+    source_type: PUBLIC_DATASET
+    name: Paired transcriptomic and proteomic analysis implicates IL-1beta in the pathogenesis of papulopustular rosacea explants [RNA-seq]
+    identifier: geo:GSE155141
+    uri: https://ftp.ncbi.nlm.nih.gov/geo/series/GSE155nnn/GSE155141/
+    retrieved_at: "2026-09-06T18:12:37Z"
+    access_status: ACCESSED
+    cohort: 5 subjects, 15 facial-skin explants (lesional, non-lesional, non-lesional + 50 ng/mL IL-1beta)
+    organism: Homo sapiens
+    tissue: facial skin explant
+    assay: bulk RNA-seq, raw gene-level counts (GPL16791)
+    source_artifacts:
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/methods.md
+    notes: >-
+      Three inputs (series matrix and two raw-count supplementary files) with
+      sha256 and byte counts recorded in MANIFEST.yaml; the raw downloads
+      live under the gitignored raw/ directory and were re-obtained from the
+      provider job's artifacts zip for the assessor replay. Relevance is
+      direct: the accession is the entry's own papulopustular explant
+      dataset. Sample-to-condition column assignment was verified by the
+      provider through canonical NF-kB response genes (methods.md).
+analyses:
+  - analysis_id: gse155141-paired-contrasts
+    status: SUCCEEDED
+    auditability: REPRODUCIBLE
+    method: >-
+      Library-size CPM, log2(CPM+1); two-sided paired t-test by subject for
+      two prespecified contrasts (lesional vs non-lesional untreated;
+      non-lesional IL-1beta-treated vs untreated) over eight target genes;
+      Benjamini-Hochberg across the eight genes within each contrast; paired
+      Cohen's dz.
+    comparison: >-
+      Contrast 1 lesional_noTx vs nonlesional_noTx (n = 5 pairs); contrast 2
+      nonlesional_IL1b vs nonlesional_noTx (n = 5 pairs).
+    input_data_source_ids:
+      - geo-gse155141
+    software:
+      - software_name: python
+        software_version: "3.12.13"
+      - software_name: numpy
+        software_version: "2.3.5"
+      - software_name: pandas
+        software_version: "3.0.3"
+      - software_name: scipy
+        software_version: "1.17.1"
+      - software_name: statsmodels
+        software_version: "0.14.6"
+    parameters:
+      - "target genes: NLRP3, CASP1, PYCARD, IL1B, IL18, IL1RN, CAMP, KLK5"
+      - "samples: all 15 included, none excluded"
+      - "normalization: CPM over all 56,614 genes, then log2(CPM+1)"
+      - "batch correction across the two supplementary count files: none"
+      - "multiple testing: Benjamini-Hochberg over 8 genes within each contrast"
+      - "output float format: %.10g"
+    code_artifacts:
+      - ../openscientist_artifacts/analysis.py
+    environment_artifact: ../openscientist_artifacts/environment.txt
+    output_artifacts:
+      - ../openscientist_artifacts/gene_results.csv
+      - ../openscientist_artifacts/samples.csv
+      - ../openscientist_artifacts/comparison.md
+      - ../openscientist_artifacts/replay/gene_results.csv
+      - ../openscientist_artifacts/replay/samples.csv
+    status_reason: >-
+      Execution is substantiated by the committed code, environment and
+      checksummed outputs, by the provider's replay copies, and by an
+      assessor replay in an isolated environment with the pinned versions
+      that regenerated samples.csv and gene_results.csv byte-identically
+      (sha256 c09361e9... and a6e7e0a7...). The runner's download had
+      omitted MANIFEST.yaml, analysis.py and environment.txt because the
+      deep-research-client OpenScientist provider only admits an extension
+      allowlist (.csv, .md, .html, .pdf, images); the assessor retrieved the
+      job's full artifacts zip from the provider API and restored those
+      files, and removed six flattened duplicate copies after confirming
+      each was byte-identical to its canonical file. The assessor then added
+      identifier, canonical_url and retrieved_at to each manifest input and
+      a provider field, duplicating values the provider had recorded under
+      other keys, so the manifest meets the repository field contract; the
+      provider's original manifest sha256
+      (61a37e19316c84cc542c50971d8364e6f8a43303973a6f3fd2a973f4a929104e) is
+      recorded in the manifest's assessor_corrections block. No input,
+      code or output bytes were altered, which is why the status is kept
+      at SUCCEEDED rather than reduced to PARTIAL.
+    limitations: >-
+      n = 5 pairs per contrast, so the eight per-gene paired t-tests are not
+      a genome-wide differential-expression model and no gene survives BH
+      at q < 0.05. The lesional and non-lesional samples come from two
+      separately normalized supplementary files with no batch correction
+      across them, which the provider notes. Transcript abundance cannot
+      measure inflammasome assembly, caspase-1 cleavage or IL-1beta
+      maturation, the steps the hypothesis is about. The IL-1beta arm tests
+      priming by IL-1beta itself, not the LL-37 trigger; CAMP and KLK5 were
+      unperturbed.
+claims:
+  - claim_id: il1b-primes-nlrp3-transcription
+    statement: >-
+      IL-1beta treatment raises NLRP3 mRNA in non-lesional papulopustular
+      rosacea explants, with IL1B and IL1RN trending upward, consistent with
+      transcriptional priming of the inflammasome sensor.
+    disposition: QUALIFIED
+    report_quote: >-
+      (paired t = 3.52, p = 0.0246, Cohen's dz = 1.57, fold = 1.19). It was the only target gene to reach raw significance in either contrast.
+    rationale: >-
+      The numbers are reproduced by the assessor replay and the direction is
+      consistent in four of five subjects with none negative. The claim is
+      qualified rather than retained because the effect does not survive
+      BH correction (q = 0.196), the fold change is small (1.19), and the
+      report's own Wilcoxon sensitivity analysis gives p = 0.125. The
+      report states these caveats itself. As a priming observation it is
+      compatible with the hypothesis but is not evidence of inflammasome
+      activation.
+    analysis_ids:
+      - gse155141-paired-contrasts
+  - claim_id: lesional-inflammasome-module-null
+    statement: >-
+      Lesional papulopustular skin shows no significant steady-state
+      transcriptional change in NLRP3, CASP1, PYCARD, IL1B, IL18, IL1RN,
+      CAMP or KLK5 relative to paired non-lesional skin.
+    disposition: RETAINED
+    report_quote: >-
+      after FDR correction. IL1B trended up in lesional skin (fold = 1.48, p = 0.290); NLRP3 and PYCARD were flat; CASP1 and CAMP trended down.
+    rationale: >-
+      Reproduced by the assessor replay (all q >= 0.85). This is a genuine
+      negative result at the transcript level and at this sample size, and
+      it is the more informative half of the run for the knowledge base:
+      the entry's NLRP3 node rests on Casas 2012 (PMID:23171449) reporting
+      NALP-3/CASP-1 over-expression in PPR skin, which this explant series
+      does not reproduce. The cross-file normalization caveat and n = 5
+      limit how strongly the null can be read, so it does not refute Casas
+      2012, but it should be recorded against the node.
+    analysis_ids:
+      - gse155141-paired-contrasts
+  - claim_id: cathelicidin-axis-not-testable-here
+    statement: >-
+      The dataset neither confirms nor refutes the upstream LL-37/KLK5
+      trigger or the post-translational inflammasome assembly and IL-1beta
+      maturation steps.
+    disposition: RETAINED
+    report_quote: >-
+      the data support the *priming* of NLRP3 transcription by IL-1β (a feed-forward transcriptional loop) but neither confirm nor refute the post-translational inflammasome-assembly and IL-1β-maturation steps, nor the upstream cathelicidin-axis (CAMP/KLK5) component
+    rationale: >-
+      Correct scoping. CAMP and KLK5 are flat in both contrasts, no LL-37
+      perturbation arm exists in GSE155141, and mRNA cannot report caspase-1
+      cleavage or IL-1beta processing. The hypothesis's defining steps
+      therefore remain untested by this run.
+    analysis_ids:
+      - gse155141-paired-contrasts
+  - claim_id: nlrp3-dependence-in-vivo
+    statement: >-
+      Independent mouse work shows LL-37-induced rosacea-like skin
+      inflammation requires NLRP3.
+    disposition: RETAINED
+    report_quote: >-
+      intradermal LL-37 administration induced in vivo caspase-1 activation and ASC speck formation in the skin of Nlrp3-expressing, but not in Nlrp3-deficient, mice
+    rationale: >-
+      Verified against the cached abstract of PMID:33745908, which reports
+      NLRP3-dependent caspase-1 activation, abrogation of LL-37-induced
+      inflammation in Nlrp3-deficient mice, and rescue by MCC950. This is
+      post-lock literature context correctly lineage-marked by the report;
+      it is stronger support for the LL-37 -> NLRP3 edge than anything the
+      entry currently cites and is a candidate for promotion to the disease
+      YAML through the normal evidence workflow.
+    citations:
+      - PMID:33745908
+  - claim_id: complete-replay-verified-bundle
+    statement: >-
+      The run produced a complete, replay-verified artifact bundle.
+    disposition: QUALIFIED
+    report_quote: >-
+      a complete, replay-verified artifact bundle was produced
+    rationale: >-
+      True of what the provider generated, and the provider's replay claim
+      is confirmed by the assessor's independent replay. It was not true of
+      what reached the repository: the runner's download discarded
+      MANIFEST.yaml, analysis.py and environment.txt, and the manifest as
+      written did not meet the repository's field contract. Both were
+      repaired by the assessor without touching analysis bytes, as recorded
+      in the manifest and in the analysis status_reason above.
+    analysis_ids:
+      - gse155141-paired-contrasts
