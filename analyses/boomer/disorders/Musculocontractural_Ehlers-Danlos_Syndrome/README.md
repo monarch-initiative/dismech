@@ -13,16 +13,14 @@ Boomer grounding analysis for [`kb/disorders/Musculocontractural_Ehlers-Danlos_S
 | mcEDS-CHST14 | `MONDO:0020681` | Ehlers-Danlos syndrome, musculocontractural type 1 | `AGREES` | — no shared vocabulary |
 | mcEDS-DSE | `MONDO:0014236` | Ehlers-Danlos syndrome, musculocontractural type 2 | `AGREES` | — no shared vocabulary |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0014236` ≡ `DOID:0080735`
 
 ## Files
 

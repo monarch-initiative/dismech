@@ -14,6 +14,8 @@ Boomer grounding analysis for [`kb/disorders/Congenital_Stationary_Night_Blindne
 | icCSNB | `MONDO:0010241` | congenital stationary night blindness 2A | `AGREES` | ✓ DOID |
 | Riggs | `MONDO:0012498` | congenital stationary night blindness autosomal dominant 1 | `AGREES` | ✓ DOID |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
@@ -23,8 +25,7 @@ below are provisional; this is not a completed consistency verdict.
 
 High-prior rejections in the provisional candidate:
 
-- `MONDO:0016293` ≡ `DOID:0050534`
-- `MONDO:0016293` ≡ `icd11f:587494652`
+- `MONDO:0016293` ≡ `icd11f:122338861`
 
 ## Files
 

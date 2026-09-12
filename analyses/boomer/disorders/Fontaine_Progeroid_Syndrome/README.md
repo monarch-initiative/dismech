@@ -10,17 +10,14 @@ Boomer grounding analysis for [`kb/disorders/Fontaine_Progeroid_Syndrome.yaml`](
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0012853` ≡ `ORDO:2095`
-- `MONDO:0012853` ≡ `ORDO:2963`
 
 ## Files
 

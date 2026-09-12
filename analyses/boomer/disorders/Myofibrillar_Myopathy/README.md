@@ -29,18 +29,14 @@ That makes them evidenced MONDO gaps rather than open questions:
 
 - **MFM2** — DOID (DOID:0080093), ORDO (ORDO:399058)
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0012215` ≡ `MESH:C000598645`
-- `MONDO:0012215` ≡ `MESH:C535906`
-- `MONDO:0012215` ≡ `ORDO:268129`
 
 ## Files
 

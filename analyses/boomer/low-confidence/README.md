@@ -1,5 +1,11 @@
 # Three lowest-confidence mapping investigations
 
+**Historical baseline:** these reports describe the inputs before the
+[annotation-aware proxy-merge migration](../proxy-merges/README.md).
+CANVAS and cblE now have revised production constraints. Their original inputs
+and solutions are retained in `../proxy-merges/baseline/`; the reproduction
+script uses those snapshots so the original tie remains independently checkable.
+
 We selected **ADan amyloidosis, CANVAS, and methylcobalamin deficiency type
 cblE** from the 32 completed results with confidence 0.5. These cover ICD-11
 Foundation, Orphanet, and Disease Ontology conflicts. Selection was illustrative,

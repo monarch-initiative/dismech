@@ -10,6 +10,8 @@ Boomer grounding analysis for [`kb/disorders/COL11A2_Skeletal_Spectrum.yaml`](..
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `RETRACTED`**
@@ -17,7 +19,6 @@ subtype assertion, and agreement does not validate a subtype hierarchy.
 Boomer rejected the following high-prior mapping hypotheses:
 
 - `MONDO:0008490` ≡ `DOID:0080677`
-- `MONDO:0008490` ≡ `MESH:C535776`
 
 ## Files
 

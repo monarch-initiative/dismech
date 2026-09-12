@@ -23,16 +23,14 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Agammaglobulinemia.yaml`]
 | AGM10 | `MONDO:0030529` | agammaglobulinemia 10, autosomal dominant | `SILENT` | — no shared vocabulary |
 | FNIP1 | `MONDO:0100432` | FNIP1-associated syndrome | `SILENT` | — no shared vocabulary |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0013287` ≡ `DOID:0060024`
 
 ## Files
 

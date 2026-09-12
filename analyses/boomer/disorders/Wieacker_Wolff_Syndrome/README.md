@@ -13,16 +13,14 @@ Boomer grounding analysis for [`kb/disorders/Wieacker_Wolff_Syndrome.yaml`](../.
 | Classic XLR WWS | `MONDO:0010758` | Wieacker-Wolff syndrome | `AGREES` | — no shared vocabulary |
 | Female-restricted XLD WWS | `MONDO:0026762` | Wieacker-Wolff syndrome, female-restricted | `AGREES` | — no shared vocabulary |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0010758` ≡ `ORDO:3454`
 
 ## Files
 

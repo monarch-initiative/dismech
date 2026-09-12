@@ -30,16 +30,14 @@ That makes them evidenced MONDO gaps rather than open questions:
 
 - **ODG4** — DOID (DOID:0080496)
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0010349` ≡ `DOID:0080494`
 
 ## Files
 

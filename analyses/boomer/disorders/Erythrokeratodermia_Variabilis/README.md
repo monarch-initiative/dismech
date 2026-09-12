@@ -10,18 +10,14 @@ Boomer grounding analysis for [`kb/disorders/Erythrokeratodermia_Variabilis.yaml
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0017851` ≡ `MESH:C536154`
-- `MONDO:0017851` ≡ `ORDO:308166`
-- `MONDO:0017851` ≡ `ORDO:316`
 
 ## Files
 

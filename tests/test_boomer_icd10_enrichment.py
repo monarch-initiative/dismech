@@ -103,7 +103,7 @@ def test_directions_deduplication_and_review(importer):
         "sup": "ORDO:2",
     }
     assert {
-        "fact_type": "ProperSubClassOf",
+        "fact_type": "SubClassOf",
         "sub": "ICD10:Q87.8",
         "sup": "ICD10:Q87",
     } in kb["facts"]
@@ -239,7 +239,9 @@ def test_one_entry_regeneration_preserves_other_index_rows(tmp_path, monkeypatch
         curated_predicate=None,
     )
     monkeypatch.setattr(
-        builder, "Mondo", lambda _: SimpleNamespace(disjoint_pairs=lambda _: [])
+        builder,
+        "Mondo",
+        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=lambda: []),
     )
     monkeypatch.setattr(builder, "collect", lambda *args: iter([rec]))
     builder.main(

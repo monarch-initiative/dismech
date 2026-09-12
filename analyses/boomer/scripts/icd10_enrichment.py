@@ -258,7 +258,7 @@ class ICD10Mappings:
                     if parent != target and parent in ancestors:
                         add(
                             {
-                                "fact_type": "ProperSubClassOf",
+                                "fact_type": "SubClassOf",
                                 "sub": target,
                                 "sup": parent,
                             }

@@ -13,16 +13,14 @@ Boomer grounding analysis for [`kb/disorders/Benign_Neonatal_Seizures.yaml`](../
 | KCNQ2-BFNS | `MONDO:0007365` | seizures, benign familial neonatal, 1 | `AGREES` | — no shared vocabulary |
 | KCNQ3-BFNS | `MONDO:0007366` | seizures, benign familial neonatal, 2 | `AGREES` | — no shared vocabulary |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0016027` ≡ `DOID:14264`
 
 ## Files
 

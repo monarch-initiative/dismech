@@ -69,7 +69,9 @@ def enumerate_worlds(kb, model, reasoner):
 def investigate(base, model, reasoner):
     results = {}
     for slug, pair in CASES.items():
-        folder = base / "disorders" / slug
+        folder = base / "proxy-merges/baseline" / slug
+        if not (folder / "solution.yaml").exists():
+            folder = base / "disorders" / slug
         path = folder / "kb.yaml"
         original = path.read_bytes()
         data = kb_cache.load_document(path)
@@ -159,6 +161,43 @@ def investigate(base, model, reasoner):
     return results
 
 
+def current_alternatives(base, model, reasoner):
+    """Independently verify and display the current CANVAS and cblE optima."""
+    results = {}
+    for slug in ("CANVAS", "Methylcobalamin_Deficiency_Type_cblE"):
+        folder = base / "disorders" / slug
+        data = kb_cache.load_document(folder / "kb.yaml")
+        saved = kb_cache.load_document(folder / "solution.yaml")
+        metadata = json.loads((folder / "solve.json").read_text())
+        input_hash = hashlib.sha256((folder / "kb.yaml").read_bytes()).hexdigest()
+        assert metadata["input_sha256"] == input_hash
+        assert metadata["status"] in {"ALL_MAPPINGS_CONSISTENT", "RETRACTED"}
+        assert not saved.get("timed_out")
+        kb = model.KB.model_validate(data)
+        result = enumerate_worlds(kb, model, reasoner)
+        result["saved_assignment"] = [p["truth_value"] for p in saved["solved_pfacts"]]
+        assert result["saved_assignment"] in result["optimal_assignments"]
+        assert result["confidence"] == saved["confidence"]
+        assert (
+            result["distinct_solutions"] == saved["number_of_satisfiable_combinations"]
+        )
+        assert isclose(result["best_posterior"], saved["posterior_prob"], abs_tol=1e-11)
+        for marginal, fact in zip(
+            result["marginals"], saved["solved_pfacts"], strict=True
+        ):
+            assert isclose(marginal, fact["posterior_prob"], abs_tol=1e-11)
+        results[slug] = {
+            "input_sha256": input_hash,
+            "hypotheses": [
+                {"index": i, "fact": pf.fact.model_dump(), "prior": pf.prob}
+                for i, pf in enumerate(kb.pfacts)
+            ],
+            "labels": deepcopy(data.get("labels", {})),
+            "baseline": result,
+        }
+    return results
+
+
 def render_alternatives(slug, entry):
     """Show complete distinct assignments, with input priors separate from marginals."""
     baseline = entry["baseline"]
@@ -225,6 +264,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--boomer-src", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--current",
+        action="store_true",
+        help="Show current CANVAS/cblE alternatives instead of historical interventions",
+    )
     args = parser.parse_args()
     source = args.boomer_src.expanduser().resolve()
     commit = subprocess.check_output(
@@ -240,7 +284,9 @@ def main():
     result = {
         "boomer_commit": commit,
         "method": "exhaustive Boolean enumeration",
-        "cases": investigate(REPO / "analyses/boomer", model, reasoner),
+        "cases": (current_alternatives if args.current else investigate)(
+            REPO / "analyses/boomer", model, reasoner
+        ),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, indent=2) + "\n")
@@ -248,6 +294,9 @@ def main():
         (args.out.parent / f"{slug}-alternatives.md").write_text(
             render_alternatives(slug, entry)
         )
+        if args.current:
+            print(slug, entry["baseline"]["confidence"])
+            continue
         print(
             slug,
             entry["baseline"]["confidence"],

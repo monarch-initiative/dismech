@@ -10,13 +10,13 @@ Boomer grounding analysis for [`kb/disorders/Northern_Epilepsy.yaml`](../../../.
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
-**Status: `RETRACTED`**
+**Status: `ALL_MAPPINGS_CONSISTENT`**
 
-Boomer rejected the following high-prior mapping hypotheses:
-
-- `MONDO:0012391` ≡ `ORDO:1947`
+The completed search accepted all high-prior mapping hypotheses together.
 
 ## Files
 

@@ -10,6 +10,8 @@ Boomer grounding analysis for [`kb/disorders/Hypotonia-Cystinuria_Syndrome.yaml`
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
@@ -19,7 +21,6 @@ below are provisional; this is not a completed consistency verdict.
 
 High-prior rejections in the provisional candidate:
 
-- `MONDO:0011669` ≡ `ORDO:163690`
 - `MONDO:0011669` ≡ `icd11f:1742079513`
 
 ## Files

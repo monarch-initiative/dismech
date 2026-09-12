@@ -14,7 +14,16 @@ This tree answers that question per disease, using
 reimplementation of BOOMER, which resolves competing ontology mappings by finding
 the most probable globally consistent assignment.
 
-**Probability correction (2026-09-11):** the upstream fix is merged and the
+**Curated proxy merges (2026-09-11):** the generator now carries MONDO xref
+annotations into [pair-specific merge permissions](proxy-merges/README.md).
+We migrated and reran 43 Mendelian inputs without changing their hypotheses,
+priors, or labels. Of 22 previously completed retracted results, 21 now accept
+all high-prior mappings at confidence 0.9; COL11A2 retains one DO conflict at
+0.5. The 21 previously timed-out inputs still time out. CANVAS and cblE now
+accept both annotated external equivalents; [their current top-five solutions](proxy-merges/alternatives/)
+are independently enumerated. The earlier counts below describe historical runs.
+
+**Probability correction (2026-09-11, before proxy migration):** the upstream fix is merged and the
 [1,213 previously completed Mendelian searches have been rerun](runs/unique-solutions-completed/README.md).
 The refreshed results are 1,176 consistent, 32 retracted, and 5 timed out;
 no chosen mapping assignments changed. Completed confidence scores now range
@@ -35,11 +44,13 @@ analyses/boomer/
   disorders/<NAME>/
     README.md                   what was checked, per-subtype verdicts, what boomer did
     kb.yaml                     boomer input; `pyboomer solve kb.yaml -t 60 -C 6`
+    proxy-merges.json           MONDO annotations, merge decisions, and source hashes
     solution.yaml               boomer output, machine-readable
     solution.md                 boomer output, rendered
   groupings/                    grouping membership vs MONDO (no solver needed)
   cross-source/                 direct ICD/NCIT mappings vs MONDO's own xrefs
   icd10/                        ICD coverage, missing entries, and ORDO mapping paths
+  proxy-merges/                 pinned annotations, decisions, migration, and baselines
   scripts/                      generators; nothing here is hand-written
 ```
 

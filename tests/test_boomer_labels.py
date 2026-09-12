@@ -155,7 +155,9 @@ def test_input_expansion_marks_not_run_and_preserves_existing_files(
         "selection_reason": ["KB_CATEGORY_MENDELIAN"],
     }
     monkeypatch.setattr(
-        boomer, "Mondo", lambda _: SimpleNamespace(disjoint_pairs=lambda _: [])
+        boomer,
+        "Mondo",
+        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=lambda: []),
     )
     monkeypatch.setattr(boomer, "collect", lambda *args: iter([rec]))
 
@@ -182,7 +184,11 @@ def test_input_expansion_marks_not_run_and_preserves_existing_files(
     assert row["n_retracted"] == "NA"
     assert row["n_subtypes"] == "0"
     folder = tmp_path / "Example"
-    assert {p.name for p in folder.iterdir()} == {"kb.yaml", "README.md"}
+    assert {p.name for p in folder.iterdir()} == {
+        "kb.yaml",
+        "README.md",
+        "proxy-merges.json",
+    }
     readme = (folder / "README.md").read_text()
     assert "not been run" in readme
     assert "were accepted" not in readme

@@ -25,6 +25,7 @@ say about this disease".
 Each folder gets:
 
     README.md      what was checked, per-subtype verdicts, what boomer did
+    proxy-merges.json  MONDO xref annotations, decisions, and source provenance
     kb.yaml        the boomer input, runnable as
                    `pyboomer solve kb.yaml -t 60`
     solution.yaml  boomer's output, machine-readable
@@ -123,6 +124,15 @@ class Mondo:
         self.con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
         self._label: dict[str, str] = {}
         self._anc: dict[str, set[str]] = {}
+
+    def versions(self):
+        return sorted(
+            obj or value
+            for obj, value in self.con.execute(
+                "SELECT object, value FROM statements WHERE predicate='owl:versionIRI'"
+            )
+            if obj or value
+        )
 
     def label(self, curie):
         if curie not in self._label:
@@ -371,7 +381,7 @@ def collect(kb_glob, mondo, external, scope="subtypes", selection=None):
             yield rec
 
 
-def build_kb_dict(mondo, external, rec, icd10=None):
+def build_kb_dict(mondo, external, rec, icd10=None, proxy_policy=None):
     d_parent = f"dismech:{rec['slug']}"
     terms = {rec["parent_term"], *(p["term"] for p in rec["pairs"])}
 
@@ -503,7 +513,7 @@ def build_kb_dict(mondo, external, rec, icd10=None):
         for a in sorted(curies):
             for b in sorted(curies):
                 if a != b and b in external.ancestors(vocab, a):
-                    add({"fact_type": "ProperSubClassOf", "sub": a, "sup": b})
+                    add({"fact_type": "SubClassOf", "sub": a, "sup": b})
 
     for s, o in mondo.disjoint_pairs(sorted(terms)):
         add({"fact_type": "DisjointWith", "sub": s, "sibling": o})
@@ -525,6 +535,9 @@ def build_kb_dict(mondo, external, rec, icd10=None):
         print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
     if icd10 is not None and rec.get("category") == "Mendelian":
         icd10.enrich(kb_dict, rec["slug"], rec.get("direct_icd10cm", []))
+    from proxy_merges import default_policy
+
+    (proxy_policy or default_policy()).apply(kb_dict)
     return kb_dict
 
 
@@ -842,6 +855,14 @@ def main(argv=None):
         action="store_true",
         help="Fill missing external labels in saved kb.yaml files; do not solve or change reports",
     )
+    from proxy_merges import DEFAULT_CATALOG, ProxyPolicy, provenance
+
+    ap.add_argument(
+        "--mapping-annotations",
+        type=Path,
+        default=DEFAULT_CATALOG,
+        help="Pinned MONDO xref annotation catalog for curated proxy-merge exceptions",
+    )
     args = ap.parse_args(argv)
 
     existing = {}
@@ -883,7 +904,9 @@ def main(argv=None):
         KB, SearchConfig, solve, MarkdownRenderer, YAMLRenderer = load_boomer(
             args.boomer_src
         )
+    proxy_policy = ProxyPolicy.load(args.mapping_annotations)
     mondo = Mondo(args.db)
+    graph_sources = {"mondo_version": mondo.versions()}
     cfg = (
         None
         if args.inputs_only
@@ -920,7 +943,7 @@ def main(argv=None):
         flush=True,
     )
     for i, rec in enumerate(records, 1):
-        kb_dict = build_kb_dict(mondo, external, rec, icd10)
+        kb_dict = build_kb_dict(mondo, external, rec, icd10, proxy_policy)
         sol = None
         if not args.inputs_only:
             kb = KB.model_validate(kb_dict)
@@ -944,10 +967,31 @@ def main(argv=None):
             )
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "kb.yaml").write_text(yaml.safe_dump(kb_dict, sort_keys=False))
+        (folder / "proxy-merges.json").write_text(
+            json.dumps(
+                provenance(
+                    kb_dict,
+                    proxy_policy,
+                    (folder / "kb.yaml").read_bytes(),
+                    graph_sources,
+                ),
+                indent=2,
+            )
+            + "\n"
+        )
         if sol is not None:
             (folder / "solution.yaml").write_text(YAMLRenderer().render(sol, kb))
             (folder / "solution.md").write_text(MarkdownRenderer().render(sol, kb))
         write_readme(folder, rec, sol, retracted, timed_out, args.inputs_only)
+
+        readme = folder / "README.md"
+        text = readme.read_text()
+        link = "MONDO xref annotations and proxy-merge decisions: [provenance](proxy-merges.json).\n\n"
+        if "## What boomer did" in text:
+            text = text.replace("## What boomer did", link + "## What boomer did", 1)
+        else:
+            text += "\n" + link
+        readme.write_text(text)
 
         counts = Counter(p["verdict"] for p in rec["pairs"])
         status = (

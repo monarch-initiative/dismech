@@ -1,11 +1,11 @@
 
  ## dismech-Myofibrillar_Myopathy
- * 28 combinations
- * 7 satisfiable combinations
+ * 8 combinations
+ * 8 satisfiable combinations
  * 0.0 proportion of combinations explored
  * 0.9 confidence
- * 1.006022e-06 prior probability
- * 0.6 posterior probability
+ * 0.00690030652 prior probability
+ * 0.581632653061 posterior probability
  * Search timed out (exceeded time limit)
 Grounding:
  * True dismech:Myofibrillar_Myopathy (Myofibrillar Myopathy (dismech entry)) ≡ MONDO:0018943 (myofibrillar myopathy) :: prior: 0.95 posterior: 1.0
@@ -41,7 +41,7 @@ Grounding:
  * True dismech:Myofibrillar_Myopathy#MFM11 (Myofibrillar Myopathy / MFM11 (dismech subtype)) ≡ MONDO:0030927 (myofibrillar myopathy 11) :: prior: 0.9 posterior: 1.0
  * False dismech:Myofibrillar_Myopathy#MFM11 (Myofibrillar Myopathy / MFM11 (dismech subtype)) ⊂ MONDO:0030927 (myofibrillar myopathy 11) :: prior: 0.07 posterior: 0.0
  * False MONDO:0030927 (myofibrillar myopathy 11) ⊂ dismech:Myofibrillar_Myopathy#MFM11 (Myofibrillar Myopathy / MFM11 (dismech subtype)) :: prior: 0.03 posterior: 0.0
- * True MONDO:0018943 (myofibrillar myopathy) ≡ DOID:0080307 (myofibrillar myopathy) :: prior: 0.95 posterior: 1.0
+ * True MONDO:0018943 (myofibrillar myopathy) ≡ DOID:0080307 (myofibrillar myopathy) :: prior: 0.95 posterior: 0.969387755102
  * True MONDO:0018943 (myofibrillar myopathy) ≡ MESH:C580316 (Myofibrillar Myopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0018943 (myofibrillar myopathy) ≡ NCIT:C83009 (Myofibrillar Myopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0018943 (myofibrillar myopathy) ≡ ORDO:593 (Myofibrillar myopathy) :: prior: 0.95 posterior: 1.0
@@ -54,11 +54,11 @@ Grounding:
  * True MONDO:0012130 (myofibrillar myopathy 2) ≡ OMIM:608810 (myopathy, myofibrillar, 2) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012130 (myofibrillar myopathy 2) ≡ ORDO:399058 (Alpha-B crystallin-related late-onset myopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ DOID:0080094 (myofibrillar myopathy 3) :: prior: 0.95 posterior: 1.0
- * False MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C000598645 (Spheroid body myopathy) :: prior: 0.95 posterior: 0.0
- * False MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C535906 (Muscular dystrophy, limb-girdle, type 1A) :: prior: 0.95 posterior: 0.0
+ * True MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C000598645 (Spheroid body myopathy) :: prior: 0.95 posterior: 1.0
+ * True MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C535906 (Muscular dystrophy, limb-girdle, type 1A) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C563775 (Myotilinopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ OMIM:609200 (myopathy, myofibrillar, 3) :: prior: 0.95 posterior: 1.0
- * False MONDO:0012215 (myofibrillar myopathy 3) ≡ ORDO:268129 (Spheroid body myopathy) :: prior: 0.95 posterior: 0.0
+ * True MONDO:0012215 (myofibrillar myopathy 3) ≡ ORDO:268129 (Spheroid body myopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ ORDO:98911 (Distal myotilinopathy) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012277 (myofibrillar myopathy 4) ≡ DOID:0080095 (myofibrillar myopathy 4) :: prior: 0.95 posterior: 1.0
  * True MONDO:0012277 (myofibrillar myopathy 4) ≡ MESH:C563718 (Myopathy, Myofibrillar, Zasp-Related) :: prior: 0.95 posterior: 1.0
@@ -81,9 +81,9 @@ Grounding:
  * True MONDO:0030927 (myofibrillar myopathy 11) ≡ DOID:0081338 (myofibrillar myopathy 11) :: prior: 0.95 posterior: 1.0
  * True MONDO:0030927 (myofibrillar myopathy 11) ≡ OMIM:619178 (myofibrillar myopathy 11) :: prior: 0.95 posterior: 1.0
  * True ORDO:171445 (Muscle filaminopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 1.0
- * True ORDO:199340 (Muscular dystrophy, Selcen type) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.933333333333
- * True ORDO:268129 (Spheroid body myopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.933333333333
- * True ORDO:399058 (Alpha-B crystallin-related late-onset myopathy) ⊂ ICD10:G71.0 (Muscular dystrophy) :: prior: 0.9 posterior: 0.933333333333
- * True ORDO:98909 (Desminopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.933333333333
- * True ORDO:98911 (Distal myotilinopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.933333333333
- * True ORDO:98912 (Late-onset distal myopathy, Markesbery-Griggs type) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.933333333333
+ * True ORDO:199340 (Muscular dystrophy, Selcen type) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.93537414966
+ * True ORDO:268129 (Spheroid body myopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.93537414966
+ * True ORDO:399058 (Alpha-B crystallin-related late-onset myopathy) ⊂ ICD10:G71.0 (Muscular dystrophy) :: prior: 0.9 posterior: 0.93537414966
+ * True ORDO:98909 (Desminopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.93537414966
+ * True ORDO:98911 (Distal myotilinopathy) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.93537414966
+ * True ORDO:98912 (Late-onset distal myopathy, Markesbery-Griggs type) ⊂ ICD10:G71.8 (Other primary disorders of muscles) :: prior: 0.9 posterior: 0.93537414966

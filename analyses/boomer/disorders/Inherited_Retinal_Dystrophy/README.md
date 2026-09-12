@@ -15,6 +15,8 @@ Boomer grounding analysis for [`kb/disorders/Inherited_Retinal_Dystrophy.yaml`](
 | Cone-Rod Dystrophy | `MONDO:0015993` | cone-rod dystrophy | `AGREES` | ✓ MESH, ORDO |
 | Choroideremia | `MONDO:0010557` | choroideremia | `AGREES` | silent (DOID, ICD10CM, MESH, NCIT, ORDO) |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
@@ -24,7 +26,6 @@ below are provisional; this is not a completed consistency verdict.
 
 High-prior rejections in the provisional candidate:
 
-- `MONDO:0019118` ≡ `DOID:8500`
 - `MONDO:0019118` ≡ `NCIT:C35194`
 
 ## Files

@@ -14,16 +14,14 @@ Boomer grounding analysis for [`kb/disorders/Hunter_syndrome.yaml`](../../../../
 | Neuronopathic | `MONDO:0016315` | mucopolysaccharidosis type 2, severe form | `AGREES` | ✓ ORDO |
 | Non-neuronopathic | `MONDO:0016316` | mucopolysaccharidosis type 2, attenuated form | `AGREES` | ✓ ORDO |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0010674` ≡ `ORDO:580`
 
 ## Files
 

@@ -10,17 +10,16 @@ Boomer grounding analysis for [`kb/disorders/CANVAS.yaml`](../../../../kb/disord
 This input checks the disease's cross-source mappings. It makes no
 subtype assertion, and agreement does not validate a subtype hierarchy.
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
-**Status: `RETRACTED`**
+**Status: `ALL_MAPPINGS_CONSISTENT`**
 
-Boomer rejected the following high-prior mapping hypotheses:
-
-- `MONDO:0044720` ≡ `ORDO:139564`
+The completed search accepted all high-prior mapping hypotheses together.
 
 ## Files
 
-- [Top five distinct solutions](../../low-confidence/CANVAS-alternatives.md): complete alternatives with separate priors and posteriors.
 - [`kb.yaml`](kb.yaml): unchanged input.
 - [`solution.yaml`](solution.yaml): current machine-readable solver output.
 - [`solution.md`](solution.md): rendered solver output.

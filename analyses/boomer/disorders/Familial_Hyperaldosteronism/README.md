@@ -15,16 +15,14 @@ Boomer grounding analysis for [`kb/disorders/Familial_Hyperaldosteronism.yaml`](
 | Type III | `MONDO:0013359` | familial hyperaldosteronism type III | `AGREES` | ✓ ORDO |
 | Type IV | `MONDO:0014875` | hyperaldosteronism, familial, type IV | `AGREES` | ✓ ORDO |
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
 
 The full joint search reached its time limit. Any assignment and posterior
 below are provisional; this is not a completed consistency verdict.
-
-High-prior rejections in the provisional candidate:
-
-- `MONDO:0016525` ≡ `ORDO:235936`
 
 ## Files
 

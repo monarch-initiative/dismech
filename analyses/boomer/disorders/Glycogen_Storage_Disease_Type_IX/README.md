@@ -24,6 +24,8 @@ That makes them evidenced MONDO gaps rather than open questions:
 
 - **IXd** — DOID (DOID:0111040), ORDO (ORDO:715)
 
+MONDO proxy-merge exceptions: [annotations and decisions](proxy-merges.json).
+
 ## What boomer did
 
 **Status: `TIMED_OUT`**
@@ -34,7 +36,6 @@ below are provisional; this is not a completed consistency verdict.
 High-prior rejections in the provisional candidate:
 
 - `MONDO:0010598` ≡ `DOID:0111042`
-- `MONDO:0010598` ≡ `MESH:C564421`
 
 ## Files
 

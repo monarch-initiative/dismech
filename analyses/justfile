@@ -50,6 +50,28 @@ boomer-enrich-icd10:
     uv run --with networkx python boomer/scripts/enrich_icd10_inputs.py \
         --oak-dir {{oak_dir}} --boomer-src {{boomer_src}}
 
+# Import xref qualifiers from an explicitly pinned MONDO OBO source.
+boomer-proxy-annotations obo source_url:
+    uv run --with fastobo python boomer/scripts/proxy_merges.py --obo {{obo}} --source-url {{source_url}}
+
+# Apply only annotation-supported proxy exceptions to saved Mendelian inputs.
+boomer-proxy-migrate:
+    uv run --with networkx python boomer/scripts/apply_proxy_merges.py --boomer-src {{boomer_src}}
+
+# Solve the exact migrated cohort, with immutable source/input hashes and resumable checkpoints.
+boomer-proxy-solve:
+    uv run --with networkx python boomer/scripts/solve_pending.py --boomer-src {{boomer_src}} \
+        --rerun-from boomer/proxy-merges/pending.tsv --run-name curated-proxy-merges
+
+# Longer follow-up for seven formerly completed searches that reached the short limit.
+boomer-proxy-retry:
+    uv run --with networkx python boomer/scripts/solve_pending.py --boomer-src {{boomer_src}} \
+        --rerun-from boomer/proxy-merges/retry.tsv --run-name curated-proxy-merges-retry \
+        --timeout 300 --workers 2
+
+boomer-proxy-summary:
+    uv run python boomer/scripts/summarize_proxy_merges.py
+
 # Recompute coverage separately from the historical pre-enrichment snapshot.
 boomer-icd10-coverage:
     uv run python boomer/scripts/icd10_coverage.py --oak-dir {{oak_dir}} \

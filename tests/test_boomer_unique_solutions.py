@@ -36,14 +36,20 @@ def boomer(monkeypatch):
     [
         ("2-Methylbutyryl-CoA_Dehydrogenase_Deficiency", 128, 0.9),
         ("ADan_amyloidosis", 192, 0.5),
-        ("CANVAS", 384, 0.5),
+        ("CANVAS", 512, 0.9),
+        ("baseline/CANVAS", 384, 0.5),
     ],
 )
 def test_solution_probabilities_match_exhaustive_assignments(
     boomer, slug, expected_worlds, expected_confidence, reverse
 ):
     model, search = boomer
-    path = REPO / "analyses/boomer/disorders" / slug / "kb.yaml"
+    base = REPO / "analyses/boomer"
+    path = (
+        (base / "proxy-merges" if slug.startswith("baseline/") else base / "disorders")
+        / slug
+        / "kb.yaml"
+    )
     original = path.read_bytes()
     kb = model.KB.model_validate(kb_cache.load_document(path))
     if reverse:
