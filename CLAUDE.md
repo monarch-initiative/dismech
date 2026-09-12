@@ -851,11 +851,19 @@ just list-causal-targets                               # full census, exit 0
 
 The pre-existing dangling backlog is grandfathered in
 `tests/causal_target_baseline.txt`; new breakage fails. Only ever shrink that
-file. A **self-referential** target (a node listed as its own downstream) is
-reported but never gated: every committed case is a pathophysiology node and a
-phenotype sharing one name, which the flat node namespace collapses into a
-single node — a graph-model bug (#9896), not a curation error, and the edges
-carry their own evidence.
+file. A **self-referential** `downstream` target — a pathophysiology node
+whose `downstream` names itself — is **gated** by `just check-entity-refs` and
+`test_entity_ref_foreign_keys` (#9896). It is rarely a claim that a node
+causes itself: in both cases found on `main`, the curator was linking a
+pathophysiology node to a *phenotype of the same name*, which the flat node
+namespace collapses into a single node. The remedy is to merge the edge's
+description and evidence onto the real upstream edge — or delete it when it
+is bare — not to rename a node to dodge the collapse. The same collision can
+happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
+`phenotypes[].reports_on`, `treatments[].target_mechanisms`,
+`environmental[].influences_mechanisms`); those are not covered by the
+`downstream`-only gate above and still surface only through
+`just check-causal-targets`' report.
 
 ### Cancer Entry Granularity
 
@@ -2930,7 +2938,9 @@ Two consequences worth keeping straight:
   4,526 in the `app/data.js` written by the same step, which is why `render` was
   dropping most phenotypes into the "Other" group. Adding the path fixes it; the
   first page build after it carries the catch-up diff, and the two counts should
-  track each other from then on.
+  track each other from then on. A term the exporter could not resolve is
+  **never** written back as an empty category list — that would bake the gap in
+  permanently — it is left out and counted, and the exporter says so.
 
   **Do not date this file from `git log` in a CI checkout.** Both the review of
   #11462 and the reply correcting it named the wrong commit, independently and
@@ -2938,9 +2948,7 @@ Two consequences worth keeping straight:
   `git log --diff-filter=A` reports the *shallow boundary* commit as the one
   that added a file. Two different truncation depths, two different wrong
   answers, both confident. Ask the API (`list_commits` with a `path`), or
-  `git fetch --unshallow` first. A term the exporter could not
-  resolve is **never** written back as an empty category list — that would bake
-  the gap in permanently — it is left out and counted, and the exporter says so.
+  `git fetch --unshallow` first.
 - **A grouping's exact-match roots survive the outage.** They come from the
   grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
   scope and the coverage figure stays computable; only the descendant rows go.
