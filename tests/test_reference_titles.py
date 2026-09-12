@@ -305,8 +305,12 @@ def test_url_prefixed_references_are_exempt(tmp_path):
 def test_dataset_prefixes_are_exempt():
     # Sourced from the reference validator's own skip_prefixes, minus DOI.
     exempt = exempt_prefix_set()
-    assert "geo" in exempt
+    assert "ega" in exempt
     assert "doi" not in exempt
+    # `geo` was removed from skip_prefixes once GEO records were fetched into
+    # references_cache/, so a GEO reference_title is now compared against the
+    # cached record like a PMID's is.
+    assert "geo" not in exempt
 
 
 # --- walking ----------------------------------------------------------------

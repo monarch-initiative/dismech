@@ -3,11 +3,13 @@
 **Date:** 2026-09-02
 **Scope:** every `discussions[]` entry with `kind: KNOWLEDGE_GAP` in
 `kb/disorders/`, `kb/modules/`, `kb/comorbidities/` and `kb/groupings/`
-**Regenerate:** `just knowledge-gap-audit` reproduces the summary table, the
-experiment counts and the decision-slot table below; per-gap detail comes from
+**Regenerate:** `just knowledge-gap-audit` emits the summary table, the
+experiment counts and the decision-slot table; per-gap detail comes from
 `--format list --state <STATE>` and a full table from `--format tsv`. The
 kind-drift candidates in Finding 6 and the Minor observations were one-off
 analyses and are not emitted by the script.
+**Every count below is a snapshot taken on 2026-09-02** and will not match a
+later run — the KB grows daily. See *Re-checked on 2026-09-12* for what moved.
 
 ## Summary
 
@@ -35,6 +37,31 @@ gate; the rest are reported.
 | `RESOLVED` with no `resolved_date` | 1 | 1 |
 
 944 of the 1,781 gaps are in none of those states.
+
+### Re-checked on 2026-09-12
+
+Ten days and ~700 commits later, the corpus is 38% larger — 2,458 gaps across
+1,338 entries — and every finding below still holds, which is the point of
+recording this rather than restating the census:
+
+| | 2026-09-02 | 2026-09-12 |
+|---|---:|---:|
+| Knowledge gaps | 1,781 | 2,458 |
+| Proposed experiments with no decision logic | 899 / 1,525 (59%) | 969 / 1,719 (56%) |
+| `would_refute` vs `would_support` | 82 vs 290 | 113 vs 374 |
+| No `attaches_to` | 47 | 50 |
+| Retired `PARTIAL` prose | 66 | 64 |
+| No `status` | 302 | **625** |
+
+Two things are worth reading off that. The undecidable share is not drifting
+down as the corpus grows — new experiments are proposed without decision logic
+at roughly the rate old ones were, so Finding 2 describes current practice and
+not a historical backlog. And **`NO_STATUS` doubled**: it is the one state
+growing faster than the corpus, so if only one of these gets a convention, it
+should be that one.
+
+The two gated states held at zero throughout, apart from one new
+`RESOLVED_NO_NOTE` that this change repairs (see Finding 1).
 
 ## Finding 1: experiment targets were unchecked, and 13 were broken
 
@@ -223,8 +250,13 @@ here. They are listed so a curator can decide them as a batch.
 ## What this change did
 
 - Repaired 13 bare experiment targets across six entries (Finding 1).
-- Added the missing `resolution_note` to the single `RESOLVED` gap lacking one,
-  summarizing the scoping decision already stated in its `rationale`.
+- Added the missing `resolution_note` to both `RESOLVED` gaps lacking one, each
+  summarizing the scoping decision already stated in its own `rationale`:
+  `IREB2-Related_Neurodegeneration` (the 15q25.1 association literature is out of
+  scope) and `X-linked_Chondrodysplasia_Punctata_2` (the male hypomorphic
+  phenotype is curated separately as MEND syndrome). The second was written
+  after this review's census and was caught by the gate when main was merged in
+  — the first thing it caught that was not already known.
 - Added `scripts/knowledge_gap_discussion_audit.py` with two recipes:
   `just knowledge-gap-audit` for the advisory census, and
   `just check-knowledge-gap-targets` for the gating half. The gate runs in
