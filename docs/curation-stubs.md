@@ -69,8 +69,9 @@ the `Title_Case_With_Underscores` style `kb/disorders/` uses.
 
 ### MONDO context in the file
 
-`just enrich-stubs` adds three blocks from MONDO, so the lump/split call can be
-made by reading the stub rather than by querying an ontology mid-task:
+`just enrich-stubs` adds three context blocks from MONDO, so the lump/split
+call can be made by reading the stub rather than by querying an ontology
+mid-task:
 
 ```yaml
 mondo_parents:
@@ -98,9 +99,68 @@ Across the current queue: 1,866 stubs have a parent, 1,331 have a causal gene,
 and only 181 have any descendants at all — so the queue is mostly leaf diseases,
 and the 181 are where the grouping question actually lives.
 
+### Whether the term is still a term
+
+Enrichment also asks MONDO whether it has retired the stub's term, or decided
+to, and writes the answer into the file so the check that reads it needs no
+ontology:
+
+A term MONDO has already retired is no longer *scheduled* to be, so a stub
+carries one case or the other, never both. Already retired, and merged into a
+survivor:
+
+```yaml
+mondo_obsolete: true
+mondo_replaced_by: MONDO:0859003
+```
+
+Scheduled but still live, carrying MONDO's own note verbatim (emitted as one
+long line — the writer does not fold):
+
+```yaml
+mondo_obsoletion_candidate: This term is scheduled to be merged with MONDO:0859003 PAICS deficiency, based on the fact that the concept of these 2 terms are the same. This ID will therefore be obsoleted and replaced with MONDO:0859003 https://github.com/monarch-initiative/mondo/issues/9884
+```
+
+The signal this replaces was a heuristic on the label. MONDO prefixes a retired
+concept's label with the word "obsolete", so a stub whose `label` starts that
+way names a dead term — but that only works when the nominating export captured
+the label *after* the retirement. A stub is normally seeded from a list that
+predates it, keeps the clean label forever, and the check stays silent. **Zero
+of the 1,333 committed stubs match the heuristic**, while three name terms MONDO
+has ruled on (issue #10785). The heuristic is kept as a backstop for stubs the
+enrichment pass has not reached; the ontology's own answer takes precedence.
+
+Two facts are read, and the second is the one that catches things:
+
+- **`mondo_obsolete`** — `owl:deprecated true`, with `mondo_replaced_by` from
+  `IAO:0100001` when the retirement was a merge.
+- **`mondo_obsoletion_candidate`** — MONDO's own note, verbatim, about a
+  retirement it has decided on but not yet made. The deprecation flag only
+  appears in a MONDO release built *after* the merge lands, which can be months
+  later; the term enters MONDO's `obsoletion_candidate` subset the moment the
+  decision is taken. `MONDO:0859244` has carried its note since 2026-04 and is
+  still not deprecated in the release the repository pins.
+
+To ask the ontology directly rather than reading the committed answer:
+
+```bash
+just stub-obsolescence           # census over the queue
+just stub-obsolescence --json
+```
+
+It needs the MONDO database; without it, it says so and exits 0. This is a
+census for a person, never a gate.
+
+**A merged term is repointed, not deleted.** `mondo_replaced_by` is the
+difference between the two: the identifier moved, but the disease is still
+uncurated, so deleting the stub would drop real queue content. Those are
+reported as `obsolete_term_replaced` and `tidy` lists them separately instead of
+sweeping them. An `obsoletion_candidate` is not stale at all — the term is still
+live — but whoever picks the stub up should know where it is going.
+
 Enrichment is a separate pass from seeding because it needs the MONDO database
 (`just fetch-ontology-dbs mondo`) while seeding stays offline. It is idempotent,
-replaces only its own three blocks, and never touches anything a person wrote.
+replaces only its own blocks, and never touches anything a person wrote.
 
 It records which MONDO release it read in `data/mondo/MANIFEST.yaml`, the same
 way `data/orphadata/` and `data/icees-kg/` pin their bulk sources. Without that,
@@ -242,7 +302,7 @@ So `check-stubs` splits its findings, and only one kind gates:
 | Severity | Means | Gates? |
 |---|---|---|
 | **error** | the *file* is broken — unparseable YAML, a malformed MONDO ID, a duplicate of another stub, a bad enum value | **yes** — only the stub's own author sees it, and it is cheap to fix |
-| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `possible_kb_duplicate` | never |
+| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `obsolete_term_replaced`, `obsoletion_candidate`, `possible_kb_duplicate` | never |
 
 ### Tidying up
 
@@ -255,9 +315,14 @@ just tidy-stubs --apply    # delete it
 
 `tidy` removes stubs whose MONDO ID a committed `kb/disorders/` or
 `kb/groupings/` entry now covers, and stubs naming a MONDO term that has since
-been retired. It does **not** touch `possible_kb_duplicate` advisories — those
-are a judgement call about two different MONDO IDs, and a script should not be
-making it.
+been retired with nothing to replace it. It does **not** touch
+`possible_kb_duplicate` advisories — those are a judgement call about two
+different MONDO IDs, and a script should not be making it.
+
+It also does not delete a stub whose term was **merged** into a live one
+(`obsolete_term_replaced`), or one MONDO has only scheduled for retirement
+(`obsoletion_candidate`). Both name a disease nobody has curated; the remedy is
+to repoint `mondo_id`, and `tidy` lists them for a person to do that.
 
 Coverage means the entry's `disease_term`, any `has_subtypes[].subtype_term`, and
 any exact/narrow `mondo_mappings`.
