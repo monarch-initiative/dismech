@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1080/10408363.2021.1956423
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Impact of body mass index on growth hormone stimulation tests in children and adolescents: a systematic review and meta-analysis

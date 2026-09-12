@@ -15,6 +15,7 @@ year: '2020'
 doi: 10.1016/j.yexcr.2019.111736
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Establishing a new human hypertrophic cardiomyopathy-specific model using human embryonic stem cells

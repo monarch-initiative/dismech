@@ -25,6 +25,7 @@ year: '2014'
 doi: 10.1182/blood-2014-01-551820
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A new form of macrothrombocytopenia induced by a germ-line mutation in the PRKACG gene

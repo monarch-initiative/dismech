@@ -26,6 +26,7 @@ doi: 10.1101/2022.03.17.484618
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # A novel PLS1 c.981+1G&gt;A variant causes autosomal-dominant hereditary hearing loss in a family via up-regulation of the PI3K-Akt signaling pathway

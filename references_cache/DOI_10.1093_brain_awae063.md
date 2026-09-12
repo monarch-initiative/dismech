@@ -22,6 +22,7 @@ year: '2024'
 doi: 10.1093/brain/awae063
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A CAG repeat threshold for therapeutics targeting somatic instability in Huntington's disease

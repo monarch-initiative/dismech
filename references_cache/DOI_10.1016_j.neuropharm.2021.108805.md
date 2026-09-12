@@ -16,6 +16,7 @@ year: '2021'
 doi: 10.1016/j.neuropharm.2021.108805
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and therapeutic significance of genetic variation in the GRIN gene family encoding NMDARs

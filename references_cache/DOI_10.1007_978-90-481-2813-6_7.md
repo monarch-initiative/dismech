@@ -12,6 +12,7 @@ year: '2009'
 doi: 10.1007/978-90-481-2813-6_7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial Disorders Due to Nuclear OXPHOS Gene Defects

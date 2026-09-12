@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.1093/geroni/igaf122.164
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intrinsic Capacity And Longevity From Age 70-100

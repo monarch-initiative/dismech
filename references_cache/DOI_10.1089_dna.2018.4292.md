@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.1089/dna.2018.4292
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Underappreciated Roles of the Translocase of the Outer and Inner Mitochondrial Membrane Protein Complexes in Human Disease

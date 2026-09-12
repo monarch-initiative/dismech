@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1002/btm2.10673
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hemostats in the clinic

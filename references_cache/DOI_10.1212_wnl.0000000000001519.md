@@ -22,6 +22,7 @@ year: '2015'
 doi: 10.1212/wnl.0000000000001519
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and genetic spectrum in limb-girdle muscular dystrophy type 2E

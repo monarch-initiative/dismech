@@ -11,6 +11,7 @@ year: '2009'
 doi: 10.1002/humu.20985
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # S-adenosylhomocysteine hydrolase (AHCY) deficiency: Two novel mutations with lethal outcome

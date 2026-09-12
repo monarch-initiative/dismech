@@ -21,6 +21,7 @@ year: '2021'
 doi: 10.1002/mgg3.1750
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prenatal case of Simpson–Golabi–Behmel syndrome with a <i>de novo</i> 370Kb‐sized microdeletion of Xq26.2 compassing partial <i>GPC3</i> gene and review

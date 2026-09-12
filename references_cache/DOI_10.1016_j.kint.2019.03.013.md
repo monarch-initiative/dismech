@@ -21,6 +21,7 @@ year: '2019'
 doi: 10.1016/j.kint.2019.03.013
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A transgenic mouse model reproduces human hereditary systemic amyloidosis

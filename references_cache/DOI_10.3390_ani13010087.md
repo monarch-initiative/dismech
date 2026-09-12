@@ -8,6 +8,7 @@ year: '2022'
 doi: 10.3390/ani13010087
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # One Health: Animal Models of Heritable Human Bleeding Diseases

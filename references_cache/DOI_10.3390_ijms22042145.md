@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.3390/ijms22042145
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Sprouty4 Mutation Identified in Kallmann Syndrome Increases the Inhibitory Potency of the Protein towards FGF and Connected Processes

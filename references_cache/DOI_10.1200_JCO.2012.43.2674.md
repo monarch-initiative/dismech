@@ -18,6 +18,7 @@ year: '2013'
 doi: 10.1200/JCO.2012.43.2674
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phase III Trial of Chemoradiotherapy for Anaplastic Oligodendroglioma: Long-Term Results of RTOG 9402

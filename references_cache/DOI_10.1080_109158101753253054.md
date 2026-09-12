@@ -10,6 +10,7 @@ year: '2001'
 doi: 10.1080/109158101753253054
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Differential Diagnosis of Byssinosis by Blood Histamine and Pulmonary Function Test: A Review and an Appraisal

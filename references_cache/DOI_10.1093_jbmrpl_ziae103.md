@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1093/jbmrpl/ziae103
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # ENPP1 enzyme replacement therapy improves ectopic calcification but does not rescue skeletal phenotype in a mouse model for craniometaphyseal dysplasia

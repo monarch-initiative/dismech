@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.1183/16000617.0238-2024
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comorbidities in the idiopathic pulmonary fibrosis and progressive pulmonary fibrosis trial population: a systematic review and meta-analysis

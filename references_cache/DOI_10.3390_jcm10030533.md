@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.3390/jcm10030533
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Learning the Ropes of Platelet Count Regulation: Inherited Thrombocytopenias

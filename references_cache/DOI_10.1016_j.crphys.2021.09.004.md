@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1016/j.crphys.2021.09.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # High-fat diet-associated cognitive decline: Is zinc finger protein 1 (ZPR1) the molecular connection?

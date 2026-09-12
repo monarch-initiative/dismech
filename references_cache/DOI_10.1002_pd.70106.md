@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1002/pd.70106
-title: "<i>CUL3</i>
-                    ‐Related Neurodevelopmental Disorder: Expanding the Prenatal Phenotype"
+title: "<i>CUL3</i> ‐Related Neurodevelopmental Disorder: Expanding the Prenatal Phenotype"
 authors:
 - Yoel Gofin
 - Tania Dery
@@ -21,10 +20,10 @@ year: '2026'
 doi: 10.1002/pd.70106
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>CUL3</i>
-                    ‐Related Neurodevelopmental Disorder: Expanding the Prenatal Phenotype
+# <i>CUL3</i> ‐Related Neurodevelopmental Disorder: Expanding the Prenatal Phenotype
 **Authors:** Yoel Gofin, Tania Dery, Tamar Tenne, Racheli Goldfarb Yaacobi, Emilie Block, Marina Lifshitc Kalis, Hagar Mor‐Shaked, Liza Douiev‐Charpak, Rivka Birnbaum, Mordechai Shohat, Ofer Markovich, Debora Kidron, Rivka Sukenik‐Halevy
 **Journal:** Prenatal Diagnosis (2026)
 **DOI:** [10.1002/pd.70106](https://doi.org/10.1002/pd.70106)

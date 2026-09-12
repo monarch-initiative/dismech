@@ -27,6 +27,7 @@ year: '2014'
 doi: 10.1172/JCI69666
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Angiotensin II–dependent TGF-β signaling contributes to Loeys-Dietz syndrome vascular pathogenesis

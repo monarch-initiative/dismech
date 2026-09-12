@@ -29,6 +29,7 @@ doi: 10.1101/2023.11.26.568063
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Comparative phenotyping of mice reveals canonical and noncanonical physiological functions of TRα and TRβ

@@ -55,6 +55,7 @@ year: '2021'
 doi: 10.1002/ajmg.a.62102
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic expansion of the <scp><i>BPTF</i></scp>‐related neurodevelopmental disorder with dysmorphic facies and distal limb anomalies

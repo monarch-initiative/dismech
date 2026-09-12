@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.0510197103
-title: "<i>Als2</i>
-                    -deficient mice exhibit disturbances in endosome trafficking associated with motor behavioral abnormalities"
+title: "<i>Als2</i> -deficient mice exhibit disturbances in endosome trafficking associated with motor behavioral abnormalities"
 authors:
 - R. S. Devon
 - P. C. Orban
@@ -27,10 +26,10 @@ year: '2006'
 doi: 10.1073/pnas.0510197103
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>Als2</i>
-                    -deficient mice exhibit disturbances in endosome trafficking associated with motor behavioral abnormalities
+# <i>Als2</i> -deficient mice exhibit disturbances in endosome trafficking associated with motor behavioral abnormalities
 **Authors:** R. S. Devon, P. C. Orban, K. Gerrow, M. A. Barbieri, C. Schwab, L. P. Cao, J. R. Helm, N. Bissada, R. Cruz-Aguado, T.-L. Davidson, J. Witmer, M. Metzler, C. K. Lam, W. Tetzlaff, E. M. Simpson, J. M. McCaffery, A. E. El-Husseini, B. R. Leavitt, M. R. Hayden
 **Journal:** Proceedings of the National Academy of Sciences (2006)
 **DOI:** [10.1073/pnas.0510197103](https://doi.org/10.1073/pnas.0510197103)

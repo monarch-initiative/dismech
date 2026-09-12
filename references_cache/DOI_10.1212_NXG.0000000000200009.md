@@ -14,6 +14,7 @@ year: '2022'
 doi: 10.1212/NXG.0000000000200009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # FUS-P525L Juvenile Amyotrophic Lateral Sclerosis and Intellectual Disability

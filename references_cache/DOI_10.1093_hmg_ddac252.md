@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.1093/hmg/ddac252
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Assigning pathogenicity for TAB2 variants using a novel scalable functional assay and expanding TAB2 disease spectrum

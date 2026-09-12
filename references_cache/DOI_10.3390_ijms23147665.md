@@ -11,6 +11,7 @@ year: '2022'
 doi: 10.3390/ijms23147665
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Puzzle of Hereditary Spastic Paraplegia: From Epidemiology to Treatment

@@ -11,6 +11,7 @@ year: '2011'
 doi: 10.1128/MCB.05178-11
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Chondrocyte-Specific MicroRNA-140 Regulates Endochondral Bone Development and Targets <i>Dnpep</i> To Modulate Bone Morphogenetic Protein Signaling

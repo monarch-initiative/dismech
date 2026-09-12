@@ -19,6 +19,7 @@ year: '2019'
 doi: 10.1073/pnas.1821745116
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Differential development of large-cell neuroendocrine or small-cell lung carcinoma upon inactivation of 4 tumor suppressor genes

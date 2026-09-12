@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.1097/MCD.0000000000000397
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic DNAJC3 variants in a neuroendocrine developmental disorder with insulin dysregulation

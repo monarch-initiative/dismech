@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1093/schbul/sbaf091
-title: "<i>Setd1a</i>
-                    Loss-of-function Disrupts Epigenetic Regulation of Ribosomal Genes via Altered DNA Methylation"
+title: "<i>Setd1a</i> Loss-of-function Disrupts Epigenetic Regulation of Ribosomal Genes via Altered DNA Methylation"
 authors:
 - Nicholas E Clifton
 - Stefania Policicchio
@@ -20,10 +19,10 @@ year: '2026'
 doi: 10.1093/schbul/sbaf091
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>Setd1a</i>
-                    Loss-of-function Disrupts Epigenetic Regulation of Ribosomal Genes via Altered DNA Methylation
+# <i>Setd1a</i> Loss-of-function Disrupts Epigenetic Regulation of Ribosomal Genes via Altered DNA Methylation
 **Authors:** Nicholas E Clifton, Stefania Policicchio, Emma M Walker, Isabel Castanho, Matthew L Bosworth, Kirtikesav S Saravanaraj, Joe Burrage, Jeremy Hall, Emma L Dempster, Eilis Hannon, Anthony R Isles, Jonathan Mill
 **Journal:** Schizophrenia Bulletin (2026)
 **DOI:** [10.1093/schbul/sbaf091](https://doi.org/10.1093/schbul/sbaf091)

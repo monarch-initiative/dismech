@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.1038/s41584-018-0145-y
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathogenesis and therapeutic interventions for ANCA-associated vasculitis

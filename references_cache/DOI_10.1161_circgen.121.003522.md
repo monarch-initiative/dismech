@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1161/circgen.121.003522
-title: "Human-Induced Pluripotent Stem Cell–Derived Cardiomyocyte Model for
-            <i>TNNT2</i>
-            Δ160E-Induced Cardiomyopathy"
+title: "Human-Induced Pluripotent Stem Cell–Derived Cardiomyocyte Model for <i>TNNT2</i> Δ160E-Induced Cardiomyopathy"
 authors:
 - Takumi Kondo
 - Shuichiro Higo
@@ -30,11 +28,10 @@ year: '2022'
 doi: 10.1161/circgen.121.003522
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Human-Induced Pluripotent Stem Cell–Derived Cardiomyocyte Model for
-            <i>TNNT2</i>
-            Δ160E-Induced Cardiomyopathy
+# Human-Induced Pluripotent Stem Cell–Derived Cardiomyocyte Model for <i>TNNT2</i> Δ160E-Induced Cardiomyopathy
 **Authors:** Takumi Kondo, Shuichiro Higo, Mikio Shiba, Yasuaki Kohama, Satoshi Kameda, Tomoka Tabata, Hiroyuki Inoue, Shota Okuno, Shou Ogawa, Satoki Nakamura, Maki Takeda, Emiko Ito, Junjun Li, Li Liu, Yuki Kuramoto, Jong-Kook Lee, Seiji Takashima, Shigeru Miyagawa, Yoshiki Sawa, Shungo Hikoso, Yasushi Sakata
 **Journal:** Circulation: Genomic and Precision Medicine (2022)
 **DOI:** [10.1161/circgen.121.003522](https://doi.org/10.1161/circgen.121.003522)

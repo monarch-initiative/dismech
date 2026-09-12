@@ -9,6 +9,7 @@ year: '2017'
 doi: 10.1016/j.ydbio.2017.04.002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spop regulates Gli3 activity and Shh signaling in dorsoventral patterning of the mouse spinal cord

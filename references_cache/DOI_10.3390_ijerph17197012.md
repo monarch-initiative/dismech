@@ -8,6 +8,7 @@ year: '2020'
 doi: 10.3390/ijerph17197012
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Chronic Facial Pain: Trigeminal Neuralgia, Persistent Idiopathic Facial Pain, and Myofascial Pain Syndrome—An Evidence-Based Narrative Review and Etiological Hypothesis

@@ -14,6 +14,7 @@ year: '2019'
 doi: 10.1002/ccr3.2010
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Developmental delay, coarse facial features, and epilepsy in a patient with <i>EXT2</i> gene variants

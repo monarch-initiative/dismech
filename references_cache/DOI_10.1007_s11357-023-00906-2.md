@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1007/s11357-023-00906-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Association between aging-related biomarkers and longitudinal trajectories of intrinsic capacity in older adults

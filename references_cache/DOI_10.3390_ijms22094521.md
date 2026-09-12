@@ -18,6 +18,7 @@ year: '2021'
 doi: 10.3390/ijms22094521
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inherited Platelet Disorders: An Updated Overview

@@ -38,6 +38,7 @@ year: '2025'
 doi: 10.1002/hem3.70057
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Disease characteristics and outcomes of acute myeloid leukemia in germline <i>RUNX1</i> deficiency (Familial Platelet Disorder with associated Myeloid Malignancy)

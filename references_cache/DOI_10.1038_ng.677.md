@@ -35,6 +35,7 @@ year: '2010'
 doi: 10.1038/ng.677
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in GRIN2A and GRIN2B encoding regulatory subunits of NMDA receptors cause variable neurodevelopmental phenotypes

@@ -26,6 +26,7 @@ year: '2022'
 doi: 10.3390/cells11193154
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Novel Homozygous Founder Variant of RTN4IP1 in Two Consanguineous Saudi Families

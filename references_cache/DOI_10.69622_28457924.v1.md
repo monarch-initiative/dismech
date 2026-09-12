@@ -1,11 +1,16 @@
 ---
-reference_id: "DOI:10.69622/28457924.v1"
+reference_id: DOI:10.69622/28457924.v1
 title: Biomarker and pathogenic study of immune-mediated neuropathies
 authors:
 - Ivan Kmezic
 year: '2025'
 doi: 10.69622/28457924.v1
-content_type: abstract_only
+content_type: full_text_html
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://doi.org/10.69622/28457924.v1"
+oa_status: gold
+license: cc-by
 ---
 
 # Biomarker and pathogenic study of immune-mediated neuropathies
@@ -15,3 +20,78 @@ content_type: abstract_only
 ## Content
 
 <p dir="ltr">There is a lack of reliable biomarkers for diagnosis, prognosis assessment, and monitoring of treatment response in immune-mediated neuropathies. The diagnosis is predominantly based on clinical assessment and electrophysiological findings. Although immune-mediated neuropathies are treatable, existing therapies are nonspecific and fail to provide adequate benefit for a significant number of patients.</p><p dir="ltr">In Study I, we investigated the diagnostic and prognostic value of axonal injury biomarkers, neurofilament light (NfL) chain and total tau (T-tau), in plasma and CSF of patients with Guillain-Barre syndrome (GBS), chronic inflammatory demyelinating polyradiculoneuropathy, multifocal motor neuropathy (MMN), and paraproteinemic demyelinating neuropathy (PDN). In GBS, CIDP, and PDN, levels of NfL were elevated in both plasma and CSF, whereas in patients with MMN the levels of NfL were elevated only in plasma. NfL in plasma and CSF was associated with prognosis in GBS and may also help distinguish MMN from amyotrophic lateral sclerosis (ALS). Additionally, T-tau in plasma emerged as a novel diagnostic biomarker for both acute and chronic immune-mediated neuropathies.</p><p dir="ltr">In Study II, we analysed over 1100 biomarkers in plasma and CSF using proximity extension assay (PEA) technology in two independent cohorts (discovery and replication) of patients with GBS and CIDP. We identified several candidate biomarkers with potential diagnostic value for GBS and CIDP. However, the most consistent finding was upregulation of interleukin-8 (IL8) in CSF. To validate this finding, we further analysed levels of IL8 using a chemiluminescence assay in a third (validation) cohort, which included patients with GBS, CIDP, PDN, MMN, healthy individuals, and other disease controls. IL8 in CSF is validated as a diagnostic biomarker for GBS and CIDP, and shows potential as a prognostic biomarker for both short- and long-term outcomes in GBS.</p><p dir="ltr">Beta-trace protein (BTP) is the second most abundant protein in CSF after albumin, yet it has not previously been studied in patients with immune-mediated neuropathies. In Study III, we investigated the levels of BTP in CSF and plasma of patients with GBS, CIDP, disease controls, and healthy controls. In CIDP, levels of BTP were elevated in both CSF and plasma, while in GBS only in CSF. Notably, in patients with GBS and CIDP, levels of BTP in CSF were elevated regardless of the Q.Alb, suggesting that BTP may serve as a more informative diagnostic biomarker than albumin. Furthermore, the levels of BTP in CSF may have predictive value for treatment response in CIDP.</p><p dir="ltr">Numerous attempts to develop new therapies for GBS other than intravenous immunoglobulin and plasma exchange have been unsuccessful. Previous studies have shown that blocking the tyrosine kinase receptor platelet-derived growth factor receptor-alpha (PDGFRa) with imatinib, a small tyrosine kinase inhibitor, regulate the function of the brain-blood barrier. In Study IV, we found that imatinib reduced the severity of experimental autoimmune neuritis (EAN), an animal model of GBS, by improving blood-nerve barrier (BNB) integrity. This conclusion was supported by clinical scoring, functional electrophysiological testing, and histological assessment of the BNB. These findings demonstrate the efficacy of imatinib in treating EAN and provide evidence for its potential clinical application in patients with GBS.</p><p dir="ltr">In summary, this thesis identifies candidate biomarkers for immune-mediated neuropathies and proposes a novel therapeutic strategy for GBS.</p><h3>List of scientific papers</h3><p dir="ltr">I. <b>Ivan Kmezic</b>, Kristin Samuelsson, Anja Finn, Zane Upate, Kaj Blennow, Henrik Zetterberg, Rayomand Press. Neurofilament light chain and total tau in the differential diagnosis and prognostic evaluation of acute and chronic inflammatory polyneuropathies. Eur J Neurol. 2022 Sep;29(9):2810-2822. <a href="https://doi.org/10.1111/ene.15428">https://doi.org/10.1111/ene.15428</a></p><p dir="ltr">II. <b>Ivan Kmezic</b>, Rasmus Gustafsson, Katharina Fink, Anders Svenningsson, Kristin Samuelsson, Caroline Ingre, Tomas Olsson, Magnus Hansson, Ingrid Kockum, Milena Zeitelhofer Adzemovic, Rayomand Press. Validation of elevated levels of interleukin-8 in the cerebrospinal fluid, and discovery of new biomarkers in patients with GBS and CIDP using a proximity extension assay. Front Immunol. 2023 Nov 23:14:1241199. <a href="https://doi.org/10.3389/fimmu.2023.1241199" rel="noreferrer" target="_blank">https://doi.org/10.3389/fimmu.2023.1241199</a></p><p dir="ltr">III. <b>Ivan Kmezic</b>, Rasmus Gustafsson, Magnus Hansson, Rayomand Press. Beta-trace protein in chronic inflammatory demyelinating polyradiculoneuropathy and Guillain-Barré syndrome clinical utilization and a new insight into pathophysiological mechanisms. Online ahead of print. J Neurol Sci. 2025 Feb 28:472:123439. <a href="https://doi.org/10.1016/j.jns.2025.123439" rel="noreferrer" target="_blank">https://doi.org/10.1016/j.jns.2025.123439</a></p><p dir="ltr">IV. <b>Ivan Kmezic</b>, Charles Dorris, Humberto Skott, Manuel Arauji, Rayomand Press, Manuel Zeitelhofer, Milena Zeitelhofer Adzemovic. Imatinib ameliorates experimental autoimmune neuritis, an animal model of Guillain-Barre syndrome. [Manuscript]</p>
+
+Biomarker and pathogenic study of immune-mediated neuropathies
+https://doi.org/10.69622/28457924
+Copy identifier URL to clipboard
+Identifier Info
+Cite
+Download
+(
+4.69 MB
+)
+Share
+Embed
+thesis
+posted on
+2025-04-23, 14:02
+authored by
+Ivan Kmezic
+Ivan Kmezic
+<p dir="ltr">There is a lack of reliable biomarkers for diagnosis, prognosis assessment, and monitoring of treatment response in immune-mediated neuropathies. The diagnosis is predominantly based on clinical assessment and electrophysiological findings. Although immune-mediated neuropathies are treatable, existing therapies are nonspecific and fail to provide adequate benefit for a significant number of patients.</p><p dir="ltr">In Study I, we investigated the diagnostic and prognostic value of axonal injury biomarkers, neurofilament light (NfL) chain and total tau (T-tau), in plasma and CSF of patients with Guillain-Barre syndrome (GBS), chronic inflammatory demyelinating polyradiculoneuropathy, multifocal motor neuropathy (MMN), and paraproteinemic demyelinating neuropathy (PDN). In GBS, CIDP, and PDN, levels of NfL were elevated in both plasma and CSF, whereas in patients with MMN the levels of NfL were elevated only in plasma. NfL in plasma and CSF was associated with prognosis in GBS and may also help distinguish MMN from amyotrophic lateral sclerosis (ALS). Additionally, T-tau in plasma emerged as a novel diagnostic biomarker for both acute and chronic immune-mediated neuropathies.</p><p dir="ltr">In Study II, we analysed over 1100 biomarkers in plasma and CSF using proximity extension assay (PEA) technology in two independent cohorts (discovery and replication) of patients with GBS and CIDP. We identified several candidate biomarkers with potential diagnostic value for GBS and CIDP. However, the most consistent finding was upregulation of interleukin-8 (IL8) in CSF. To validate this finding, we further analysed levels of IL8 using a chemiluminescence assay in a third (validation) cohort, which included patients with GBS, CIDP, PDN, MMN, healthy individuals, and other disease controls. IL8 in CSF is validated as a diagnostic biomarker for GBS and CIDP, and shows potential as a prognostic biomarker for both short- and long-term outcomes in GBS.</p><p dir="ltr">Beta-trace protein (BTP) is the second most abundant protein in CSF after albumin, yet it has not previously been studied in patients with immune-mediated neuropathies. In Study III, we investigated the levels of BTP in CSF and plasma of patients with GBS, CIDP, disease controls, and healthy controls. In CIDP, levels of BTP were elevated in both CSF and plasma, while in GBS only in CSF. Notably, in patients with GBS and CIDP, levels of BTP in CSF were elevated regardless of the Q.Alb, suggesting that BTP may serve as a more informative diagnostic biomarker than albumin. Furthermore, the levels of BTP in CSF may have predictive value for treatment response in CIDP.</p><p dir="ltr">Numerous attempts to develop new therapies for GBS other than intravenous immunoglobulin and plasma exchange have been unsuccessful. Previous studies have shown that blocking the tyrosine kinase receptor platelet-derived growth factor receptor-alpha (PDGFRa) with imatinib, a small tyrosine kinase inhibitor, regulate the function of the brain-blood barrier. In Study IV, we found that imatinib reduced the severity of experimental autoimmune neuritis (EAN), an animal model of GBS, by improving blood-nerve barrier (BNB) integrity. This conclusion was supported by clinical scoring, functional electrophysiological testing, and histological assessment of the BNB. These findings demonstrate the efficacy of imatinib in treating EAN and provide evidence for its potential clinical application in patients with GBS.</p><p dir="ltr">In summary, this thesis identifies candidate biomarkers for immune-mediated neuropathies and proposes a novel therapeutic strategy for GBS.</p><h3>List of scientific papers</h3><p dir="ltr">I. <b>Ivan Kmezic</b>, Kristin Samuelsson, Anja Finn, Zane Upate, Kaj Blennow, Henrik Zetterberg, Rayomand Press. Neurofilament light chain and total tau in the differential diagnosis and prognostic evaluation of acute and chronic inflammatory polyneuropathies. Eur J Neurol. 2022 Sep;29(9):2810-2822. <a href="https://doi.org/10.1111/ene.15428">https://doi.org/10.1111/ene.15428</a></p><p dir="ltr">II. <b>Ivan Kmezic</b>, Rasmus Gustafsson, Katharina Fink, Anders Svenningsson, Kristin Samuelsson, Caroline Ingre, Tomas Olsson, Magnus Hansson, Ingrid Kockum, Milena Zeitelhofer Adzemovic, Rayomand Press. Validation of elevated levels of interleukin-8 in the cerebrospinal fluid, and discovery of new biomarkers in patients with GBS and CIDP using a proximity extension assay. Front Immunol. 2023 Nov 23:14:1241199. <a href="https://doi.org/10.3389/fimmu.2023.1241199" rel="noreferrer" target="_blank">https://doi.org/10.3389/fimmu.2023.1241199</a></p><p dir="ltr">III. <b>Ivan Kmezic</b>, Rasmus Gustafsson, Magnus Hansson, Rayomand Press. Beta-trace protein in chronic inflammatory demyelinating polyradiculoneuropathy and Guillain-Barré syndrome clinical utilization and a new insight into pathophysiological mechanisms. Online ahead of print. J Neurol Sci. 2025 Feb 28:472:123439. <a href="https://doi.org/10.1016/j.jns.2025.123439" rel="noreferrer" target="_blank">https://doi.org/10.1016/j.jns.2025.123439</a></p><p dir="ltr">IV. <b>Ivan Kmezic</b>, Charles Dorris, Humberto Skott, Manuel Arauji, Rayomand Press, Manuel Zeitelhofer, Milena Zeitelhofer Adzemovic. Imatinib ameliorates experimental autoimmune neuritis, an animal model of Guillain-Barre syndrome. [Manuscript]</p>
+History
+Related Materials
+1.
+PMID -
+Has part
+https://pubmed.ncbi.nlm.nih.gov/35638376
+2.
+PMID -
+Has part
+https://pubmed.ncbi.nlm.nih.gov/38077366
+3.
+PMID -
+Has part
+https://pubmed.ncbi.nlm.nih.gov/40050150
+Defence date
+2025-05-28
+Department
+Department of Clinical Neuroscience
+Publisher/Institution
+Karolinska Institutet
+Main supervisor
+Rayomand Press
+Co-supervisors
+Rasmus Gustafsson; Fredrik Piehl; Kristin Samuelsson; Milena Zeitelhofer
+Publication year
+2025
+Thesis type
+Doctoral thesis
+ISBN
+978-91-8017-538-8
+Number of pages
+153
+Number of supporting papers
+4
+Language
+eng
+Author name in thesis
+Kmezić, Ivan
+Original department name
+Department of Clinical Neuroscience
+Place of publication
+Stockholm
+Usage metrics
+views
+downloads
+citations
+Learn more about usage metrics
+Theses
+Categories
+No categories selected
+Keywords
+Thesis
+Licence
+CC BY 4.0
+Export Metadata
+Download

@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1126/sciadv.adn2321
-title: "AAGGG repeat expansions trigger
-                    <i>RFC1</i>
-                    -independent synaptic dysregulation in human CANVAS neurons"
+title: "AAGGG repeat expansions trigger <i>RFC1</i> -independent synaptic dysregulation in human CANVAS neurons"
 authors:
 - Connor J. Maltby
 - Amy Krans
@@ -26,11 +24,10 @@ year: '2024'
 doi: 10.1126/sciadv.adn2321
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# AAGGG repeat expansions trigger
-                    <i>RFC1</i>
-                    -independent synaptic dysregulation in human CANVAS neurons
+# AAGGG repeat expansions trigger <i>RFC1</i> -independent synaptic dysregulation in human CANVAS neurons
 **Authors:** Connor J. Maltby, Amy Krans, Samantha J. Grudzien, Yomira Palacios, Jessica Muiños, Andrea Suárez, Melissa Asher, Sydney Willey, Kinsey Van Deynze, Camille Mumm, Alan P. Boyle, Andrea Cortese, Alain Ndayisaba, Vikram Khurana, Sami J. Barmada, Anke A. Dijkstra, Peter K. Todd
 **Journal:** Science Advances (2024)
 **DOI:** [10.1126/sciadv.adn2321](https://doi.org/10.1126/sciadv.adn2321)

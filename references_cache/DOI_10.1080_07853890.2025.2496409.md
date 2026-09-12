@@ -16,6 +16,7 @@ year: '2025'
 doi: 10.1080/07853890.2025.2496409
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Multidomain intervention for delaying aging in community-dwelling older adults (MIDA): study design and protocol

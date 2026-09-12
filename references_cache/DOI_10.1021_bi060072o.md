@@ -16,6 +16,7 @@ year: '2006'
 doi: 10.1021/bi060072o
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Interaction between Mitochondrial CYP27B1 and Adrenodoxin:  Role of Arginine 458 of Mouse CYP27B1

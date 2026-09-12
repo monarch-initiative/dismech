@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.1016/j.jacbts.2024.10.017
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Experimental Models of Hypertrophic Cardiomyopathy

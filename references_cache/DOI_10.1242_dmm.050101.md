@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.1242/dmm.050101
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of sinoatrial node function and heart rate disorders

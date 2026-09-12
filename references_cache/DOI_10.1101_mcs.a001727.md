@@ -17,6 +17,7 @@ year: '2017'
 doi: 10.1101/mcs.a001727
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Functional validation reveals the novel missense V419L variant in <i>TGFBR2</i> associated with Loeys–Dietz syndrome (LDS) impairs canonical TGF-β signaling

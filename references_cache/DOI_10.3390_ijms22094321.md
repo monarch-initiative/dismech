@@ -9,6 +9,7 @@ year: '2021'
 doi: 10.3390/ijms22094321
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Signaling Pathways in Bone Development and Their Related Skeletal Dysplasia

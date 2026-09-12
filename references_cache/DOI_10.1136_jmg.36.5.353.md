@@ -9,6 +9,7 @@ year: '1999'
 doi: 10.1136/jmg.36.5.353
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and molecular genetics of Stickler syndrome

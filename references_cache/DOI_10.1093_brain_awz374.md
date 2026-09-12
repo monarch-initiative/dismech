@@ -40,6 +40,7 @@ year: '2020'
 doi: 10.1093/brain/awz374
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Deficiencies in vesicular transport mediated by TRAPPC4 are associated with severe syndromic intellectual disability

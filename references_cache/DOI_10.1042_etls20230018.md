@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.1042/etls20230018
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Detection and discovery of repeat expansions in ataxia enabled by next-generation sequencing: present and future

@@ -2,6 +2,7 @@
 reference_id: GEO:GSE14882
 title: Expression data from human blood from MELAS patients and controls
 content_type: summary
+full_text_attempted: true
 ---
 
 # Expression data from human blood from MELAS patients and controls

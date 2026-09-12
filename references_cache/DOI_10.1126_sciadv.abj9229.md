@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1126/sciadv.abj9229
-title: "H-ABC– and dystonia-causing
-            <i>TUBB4A</i>
-            mutations show distinct pathogenic effects"
+title: "H-ABC– and dystonia-causing <i>TUBB4A</i> mutations show distinct pathogenic effects"
 authors:
 - Victor Krajka
 - Franca Vulinovic
@@ -21,11 +19,10 @@ year: '2022'
 doi: 10.1126/sciadv.abj9229
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# H-ABC– and dystonia-causing
-            <i>TUBB4A</i>
-            mutations show distinct pathogenic effects
+# H-ABC– and dystonia-causing <i>TUBB4A</i> mutations show distinct pathogenic effects
 **Authors:** Victor Krajka, Franca Vulinovic, Mariya Genova, Kerstin Tanzer, A. S. Jijumon, Satish Bodakuntla, Stephanie Tennstedt, Helge Mueller-Fielitz, Britta Meier, Carsten Janke, Christine Klein, Aleksandar Rakovic
 **Journal:** Science Advances (2022)
 **DOI:** [10.1126/sciadv.abj9229](https://doi.org/10.1126/sciadv.abj9229)

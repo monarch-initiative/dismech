@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1093/brain/awaf149
-title: "A mouse model of
-                    <i>GRIN2D</i>
-                    developmental and epileptic encephalopathy recapitulates the human disease"
+title: "A mouse model of <i>GRIN2D</i> developmental and epileptic encephalopathy recapitulates the human disease"
 authors:
 - Mor Yam
 - Jolan Nassir
@@ -23,11 +21,10 @@ year: '2026'
 doi: 10.1093/brain/awaf149
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# A mouse model of
-                    <i>GRIN2D</i>
-                    developmental and epileptic encephalopathy recapitulates the human disease
+# A mouse model of <i>GRIN2D</i> developmental and epileptic encephalopathy recapitulates the human disease
 **Authors:** Mor Yam, Jolan Nassir, Danielle Galber, Shir Quinn, Roni Gal, Mor Ovadia, Mor Bordeynik-Cohen, Eden Peled, Christopher D Makinson, Moran Hausman-Kedem, Aviva Fattal-Valevski, Wayne N Frankel, Karen B Avraham, Moran Rubinstein
 **Journal:** Brain (2026)
 **DOI:** [10.1093/brain/awaf149](https://doi.org/10.1093/brain/awaf149)

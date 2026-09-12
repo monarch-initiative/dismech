@@ -19,6 +19,7 @@ year: '2022'
 doi: 10.1161/JAHA.122.025784
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Patent Ductus Arteriosus: A Contemporary Perspective for the Pediatric and Adult Cardiac Care Provider

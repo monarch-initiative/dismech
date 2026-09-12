@@ -24,6 +24,7 @@ year: '2024'
 doi: 10.3390/genes15070916
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic Expansion of Autosomal Dominant LZTR1-Related Disorders with Special Emphasis on Adult-Onset Features

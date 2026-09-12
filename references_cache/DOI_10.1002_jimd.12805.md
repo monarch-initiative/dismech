@@ -15,6 +15,7 @@ year: '2025'
 doi: 10.1002/jimd.12805
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Current global vitamin and cofactor prescribing practices for primary mitochondrial diseases: Results of a European reference network survey

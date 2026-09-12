@@ -28,6 +28,7 @@ year: '2015'
 doi: 10.1073/pnas.1510757112
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # ALDH2(E487K) mutation increases protein turnover and promotes murine hepatocarcinogenesis

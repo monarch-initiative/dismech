@@ -39,6 +39,7 @@ year: '2018'
 doi: 10.1056/NEJMoa1808217
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Haloperidol and Ziprasidone for Treatment of Delirium in Critical Illness

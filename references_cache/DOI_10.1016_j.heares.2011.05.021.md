@@ -9,6 +9,7 @@ year: '2011'
 doi: 10.1016/j.heares.2011.05.021
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hereditary hearing loss: From human mutation to mechanism

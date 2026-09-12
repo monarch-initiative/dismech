@@ -30,6 +30,7 @@ year: '2020'
 doi: 10.1016/j.celrep.2020.107616
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hexanucleotide Repeat Expansions in c9FTD/ALS and SCA36 Confer Selective Patterns of Neurodegeneration In Vivo

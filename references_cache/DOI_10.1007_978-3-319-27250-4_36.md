@@ -9,6 +9,7 @@ year: '2019'
 doi: 10.1007/978-3-319-27250-4_36
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hydrocephalus in Animals

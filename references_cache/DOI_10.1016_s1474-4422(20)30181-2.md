@@ -26,6 +26,7 @@ year: '2020'
 doi: 10.1016/s1474-4422(20)30181-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Medical management with interventional therapy versus medical management alone for unruptured brain arteriovenous malformations (ARUBA): final follow-up of a multicentre, non-blinded, randomised controlled trial

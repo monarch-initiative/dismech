@@ -11,6 +11,7 @@ year: '2009'
 doi: 10.1111/j.1525-1470.2009.00946.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ichthyosis Follicularis, Alopecia, and Photophobia (IFAP) Syndrome Due to Mutation of the Gene MBTPS2 in a Large Australian Kindred

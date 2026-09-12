@@ -21,6 +21,7 @@ year: '2020'
 doi: 10.1590/1678-4685-gmb-2018-0271
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Leigh syndrome in a patient with a novel C12orf65 pathogenic variant: case report and literature review

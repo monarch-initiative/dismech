@@ -21,6 +21,7 @@ year: '2017'
 doi: 10.1002/ajmg.a.38049
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous variants in <i>pyrroline‐5‐carboxylate reductase 2</i> (<i>PYCR2</i>) in patients with progressive microcephaly and hypomyelinating leukodystrophy

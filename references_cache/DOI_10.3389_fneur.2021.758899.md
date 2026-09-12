@@ -16,6 +16,7 @@ year: '2022'
 doi: 10.3389/fneur.2021.758899
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spectrum of Neurological Symptoms in Glycosylphosphatidylinositol Biosynthesis Defects: Systematic Review

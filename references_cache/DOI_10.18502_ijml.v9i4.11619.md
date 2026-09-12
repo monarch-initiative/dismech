@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.18502/ijml.v9i4.11619
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Compound Heterozygous HPD Mutation in an Iranian Patient with Hypertyrosinemia Type III

@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.3390/ijms242216102
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Effects of S-Adenosylhomocysteine Hydrolase Downregulation on Wnt Signaling Pathway in SW480 Cells

@@ -13,6 +13,7 @@ year: '2019'
 doi: 10.1016/j.ejmg.2018.07.025
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A novel EXT2 mutation in a consanguineous family with severe developmental delay, microcephaly, seizures, feeding difficulties, and osteopenia extends the phenotypic spectrum of autosomal recessive EXT2-related syndrome (AREXT2)

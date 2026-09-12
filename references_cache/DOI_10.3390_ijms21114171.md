@@ -12,6 +12,7 @@ year: '2020'
 doi: 10.3390/ijms21114171
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Genetic and Endoplasmic Reticulum-Mediated Molecular Mechanisms of Primary Open-Angle Glaucoma

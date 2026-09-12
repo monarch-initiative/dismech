@@ -27,6 +27,7 @@ year: '2022'
 doi: 10.1007/s00439-021-02416-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Amelioration of a neurodevelopmental disorder by carbamazepine in a case having a gain-of-function GRIA3 variant

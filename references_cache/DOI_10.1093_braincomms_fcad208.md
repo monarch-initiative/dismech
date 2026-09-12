@@ -24,6 +24,7 @@ year: '2023'
 doi: 10.1093/braincomms/fcad208
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>RFC1</i> in an Australasian neurological disease cohort: extending the genetic heterogeneity and implications for diagnostics

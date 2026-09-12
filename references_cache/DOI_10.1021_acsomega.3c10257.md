@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.1021/acsomega.3c10257
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comprehensive Proteomic Profiling of Aqueous Humor in Idiopathic Uveitis and Vogt–Koyanagi–Harada Syndrome

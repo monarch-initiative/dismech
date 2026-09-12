@@ -16,6 +16,7 @@ year: '2023'
 doi: 10.3390/biom13040646
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Myocardial Inflammation as a Manifestation of Genetic Cardiomyopathies: From Bedside to the Bench

@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.1016/j.brainres.2018.12.045
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Suppression of the yeast elongation factor Spt4 ortholog reduces expanded SCA36 GGCCUG repeat aggregation and cytotoxicity

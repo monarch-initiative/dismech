@@ -19,6 +19,7 @@ year: '2009'
 doi: 10.1038/ng.355
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in the seed region of human miR-96 are responsible for nonsyndromic progressive hearing loss

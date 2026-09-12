@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.3390/cells9071579
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mechanistic Models of Signaling Pathways Reveal the Drug Action Mechanisms behind Gender-Specific Gene Expression for Cancer Treatments

@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.3171/2023.4.peds2310
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Endoscopic third ventriculostomy with choroid plexus cauterization: predictors of long-term success and comparison with shunt placement for primary treatment of infant hydrocephalus

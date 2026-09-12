@@ -80,6 +80,7 @@ year: '2023'
 doi: 10.1093/braincomms/fcad244
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Repeat expansions in <i>NOP56</i> are a cause of spinocerebellar ataxia Type 36 in the British population

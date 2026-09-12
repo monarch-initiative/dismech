@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1161/01.cir.0000145159.16637.5d
-title: "Prostaglandin E
-            <sub>2</sub>
-            —Mediated Relaxation of the Ductus Arteriosus"
+title: "Prostaglandin E <sub>2</sub> —Mediated Relaxation of the Ductus Arteriosus"
 authors:
 - Nahid Waleh
 - Hiroki Kajino
@@ -20,11 +18,10 @@ year: '2004'
 doi: 10.1161/01.cir.0000145159.16637.5d
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Prostaglandin E
-            <sub>2</sub>
-            —Mediated Relaxation of the Ductus Arteriosus
+# Prostaglandin E <sub>2</sub> —Mediated Relaxation of the Ductus Arteriosus
 **Authors:** Nahid Waleh, Hiroki Kajino, Anne Marilise Marrache, David Ginzinger, Christine Roman, Steven R. Seidner, Timothy J.M. Moss, Jean-Claude Fouron, Alejandro Vazquez-Tello, Sylvain Chemtob, Ronald I. Clyman
 **Journal:** Circulation (2004)
 **DOI:** [10.1161/01.cir.0000145159.16637.5d](https://doi.org/10.1161/01.cir.0000145159.16637.5d)

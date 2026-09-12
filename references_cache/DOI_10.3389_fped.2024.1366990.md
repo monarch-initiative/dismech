@@ -21,6 +21,7 @@ year: '2024'
 doi: 10.3389/fped.2024.1366990
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical analysis and quality of life survey of hemophilia B patients in the central and western regions of China

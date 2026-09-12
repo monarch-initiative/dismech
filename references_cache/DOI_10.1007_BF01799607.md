@@ -8,6 +8,7 @@ year: '1992'
 doi: 10.1007/BF01799607
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Duplications of mitochondrial DNA: Implications for pathogenesis

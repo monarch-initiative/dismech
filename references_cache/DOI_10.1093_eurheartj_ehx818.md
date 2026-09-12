@@ -10,6 +10,7 @@ year: '2018'
 doi: 10.1093/eurheartj/ehx818
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Coronary microvascular dysfunction and heart failure with preserved ejection fraction as female-pattern cardiovascular disease: the chicken or the egg?

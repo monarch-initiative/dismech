@@ -19,6 +19,7 @@ year: '2002'
 doi: 10.1126/science.1066901
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Adult-Onset Primary Open-Angle Glaucoma Caused by Mutations in Optineurin

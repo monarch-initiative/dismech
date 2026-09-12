@@ -20,6 +20,7 @@ year: '2022'
 doi: 10.3390/genes13101835
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical, Biochemical, and Molecular Characterization of Two Families with Novel Mutations in the LDHA Gene (GSD XI)

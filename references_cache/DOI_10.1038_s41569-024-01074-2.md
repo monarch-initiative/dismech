@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.1038/s41569-024-01074-2
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathophysiology of dilated cardiomyopathy: from mechanisms to precision medicine

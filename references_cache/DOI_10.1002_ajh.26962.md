@@ -8,6 +8,7 @@ year: '2023'
 doi: 10.1002/ajh.26962
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systemic mastocytosis in adults: 2023 update on diagnosis, risk stratification and management

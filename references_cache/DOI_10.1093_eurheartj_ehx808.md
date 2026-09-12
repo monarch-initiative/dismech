@@ -24,6 +24,7 @@ year: '2018'
 doi: 10.1093/eurheartj/ehx808
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Titin cardiomyopathy leads to altered mitochondrial energetics, increased fibrosis and long-term life-threatening arrhythmias

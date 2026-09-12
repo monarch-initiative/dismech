@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.1155/crie/2434759
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Heterozygous Hereditary Vitamin D‐Dependent Rickets Type 2A (VDDR2A) in a Patient Presenting With Pseudoarthrosis

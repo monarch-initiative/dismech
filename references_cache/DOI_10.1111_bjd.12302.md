@@ -13,6 +13,7 @@ year: '2013'
 doi: 10.1111/bjd.12302
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel mutations in the gene<i>HOXC13</i>underlying pure hair and nail ectodermal dysplasia in consanguineous families

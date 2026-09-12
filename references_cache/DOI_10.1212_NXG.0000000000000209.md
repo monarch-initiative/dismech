@@ -25,6 +25,7 @@ year: '2018'
 doi: 10.1212/NXG.0000000000000209
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic CHP1 mutation causes human autosomal recessive ataxia by impairing NHE1 function

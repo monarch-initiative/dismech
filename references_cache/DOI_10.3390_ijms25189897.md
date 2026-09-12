@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.3390/ijms25189897
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biomarkers Involved in the Pathogenesis of Hemophilic Arthropathy

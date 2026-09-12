@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.3389/fped.2023.1214837
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Two pediatric patients with hemiplegic migraine presenting as acute encephalopathy: case reports and a literature review

@@ -16,6 +16,7 @@ year: '2020'
 doi: 10.2174/1570159X17666191021141057
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Human Dermal Fibroblast: A Promising Cellular Model to Study Biological Mechanisms of Major Depression and Antidepressant Drug Response

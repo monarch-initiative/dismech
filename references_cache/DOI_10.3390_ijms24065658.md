@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24065658"
+reference_id: DOI:10.3390/ijms24065658
 title: Placenta-Derived Extracellular Vesicles in Pregnancy Complications and Prospects on a Liquid Biopsy for Hemoglobin Bart’s Disease
 authors:
 - Piya Chaemsaithong
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24065658
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Placenta-Derived Extracellular Vesicles in Pregnancy Complications and Prospects on a Liquid Biopsy for Hemoglobin Bart’s Disease

@@ -21,6 +21,7 @@ year: '2023'
 doi: 10.1182/blood.2022018193
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A <i>RUNX1</i>-FPDMM rhesus macaque model reproduces the human phenotype and predicts challenges to curative gene therapies

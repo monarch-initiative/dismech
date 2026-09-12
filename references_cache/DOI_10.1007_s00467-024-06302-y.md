@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1007/s00467-024-06302-y
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # WT1-related disorders: more than Denys-Drash syndrome

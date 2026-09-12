@@ -17,6 +17,7 @@ year: '2019'
 doi: 10.1136/jmedgenet-2018-105952
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Loss-of-function mutations in SPEF2 cause multiple morphological abnormalities of the sperm flagella (MMAF)

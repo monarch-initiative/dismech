@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1161/CIRCULATIONAHA.123.065987
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Meta-Analysis of Penetrance and Systematic Review on Transition to Disease in Genetic Hypertrophic Cardiomyopathy

@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1007/s10653-024-02114-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Research progress on the pathogenesis and prediction of pneumoconiosis among coal miners

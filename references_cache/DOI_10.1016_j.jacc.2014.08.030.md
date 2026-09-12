@@ -10,6 +10,7 @@ year: '2014'
 doi: 10.1016/j.jacc.2014.08.030
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Left Ventricular Noncompaction

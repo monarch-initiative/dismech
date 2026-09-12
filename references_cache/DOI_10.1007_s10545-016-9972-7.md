@@ -18,6 +18,7 @@ year: '2017'
 doi: 10.1007/s10545-016-9972-7
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Consensus recommendations for the diagnosis, treatment and follow‐up of inherited methylation disorders

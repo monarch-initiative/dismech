@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1161/JAHA.124.041230
-title: "Variant‐Specific Late Gadolinium Enhancement Patterns Influence Clinical Outcomes in
-                    <i>LMNA</i>
-                    ‐Related Cardiomyopathy"
+title: "Variant‐Specific Late Gadolinium Enhancement Patterns Influence Clinical Outcomes in <i>LMNA</i> ‐Related Cardiomyopathy"
 authors:
 - Matteo Castrichini
 - Ramin Garmany
@@ -22,11 +20,10 @@ year: '2025'
 doi: 10.1161/JAHA.124.041230
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Variant‐Specific Late Gadolinium Enhancement Patterns Influence Clinical Outcomes in
-                    <i>LMNA</i>
-                    ‐Related Cardiomyopathy
+# Variant‐Specific Late Gadolinium Enhancement Patterns Influence Clinical Outcomes in <i>LMNA</i> ‐Related Cardiomyopathy
 **Authors:** Matteo Castrichini, Ramin Garmany, Konstantinos C. Siontis, Jeremy D. Collins, John P. Bois, Naveen L. Pereira, David J. Tester, Martina Gluscevic, Trung Huynh, Raquel Neves, Andrew N. Rosenbaum, Michael J. Ackerman, John R. Giudicessi
 **Journal:** Journal of the American Heart Association (2025)
 **DOI:** [10.1161/JAHA.124.041230](https://doi.org/10.1161/JAHA.124.041230)

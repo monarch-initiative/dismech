@@ -21,6 +21,7 @@ year: '2025'
 doi: 10.3390/life15081280
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Review of the Role of TRAF7 in Brain Endothelial Integrity and Cerebrovascular Aging
