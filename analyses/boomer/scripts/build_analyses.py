@@ -61,7 +61,7 @@ MONDO_DB = OAK_DIR / "mondo.db"
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dismech import kb_cache  # noqa: E402
+from dismech import kb_cache
 
 # External vocabularies reachable from MONDO by CONFIRMED equivalency, for which a
 # local semantic-sql build exists so their OWN hierarchy can be consulted. This is

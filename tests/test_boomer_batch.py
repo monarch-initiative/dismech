@@ -2,27 +2,27 @@
 
 import csv
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "analyses/boomer/scripts"
 sys.path.insert(0, str(SCRIPTS))
-import solve_pending as batch  # noqa: E402
+import solve_pending as batch
 
 
 def test_timed_out_report_does_not_claim_completed_consistency():
     previous = "> **STALE INPUT:** previous solve\n\n# Disease\n\n## What boomer did\n\nOld verdict\n"
     report = batch.result_readme(
         previous,
-        dict(
-            status="TIMED_OUT",
-            solution_written=True,
-            retractions=[["ORDO:1", "⊂", "ICD10:A00"]],
-        ),
+        {
+            "status": "TIMED_OUT",
+            "solution_written": True,
+            "retractions": [["ORDO:1", "⊂", "ICD10:A00"]],
+        },
     )
     assert "provisional" in report
     assert "completed search accepted" not in report
@@ -84,13 +84,13 @@ def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
         source.write_text(
             batch.table(
                 [
-                    dict(
-                        slug=slug,
-                        status="ALL_MAPPINGS_CONSISTENT",
-                        input_sha256=batch.sha(
+                    {
+                        "slug": slug,
+                        "status": "ALL_MAPPINGS_CONSISTENT",
+                        "input_sha256": batch.sha(
                             inputs[tmp_path / "disorders" / slug / "kb.yaml"]
                         ),
-                    )
+                    }
                     for slug in ("Fresh", "Stale")
                 ],
                 ("slug", "status", "input_sha256"),
@@ -110,18 +110,20 @@ def test_batch_checkpoints_and_resumes_without_rerunning_completed_entries(
     def run(row, args):
         calls.append(row["slug"])
         slug = row["slug"]
-        result = dict(
-            slug=slug,
-            status="ALL_MAPPINGS_CONSISTENT" if slug == "Fresh" else "TIMED_OUT",
-            input_sha256=batch.sha(inputs[tmp_path / "disorders" / slug / "kb.yaml"]),
-            n_pfacts=3,
-            n_retracted=0 if slug == "Fresh" else "NA",
-            candidate_retractions=0,
-            elapsed_seconds=1.0,
-            solution_written=True,
-            error="NA",
-            retractions=[],
-        )
+        result = {
+            "slug": slug,
+            "status": "ALL_MAPPINGS_CONSISTENT" if slug == "Fresh" else "TIMED_OUT",
+            "input_sha256": batch.sha(
+                inputs[tmp_path / "disorders" / slug / "kb.yaml"]
+            ),
+            "n_pfacts": 3,
+            "n_retracted": 0 if slug == "Fresh" else "NA",
+            "candidate_retractions": 0,
+            "elapsed_seconds": 1.0,
+            "solution_written": True,
+            "error": "NA",
+            "retractions": [],
+        }
         return result, {"solution.yaml": "new output\n", "solution.md": "new output\n"}
 
     monkeypatch.setattr(batch, "run_one", run)

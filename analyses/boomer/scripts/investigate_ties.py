@@ -6,14 +6,14 @@ Counterfactuals are in-memory experiments; saved inputs and solutions are read-o
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
 import hashlib
-from itertools import product
 import json
-from math import isclose, prod
-from pathlib import Path
 import subprocess
 import sys
+from copy import deepcopy
+from itertools import product
+from math import isclose, prod
+from pathlib import Path
 
 from dismech import kb_cache
 

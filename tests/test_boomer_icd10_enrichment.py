@@ -13,9 +13,9 @@ import yaml
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "analyses/boomer/scripts"
 sys.path.insert(0, str(SCRIPTS))
-from icd10_enrichment import ICD10Mappings, mapping_fact  # noqa: E402
-from enrich_icd10_inputs import INDEX_FIELDNAMES, migrate, tsv  # noqa: E402
-from prepare_icd10 import to_obo  # noqa: E402
+from enrich_icd10_inputs import INDEX_FIELDNAMES, migrate, tsv
+from icd10_enrichment import ICD10Mappings, mapping_fact
+from prepare_icd10 import to_obo
 
 
 @pytest.fixture
@@ -191,6 +191,7 @@ def test_crosssource_audit_keeps_who_and_cm_distinct():
 
 def test_directional_retractions_include_only_explicit_high_prior_rejections():
     from collections import namedtuple
+
     from build_analyses import retracted_mappings
 
     proper = namedtuple("ProperSubClassOf", "sub sup")
@@ -229,19 +230,19 @@ def test_one_entry_regeneration_preserves_other_index_rows(tmp_path, monkeypatch
         records.append(row)
     index = tmp_path / "index.tsv"
     index.write_bytes(tsv(records, INDEX_FIELDNAMES))
-    rec = dict(
-        slug="Example",
-        name="Example",
-        parent_term="MONDO:1",
-        parent_label="Example",
-        parent_equivs={},
-        pairs=[],
-        curated_predicate=None,
-    )
+    rec = {
+        "slug": "Example",
+        "name": "Example",
+        "parent_term": "MONDO:1",
+        "parent_label": "Example",
+        "parent_equivs": {},
+        "pairs": [],
+        "curated_predicate": None,
+    }
     monkeypatch.setattr(
         builder,
         "Mondo",
-        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=lambda: []),
+        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=list),
     )
     monkeypatch.setattr(builder, "collect", lambda *args: iter([rec]))
     builder.main(

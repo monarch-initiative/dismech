@@ -19,7 +19,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
-from dismech import kb_cache  # noqa: E402
+from dismech import kb_cache
 
 PREDICATES = (
     "skos:exactMatch",

@@ -7,23 +7,25 @@ assignments, then test namespace-only and hypothetical full proxy relaxations.
 from __future__ import annotations
 
 import argparse
-from collections import Counter
-from copy import deepcopy
 import csv
 import hashlib
 import json
-from math import isclose
-from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+from collections import Counter
+from copy import deepcopy
+from math import isclose
+from pathlib import Path
 
-from dismech import kb_cache
 from investigate_ties import enumerate_worlds, render_alternatives
-from proxy_merges import ProxyPolicy, REPO
+from proxy_merges import REPO, ProxyPolicy
 from solve_pending import table
 
+from dismech import kb_cache
+
 SOLVER = "744038e30741009930f57919ca2f03c6473ed198"
+DOID_SHA256 = "e729a25090b71f8d71be3e1f5ad3cf8c51d2ba7fb8232ca4ab12ecf4be633db9"
 COMPLETE = {"ALL_MAPPINGS_CONSISTENT", "RETRACTED"}
 FIELDS = (
     "slug",
@@ -269,36 +271,35 @@ def main():
         ),
     }
     assert source_context["mondo"]["sha256"] == policy.catalog["source_sha256"]
-    assert (
-        source_context["doid"]["sha256"]
-        == "e729a25090b71f8d71be3e1f5ad3cf8c51d2ba7fb8232ca4ab12ecf4be633db9"
-    )
+    assert source_context["doid"]["sha256"] == DOID_SHA256
     rows = []
     for slug, entry in cases.items():
         conflicts = entry["conflicts"]
         conflict = conflicts[0] if conflicts else {}
         assert len(conflicts) <= 1
         rows.append(
-            dict(
-                slug=slug,
-                confidence=entry["baseline"]["confidence"],
-                status=entry["status"],
-                n_pfacts=len(entry["hypotheses"]),
-                vocabulary=conflict.get("vocabulary", "NA"),
-                targets="|".join(conflict.get("targets", [])) or "NA",
-                target_labels="|".join(
+            {
+                "slug": slug,
+                "confidence": entry["baseline"]["confidence"],
+                "status": entry["status"],
+                "n_pfacts": len(entry["hypotheses"]),
+                "vocabulary": conflict.get("vocabulary", "NA"),
+                "targets": "|".join(conflict.get("targets", [])) or "NA",
+                "target_labels": "|".join(
                     entry["labels"][t] for t in conflict.get("targets", [])
                 )
                 or "NA",
-                strict_edge_in_input=bool(conflict.get("strict_edges_in_saved_input")),
-                namespace_relaxed_confidence=conflict.get(
+                "strict_edge_in_input": bool(
+                    conflict.get("strict_edges_in_saved_input")
+                ),
+                "namespace_relaxed_confidence": conflict.get(
                     "namespace_only_relaxation", {}
                 ).get("confidence", "NA"),
-                hypothetical_proxy_confidence=conflict.get(
+                "hypothetical_proxy_confidence": conflict.get(
                     "hypothetical_proxy_relaxation", {}
                 ).get("confidence", "NA"),
-                input_sha256=entry["input_sha256"],
-            )
+                "input_sha256": entry["input_sha256"],
+            }
         )
     args.out.mkdir(parents=True, exist_ok=True)
     for name, data in (

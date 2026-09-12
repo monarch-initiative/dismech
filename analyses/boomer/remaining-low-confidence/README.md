@@ -80,7 +80,7 @@ the DO child, while the DO parent has a broader etiologic scope.
 
 TPMT and NUDT15 are distinct contributors to thiopurine handling; the current
 CPIC guideline treats both genotype systems explicitly.
-[CPIC 2025 update](https://pmc.ncbi.nlm.nih.gov/articles/PMC12997511/).
+[CPIC 2025 update, PMID:41618934](https://pubmed.ncbi.nlm.nih.gov/41618934/).
 
 **Proposed correction:** retain `MONDO:0012503 ≡ DOID:0061004`; replace identity
 with the parent by a broader-target relationship:

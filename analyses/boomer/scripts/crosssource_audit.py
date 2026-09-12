@@ -37,7 +37,7 @@ from pathlib import Path
 MONDO_DB = Path.home() / ".data/oaklib/mondo.db"
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
-from dismech import kb_cache  # noqa: E402
+from dismech import kb_cache
 
 # collapse the spelling differences between the two sources
 PREFIX_ALIASES = {

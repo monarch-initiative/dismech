@@ -434,6 +434,12 @@ records its current solver commit. See the [probability correction](patches/READ
 
 ## Regenerating
 
+The 43 inputs migrated for curated proxy merges use `SubClassOf` for
+same-vocabulary external hierarchy edges; the other saved inputs still use
+the older `ProperSubClassOf` representation. Both forms coexist until a full
+regeneration. In the migrated inputs, namespace constraints supply the
+non-equivalence separately, except for explicitly permitted proxy pairs.
+
 To fill missing external labels in the existing inputs without re-running the
 analysis, run `cd analyses && just boomer-labels`. This changes only `labels:`
 in each `kb.yaml`; facts, priors, saved solutions, reports and `index.tsv` stay

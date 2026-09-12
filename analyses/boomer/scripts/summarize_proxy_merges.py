@@ -1,14 +1,15 @@
 """Compare the completed proxy-migration rerun with its preserved baseline."""
 
 import argparse
-from collections import Counter
 import csv
 import json
+from collections import Counter
 from pathlib import Path
 
-from dismech import kb_cache
 from enrich_icd10_inputs import tsv
 from proxy_merges import REPO, digest
+
+from dismech import kb_cache
 
 COMPLETE = {"ALL_MAPPINGS_CONSISTENT", "RETRACTED"}
 FIELDS = (

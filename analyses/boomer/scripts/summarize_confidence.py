@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import csv
 import json
+from collections import Counter
 from pathlib import Path
 from statistics import median
 
-from dismech import kb_cache
 from solve_pending import REPO, atomic_text, sha, table
+
+from dismech import kb_cache
 
 
 def describe(values):
@@ -52,37 +53,37 @@ def summarize(base, run_name):
         solution = kb_cache.load_document(folder / "solution.yaml")
         kb = kb_cache.load_document(folder / "kb.yaml")
         comparisons.append(
-            dict(
-                slug=slug,
-                status=row["status"],
-                previous_status=old["status"],
-                previous_confidence=old["confidence"],
-                confidence=solution["confidence"],
-                previous_posterior=old["posterior_prob"],
-                posterior=solution["posterior_prob"],
-                previous_satisfiable_count=old["number_of_satisfiable_combinations"],
-                distinct_solutions=solution["number_of_satisfiable_combinations"],
-                assignment_changed=old["accepted"]
+            {
+                "slug": slug,
+                "status": row["status"],
+                "previous_status": old["status"],
+                "previous_confidence": old["confidence"],
+                "confidence": solution["confidence"],
+                "previous_posterior": old["posterior_prob"],
+                "posterior": solution["posterior_prob"],
+                "previous_satisfiable_count": old["number_of_satisfiable_combinations"],
+                "distinct_solutions": solution["number_of_satisfiable_combinations"],
+                "assignment_changed": old["accepted"]
                 != [f["truth_value"] for f in solution["solved_pfacts"]],
-            )
+            }
         )
         for f in solution["solved_pfacts"]:
             fact = f["pfact"]["fact"]
             subject = fact["sub"]
             obj = fact.get("equivalent", fact.get("sup"))
             mappings.append(
-                dict(
-                    slug=slug,
-                    status=row["status"],
-                    subject=subject,
-                    subject_label=kb.get("labels", {}).get(subject, subject),
-                    relation=fact["fact_type"],
-                    object=obj,
-                    object_label=kb.get("labels", {}).get(obj, obj),
-                    prior=f["pfact"]["prob"],
-                    accepted=f["truth_value"],
-                    posterior=f["posterior_prob"],
-                )
+                {
+                    "slug": slug,
+                    "status": row["status"],
+                    "subject": subject,
+                    "subject_label": kb.get("labels", {}).get(subject, subject),
+                    "relation": fact["fact_type"],
+                    "object": obj,
+                    "object_label": kb.get("labels", {}).get(obj, obj),
+                    "prior": f["pfact"]["prob"],
+                    "accepted": f["truth_value"],
+                    "posterior": f["posterior_prob"],
+                }
             )
     summary = {
         "boomer_commit": manifest["boomer_commit"],

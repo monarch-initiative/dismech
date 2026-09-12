@@ -17,10 +17,10 @@ import sys
 from pathlib import Path
 
 import yaml
-
-from build_analyses import External, INDEX_FIELDNAMES, REPO
-from dismech import kb_cache
+from build_analyses import INDEX_FIELDNAMES, REPO, External
 from icd10_enrichment import CONFIG, FIELDS, ICD10Mappings
+
+from dismech import kb_cache
 
 
 def digest(content):

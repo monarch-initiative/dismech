@@ -5,9 +5,9 @@ not a dismech runtime dependency; these checks skip when no source is supplied.
 """
 
 import importlib
+import os
 from itertools import product
 from math import prod
-import os
 from pathlib import Path
 
 import pytest

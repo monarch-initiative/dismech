@@ -8,18 +8,18 @@ Existing migration manifests are immutable and checked on repeat invocation.
 from __future__ import annotations
 
 import argparse
-from copy import deepcopy
 import csv
 import json
-from pathlib import Path
 import sys
+from copy import deepcopy
+from pathlib import Path
 
 import yaml
-
 from build_analyses import INDEX_FIELDNAMES, REPO
-from dismech import kb_cache
 from enrich_icd10_inputs import tsv
 from proxy_merges import DEFAULT_CATALOG, ProxyPolicy, digest, provenance
+
+from dismech import kb_cache
 
 FIELDS = (
     "slug",

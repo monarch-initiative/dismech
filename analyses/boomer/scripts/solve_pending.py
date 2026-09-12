@@ -9,20 +9,19 @@ solutions. Failed attempts retain historical solutions and label them as such.
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import hashlib
 import io
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 import yaml
-
 from build_analyses import INDEX_FIELDNAMES, REPO, retracted_mappings, stabilise_floats
 
 PENDING = {"NOT_RUN", "STALE_INPUT"}
@@ -62,9 +61,9 @@ def atomic_text(path, text):
 def worker(args):
     sys.path.insert(0, str(args.boomer_src.expanduser()))
     from boomer.model import KB, SearchConfig
-    from boomer.search import solve
     from boomer.renderers.markdown_renderer import MarkdownRenderer
     from boomer.renderers.yaml_renderer import YAMLRenderer
+    from boomer.search import solve
 
     content = args.worker.read_bytes()
     kb = KB.model_validate(yaml.safe_load(content))
@@ -127,20 +126,21 @@ def run_one(row, args):
             "--boomer-src",
             str(args.boomer_src),
         ]
-        result = dict(
-            slug=row["slug"],
-            status="ERROR",
-            input_sha256=input_hash,
-            n_pfacts=int(row["n_pfacts"]),
-            n_retracted="NA",
-            candidate_retractions="NA",
-            solution_written=False,
-            error="NA",
-        )
+        result = {
+            "slug": row["slug"],
+            "status": "ERROR",
+            "input_sha256": input_hash,
+            "n_pfacts": int(row["n_pfacts"]),
+            "n_retracted": "NA",
+            "candidate_retractions": "NA",
+            "solution_written": False,
+            "error": "NA",
+        }
         files = {}
         try:
             process = subprocess.run(
                 command,
+                check=False,
                 capture_output=True,
                 text=True,
                 timeout=args.timeout + 15,
@@ -245,14 +245,14 @@ def write_retractions(base, results, run_dir):
         labels = kb_cache.load_document(folder / "kb.yaml").get("labels", {})
         for subject, relation, obj in metadata["retractions"]:
             rows.append(
-                dict(
-                    slug=slug,
-                    subject=subject,
-                    subject_label=labels.get(subject, subject),
-                    relation=relation,
-                    object=obj,
-                    object_label=labels.get(obj, obj),
-                )
+                {
+                    "slug": slug,
+                    "subject": subject,
+                    "subject_label": labels.get(subject, subject),
+                    "relation": relation,
+                    "object": obj,
+                    "object_label": labels.get(obj, obj),
+                }
             )
     path = run_dir / "retractions.tsv"
     content = table(

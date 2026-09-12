@@ -1,23 +1,23 @@
 """MONDO annotations permit specific proxy pairs without weakening other constraints."""
 
-from copy import deepcopy
 import csv
 import importlib
-from itertools import product
 import json
 import os
-from pathlib import Path
 import sys
+from copy import deepcopy
+from itertools import product
+from pathlib import Path
 
 import pytest
 import yaml
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "analyses/boomer/scripts"
 sys.path.insert(0, str(SCRIPTS))
-from apply_proxy_merges import migrate  # noqa: E402
-from build_analyses import INDEX_FIELDNAMES  # noqa: E402
-from enrich_icd10_inputs import tsv  # noqa: E402
-from proxy_merges import ProxyPolicy, extract  # noqa: E402
+from apply_proxy_merges import migrate
+from build_analyses import INDEX_FIELDNAMES
+from enrich_icd10_inputs import tsv
+from proxy_merges import ProxyPolicy, extract
 
 
 def policy():

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
-from itertools import combinations
-from functools import lru_cache
 import hashlib
 import json
+from collections import defaultdict
+from functools import lru_cache
+from itertools import combinations
 from pathlib import Path
 
 from dismech import kb_cache

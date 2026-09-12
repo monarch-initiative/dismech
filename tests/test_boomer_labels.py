@@ -6,7 +6,6 @@ from pathlib import Path
 
 import yaml
 
-
 SCRIPT = (
     Path(__file__).resolve().parents[1] / "analyses/boomer/scripts/build_analyses.py"
 )
@@ -157,7 +156,7 @@ def test_input_expansion_marks_not_run_and_preserves_existing_files(
     monkeypatch.setattr(
         boomer,
         "Mondo",
-        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=lambda: []),
+        lambda _: SimpleNamespace(disjoint_pairs=lambda _: [], versions=list),
     )
     monkeypatch.setattr(boomer, "collect", lambda *args: iter([rec]))
 
