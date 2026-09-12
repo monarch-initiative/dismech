@@ -2339,6 +2339,97 @@ Argonaute-2 cleavage). A disorder whose entry models the therapy itself should
 `conforms_to` the one matching its drug; they are not interchangeable.
 `ATTR_Amyloidosis` is the worked RNAi conformer.
 
+### Delivery Systems — What Carries a Drug (`delivery_system`)
+
+A treatment's **carrier** goes in a `delivery_system` block on the `Treatment`,
+for **any** modality — not only oligonucleotides:
+
+```yaml
+treatments:
+- name: Vutrisiran
+  therapeutic_modality: SIRNA
+  delivery_system:
+    delivery_platform: CONJUGATE
+    targeting_ligand: GALNAC
+    targeting_receptor:
+      preferred_term: ASGR1
+      term:
+        id: hgnc:742
+        label: ASGR1
+    target_cell_types:
+    - preferred_term: hepatocyte
+      term:
+        id: CL:0000182
+        label: hepatocyte
+```
+
+**Do not reach for `oligonucleotide_details` to record a carrier.** That is where
+`delivery_platform` and `conjugation` used to live, which put the carrier axis
+inside the payload chemistry and left every non-oligonucleotide nanomedicine
+with nowhere to state its carrier. The KB shows the damage: `nab-sirolimus`
+(`Perivascular_Epithelioid_Cell_Neoplasm`, FDA-approved, `SMALL_MOLECULE`) and
+liposomal irinotecan in NALIRIFOX (`Pancreatic_Ductal_Adenocarcinoma`) both
+carried the fact only in a free-text `preferred_term`, and `MRNA_THERAPY` — a
+modality *defined* by its carrier — has zero uses across the whole KB.
+
+| Slot | Claim |
+|---|---|
+| `delivery_platform` | What carries the agent at all (`DeliveryPlatformEnum`) |
+| `targeting_ligand` | What is on the carrier, or the agent, that drives uptake (`TargetingLigandEnum`) |
+| `targeting_receptor` | The receptor or antigen that ligand binds, bindable to HGNC |
+| `target_cell_types` | The cell type the carrier is aimed at, bindable to CL |
+
+- **Platform and ligand are orthogonal in both directions.** Patisiran is
+  `UNCONJUGATED` *and* `LIPID_NANOPARTICLE`; vutrisiran is `GALNAC` *and*
+  `CONJUGATE`. A nanoparticle can also carry a ligand on its own surface — an
+  antibody-coated mRNA-LNP is `ANTIBODY` *and* `LIPID_NANOPARTICLE` — which is
+  why the ligand slot is no longer scoped to covalent attachment to an
+  oligonucleotide.
+- **`LIPOSOME` is not a spelling of `LIPID_NANOPARTICLE`.** The ionizable lipid
+  in an LNP releases a nucleic-acid payload from the endosome; a PEGylated
+  bilayer vesicle carrying an already cell-permeant cytotoxic changes
+  biodistribution and toxicity instead. Picking the wrong one erases the reason
+  the other exists.
+- **An untargeted carrier is a normal record.** A PEGylated liposome accumulates
+  passively — no ligand, no receptor, no target cell. Leave those slots absent
+  rather than asserting a target the formulation does not have. A
+  `targeting_receptor` alongside `targeting_ligand: UNCONJUGATED` is a
+  contradiction and is gated.
+- **`targeting_receptor` is the receptor, not the ligand.** A receptor may be
+  reachable by more than one ligand.
+- **Dosing interval stays on `Treatment`.** It applies to any treatment — but
+  read it next to the carrier, which is usually *why* the interval is what it
+  is.
+
+**`oligonucleotide_details.delivery_platform` and `.conjugation` are still
+valid**, kept rather than retired for the reason the *Retired Enum Values*
+section above records: retiring a spelling invalidates every in-flight PR using
+it, and ~44 oligonucleotide entries carry these slots. `conjugation` is
+deprecated in favour of `targeting_ligand`. Both render, with the Treatment-level
+block resolved first.
+
+```bash
+just check-delivery-system                 # gate (runs in `just qc`)
+just check-delivery-system --format list   # full census, including the worklist
+```
+
+It gates on `CONFLICT` (the same fact in both homes with different values — one
+is wrong and the renderer silently hides the nested one), `EMPTY` (a block
+carrying no carrier fact), and `LIGANDLESS_TARGET`. It **reports without
+gating** on `DUPLICATE` and on `LEGACY` — the nested-only records, currently 81,
+which are the migration worklist. Gating `LEGACY` would turn every
+oligonucleotide entry red for a change none of their curators made.
+
+Worked examples: `ATTR_Amyloidosis` Vutrisiran (all four slots, migrated off the
+nested spelling — the only entry migrated on purpose),
+`Pancreatic_Ductal_Adenocarcinoma` NALIRIFOX (`LIPOSOME` on a regimen where only
+one component is carried), `Perivascular_Epithelioid_Cell_Neoplasm` Nab-Sirolimus
+(`PROTEIN_NANOPARTICLE`, with `notes:` recording why the albumin's gp60
+transcytosis route is *not* filled into the targeting slots — the cited report
+states it as a possibility, and a hypothesized uptake route is not a targeting
+claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
+[`docs/delivery-systems.md`](docs/delivery-systems.md).
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
