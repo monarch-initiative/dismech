@@ -67,6 +67,35 @@ Do not choose a narrow term merely because it is available. If only a broad
 ontology term fits, bind that term and use `preferred_term` for justified
 human-readable specificity.
 
+### 3b. A term suggested by a deep-research report is a lead, not a binding
+
+Reports in `research/` suggest CURIEs because the templates ask them to, and
+they get them wrong in ways that look clean: the CMTX report in
+[#9729](https://github.com/monarch-initiative/dismech/issues/9729) offered
+`MONDO:0010674` (Hunter syndrome) for Charcot-Marie-Tooth X-linked, with 26/26
+of its citations verified.
+
+Since `deep-research-client` 0.2.11 those suggestions are checked as the report
+is generated. Read the report's `## Term Validation` section, or its
+`term_validation:` frontmatter, before lifting any CURIE out of it — and add the
+section to an older report with `just validate-research-terms <report>`.
+
+Two things the section does **not** settle, which is the whole of step 3 above:
+
+- whether the term is reachable from the slot's dynamic-enum root, and
+- whether it is the right term for the claim, as opposed to a real term named
+  consistently.
+
+It *does* flag a near-miss when the report names one — the same CMTX report
+writes "areflexia" beside `HP:0001265`, which HPO calls *Hyporeflexia*
+(*Areflexia* is `HP:0001284`). Read those entries as granularity findings, not
+as paraphrase.
+
+Gene CURIEs are skipped by default there (`HGNC` uppercase does not resolve in
+`sqlite:obo:hgnc`, and `ols:` resolves it to an unrelated term), so verify those
+yourself. See
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
+
 ### 4. Write the descriptor correctly
 
 Keep canonical and display labels distinct:
