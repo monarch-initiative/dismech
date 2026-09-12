@@ -1415,16 +1415,25 @@
        shared `treatment_platform_label` global rather than a per-template map,
        so the two pages cannot disagree about what SIRNA or GALNAC is called.
 
-       delivery_platform and conjugation are separate chips on purpose: they are
-       orthogonal, and collapsing them would show "no targeting" versus "GalNAc"
-       when the real distinction is nanoparticle versus conjugate. aso_details /
-       aso_mechanism / aso_chemistry are the deprecated spellings, read as
-       fallbacks so entries authored before the slot was generalized render. #}
+       The carrier facts (delivery platform, targeting ligand) have two homes. The
+       Treatment-level delivery_system block is the current one and is read first;
+       the copy nested in oligonucleotide_details predates it and is the fallback.
+       `just check-delivery-system` reports a treatment that fills both.
+
+       delivery_platform and the targeting ligand are separate chips on purpose:
+       they are orthogonal, and collapsing them would show "no targeting" versus
+       "GalNAc" when the real distinction is nanoparticle versus conjugate.
+       aso_details / aso_mechanism / aso_chemistry / conjugation are the
+       deprecated spellings, read as fallbacks so entries authored before the
+       slots were generalized render. #}
     {% macro render_treatment_platform(tx) %}
     {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set ds = tx.delivery_system %}
     {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
     {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
-    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or (oligo and (oligo.delivery_platform or oligo.conjugation)) %}
+    {% set delivery_platform = (ds.delivery_platform if ds else none) or (oligo.delivery_platform if oligo else none) %}
+    {% set targeting_ligand = (ds.targeting_ligand if ds else none) or ((oligo.targeting_ligand or oligo.conjugation) if oligo else none) %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or delivery_platform or targeting_ligand %}
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         {% if tx.therapeutic_modality %}
@@ -1433,16 +1442,31 @@
         {% if oligo_mechanism %}
         <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
         {% endif %}
-        {% if oligo and oligo.delivery_platform %}
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(oligo.delivery_platform) }}</span>
+        {% if delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(delivery_platform) }}</span>
         {% endif %}
-        {% if oligo and oligo.conjugation %}
-        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: {{ treatment_platform_label(oligo.conjugation) }}</span>
+        {% if targeting_ligand %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: {{ treatment_platform_label(targeting_ligand) }}</span>
         {% endif %}
         {% if oligo_chemistry %}
         <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
         {% endif %}
     </div>
+    {% endif %}
+    {# What a targeted carrier is aimed at; absent for an untargeted formulation. #}
+    {% if ds and (ds.targeting_receptor or ds.target_cell_types) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Delivery target:</strong>
+        {% if ds.targeting_receptor %}
+        <span class="tag tag-gene">{{ ds.targeting_receptor.preferred_term or (ds.targeting_receptor.term.label if ds.targeting_receptor.term else '') }}</span>
+        {% endif %}
+        {% for cell_type in ds.target_cell_types or [] %}
+        <span class="tag tag-cell">{{ cell_type.preferred_term or (cell_type.term.label if cell_type.term else '') }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if ds and ds.description %}
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">{{ ds.description }}</div>
     {% endif %}
     {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
     <div class="item-meta">

@@ -876,7 +876,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1170,6 +1170,19 @@ check-duplicate-keys *files:
 [group('QC')]
 check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
+
+# Keep a treatment's carrier facts (delivery_platform, targeting ligand) consistent
+# across their two homes: the Treatment-level `delivery_system` block and the older
+# copy nested in `oligonucleotide_details`. Gates on a genuine defect -- the same
+# fact with two different values, an empty block, or a targeting_receptor alongside
+# targeting_ligand: UNCONJUGATED. The nested-only records are the migration
+# worklist and are reported, never gated; --format list shows them.
+#   just check-delivery-system
+#   just check-delivery-system --format list
+#   just check-delivery-system kb/disorders/ATTR_Amyloidosis.yaml
+[group('QC')]
+check-delivery-system *args:
+    uv run python scripts/check_delivery_system.py {{args}}
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `check_entity_ref_foreign_keys`, but that test is selected by the

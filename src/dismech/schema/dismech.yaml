@@ -2307,18 +2307,21 @@ enums:
       OTHER:
         description: Chemistry not covered by the above categories
 
-  OligonucleotideConjugationEnum:
+  TargetingLigandEnum:
     description: >-
-      Targeting ligand covalently attached to a therapeutic oligonucleotide to direct
-      tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which
-      records whether the oligonucleotide is carried by a conjugate at all as opposed to
-      a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may
-      still be formulated in a lipid nanoparticle (e.g., patisiran).
+      Targeting ligand attached to a therapeutic agent, or to the carrier particle that
+      holds it, to direct tissue or cell uptake or to improve pharmacokinetics. Distinct
+      from delivery_platform, which records what carries the agent at all as opposed to
+      a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both
+      directions: an unconjugated oligonucleotide may still be formulated in a lipid
+      nanoparticle (e.g., patisiran), and a nanoparticle may itself carry a ligand on
+      its surface (e.g., an antibody-coated mRNA lipid nanoparticle).
     aliases:
+      - OligonucleotideConjugationEnum
       - AsoConjugationEnum
     permissible_values:
       UNCONJUGATED:
-        description: No targeting conjugate (naked ASO)
+        description: No targeting ligand - a naked ASO, or a carrier particle with an unmodified surface
       GALNAC:
         title: GalNAc-conjugated
         description: Tri-antennary N-acetylgalactosamine conjugate for hepatocyte (ASGR-mediated) uptake (e.g., eplontersen, olezarsen)
@@ -2330,32 +2333,52 @@ enums:
       PEPTIDE:
         description: Cell-penetrating or targeting peptide conjugate
       ANTIBODY:
-        description: Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery
+        description: Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide conjugate (AOC), or an antibody coupled to the surface of a carrier particle for receptor-targeted delivery
+      MANNOSE:
+        title: Mannose / mannosylated
+        description: Mannose or a mannosylated surface directing uptake via the macrophage mannose receptor (MRC1/CD206)
+        comments:
+          - >-
+            Left unmapped, like every value here except GALNAC. CHEBI:37684 (mannose)
+            names the sugar rather than its use as a targeting ligand, and the enum's
+            other ligand classes (lipid, peptide, antibody) have no ontology term for
+            the targeting role either.
       OTHER:
-        description: Conjugate not covered by the above categories
+        description: Targeting ligand not covered by the above categories
 
-  OligonucleotideDeliveryPlatformEnum:
+  DeliveryPlatformEnum:
     description: >-
-      How a therapeutic oligonucleotide is carried to its target tissue. This is the
-      delivery strategy, not the targeting ligand (see conjugation) and not the route of
-      administration: it is what solves the stability, cellular-uptake, and
+      How a treatment's active agent is carried to its target tissue. This is the
+      delivery strategy, not the targeting ligand (see targeting_ligand) and not the
+      route of administration: it is what solves the stability, cellular-uptake, and
       endosomal-escape problem for a given drug. The distinction is clinically
       load-bearing - patisiran and vutrisiran silence the same transcript, but the
       lipid-nanoparticle formulation is dosed intravenously every three weeks with
       premedication, while the GalNAc conjugate is dosed subcutaneously every three
-      months without it.
+      months without it. The same axis separates two formulations of one small molecule:
+      conventional and albumin-bound paclitaxel share an agent and differ in carrier.
+    aliases:
+      - OligonucleotideDeliveryPlatformEnum
     permissible_values:
       UNFORMULATED:
         title: Unformulated / free uptake
         description: Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)
       CONJUGATE:
         title: Ligand conjugate
-        description: Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)
+        description: Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc for hepatocyte ASGR1 uptake)
       LIPID_NANOPARTICLE:
         title: Lipid nanoparticle (LNP)
-        description: Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)
+        description: Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid is what releases a nucleic-acid payload from the endosome
+      LIPOSOME:
+        title: Liposome
+        description: Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated for circulation time, altering biodistribution and toxicity of an already cell-permeant agent rather than solving endosomal escape (e.g., liposomal doxorubicin, liposomal irinotecan, liposomal amphotericin B)
       POLYMER_NANOPARTICLE:
         description: Encapsulated in a polymeric or dendrimer nanoparticle
+      PROTEIN_NANOPARTICLE:
+        title: Protein nanoparticle (albumin-bound)
+        description: Bound to or assembled with a carrier protein, usually albumin, to solubilize a hydrophobic agent without a synthetic surfactant (e.g., nab-paclitaxel, nab-sirolimus)
+      INORGANIC_NANOPARTICLE:
+        description: Carried on an inorganic core such as iron oxide, gold, or hafnium oxide
       VIRAL_VECTOR:
         description: Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)
       EXOSOME:
@@ -4432,6 +4455,18 @@ slots:
       ANTISENSE_OLIGONUCLEOTIDE or SIRNA.
     range: OligonucleotideDetail
     inlined: true
+  delivery_system:
+    description: >-
+      Structured detail of how this treatment's active agent reaches its target: the
+      formulation platform, any targeting ligand on the carrier, the receptor that
+      ligand binds, and the cell type the carrier is aimed at. Populate for any modality
+      whose carrier is part of the therapeutic identity - an mRNA lipid nanoparticle, an
+      albumin-bound or liposomal small molecule, an AAV vector - not only for
+      oligonucleotides. Supersedes the delivery_platform and conjugation slots nested in
+      oligonucleotide_details, which remain valid for entries authored before this slot
+      existed.
+    range: DeliverySystem
+    inlined: true
   aso_details:
     deprecated: >-
       Renamed to oligonucleotide_details, which covers siRNA as well as antisense
@@ -4474,14 +4509,48 @@ slots:
     description: Deprecated alias of oligonucleotide_chemistry.
     range: OligonucleotideChemistryEnum
   conjugation:
-    description: Targeting ligand covalently attached to a therapeutic oligonucleotide
-    range: OligonucleotideConjugationEnum
+    deprecated: >-
+      Renamed to targeting_ligand, which describes a ligand coupled to a carrier
+      particle as well as one conjugated directly to an oligonucleotide. Existing
+      entries carrying conjugation remain valid; do not populate it on new treatments.
+    description: >-
+      Deprecated alias of targeting_ligand, retained so entries authored before the slot
+      was generalized continue to validate.
+    range: TargetingLigandEnum
+  targeting_ligand:
+    description: >-
+      Targeting ligand attached to the active agent, or to the carrier particle holding
+      it, to direct uptake by a particular tissue or cell type. Orthogonal to
+      delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a
+      nanoparticle may carry a ligand on its surface.
+    range: TargetingLigandEnum
+  targeting_receptor:
+    description: >-
+      The cell-surface receptor or antigen that the targeting ligand binds, bindable to
+      HGNC (e.g., ASGR1 for a GalNAc conjugate, TREM2 for an anti-TREM2-coated
+      nanoparticle). Record the receptor here and the ligand's chemical class in
+      targeting_ligand - they are different facts, and a receptor may be reachable by
+      more than one ligand.
+    range: GeneDescriptor
+    inlined: true
+  target_cell_types:
+    description: >-
+      The cell type(s) a targeted delivery system is aimed at, bindable to CL. This is
+      the carrier's intended destination, which is not always the cell the disease
+      mechanism runs in: a macrophage-targeted particle may be aimed at reprogramming
+      the macrophage rather than at the tumor cell beside it.
+    multivalued: true
+    range: CellTypeDescriptor
+    inlined_as_list: true
   delivery_platform:
     description: >-
-      How the oligonucleotide is carried to its target tissue - unformulated, ligand
-      conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation: an
-      unconjugated oligonucleotide may still be delivered in a nanoparticle.
-    range: OligonucleotideDeliveryPlatformEnum
+      How the active agent is carried to its target tissue - unformulated, ligand
+      conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector.
+      Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a
+      nanoparticle. Prefer the Treatment-level delivery_system block, which carries this
+      slot alongside the targeting detail; the copy nested in oligonucleotide_details
+      predates it and stays valid.
+    range: DeliveryPlatformEnum
   dosing_interval:
     description: >-
       Human-readable maintenance dosing interval as stated by the label or trial
@@ -7244,6 +7313,7 @@ classes:
       - treatment_term
       - regimen_term
       - therapeutic_modality
+      - delivery_system
       - oligonucleotide_details
       - aso_details
       - dosing_interval
@@ -7268,6 +7338,14 @@ classes:
       and double-stranded siRNAs share this class deliberately - they differ in effector
       (RNase H1 versus Argonaute-2) but are the same programmable platform, described by
       the same target, chemistry, and delivery attributes.
+
+      The carrier attributes here (delivery_platform, targeting_ligand, and the
+      deprecated conjugation) predate the Treatment-level delivery_system block and are
+      retained so entries authored before it continue to validate. New treatments
+      record the carrier in delivery_system; this class keeps the mechanism, RNA target,
+      exon, and backbone chemistry, which are genuinely specific to base-pairing
+      therapeutics. just check-delivery-system reports entries still using the nested
+      slots and gates on a value recorded in both places.
     aliases:
       - AntisenseOligonucleotideDetail
     slots:
@@ -7276,10 +7354,42 @@ classes:
       - target_transcript
       - target_exon
       - oligonucleotide_chemistry
+      - targeting_ligand
       - conjugation
       - delivery_platform
       - aso_mechanism
       - aso_chemistry
+  DeliverySystem:
+    description: >-
+      How a treatment's active agent is carried to its target - the formulation
+      platform, any targeting ligand on the carrier, the receptor that ligand binds, and
+      the cell type the carrier is aimed at. Attach via the delivery_system slot on a
+      Treatment of any modality: the carrier is a property of the formulation, not of
+      the payload chemistry, so an mRNA lipid nanoparticle, an albumin-bound small
+      molecule, a liposomal cytotoxic, and a GalNAc-conjugated siRNA are all described
+      here by the same four attributes.
+
+      Two facts that used to be inexpressible are the reason this class exists. A
+      carrier could only be recorded inside oligonucleotide_details, so no
+      non-oligonucleotide formulation had a home for it - nab-sirolimus and liposomal
+      irinotecan were curated with the carrier visible only in free-text prose. And
+      there was nowhere to say what a targeted particle is aimed at, which is the whole
+      claim of a receptor-targeted nanomedicine: an anti-TREM2-coated mRNA lipid
+      nanoparticle is aimed at tumor-associated macrophages, and that is a citable,
+      falsifiable statement about the delivery system rather than about the drug.
+
+      The targeting slots are optional and an untargeted carrier is a normal record: a
+      PEGylated liposome relies on passive accumulation and has no ligand, no receptor,
+      and no target cell type. Leave them absent rather than asserting a target the
+      formulation does not have.
+    slots:
+      - delivery_platform
+      - targeting_ligand
+      - targeting_receptor
+      - target_cell_types
+      - description
+      - evidence
+      - notes
   InfectiousAgent:
     slots:
       - name
