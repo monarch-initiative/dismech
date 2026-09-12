@@ -878,7 +878,7 @@ def tx_agents(t):
 
 
 def tx_targets(t):
-    """Target-mechanism summary (+ ASO target) for a treatment row."""
+    """Target-mechanism summary (+ oligonucleotide target) for a treatment row."""
     parts = []
     for tm in t.get("target_mechanisms") or []:
         seg = tm.get("target", "")
@@ -886,11 +886,13 @@ def tx_targets(t):
             seg += f" ({tm['treatment_effect']})"
         if seg:
             parts.append(seg)
-    aso = t.get("aso_details") or {}
-    if aso.get("target_gene"):
-        tg = aso["target_gene"].get("preferred_term") or ""
+    # aso_details is the deprecated spelling of oligonucleotide_details; read both.
+    oligo = t.get("oligonucleotide_details") or t.get("aso_details") or {}
+    if oligo.get("target_gene"):
+        tg = oligo["target_gene"].get("preferred_term") or ""
         if tg:
-            parts.append(f"ASO target: {tg}")
+            label = "siRNA" if t.get("therapeutic_modality") == "SIRNA" else "ASO"
+            parts.append(f"{label} target: {tg}")
     return "; ".join(parts) or "—"
 
 
