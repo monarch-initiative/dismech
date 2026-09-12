@@ -120,7 +120,9 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
+from dismech import kb_cache
 from dismech.frontmatter import split_frontmatter
+from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
@@ -260,8 +262,7 @@ def scan_repo(
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception as exc:
             # Gating on malformed YAML is `validate-all`'s job; skipping silently
             # would make the file invisible here rather than merely unchecked.
@@ -407,6 +408,10 @@ def new_findings(findings, baseline: Counter):
 
 
 def main(argv=None) -> int:
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(

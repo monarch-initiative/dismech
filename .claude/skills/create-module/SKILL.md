@@ -37,8 +37,15 @@ module — consider a `Grouping` (`SHARED_PHENOTYPE`) instead.
 
 - Validates against the **`Disease`** class with `category: Module`.
 - Top-level: `name`, `description`, `category: Module`, `creation_date`,
-  `notes`, `pathophysiology`. Optional: `treatments`, `mechanistic_hypotheses`,
-  `discussions`.
+  `notes`, `pathophysiology`. Optional: `module_categories`, `treatments`,
+  `mechanistic_hypotheses`, `discussions`.
+- **`module_categories`** tags the areas of study the module is relevant to
+  (`ModuleCategoryEnum` — TOXICOLOGY, PHARMACOLOGY, ONCOLOGY,
+  INFECTIOUS_DISEASE, IMMUNOLOGY, NEUROSCIENCE, DEVELOPMENTAL_BIOLOGY,
+  METABOLISM, AGING) and renders as coloured pills on the module pages. It is a
+  browsing aid, so tag every area that genuinely applies and leave it off when
+  none fits — a wrong pill is worse than no pill. See the *Module categories*
+  section of `CLAUDE.md`.
 - Nodes bind **GO and CL terms only** (plus UBERON `locations`, GO
   `cellular_components`). **No** CHEBI/MONDO term bindings in nodes — describe
   chemistry/disease in prose. (Exception: a `treatments` block's
@@ -129,9 +136,23 @@ committing.
 
 ## Record and connect
 
-1. Do not add the module to a static catalog. `kb/modules/` is the source of
-   truth; choose a descriptive filename and keep the top-level `name` and
-   `description` useful for repository search.
+1. **Do not add the module to a static catalog, and in particular not to a list
+   in `CLAUDE.md`.** There is no module registry there any more — it did not
+   scale and drifted behind `kb/modules/`, which is the source of truth. A
+   curated `ModuleCollection` is different: add a module to one only when a
+   published framework or explicit organizing principle supports that
+   membership; collections are not an inventory of every module.
+   Discovery is `just list-modules` (or `ls kb/modules/`), which reads the module
+   YAML directly, so choose a descriptive filename and keep the top-level `name`
+   and `description` useful for repository search. What that makes load-bearing
+   is the module's own `description:` slot: write it so it states the causal
+   chain in one sentence, the drug-target pattern if there is one, the key
+   conformance target, how the module is complementary to (not overlapping with)
+   its sibling modules, and — for an Xogenesis module — the OGMS/MPATH/UBERON
+   anchor. That description is the only place a curator will find this, so it
+   must stand alone. Put curation guardrails ("do NOT create a `Foo` Disease
+   entry", species caveats) in `notes:`; `just list-modules <filter>` prints both
+   fields in full and matches on both.
 2. Scaffold a history record:
    `just new-history --kind module --slug <name> --event CREATE --outcome changed …`
 3. Wire real conformers: add `conforms_to: "<name>#<Node>"` to the matching
