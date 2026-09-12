@@ -27094,6 +27094,152 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Auroneurodental Syndrome",
+    "disease_id": "MONDO:0970998",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive syndrome combining progressive high-frequency sensorineural hearing loss, a distinctive craniofacial and dental appearance, mild developmental delay and mild proximal and axial muscle weakness, caused by biallelic missense variants in NAA80. NAA80 is the N-terminal acetyltransferase that performs the final maturation step on actin, and it is the only enzyme known to do so; the homozygous p.Leu130Pro substitution reported in the two affected brothers destabilizes the enzyme's catalytic-domain fold, leaving severely reduced NAA80 protein and roughly half of cytoplasmic beta- and gamma-actin unacetylated. Because unacetylated actin depolymerizes more slowly, patient fibroblasts and peripheral blood mononuclear cells accumulate filamentous actin and show excess filopodia and increased migration \u2014 the same cellular phenotype as NAA80-knockout cell lines, and reversible by re-expressing wild-type NAA80. The clinical picture overlaps that of patients with pathogenic variants in the actin genes themselves, most closely ACTB and ACTG1, which is the argument that the syndrome is an actin-dysfunction disorder reached through a modifying enzyme rather than through the substrate.",
+    "pathophysiology": [
+      "NAA80 p.Leu130Pro Destabilizes the Acetyltransferase Fold",
+      "Reduced N-Terminal Acetylation of Cytoplasmic Actin",
+      "Increased Filamentous Actin with Excess Filopodia and Migration",
+      "Disordered Actin Dynamics in the Inner Ear",
+      "Disordered Actin Dynamics in the Developing Brain",
+      "Disordered Actin Dynamics in Skeletal Muscle",
+      "Dysmorphogenesis of Craniofacial, Dental and Digital Structures"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "N-terminal acetylation of actin",
+      "actin filament polymerization",
+      "cell migration"
+    ],
+    "phenotypes": [
+      "High-frequency sensorineural hearing impairment",
+      "Global developmental delay",
+      "Hypotonia",
+      "Feeding difficulties",
+      "Fatigue",
+      "Proximal muscle weakness",
+      "Axial muscle weakness",
+      "Gait ataxia",
+      "Reduced cerebral white matter volume",
+      "Lateral ventricle dilatation",
+      "Self-injurious behavior",
+      "Sleep apnea",
+      "Loud snoring",
+      "Chronic constipation",
+      "Hypertelorism",
+      "Low posterior hairline",
+      "Highly arched eyebrow",
+      "Protruding ear",
+      "Low-set ears",
+      "Narrow mouth",
+      "Thin upper lip vermilion",
+      "Retrognathia",
+      "Ptosis",
+      "Epicanthus",
+      "Diastema",
+      "Peg-shaped maxillary lateral incisors",
+      "Tapered finger",
+      "Reduced systolic function",
+      "Disorganized implant of the toes",
+      "Long philtrum",
+      "Bulbous nose",
+      "Peripheral edema",
+      "Vomiting"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Neurodevelopmental",
+      "Neuromuscular",
+      "Gastrointestinal",
+      "Constitutional",
+      "Neurological",
+      "Neuroimaging",
+      "Behavioral",
+      "Respiratory",
+      "Craniofacial",
+      "Dental",
+      "Skeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001757",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0011968",
+      "HP:0012378",
+      "HP:0003701",
+      "HP:0003327",
+      "HP:0002066",
+      "HP:0034295",
+      "HP:0006956",
+      "HP:0100716",
+      "HP:0010535",
+      "HP:0025372",
+      "HP:0012450",
+      "HP:0000316",
+      "HP:0002162",
+      "HP:0002553",
+      "HP:0000411",
+      "HP:0000369",
+      "HP:0000160",
+      "HP:0000219",
+      "HP:0000278",
+      "HP:0000508",
+      "HP:0000286",
+      "HP:0000699",
+      "HP:0006342",
+      "HP:0001182",
+      "HP:0006673",
+      "HP:0001780",
+      "HP:0000343",
+      "HP:0000414",
+      "HP:0012398",
+      "HP:0002013"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NAA80"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Auroneurodental_Syndrome.yaml",
+    "page_url": "../pages/disorders/Auroneurodental_Syndrome.html",
+    "num_phenotypes": 33,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome",
     "disease_id": "MONDO:0014248",
     "category": "Mendelian",
@@ -93503,6 +93649,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Dilated Cardiomyopathy 1BB",
+    "disease_id": "MONDO:0013030",
+    "category": "Genetic",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Biallelic",
+      "Monoallelic"
+    ],
+    "description": "DSG2-related familial isolated dilated cardiomyopathy (CMD1BB) is the dilated, left-dominant or biventricular presentation of desmoglein-2 deficiency. Desmoglein-2 is the principal desmosomal cadherin of the cardiomyocyte intercalated disc, where the desmosome and the adherens junction are intermingled as the area composita. Loss of desmoglein-2 destabilises that junction, mechanically uncouples adjacent cardiomyocytes, and permits myocyte necrosis with aseptic inflammation and fibrofatty replacement; the surviving ventricle dilates and loses contractile function. The entry is scoped to the presentation in which chamber dilation and systolic failure dominate the clinical picture rather than isolated right ventricular arrhythmogenic disease. Allele dose is the principal determinant of severity: heterozygous carriers typically present in adulthood with a milder, frequently event-free course, whereas biallelic (homozygous, compound heterozygous, or hemizygous) loss of function gives early-onset biventricular disease that can reach transplantation.",
+    "pathophysiology": [
+      "DSG2 Loss of Function at the Cardiac Desmosome",
+      "Intercalated Disc Desmosome Destabilization",
+      "Mechanical Uncoupling of Cardiomyocytes",
+      "Sodium Current Reduction and Conduction Slowing",
+      "Connexin-43 Gap Junction Remodeling",
+      "Plakoglobin Nuclear Redistribution",
+      "Canonical Wnt Signaling Suppression",
+      "Cardiomyocyte NF-kappaB Activation",
+      "CCR2+ Macrophage Recruitment",
+      "Mutant DSG2 Protein Misfolding in the Endoplasmic Reticulum",
+      "PERK-ATF4 Endoplasmic Reticulum Stress Signaling",
+      "Cardiomyocyte TGF-beta1 Production",
+      "Cardiomyocyte Necrosis",
+      "Aseptic Myocardial Inflammation",
+      "Fibrofatty Myocardial Replacement",
+      "Biventricular Remodeling and Chamber Dilation",
+      "Progressive Contractile Dysfunction and Heart Failure"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "ventricular cardiac muscle cell",
+      "CCR2-expressing macrophage",
+      "macrophage",
+      "fibroblast of cardiac tissue",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:2000046",
+      "CL:0000235",
+      "CL:0002548",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "desmosome organization",
+      "calcium-dependent cell-cell adhesion",
+      "gap junction assembly",
+      "protein localization to nucleus",
+      "Wnt signaling pathway",
+      "fat cell differentiation",
+      "positive regulation of canonical NF-kappaB signal transduction",
+      "macrophage chemotaxis",
+      "protein folding",
+      "response to endoplasmic reticulum stress",
+      "endoplasmic reticulum unfolded protein response",
+      "transforming growth factor beta production",
+      "cardiomyocyte necrosis",
+      "inflammatory response",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Reduced left ventricular ejection fraction",
+      "Right ventricular dilatation",
+      "Ventricular tachycardia",
+      "Sudden cardiac death",
+      "Congestive heart failure",
+      "T-wave inversion",
+      "Myocardial fibrosis"
+    ],
+    "phenotype_categories": [
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:0005133",
+      "HP:0004756",
+      "HP:0001645",
+      "HP:0001635",
+      "HP:0010872",
+      "HP:0001685"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DSG2 Loss-of-Function and Missense Variants"
+    ],
+    "treatments": [
+      "Implantable cardioverter-defibrillator",
+      "Exercise restriction",
+      "Heart failure pharmacotherapy",
+      "Antiarrhythmic pharmacotherapy",
+      "Cardiac transplantation",
+      "Cascade genetic screening and family evaluation"
+    ],
+    "environmental": [
+      "Endurance and high-intensity exercise"
+    ],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1BB.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1BB.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 17,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1D",
     "disease_id": "MONDO:0011095",
     "category": "Genetic",
@@ -143143,6 +143408,99 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hypogonadotropic Hypogonadism 18 With or Without Anosmia",
+    "disease_id": "MONDO:0014103",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital hypogonadotropic hypogonadism",
+      "Disorders of puberty"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HH18 is the form of congenital hypogonadotropic hypogonadism (CHH) attributed to variants in IL17RD, which encodes Sef (\"similar expression to fgf genes\") - not an interleukin receptor in any functional sense, despite the name, but a transmembrane feedback antagonist of FGF signalling that shares only sequence similarity with the intracellular domain of the IL-17 receptor. Sef was found in zebrafish as a member of the fgf8 synexpression group and shown to antagonise Ras/Raf/MEK/MAPK signalling downstream of FGF; in mammalian cells it associates with FGFR1 and suppresses receptor tyrosine phosphorylation and ERK activation.\nThat places IL17RD in the same pathway as the genes that dominate CHH genetics. FGF8 and FGFR1 account for around 12% of CHH, and the hypothesis that produced HH18 was explicitly that modulators of FGFR1 signalling would also be mutated in CHH patients. Sequencing seven such genes in 386 CHH probands found IL17RD variants in eight, and an interactome-based prediction run independently ranked IL17RD among the top two candidate genes in the entire proteome.\nTwo features make this entity different from a textbook Mendelian locus, and the entry is organised around them rather than around them being caveats. First, the variants are almost always heterozygous and inherited from an unaffected parent - in a Chinese cohort every one of five informative probands inherited the IL17RD variant from a parent with no phenotype - and most patients carry additional rare variants in other CHH genes. The cohort authors' own conclusion is that IL17RD variants act in synergy with other CHH loci rather than alone, which is why this entry types IL17RD as a susceptibility locus in an oligogenic architecture rather than as causative. Second, the extra-reproductive phenotype is unusually consistent for CHH: IL17RD variants were found only in anosmic (Kallmann) patients in the founding cohort and were strongly linked to hearing loss, which remains the most common accompanying feature across the published cases.",
+    "pathophysiology": [
+      "IL17RD Variant Altering Sef Function",
+      "Oligogenic Requirement for Additional CHH Loci",
+      "Dysregulated FGF8-FGFR1 Signaling in the Developing Olfactory-GnRH System",
+      "Failure of GnRH Neuron Migration and Olfactory Bulb Development",
+      "GnRH-Driven Gonadotropin Deficiency"
+    ],
+    "cell_types": [
+      "GnRH neuron",
+      "pituitary gonadotrope"
+    ],
+    "cell_type_ids": [
+      "CL:0011111",
+      "CL:0000438"
+    ],
+    "biological_processes": [
+      "Sef-mediated negative feedback on FGF receptor signalling",
+      "FGF8-FGFR1 signalling in the olfactory-GnRH axis",
+      "downstream ERK activation",
+      "GnRH neuron migration"
+    ],
+    "phenotypes": [
+      "Hypogonadotropic Hypogonadism",
+      "Osteoporosis",
+      "Anosmia",
+      "Sensorineural Hearing Impairment",
+      "Abnormal Olfactory Bulb Morphology",
+      "Absent or Incomplete Puberty",
+      "Micropenis",
+      "Cryptorchidism"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Musculoskeletal",
+      "Neurological",
+      "Auditory",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000044",
+      "HP:0000939",
+      "HP:0000458",
+      "HP:0000407",
+      "HP:0040327",
+      "HP:0000823",
+      "HP:0000054",
+      "HP:0000028"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IL17RD"
+    ],
+    "treatments": [
+      "Sex Steroid Replacement for Induction of Secondary Sexual Characteristics",
+      "Gonadotropin or Pulsatile GnRH Therapy for Fertility",
+      "Calcium and Vitamin D Repletion for Decreased Bone Mass"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypogonadotropic_Hypogonadism_18_With_Or_Without_Anosmia.yaml",
+    "page_url": "../pages/disorders/Hypogonadotropic_Hypogonadism_18_With_or_Without_Anosmia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypokalemic Periodic Paralysis",
     "disease_id": "MONDO:0008223",
     "category": "Genetic",
@@ -155858,6 +156216,104 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Intellectual Disability X-linked 100",
+    "disease_id": "MONDO:0010488",
+    "category": "Mendelian",
+    "parents": [
+      "Non-Syndromic X-Linked Intellectual Disability"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MRX100 is X-linked intellectual disability caused by hemizygous KIF4A variants, defined in 2014 in four affected males from a single family who had mild to moderate intellectual disability and epilepsy. KIF4A is a kinesin-4 chromokinesin with two quite different day jobs - it condenses mitotic chromosomes and builds the central spindle with PRC1, and it binds and restrains PARP1 in postmitotic neurons - and which of those routes explains the neurodevelopmental phenotype is the question this entry is organised around.\nThe evidence base is thin and should be read as such. ClinGen's Intellectual Disability and Autism expert panel classifies the gene-disease relationship as Limited, on ten variants in fifteen probands across three publications. About thirty affected individuals are on record worldwide. Most reported alleles are missense with in silico support rather than demonstrated function, and the authors of the largest series say in as many words that caution still applies to missense variants. The one 2025 Chinese case report describes a variant that ACMG classifies as uncertain and that the proband's unaffected mother and sister also carry. Nothing here should be read as a settled gene.\nThe label is also under strain in both directions. On one side MONDO:0010488 sits under non-syndromic X-linked intellectual disability, but the reported phenotype has expanded to include epilepsy, microcephaly, perisylvian polymicrogyria, hippocampal and callosal anomalies, hydrocephalus, and anomalies of the kidneys and urinary tract - features that are anything but non-syndromic. ClinGen curates the broader entity, \"complex neurodevelopmental disorder with or without congenital anomalies\", for this gene. On the other side ClinGen explicitly split off a second KIF4A disease - taurodontism, microdontia and dens invaginatus in two brothers with no developmental delay at all - and that split is respected here: the dental phenotype is not curated in this entry.\nTwo mechanistic models are carried, and they are not variants of one story. The canonical one is synaptic: knocking down Kif4a in rat hippocampal neurons shifts the balance between excitatory and inhibitory transmission, and a knock-in mouse carrying the patient R728Q substitution has malformed dendrites and spines, a lowered seizure threshold, and a PARP1-TrkB-KCC2 chain running underneath it that NAD supplementation partly reverses. The emerging one is mitotic: KIF4A condenses chromosomes and organises the midzone, a fetus with hydrocephalus had 12 percent of normal brain KIF4A mRNA, and polymicrogyria and microcephaly are what a neural progenitor proliferation defect looks like. No experiment yet demonstrates a proliferation defect in a KIF4A model, so the mitotic arm is EMERGING and its consequences are drawn as edges with unknown intermediates.\nOne detail deserves attention because it complicates the tidy version. Loss of KIF4 derepresses PARP1 - the C-terminal domain is what suppresses it - whereas the R728Q substitution lengthens the coiled coil, binds PARP1 more tightly, and impairs PARP1 activity, which is why NAD rescues that mouse. The two variant classes therefore push PARP1 in opposite directions while producing overlapping phenotypes. That is recorded as a knowledge gap rather than smoothed into a single arrow.",
+    "pathophysiology": [
+      "Reduced KIF4A Motor Function",
+      "Increased KIF4-PARP1 Binding",
+      "PARP1-TrkB-KCC2 Signalling Disruption",
+      "Abnormal Dendrite and Spine Morphology",
+      "Excitation-Inhibition Imbalance in Hippocampal Circuits",
+      "Impaired Chromosome Condensation and Midzone Assembly",
+      "Cortical and Midline Brain Malformation",
+      "Seizures and Lowered Seizure Threshold",
+      "Impaired Cognitive and Language Development"
+    ],
+    "cell_types": [
+      "hippocampal pyramidal neuron",
+      "GABAergic interneuron",
+      "glutamatergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000598",
+      "CL:0000617",
+      "CL:0000679"
+    ],
+    "biological_processes": [
+      "neuronal chloride extrusion through KCC2",
+      "regulation of dendritic spine development",
+      "inhibitory postsynaptic potential",
+      "mitotic chromosome condensation",
+      "mitotic cytokinesis"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Epilepsy",
+      "Delayed Speech and Language Development",
+      "Global Developmental Delay",
+      "Motor Delay",
+      "Atypical Behaviour",
+      "Autism",
+      "Strabismus",
+      "Polymicrogyria",
+      "Microcephaly",
+      "Ventriculomegaly and Hydrocephalus"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000750",
+      "HP:0001263",
+      "HP:0001270",
+      "HP:0000708",
+      "HP:0000717",
+      "HP:0000486",
+      "HP:0002126",
+      "HP:0000252",
+      "HP:0002119"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KIF4A"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Developmental and Educational Support",
+      "Genetic Counselling and Carrier Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_X-linked_100.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability_X-linked_100.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Intellectual Disability, X-linked, Syndromic 33",
@@ -299920,17 +300376,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2891,
-  "total_subtypes": 3718,
-  "total_disorders_and_subtypes": 6609,
-  "total_unique_evidence_sources": 40757,
-  "total_unique_publications": 38405,
+  "total_disorder_pages": 2895,
+  "total_subtypes": 3720,
+  "total_disorders_and_subtypes": 6615,
+  "total_unique_evidence_sources": 40794,
+  "total_unique_publications": 38441,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2886,
-  "total_unique_pathological_events": 17377,
+  "total_pathographs": 2890,
+  "total_unique_pathological_events": 17414,
   "total_modules": 173,
-  "total_research_reports": 3016,
+  "total_research_reports": 3019,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
