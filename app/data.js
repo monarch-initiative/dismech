@@ -143990,6 +143990,93 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 27",
+    "disease_id": "MONDO:0958018",
+    "category": "Mendelian",
+    "parents": [
+      "Hypomyelinating leukodystrophy",
+      "Ribosomopathy",
+      "Autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-11T11:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 27 is an ultra-rare autosomal recessive childhood leukodystrophy caused by biallelic hypomorphic missense variants in POLR1A, which encodes RPA194, the catalytic subunit of RNA polymerase I. Pol I transcribes ribosomal DNA into the 47S pre-rRNA, the rate-limiting first step of ribosome biogenesis, so HLD27 is a ribosomopathy that happens to present as a white-matter disease.\nReported patients show ataxia, psychomotor regression, and MRI hypomyelination with cerebellar and often cerebral atrophy, progressing to severe disability; one died at 16.5 years. The disease is defined by three homozygous alleles across a handful of consanguineous families, and the whole literature is three primary clinical reports.\nTwo points of nosology are worth stating up front, because both are easy to get wrong.\nFirst, HLD27 is not a POLR3-related leukodystrophy. dismech's existing POLR-Related_Leukodystrophy entry covers RNA polymerase III (POLR3A, POLR3B), which transcribes tRNAs and 5S rRNA. This is polymerase I, which transcribes the rDNA repeat. MONDO's \"POLR-related leukodystrophy\" parent groups them by name; the enzymes and their substrates are different, so the mechanism upstream of the shared hypomyelination is not shared. Only the downstream oligodendrocyte and myelin nodes are, which is why the conformance here is to the cns_myelin_failure module rather than to the POLR3 entry.\nSecond, POLR1A is also the gene for acrofacial dysostosis, Cincinnati type, a dominant craniofacial disorder with no leukodystrophy, which dismech already carries. Same gene, opposite inheritance, non-overlapping phenotype. The founding HLD27 report notes explicitly that the mandibulofacial syndrome was absent in their family. Treat the two as an allelic series, not as a spectrum.\nThe mechanism below is honestly uneven, and the entry marks where. Reduced rRNA transcription with aberrant rRNA processing, abnormal protein homeostasis and ER stress are demonstrated in patient fibroblasts. The nucleolar phase-separation collapse and the p53 step are inferred from Pol I model systems and general ribosomopathy biology, and neither has been shown in HLD27 CNS tissue. So is the selective vulnerability of oligodendrocytes, which is the step that actually explains why a defect in a housekeeping enzyme produces a white-matter disease.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic POLR1A Missense Variants",
+      "Reduced rDNA Transcription and Aberrant rRNA Processing",
+      "Nucleolar Stress and Disturbed Nucleolar Structure",
+      "p53 Stabilization",
+      "Apoptosis of Translation-Dependent Progenitors",
+      "Reduced Ribosome Biogenesis and Translational Capacity",
+      "Deficient CNS Myelination"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "oligodendrocyte precursor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0002453"
+    ],
+    "biological_processes": [
+      "transcription by RNA polymerase I",
+      "rRNA processing",
+      "protein stabilization",
+      "apoptotic process",
+      "ribosome biogenesis",
+      "response to endoplasmic reticulum stress",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "CNS hypomyelination",
+      "Spasticity",
+      "Leukodystrophy",
+      "Cerebellar atrophy",
+      "Cerebral atrophy",
+      "Ataxia",
+      "Developmental regression",
+      "Abnormal basal ganglia morphology",
+      "Spastic paraplegia"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003429",
+      "HP:0001257",
+      "HP:0002415",
+      "HP:0001272",
+      "HP:0002059",
+      "HP:0001251",
+      "HP:0002376",
+      "HP:0002134",
+      "HP:0001258"
+    ],
+    "frequencies": [],
+    "genes": [
+      "POLR1A"
+    ],
+    "treatments": [
+      "Supportive and rehabilitative care",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_27.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_27.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 7",
     "disease_id": "MONDO:0011897",
     "category": "Mendelian",
@@ -278878,22 +278965,34 @@ window.searchData = [
     "subtypes": [],
     "description": "Taeniasis/cysticercosis is caused by Taenia solium, with intestinal taeniasis and tissue cysticercosis including neurocysticercosis, a major cause of seizures in endemic regions.",
     "pathophysiology": [
-      "Larval infection of the nervous system (neurocysticercosis)"
+      "Larval infection of the nervous system (neurocysticercosis)",
+      "Cyst Degeneration and Perilesional Inflammation",
+      "Residual Parenchymal Calcification",
+      "Extraparenchymal Cyst Burden with Impaired CSF Flow"
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
-      "Seizures"
+      "Seizures",
+      "Cerebral Calcification",
+      "Hydrocephalus",
+      "Headache"
     ],
     "phenotype_categories": [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001250"
+      "HP:0001250",
+      "HP:0002514",
+      "HP:0000238",
+      "HP:0002315"
     ],
     "frequencies": [
       "FREQUENT"
@@ -278901,18 +279000,19 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Antiparasitic therapy",
+      "Niclosamide (Taeniasis Treatment)",
       "Surgical management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Taeniasis_Cysticercosis.yaml",
     "page_url": "../pages/disorders/Taeniasis_cysticercosis.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Takayasu Arteritis",
@@ -300376,17 +300476,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2895,
+  "total_disorder_pages": 2896,
   "total_subtypes": 3720,
-  "total_disorders_and_subtypes": 6615,
-  "total_unique_evidence_sources": 40794,
-  "total_unique_publications": 38441,
+  "total_disorders_and_subtypes": 6616,
+  "total_unique_evidence_sources": 40802,
+  "total_unique_publications": 38449,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2890,
-  "total_unique_pathological_events": 17414,
+  "total_pathographs": 2891,
+  "total_unique_pathological_events": 17424,
   "total_modules": 173,
-  "total_research_reports": 3019,
+  "total_research_reports": 3020,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
