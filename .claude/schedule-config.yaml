@@ -1,0 +1,68 @@
+# Configuration for the /donate-curation skill (issue #11657).
+#
+# You describe the donation window in LOCAL terms; the skill converts it to the
+# UTC cron(s) the Claude Code cloud-routine API (RemoteTrigger) needs, via the
+# pure, unit-tested `dismech.schedule.config` module. Edit this file (or let
+# `/donate-curation <window>` write it) and re-register with `/donate-curation`.
+#
+# Expand it yourself to see the derived UTC cron / expiry / prompt values:
+#   uv run python -m dismech.schedule --config .claude/schedule-config.yaml
+
+version: 1
+
+# IANA timezone name. The local->UTC conversion (and DST re-confirmation) is
+# computed against this.
+timezone: America/Los_Angeles
+
+# The daily donation window, local time, as [start_local, end_local).
+# end_local "00:00" means local midnight at the END of the window (24:00).
+# The window must be a whole number of hours (cloud minimum interval is 1h) and
+# is registered as hourly restart-heartbeat fires across the window.
+window:
+  start_local: "20:00"
+  end_local: "00:00"
+
+# every-day | workday (Mon-Fri) | weekends (Sat/Sun) | once | custom
+recurrence: workday
+
+# Only with recurrence: custom — a 5-field LOCAL cron (hour/minute must be
+# single values so they can be converted to UTC).
+custom_cron_local: null
+
+# When the routine self-disables. The frozen prompt checks the date each fire.
+#   mode: none            never expires
+#   mode: days   value: 7 expire 7 days after registration
+#   mode: weeks  value: 2 expire in 2 weeks
+#   mode: date   value: "2026-10-01"
+#   mode: once            run tonight's window as an hourly heartbeat, then
+#                         self-disable the next day (NOT a single 8pm fire).
+#                         Equivalent to recurrence: once.
+expiry:
+  mode: none
+  value: null
+
+# Active concurrency. THIS VERSION SUPPORTS ONLY 1 (one disease in hand at a
+# time). Raising it to the 8 that /curate-next allows is a deliberate later step.
+max_active: 1
+
+# Model backing the heavy curation work in each cloud fire.
+model: claude-sonnet-5
+
+# The GitHub login this donation runs as. The skill asserts
+# `gh api user --jq .login` matches this before claiming a new disease, so a
+# cloud fire that authenticates as a bot/App (whose `--author @me` returns
+# nothing) can never mistake an empty in-flight list for "clean, claim one".
+# Leave null only if you accept that the skill's caller enforces identity.
+# Repo default is null on purpose — set it to YOUR login when you register;
+# never commit a specific person's login as the shipped default.
+github_login: null
+
+routine:
+  # Filled in by RemoteTrigger create when you register a recurring window.
+  trigger_id: null
+  # The cloud environment each fire runs in. Left null on purpose: env ids may be
+  # account-scoped, and committing one person's env as the repo default would
+  # route every other contributor's routine into it. Set it when you register
+  # (the skill prompts). Issue #11657 cites env_01Qs4qSVQcgqzrywAKajYQnj as the
+  # dismech environment — use it only once confirmed to be project-scoped.
+  environment_id: null
