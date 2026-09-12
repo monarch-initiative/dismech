@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Aggressive NK-cell Leukemia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aggressive NK-cell Leukemia</h1>
             <div class="header-meta">
 
@@ -4270,7 +4417,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4292,7 +4441,9 @@
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4464,7 +4615,9 @@
                         <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4486,7 +4639,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4542,7 +4697,7 @@
 
 
 
-    <span class="entity-ref-chip">progression#Cohort-Proposed Prolonged Prodromal Course in a Subset</span>
+    <a class="entity-ref-chip" href="#progression-cohort-proposed-prolonged-prodromal-course-in-a-subset">progression#Cohort-Proposed Prolonged Prodromal Course in a Subset</a>
 
 
 
@@ -4570,7 +4725,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4656,7 +4813,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4728,7 +4887,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4784,18 +4945,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4823,18 +4986,20 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cytokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4862,33 +5027,37 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4937,7 +5106,9 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4959,7 +5130,9 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5003,18 +5176,20 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5042,18 +5217,20 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5081,63 +5258,71 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         spleen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002106</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002106</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5205,7 +5390,9 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5249,18 +5436,20 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5288,17 +5477,21 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5327,18 +5520,20 @@ This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell surface receptor signaling pathway via JAK-STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5407,7 +5602,9 @@ This pathophysiological event involves increased cell surface receptor signaling
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5429,7 +5626,9 @@ This pathophysiological event involves increased cell surface receptor signaling
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5473,18 +5672,20 @@ This pathophysiological event involves increased cell surface receptor signaling
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5556,7 +5757,9 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5600,18 +5803,20 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5639,17 +5844,21 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5678,18 +5887,20 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of apoptotic process (GO:0042981). GO:0042981 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042981" target="_blank" class="curie-chip curie-chip-go">GO:0042981</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0042981</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of apoptotic process (GO:0042981). GO:0042981 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5758,7 +5969,9 @@ This pathophysiological event involves abnormal regulation of apoptotic process 
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5780,7 +5993,9 @@ This pathophysiological event involves abnormal regulation of apoptotic process 
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5824,18 +6039,20 @@ This pathophysiological event involves abnormal regulation of apoptotic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5863,17 +6080,21 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DDX3X
 
 
-    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2745</a>
+    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2745</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5946,7 +6167,9 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5990,18 +6213,20 @@ This pathophysiological event involves DDX3X (hgnc:2745). hgnc:2745 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6029,17 +6254,21 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ASXL1
 
 
-    <a href="https://bioregistry.io/hgnc:18318" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18318</a>
+    <a href="https://bioregistry.io/hgnc:18318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:18318</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6064,17 +6293,21 @@ This pathophysiological event involves ASXL1 (hgnc:18318). hgnc:18318 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TET2
 
 
-    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25941</a>
+    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:25941</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6094,6 +6327,26 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
 
 
                 </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
 
 
 
@@ -6147,7 +6400,9 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6169,7 +6424,9 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6191,7 +6448,9 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6235,18 +6494,20 @@ This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6277,63 +6538,71 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         spleen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002106</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002106</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6458,7 +6727,9 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6480,7 +6751,9 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6531,18 +6804,20 @@ This pathophysiological event occurs in spleen (UBERON:0002106). UBERON:0002106 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6570,18 +6845,20 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cytokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6609,18 +6886,20 @@ This pathophysiological event involves increased cytokine-mediated signaling pat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6728,7 +7007,9 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6786,18 +7067,20 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal coagulation (GO:0050817). GO:0050817 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050817" target="_blank" class="curie-chip curie-chip-go">GO:0050817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0050817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal coagulation (GO:0050817). GO:0050817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6825,18 +7108,20 @@ This pathophysiological event involves abnormal coagulation (GO:0050817). GO:005
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6918,7 +7203,9 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6953,7 +7240,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-interstitial-and-sinusoidal-bone-marrow-involvement">
                 <div class="item-name">
                     Interstitial and Sinusoidal Bone Marrow Involvement
 
@@ -6975,7 +7262,9 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7020,7 +7309,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coagulation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL can produce a coagulopathic presentation that includes hypofibrinogenemia and disseminated intravascular coagulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"coagulation\"], \"locations\": [\"blood\"]}}, {\"id\": \"DDX3X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"association\": \"Recurrent somatic mutation in ANKL genomic profiling\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"DDX3X Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X is recurrently altered in ANKL genomic cohorts and was identified as a recurrent gene by two driver-discovery algorithms. Its precise position in the multihit causal hierarchy remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}]}}, {\"id\": \"Disseminated Intravascular Coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"DIC is a life-threatening coagulopathy reported in the acute ANKL presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005521\"}}, {\"id\": \"EBV-Positive Neoplastic Context\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBER positivity is frequent in ANKL and can accompany an EBV-HLH presentation, but EBV-negative disease is recognized. EBV results therefore define a conditional disease context rather than an obligatory transforming event.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"], \"locations\": [\"bone marrow\", \"blood\"]}}, {\"id\": \"Elevated Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transaminitis reflects liver impairment in the systemic ANKL presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002910\"}}, {\"id\": \"Epigenetic-Regulator Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation is a distinct recurrent molecular class in ANKL, including mutations in epigenetic regulatory genes such as ASXL1 and TET2 and broader epigenetic-modifier alterations in sequencing cohorts.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"natural killer cell\"], \"genes\": [\"ASXL1\", \"TET2\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}, {\"label\": \"TET2\", \"id\": \"hgnc:25941\"}]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute fever is a common feature of the fulminant systemic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"HLH-Like Hyperinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL can present with a hemophagocytic lymphohistiocytosis-like systemic inflammatory syndrome. This node represents the inflammatory context, not histologic hemophagocytosis and not a claim that every case meets HLH criteria.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"], \"locations\": [\"blood\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Concurrent liver and spleen enlargement reflects reticuloendothelial organ involvement in the systemic leukemic process.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypofibrinogenemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fibrinogen is part of the coagulopathic presentation documented in ANKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011900\"}}, {\"id\": \"Increased Ferritin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperferritinemia accompanies the HLH-like inflammatory presentation and was associated with shorter survival in univariate analysis of a retrospective cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003281\"}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JAK-STAT pathway activation is a major recurrent molecular abnormality in ANKL. STAT3 mutation and additional JAK-STAT copy-gain or phosphatase lesions provide a growth and survival mechanism and a rationale for pathway-directed drug profiling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"L-Asparaginase-Containing Chemotherapy (Including SMILE)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no universally standardized initial regimen. Retrospective cohorts support L-asparaginase-containing induction, with a recent cohort reporting higher response and survival with SMILE than with comparator regimens. Selection remains individualized because the evidence is non-randomized and ANKL is rare.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Asparaginase\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphadenopathy was reported among the infectious mononucleosis-like manifestations in the cohort-proposed prolonged-prodrome subset.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Malignant NK-Cell Survival and Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic cells retain NK-lineage markers, particularly CD56 and CD94, while lacking surface T-cell markers such as surface CD3, CD5, and CD57. Their survival and expansion underlie the systemic leukemic population.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"bone marrow\", \"blood\", \"liver\", \"spleen\"]}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytopenias, including pancytopenia, can accompany the acute leukemic and HLH-like presentation of ANKL.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Preclinical JAK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK inhibition is an investigational, preclinical strategy motivated by recurrent JAK-STAT alterations and NK-lineage drug sensitivity. The cited evidence does not establish clinical efficacy in ANKL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"RAS-MAPK Pathway Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating RAS-MAPK pathway mutations form another recurrent signaling arm in ANKL and may cooperate with other lesions in the multihit neoplastic model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"Recurrent activating somatic mutation and JAK-STAT pathway activation in ANKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL is a systemic leukemia with blood and marrow disease and frequent liver, spleen, and nodal involvement. The clinical literature supports this pattern of involvement but does not resolve a single route of tissue dissemination.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"locations\": [\"blood\", \"bone marrow\", \"liver\", \"spleen\"]}}, {\"id\": \"TP53 Checkpoint and DNA-Repair Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 mutation, abnormal p53 expression, and broader DNA-repair impairment form a distinct pathophysiologic axis in ANKL. These alterations are most directly linked to loss of cell-cycle checkpoint and apoptosis control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"regulation of apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thrombocytopenia was associated with shorter survival in a retrospective ANKL cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"EBV-Positive Neoplastic Context\", \"target\": \"HLH-Like Hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-positive ANKL can present with an HLH-like inflammatory syndrome; the intervening causal route is not resolved by the clinical evidence.\", \"hypothesis_groups\": [\"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Malignant NK-Cell Survival and Expansion\", \"target\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malignant NK-cell population involves blood, marrow, liver, and spleen; the clinical evidence does not establish a single direct route of spread.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Malignant NK-Cell Survival and Expansion\", \"target\": \"HLH-Like Hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ANKL can accompany a fulminant hemophagocytic inflammatory syndrome, but clinical co-occurrence does not define the complete causal chain.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent JAK-STAT lesions are implicated in ANKL pathogenesis, but the human genomic evidence does not establish a direct edge at this granularity.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"RAS-MAPK Pathway Alterations\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAS-MAPK alterations are candidate cooperating inputs to malignant NK-cell expansion; a direct causal edge is not established in the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"TP53 Checkpoint and DNA-Repair Impairment\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53/checkpoint impairment is a candidate cooperating input to malignant NK-cell survival, but recurrence evidence alone does not prove directness.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"DDX3X Alteration\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DDX3X alteration is a candidate cooperating input to malignant expansion; direct functional causation is not established by the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Epigenetic-Regulator Alterations\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic-regulator alterations are candidate cooperating inputs to malignant NK-cell survival; their directness is unresolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphadenopathy was reported in the prolonged-prodrome subset; the route from systemic disease to nodal enlargement is not resolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ANKL involvement commonly includes concurrent liver and spleen enlargement.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Elevated Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transaminitis accompanies liver impairment in ANKL; directness from tissue involvement is not established by the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe thrombocytopenia occurs in ANKL, while marrow, inflammatory, and consumptive contributions are not separated by the outcome analysis.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytopenias, including pancytopenia, can accompany the ANKL leukemic and HLH-like inflammatory presentation.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever accompanies the acute inflammatory presentation; the evidence does not isolate a direct route from this modeled node.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Increased Ferritin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperferritinemia is a clinical correlate of the HLH-like inflammatory state, with causal directness unresolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Coagulation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLH-like inflammation and coagulopathy co-occur in ANKL, but the causal intermediates and directness are not resolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Coagulation Dysregulation\", \"target\": \"Disseminated Intravascular Coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DIC is the overt clinical manifestation of the modeled coagulopathy, but the cited clinical review does not prove a direct edge.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Coagulation Dysregulation\", \"target\": \"Hypofibrinogenemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low fibrinogen is a reported component of ANKL-associated coagulopathy.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"L-Asparaginase-Containing Chemotherapy (Including SMILE)\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Preclinical JAK Inhibition\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"DDX3X Alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coagulation Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL can produce a coagulopathic presentation that includes hypofibrinogenemia and disseminated intravascular coagulation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"coagulation\"], \"locations\": [\"blood\"]}}, {\"id\": \"DDX3X\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}], \"association\": \"Recurrent somatic mutation in ANKL genomic profiling\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"DDX3X Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DDX3X is recurrently altered in ANKL genomic cohorts and was identified as a recurrent gene by two driver-discovery algorithms. Its precise position in the multihit causal hierarchy remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"genes\": [\"DDX3X\"], \"gene_terms\": [{\"label\": \"DDX3X\", \"id\": \"hgnc:2745\"}]}}, {\"id\": \"Disseminated Intravascular Coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"DIC is a life-threatening coagulopathy reported in the acute ANKL presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005521\"}}, {\"id\": \"EBV-Positive Neoplastic Context\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBER positivity is frequent in ANKL and can accompany an EBV-HLH presentation, but EBV-negative disease is recognized. EBV results therefore define a conditional disease context rather than an obligatory transforming event.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"], \"locations\": [\"bone marrow\", \"blood\"]}}, {\"id\": \"Elevated Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transaminitis reflects liver impairment in the systemic ANKL presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002910\"}}, {\"id\": \"Epigenetic-Regulator Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation is a distinct recurrent molecular class in ANKL, including mutations in epigenetic regulatory genes such as ASXL1 and TET2 and broader epigenetic-modifier alterations in sequencing cohorts.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"natural killer cell\"], \"genes\": [\"ASXL1\", \"TET2\"], \"gene_terms\": [{\"label\": \"ASXL1\", \"id\": \"hgnc:18318\"}, {\"label\": \"TET2\", \"id\": \"hgnc:25941\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute fever is a common feature of the fulminant systemic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"HLH-Like Hyperinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL can present with a hemophagocytic lymphohistiocytosis-like systemic inflammatory syndrome. This node represents the inflammatory context, not histologic hemophagocytosis and not a claim that every case meets HLH criteria.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"], \"locations\": [\"blood\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Concurrent liver and spleen enlargement reflects reticuloendothelial organ involvement in the systemic leukemic process.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001433\"}}, {\"id\": \"Hypofibrinogenemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced fibrinogen is part of the coagulopathic presentation documented in ANKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011900\"}}, {\"id\": \"Increased Ferritin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyperferritinemia accompanies the HLH-like inflammatory presentation and was associated with shorter survival in univariate analysis of a retrospective cohort.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003281\"}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"JAK-STAT pathway activation is a major recurrent molecular abnormality in ANKL. STAT3 mutation and additional JAK-STAT copy-gain or phosphatase lesions provide a growth and survival mechanism and a rationale for pathway-directed drug profiling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"L-Asparaginase-Containing Chemotherapy (Including SMILE)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no universally standardized initial regimen. Retrospective cohorts support L-asparaginase-containing induction, with a recent cohort reporting higher response and survival with SMILE than with comparator regimens. Selection remains individualized because the evidence is non-randomized and ANKL is rare.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Asparaginase\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lymphadenopathy was reported among the infectious mononucleosis-like manifestations in the cohort-proposed prolonged-prodrome subset.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Malignant NK-Cell Survival and Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic cells retain NK-lineage markers, particularly CD56 and CD94, while lacking surface T-cell markers such as surface CD3, CD5, and CD57. Their survival and expansion underlie the systemic leukemic population.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"bone marrow\", \"blood\", \"liver\", \"spleen\"]}}, {\"id\": \"Pancytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytopenias, including pancytopenia, can accompany the acute leukemic and HLH-like presentation of ANKL.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001876\"}}, {\"id\": \"Preclinical JAK Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK inhibition is an investigational, preclinical strategy motivated by recurrent JAK-STAT alterations and NK-lineage drug sensitivity. The cited evidence does not establish clinical efficacy in ANKL.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ruxolitinib\"]}}, {\"id\": \"RAS-MAPK Pathway Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating RAS-MAPK pathway mutations form another recurrent signaling arm in ANKL and may cooperate with other lesions in the multihit neoplastic model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"Recurrent activating somatic mutation and JAK-STAT pathway activation in ANKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ANKL is a systemic leukemia with blood and marrow disease and frequent liver, spleen, and nodal involvement. The clinical literature supports this pattern of involvement but does not resolve a single route of tissue dissemination.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"locations\": [\"blood\", \"bone marrow\", \"liver\", \"spleen\"]}}, {\"id\": \"TP53 Checkpoint and DNA-Repair Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 mutation, abnormal p53 expression, and broader DNA-repair impairment form a distinct pathophysiologic axis in ANKL. These alterations are most directly linked to loss of cell-cycle checkpoint and apoptosis control.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"regulation of apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe thrombocytopenia was associated with shorter survival in a retrospective ANKL cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"EBV-Positive Neoplastic Context\", \"target\": \"HLH-Like Hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-positive ANKL can present with an HLH-like inflammatory syndrome; the intervening causal route is not resolved by the clinical evidence.\", \"hypothesis_groups\": [\"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Malignant NK-Cell Survival and Expansion\", \"target\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The malignant NK-cell population involves blood, marrow, liver, and spleen; the clinical evidence does not establish a single direct route of spread.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Malignant NK-Cell Survival and Expansion\", \"target\": \"HLH-Like Hyperinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ANKL can accompany a fulminant hemophagocytic inflammatory syndrome, but clinical co-occurrence does not define the complete causal chain.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent JAK-STAT lesions are implicated in ANKL pathogenesis, but the human genomic evidence does not establish a direct edge at this granularity.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"RAS-MAPK Pathway Alterations\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAS-MAPK alterations are candidate cooperating inputs to malignant NK-cell expansion; a direct causal edge is not established in the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"TP53 Checkpoint and DNA-Repair Impairment\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53/checkpoint impairment is a candidate cooperating input to malignant NK-cell survival, but recurrence evidence alone does not prove directness.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"DDX3X Alteration\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DDX3X alteration is a candidate cooperating input to malignant expansion; direct functional causation is not established by the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Epigenetic-Regulator Alterations\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic-regulator alterations are candidate cooperating inputs to malignant NK-cell survival; their directness is unresolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lymphadenopathy was reported in the prolonged-prodrome subset; the route from systemic disease to nodal enlargement is not resolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic ANKL involvement commonly includes concurrent liver and spleen enlargement.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Elevated Transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transaminitis accompanies liver impairment in ANKL; directness from tissue involvement is not established by the cohort.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe thrombocytopenia occurs in ANKL, while marrow, inflammatory, and consumptive contributions are not separated by the outcome analysis.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Systemic Blood, Marrow, and Reticuloendothelial Involvement\", \"target\": \"Pancytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytopenias, including pancytopenia, can accompany the ANKL leukemic and HLH-like inflammatory presentation.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever accompanies the acute inflammatory presentation; the evidence does not isolate a direct route from this modeled node.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Increased Ferritin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperferritinemia is a clinical correlate of the HLH-like inflammatory state, with causal directness unresolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HLH-Like Hyperinflammation\", \"target\": \"Coagulation Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLH-like inflammation and coagulopathy co-occur in ANKL, but the causal intermediates and directness are not resolved.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Coagulation Dysregulation\", \"target\": \"Disseminated Intravascular Coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DIC is the overt clinical manifestation of the modeled coagulopathy, but the cited clinical review does not prove a direct edge.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Coagulation Dysregulation\", \"target\": \"Hypofibrinogenemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low fibrinogen is a reported component of ANKL-associated coagulopathy.\", \"hypothesis_groups\": [\"multihit_nk_neoplasia_model\", \"ebv_positive_superimposed_branch\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"L-Asparaginase-Containing Chemotherapy (Including SMILE)\", \"target\": \"Malignant NK-Cell Survival and Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Preclinical JAK Inhibition\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DDX3X\", \"target\": \"DDX3X Alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7039,13 +7328,11 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7055,7 +7342,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-intravascular-coagulation" data-dismech-node="Disseminated Intravascular Coagulation" data-dismech-type="phenotype">
@@ -7064,16 +7351,20 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.">
-                        Disseminated intravascular coagulation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp">HP:0005521</a>
-
-
+This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7094,7 +7385,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7126,16 +7419,20 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001876</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.">
-                        Pancytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp">HP:0001876</a>
-
-
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7156,7 +7453,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                         <a href="https://bioregistry.io/DOI:10.1155/crh/7796972" target="_blank">DOI:10.1155/crh/7796972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7188,16 +7487,20 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.">
-                        Thrombocytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp">HP:0001873</a>
-
-
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7218,7 +7521,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7229,6 +7534,74 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                 <div class="evidence-explanation">The cohort directly identifies severe thrombocytopenia as a prognostic finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypofibrinogenemia" data-dismech-node="Hypofibrinogenemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypofibrinogenemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29263371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alleviated hyperferritinemia (P &lt; 0.001), transaminitis (ALT, P = 0.009), and hypofibrinogenemia (P = 0.038), suggesting alleviated hemophagocytic lymphohistiocytosis (HLH), liver impairment, and coagulopathy, were also noted at diagnosis in these patients (Table 1 and Supplementary Table S3)."</div>
+
+
+                <div class="evidence-explanation">The cohort directly documents hypofibrinogenemia at diagnosis.</div>
 
 
 
@@ -7259,16 +7632,20 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7289,7 +7666,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7321,16 +7700,20 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7351,7 +7734,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7392,16 +7777,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7422,7 +7811,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                         <a href="https://bioregistry.io/DOI:10.3390/cancers12102900" target="_blank">DOI:10.3390/cancers12102900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7454,16 +7845,22 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating ferritin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp">HP:0003281</a>
-
-
+This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7484,7 +7881,9 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7506,7 +7905,9 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7538,16 +7939,22 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
-
-
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7568,7 +7975,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7579,77 +7988,6 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                 <div class="evidence-explanation">The cohort directly documents transaminitis and interprets it as liver impairment.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypofibrinogenemia" data-dismech-node="Hypofibrinogenemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypofibrinogenemia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenotype from the Human Phenotype Ontology.">
-                        Hypofibrinogenemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp">HP:0011900</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29263371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Alleviated hyperferritinemia (P &lt; 0.001), transaminitis (ALT, P = 0.009), and hypofibrinogenemia (P = 0.038), suggesting alleviated hemophagocytic lymphohistiocytosis (HLH), liver impairment, and coagulopathy, were also noted at diagnosis in these patients (Table 1 and Supplementary Table S3)."</div>
-
-
-                <div class="evidence-explanation">The cohort directly documents hypofibrinogenemia at diagnosis.</div>
 
 
 
@@ -7717,15 +8055,17 @@ This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11364</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7751,7 +8091,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7773,7 +8115,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7795,7 +8139,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7832,15 +8178,17 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7866,7 +8214,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7903,15 +8253,17 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DDX3X
 
 
-    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2745</a>
+    <a href="https://bioregistry.io/hgnc:2745" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:2745</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7937,7 +8289,9 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -7974,15 +8328,17 @@ This disease-associated gene is DDX3X (hgnc:2745). hgnc:2745 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ASXL1
 
 
-    <a href="https://bioregistry.io/hgnc:18318" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18318</a>
+    <a href="https://bioregistry.io/hgnc:18318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:18318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8008,7 +8364,9 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8045,15 +8403,17 @@ This disease-associated gene is ASXL1 (hgnc:18318). hgnc:18318 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TET2
 
 
-    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25941</a>
+    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:25941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8079,7 +8439,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8109,6 +8471,9 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8127,18 +8492,18 @@ This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -8163,21 +8528,31 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Asparaginase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C286" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C286</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C286" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8209,7 +8584,9 @@ This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501503" target="_blank">PMID:41501503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8250,7 +8627,9 @@ This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501503" target="_blank">PMID:41501503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8272,7 +8651,9 @@ This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8304,18 +8685,18 @@ This treatment uses Asparaginase (NCIT:C286). NCIT:C286 is a therapeutic agent f
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">hematopoietic stem cell transplantation</span>
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -8333,6 +8714,25 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8357,7 +8757,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501503" target="_blank">PMID:41501503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8379,7 +8781,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8411,17 +8815,17 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8446,21 +8850,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         ruxolitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:66919</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:66919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8486,13 +8900,15 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-018-03987-2" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-018-03987-2" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8527,13 +8943,15 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-018-03987-2" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-018-03987-2" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8565,6 +8983,602 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-integrated-clinicopathologic-assessment">
+                <div class="item-name">
+                    Integrated Clinicopathologic Assessment
+
+                </div>
+
+                <div class="item-desc">ANKL diagnosis integrates the systemic clinical course, blood and marrow morphology, and NK-cell immunophenotype while excluding other mature T/NK-cell neoplasms and reactive HLH. EBV studies and molecular findings may provide adjunctive context; no defining molecular lesion is required.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A systemic leukemic NK-cell neoplasm supported by concordant morphology and immunophenotype favors ANKL; EBV positivity refines the disease context but is not required.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41467-018-03987-2" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with a surface immunophenotype characteristic of NK cells (CD2+CD3−CD56+), systemic involvement including bone marrow"</div>
+
+
+                <div class="evidence-explanation">The study states the NK-cell immunophenotype and systemic marrow involvement used among the ANKL-specific diagnostic requirements for its human cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37870698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37870698" target="_blank">PMID:37870698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WHO-HAEM5 and ICC share basic concepts in classification of T/NK-cell neoplasms, emphasizing integration of clinical presentation, pathology, immunophenotype, and genetics."</div>
+
+
+                <div class="evidence-explanation">The current classification review supports an integrated diagnostic approach for mature T/NK-cell neoplasms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nk-cell-flow-cytometry-and-immunophenotyping">
+                <div class="item-name">
+                    NK-Cell Flow Cytometry and Immunophenotyping
+
+                </div>
+
+                <div class="item-desc">Diagnosis requires identifying an abnormal NK-cell population and excluding T-cell lineage by immunophenotyping. A typical pattern is CD56/CD94-positive and surface CD3/CD5/CD57-negative.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        flow cytometry immunophenotyping
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C113003" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C113003</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> An atypical CD3-/CD56+ or CD56+/CD94+ NK-cell population in marrow or blood supports ANKL in the appropriate clinicopathologic context.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1097/pas.0000000000001518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The neoplastic cells were positive for CD56 and CD94, and negative for surface CD3, CD5, and CD57 in all cases assessed."</div>
+
+
+                <div class="evidence-explanation">This case series supports the core diagnostic immunophenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/frhem.2024.1413794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bone marrow biopsy demonstrated an atypical CD3-/CD56+ natural killer (NK) cell population with diminished CD7 expression consistent with EBV+ ANKL."</div>
+
+
+                <div class="evidence-explanation">The case report demonstrates diagnostic recognition of ANKL by marrow biopsy and NK-cell immunophenotyping.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-eber-in-situ-hybridization">
+                <div class="item-name">
+                    EBER In Situ Hybridization
+
+                </div>
+
+                <div class="item-desc">EBER testing identifies the frequent but non-universal EBV-positive branch of ANKL.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        EBER in situ hybridization
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C138177" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C138177</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> EBER positivity supports EBV-positive ANKL; a negative result does not exclude ANKL because not every case in the cited series was EBER-positive.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1097/pas.0000000000001518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They were also positive for CD2 (10/12), c-MYC (6/8), BCL2 (6/8), CD16 (5/7), EBER (9/12), CD7 (6/11), pSTAT3Tyr705 (3/8), CD8 (2/6), PD-L1 (2/8), CD4 (2/11), CD8 (2/6), and CD158 (1/5)."</div>
+
+
+                <div class="evidence-explanation">The 12-case series reports EBER positivity in nine of twelve cases, demonstrating frequent but non-universal positivity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-cohort-proposed-prolonged-prodromal-course-in-a-subset">
+                <div class="item-name">Cohort-Proposed Prolonged Prodromal Course in a Subset</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: more than 90 days in the reported cohort</span>
+
+
+                </div>
+
+                <div class="item-notes">A retrospective Han Chinese cohort described an infectious mononucleosis-like prodrome in 18 of 113 patients and proposed, rather than established, a “subacute ANKL” clinical subtype. This entry records a cohort-specific course pattern and is not modeled as a WHO/ICC subtype.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29263371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intriguingly, a subacute clinical course was demonstrated in 18 ANKL patients (15.93%, 18/113)."</div>
+
+
+                <div class="evidence-explanation">The cohort quantifies the proposed prolonged-prodrome subset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29263371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All these data suggested that patients with prolonged prodromal phases, whom we define here as “subacute ANKL”, may represent a clinical subtype of ANKL which differed from the others, whom we define here as “classic ANKL”."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly frame the classification as a proposal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-fulminant-presentation-and-early-mortality">
+                <div class="item-name">Fulminant Presentation and Early Mortality</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Duration: often weeks to months</span>
+
+
+                </div>
+
+                <div class="item-notes">ANKL remains highly lethal. Median survival of two months and 55 days came from a 12-case clinicopathologic series and a 2003–2016 Han Chinese cohort, respectively, and should not be treated as timeless universal estimates. The ANKL22 study, published in 2026, analyzed 108 evaluable patients diagnosed during 2000–2021 and reported median overall survival of 5.5 months and two-year survival of 18.7%, with better outcomes associated with SMILE and allogeneic HSCT.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1097/pas.0000000000001518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/pas.0000000000001518" target="_blank">DOI:10.1097/pas.0000000000001518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients had very poor outcomes despite intensive chemotherapy, with a median survival of 2 months."</div>
+
+
+                <div class="evidence-explanation">The 12-case series directly supports very poor prognosis and short median survival.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29263371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median OS was only 55 days (Supplementary Tables S2) and 1-year survival rate was only 4.42% (5/113; Supplementary Fig. S1B), which indicated a dismal outcome of ANKL."</div>
+
+
+                <div class="evidence-explanation">The historical 113-patient cohort supports very poor survival in its specific population and treatment era.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41501503" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501503" target="_blank">PMID:41501503</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We retrospectively collected 126 ANKL patients diagnosed between 2000 and 2021 from 71 institutes; 108 were evaluable for analysis to characterize the recent advances."</div>
+
+
+                <div class="evidence-explanation">The study dates the diagnosis interval and identifies the 108-patient evaluable cohort.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-epstein-barr-virus">
+                <div class="item-name">Epstein-Barr Virus</div>
+
+                <div class="item-desc">EBV is frequently associated with ANKL but is not obligatory. EBER positivity within an aberrant NK-cell population supports an EBV-positive disease branch; EBV-HLH without demonstrable neoplasia remains an overlapping presentation and differential context.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Epstein-Barr virus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10376" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:10376</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/frhem.2024.1413794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aggressive natural killer cell leukemia (ANKL) is a rare, aggressive hematologic malignancy which often presents as fulminant Epstein-Barr virus (EBV)- driven hemophagocytic lymphohistiocytosis (HLH)."</div>
+
+
+                <div class="evidence-explanation">This human case report supports EBV-HLH as an important ANKL presentation context while not implying that every ANKL case is EBV-driven.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8579,7 +9593,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ebv-driven-hemophagocytic-lymphohistiocytosis-without-neoplasia">
                 <div class="item-name">
 
                     EBV-Driven Hemophagocytic Lymphohistiocytosis Without Neoplasia
@@ -8618,7 +9632,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8640,7 +9656,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.3389/frhem.2024.1413794" target="_blank">DOI:10.3389/frhem.2024.1413794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8665,7 +9683,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-extranodal-nk-t-cell-lymphoma">
                 <div class="item-name">
 
                     Extranodal NK/T-Cell Lymphoma
@@ -8704,7 +9722,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8726,7 +9746,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8748,7 +9770,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8773,7 +9797,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chronic-nk-cell-lymphoproliferative-disorder-nk-lgll-clpd-nk">
                 <div class="item-name">
 
                     Chronic NK-Cell Lymphoproliferative Disorder (NK-LGLL/CLPD-NK)
@@ -8812,7 +9836,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-018-03987-2" target="_blank">DOI:10.1038/s41467-018-03987-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8837,7 +9863,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chronic-active-ebv-disease-and-other-ebv-positive-t-nk-lymphoproliferative-disorders">
                 <div class="item-name">
 
                     Chronic Active EBV Disease and Other EBV-Positive T/NK Lymphoproliferative Disorders
@@ -8876,7 +9902,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29263371" target="_blank">PMID:29263371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8914,7 +9942,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03719105">
                 <div class="item-name">
                     NCT03719105
 
@@ -8940,7 +9968,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://clinicaltrials.gov/study/NCT03719105" target="_blank">clinicaltrials:NCT03719105</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8963,7 +9993,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03623087">
                 <div class="item-name">
                     NCT03623087
 
@@ -8991,7 +10021,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://clinicaltrials.gov/study/NCT03623087" target="_blank">clinicaltrials:NCT03623087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9014,7 +10046,7 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05863234">
                 <div class="item-name">
                     NCT05863234
 
@@ -9040,7 +10072,9 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
                         <a href="https://clinicaltrials.gov/study/NCT05863234" target="_blank">clinicaltrials:NCT05863234</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9345,6 +10379,7 @@ pathophysiology:
         The review supports the association between systemic ANKL and an
         HLH-like presentation; the edge is conservatively typed unknown.
 - name: JAK-STAT Pathway Activation
+  conforms_to: &#34;jak_stat_pathway_activation#Constitutive STAT Activation and Nuclear Translocation&#34;
   description: &gt;-
     JAK-STAT pathway activation is a major recurrent molecular abnormality in
     ANKL. STAT3 mutation and additional JAK-STAT copy-gain or phosphatase
@@ -9554,6 +10589,8 @@ pathophysiology:
       explanation: &gt;-
         The cohort supports recurrence but not a direct causal edge.
 - name: Epigenetic-Regulator Alterations
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Epigenetic dysregulation is a distinct recurrent molecular class in ANKL,
     including mutations in epigenetic regulatory genes such as ASXL1 and TET2
@@ -10596,7 +11633,7 @@ treatments:
     evidence:
     - reference: DOI:10.1038/s41467-018-03987-2
       reference_title: Aggressive natural killer-cell leukemia mutational landscape and drug profiling highlight JAK-STAT signaling as therapeutic target
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         Focusing on targeted agents, we found the JAK inhibitor ruxolitinib and
@@ -10608,7 +11645,7 @@ treatments:
   evidence:
   - reference: DOI:10.1038/s41467-018-03987-2
     reference_title: Aggressive natural killer-cell leukemia mutational landscape and drug profiling highlight JAK-STAT signaling as therapeutic target
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       Focusing on targeted agents, we found the JAK inhibitor ruxolitinib and
@@ -11647,7 +12684,7 @@ These approaches are not yet established as standard-of-care in the retrieved ev
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aggressive NK-cell Leukemia", "mondoId": "MONDO:0019470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aggressive_NK-cell_Leukemia", "yamlRevision": "0b4aa6c3c5b6"};
+        const OS_CONFIG = {"diseaseName": "Aggressive NK-cell Leukemia", "mondoId": "MONDO:0019470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aggressive_NK-cell_Leukemia", "yamlRevision": "9120e51c56cd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12066,5 +13103,73 @@ These approaches are not yet established as standard-of-care in the retrieved ev
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

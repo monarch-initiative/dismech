@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Frontonasal Dysplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Frontonasal Dysplasia</h1>
             <div class="header-meta">
 
@@ -3882,6 +4029,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3891,9 +4108,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 34 &#34;Dysostoses with predominant craniofacial involvement&#34;; listed as &#34;Frontonasal dysplasia types 1-3, which this entry lumps&#34;.">dysostoses with predominant craniofacial involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3911,7 +4144,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-alx-related-inheritance">
                 <div class="item-name">
                     Autosomal recessive ALX-related inheritance
 
@@ -3959,7 +4192,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4017,7 +4252,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-frontorhiny">
 
                     <div class="item-name">
                         Frontonasal Dysplasia Type 1 / Frontorhiny
@@ -4054,7 +4289,9 @@
                         <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4081,7 +4318,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-frontonasal-dysplasia-with-alopecia-and-genital-anomaly">
 
                     <div class="item-name">
                         Frontonasal Dysplasia Type 2
@@ -4118,7 +4355,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4145,7 +4384,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-frontonasal-dysplasia-severe-microphthalmia-severe-facial-clefting-syndrome">
 
                     <div class="item-name">
                         Frontonasal Dysplasia Type 3
@@ -4182,7 +4421,9 @@
                         <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4239,18 +4480,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4278,18 +4521,20 @@ This pathophysiological event involves migratory cranial neural crest cell, anno
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased face development (GO:0060324). GO:0060324 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         face development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060324" target="_blank" class="curie-chip curie-chip-go">GO:0060324</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060324" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060324</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased face development (GO:0060324). GO:0060324 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4310,18 +4555,20 @@ This pathophysiological event involves decreased face development (GO:0060324). 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4389,7 +4636,9 @@ This pathophysiological event involves decreased neural crest cell migration (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27920634" target="_blank">PMID:27920634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4424,18 +4673,20 @@ This pathophysiological event involves decreased neural crest cell migration (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4463,18 +4714,20 @@ This pathophysiological event involves migratory cranial neural crest cell, anno
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4495,18 +4748,20 @@ This pathophysiological event involves decreased neural crest cell migration (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4545,7 +4800,9 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32914578" target="_blank">PMID:32914578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4568,7 +4825,9 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32914578" target="_blank">PMID:32914578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4591,7 +4850,9 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35127681" target="_blank">PMID:35127681</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4626,18 +4887,20 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4665,18 +4928,20 @@ This pathophysiological event involves migratory cranial neural crest cell, anno
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4715,7 +4980,9 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32914578" target="_blank">PMID:32914578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4787,13 +5054,11 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4812,16 +5077,20 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000135</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.">
-                        Hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" class="curie-chip curie-chip-hp">HP:0000135</a>
-
-
+This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4842,7 +5111,9 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4886,16 +5157,20 @@ This clinical feature is Hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4916,7 +5191,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                         <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4949,16 +5226,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
-                        Microphthalmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
-
-
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4979,7 +5260,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35142342" target="_blank">PMID:35142342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5012,25 +5295,31 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coronal-craniosynostosis" data-dismech-node="Coronal craniosynostosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Coronal craniosynostosis
+                        Wide nasal bridge
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a phenotype from the Human Phenotype Ontology.">
-                        Coronal craniosynostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp">HP:0004440</a>
-
-
+This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5051,7 +5340,220 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severely depressed nasal bridge and ridge, bifid nasal tip, hypogonadism, callosal body agenesis and mental retardation."</div>
+
+
+                <div class="evidence-explanation">The ALX4 family report documents a severe nasal bridge abnormality in an autosomal recessive frontonasal dysplasia subtype.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-nasal-tip" data-dismech-node="Bifid nasal tip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bifid nasal tip
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000456" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000456</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bifid nasal tip (HP:0000456). HP:0000456 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19692347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severely depressed nasal bridge and ridge, bifid nasal tip, hypogonadism, callosal body agenesis and mental retardation."</div>
+
+
+                <div class="evidence-explanation">This exact abstract passage supports bifid nasal tip as part of the ALX4-related FND2 phenotype.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-cleft" data-dismech-node="Facial cleft" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Facial cleft
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tessier cleft</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002006</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tessier cleft (HP:0002006). HP:0002006 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/10556656211019621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ALX1-related FND3 phenotype is striking due to the involvement of the eyes in addition to the presence of hypertelorism, facial clefts, and nasal deformities."</div>
+
+
+                <div class="evidence-explanation">The surgical cohort reports facial clefts as a defining ALX1-related FND3 feature.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coronal-craniosynostosis" data-dismech-node="Coronal craniosynostosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coronal craniosynostosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004440</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19692347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5062,6 +5564,75 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
 
 
                 <div class="evidence-explanation">The ALX4 subtype report directly includes coronal craniosynostosis.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parietal-foramina" data-dismech-node="Parietal foramina" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Parietal foramina
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002697" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002697</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parietal foramina (HP:0002697). HP:0002697 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/10556656211019621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A widened philtrum and prominent philtral columns are remarkable features of the ALX3-related FND1, whereas the ALX4-related FND2 has more severe deformities: severe hypertelorism, brachycephaly, large parietal bone defects, broad nasal dorsum, and alopecia."</div>
+
+
+                <div class="evidence-explanation">The ALX-related clinical cohort reports large parietal bone defects in ALX4-related FND2; HP:0002697 is the closest available term for parietal bone foramina/defects.
 </div>
 
 
@@ -5093,16 +5664,20 @@ This clinical feature is Coronal craniosynostosis (HP:0004440). HP:0004440 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001596</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.">
-                        Alopecia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp">HP:0001596</a>
-
-
+This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5123,7 +5698,9 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5165,16 +5742,20 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001274</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.">
-                        Agenesis of corpus callosum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp">HP:0001274</a>
-
-
+This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5195,7 +5776,9 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5206,271 +5789,6 @@ This clinical feature is Agenesis of corpus callosum (HP:0001274). HP:0001274 is
 
 
                 <div class="evidence-explanation">The ALX4 subtype report includes callosal body agenesis among affected individuals&#39; features.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide nasal bridge
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.">
-                        Wide nasal bridge
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp">HP:0000431</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19692347" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severely depressed nasal bridge and ridge, bifid nasal tip, hypogonadism, callosal body agenesis and mental retardation."</div>
-
-
-                <div class="evidence-explanation">The ALX4 family report documents a severe nasal bridge abnormality in an autosomal recessive frontonasal dysplasia subtype.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-nasal-tip" data-dismech-node="Bifid nasal tip" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bifid nasal tip
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bifid nasal tip (HP:0000456). HP:0000456 is a phenotype from the Human Phenotype Ontology.">
-                        Bifid nasal tip
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000456" target="_blank" class="curie-chip curie-chip-hp">HP:0000456</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19692347" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"severely depressed nasal bridge and ridge, bifid nasal tip, hypogonadism, callosal body agenesis and mental retardation."</div>
-
-
-                <div class="evidence-explanation">This exact abstract passage supports bifid nasal tip as part of the ALX4-related FND2 phenotype.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-cleft" data-dismech-node="Facial cleft" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Facial cleft
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tessier cleft (HP:0002006). HP:0002006 is a phenotype from the Human Phenotype Ontology.">
-                        Tessier cleft
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002006" target="_blank" class="curie-chip curie-chip-hp">HP:0002006</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/10556656211019621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The ALX1-related FND3 phenotype is striking due to the involvement of the eyes in addition to the presence of hypertelorism, facial clefts, and nasal deformities."</div>
-
-
-                <div class="evidence-explanation">The surgical cohort reports facial clefts as a defining ALX1-related FND3 feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-parietal-foramina" data-dismech-node="Parietal foramina" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Parietal foramina
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Parietal foramina (HP:0002697). HP:0002697 is a phenotype from the Human Phenotype Ontology.">
-                        Parietal foramina
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002697" target="_blank" class="curie-chip curie-chip-hp">HP:0002697</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1177/10556656211019621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A widened philtrum and prominent philtral columns are remarkable features of the ALX3-related FND1, whereas the ALX4-related FND2 has more severe deformities: severe hypertelorism, brachycephaly, large parietal bone defects, broad nasal dorsum, and alopecia."</div>
-
-
-                <div class="evidence-explanation">The ALX-related clinical cohort reports large parietal bone defects in ALX4-related FND2; HP:0002697 is the closest available term for parietal bone foramina/defects.
 </div>
 
 
@@ -5539,15 +5857,17 @@ This clinical feature is Parietal foramina (HP:0002697). HP:0002697 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALX1 (hgnc:1494). hgnc:1494 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALX1
 
 
-    <a href="https://bioregistry.io/hgnc:1494" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1494</a>
+    <a href="https://bioregistry.io/hgnc:1494" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:1494</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALX1 (hgnc:1494). hgnc:1494 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5573,7 +5893,9 @@ This disease-associated gene is ALX1 (hgnc:1494). hgnc:1494 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32914578" target="_blank">PMID:32914578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5611,15 +5933,17 @@ This disease-associated gene is ALX1 (hgnc:1494). hgnc:1494 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALX3 (hgnc:449). hgnc:449 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALX3
 
 
-    <a href="https://bioregistry.io/hgnc:449" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:449</a>
+    <a href="https://bioregistry.io/hgnc:449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:449</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALX3 (hgnc:449). hgnc:449 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5645,7 +5969,9 @@ This disease-associated gene is ALX3 (hgnc:449). hgnc:449 is a gene from the HUG
                         <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5683,15 +6009,17 @@ This disease-associated gene is ALX3 (hgnc:449). hgnc:449 is a gene from the HUG
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALX4 (hgnc:450). hgnc:450 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALX4
 
 
-    <a href="https://bioregistry.io/hgnc:450" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:450</a>
+    <a href="https://bioregistry.io/hgnc:450" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:450</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALX4 (hgnc:450). hgnc:450 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5717,7 +6045,9 @@ This disease-associated gene is ALX4 (hgnc:450). hgnc:450 is a gene from the HUG
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19692347" target="_blank">PMID:19692347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5748,6 +6078,9 @@ This disease-associated gene is ALX4 (hgnc:450). hgnc:450 is a gene from the HUG
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5764,18 +6097,18 @@ This disease-associated gene is ALX4 (hgnc:450). hgnc:450 is a gene from the HUG
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">craniofacial reconstructive surgery<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is craniofacial reconstructive surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">craniofacial reconstructive surgery</span>
+This treatment is craniofacial reconstructive surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is craniofacial reconstructive surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5793,6 +6126,25 @@ This treatment is craniofacial reconstructive surgery, annotated with Surgical P
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5818,7 +6170,9 @@ This treatment is craniofacial reconstructive surgery, annotated with Surgical P
                         <a href="https://bioregistry.io/DOI:10.1177/10556656211019621" target="_blank">DOI:10.1177/10556656211019621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5849,6 +6203,33 @@ This treatment is craniofacial reconstructive surgery, annotated with Surgical P
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5882,7 +6263,6 @@ This treatment is craniofacial reconstructive surgery, annotated with Surgical P
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Frontonasal Dysplasia
 creation_date: &#34;2026-05-08T16:17:07Z&#34;
-updated_date: &#34;2026-05-08T16:56:52Z&#34;
 category: Mendelian
 description: &gt;
   Frontonasal dysplasia is a heterogeneous group of congenital craniofacial
@@ -5913,7 +6293,7 @@ has_subtypes:
       label: frontorhiny
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5961,7 +6341,7 @@ has_subtypes:
       label: frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6172,7 +6552,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6235,7 +6615,7 @@ phenotypes:
       label: Tessier cleft
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6369,7 +6749,7 @@ phenotypes:
   subtype: Frontonasal dysplasia with alopecia and genital anomaly
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6422,7 +6802,7 @@ genetic:
     dysplasia subtype with philtral and nasal malformations.
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6474,7 +6854,7 @@ treatments:
       label: Surgical Procedure
   evidence:
   - reference: DOI:10.1177/10556656211019621
-    reference_title: &#34;ALX-Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
+    reference_title: &#34;&lt;i&gt;ALX&lt;/i&gt; -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7491,7 +7871,7 @@ They report evidence consistent with autosomal recessive inheritance (heterozygo
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Frontonasal Dysplasia", "mondoId": "MONDO:0016643", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontonasal_Dysplasia", "yamlRevision": "7e75a43dc55b"};
+        const OS_CONFIG = {"diseaseName": "Frontonasal Dysplasia", "mondoId": "MONDO:0016643", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontonasal_Dysplasia", "yamlRevision": "91c7de96c5a3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7910,5 +8290,73 @@ They report evidence consistent with autosomal recessive inheritance (heterozygo
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -103,6 +103,11 @@ class ReferenceCacheFrontmatter(BaseModel):
     oa_status: str | None = None
     license: str | None = None
     local_pdf_path: str | None = None
+    # PubMed publication types, written by linkml-reference-validator >=0.2.1
+    # (the final release; the 0.2.1rc2 this repo previously pinned did not emit
+    # it). Absent on every cache file fetched before that bump, so it stays
+    # optional rather than becoming a required contract field.
+    publication_types: list[Any] | str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream

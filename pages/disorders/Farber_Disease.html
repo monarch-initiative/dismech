@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Farber Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Farber Disease</h1>
             <div class="header-meta">
 
@@ -3997,7 +4144,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-farber-disease-definition">
                 <div class="item-name">Orphanet Farber disease definition</div>
 
                 <div class="item-desc">A subcutaneous tissue disease with a spectrum from the classical triad of painful progressively deformed joints, subcutaneous nodules, and progressive hoarseness due to laryngeal involvement to variable respiratory and neurologic involvement.
@@ -4042,7 +4189,9 @@
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4064,7 +4213,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4100,7 +4251,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4145,7 +4296,9 @@
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4167,7 +4320,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36830643" target="_blank">PMID:36830643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4232,17 +4387,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ASAH1 (hgnc:735). hgnc:735 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ASAH1
 
 
-    <a href="https://bioregistry.io/hgnc:735" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:735</a>
+    <a href="https://bioregistry.io/hgnc:735" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:735</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ASAH1 (hgnc:735). hgnc:735 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4272,18 +4431,20 @@ This pathophysiological event involves ASAH1 (hgnc:735). hgnc:735 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased N-acylsphingosine amidohydrolase activity (GO:0017040). GO:0017040 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         N-acylsphingosine amidohydrolase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0017040" target="_blank" class="curie-chip curie-chip-go">GO:0017040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0017040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0017040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased N-acylsphingosine amidohydrolase activity (GO:0017040). GO:0017040 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4309,18 +4470,20 @@ This pathophysiological event involves decreased N-acylsphingosine amidohydrolas
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4375,7 +4538,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29692406" target="_blank">PMID:29692406</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4397,7 +4562,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4438,18 +4605,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased ceramide catabolic process (GO:0046514). GO:0046514 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ceramide catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046514" target="_blank" class="curie-chip curie-chip-go">GO:0046514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0046514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ceramide catabolic process (GO:0046514). GO:0046514 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4507,7 +4676,9 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4529,7 +4700,9 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36830643" target="_blank">PMID:36830643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4570,18 +4743,20 @@ This pathophysiological event involves decreased ceramide catabolic process (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sphingolipid catabolic process (GO:0030149). GO:0030149 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sphingolipid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go">GO:0030149</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030149" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sphingolipid catabolic process (GO:0030149). GO:0030149 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4608,18 +4783,20 @@ This pathophysiological event involves decreased sphingolipid catabolic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4708,7 +4885,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4730,7 +4909,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4764,18 +4945,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4803,18 +4986,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4912,7 +5097,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4934,7 +5121,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4975,18 +5164,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5052,7 +5243,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5074,7 +5267,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5108,18 +5303,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5136,18 +5333,20 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5178,18 +5377,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5251,7 +5452,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5273,7 +5476,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5307,18 +5512,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5349,18 +5556,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5398,7 +5607,9 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35902747" target="_blank">PMID:35902747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5433,7 +5644,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-granulomas-with-lipid-laden-macrophages">
                 <div class="item-name">
                     Granulomas with lipid-laden macrophages
 
@@ -5458,7 +5669,9 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5480,7 +5693,9 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5544,21 +5759,23 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Voice<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Voice<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5568,8 +5785,102 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-foam-cells" data-dismech-node="CNS foam cells" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS foam cells
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003640</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS foam cells (HP:0003640). HP:0003640 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records foam cells in visceral organs and CNS as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28342444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"storage-laden CD68+ microglia and/or macrophages were seen as early as 3 weeks of age"</div>
+
+
+                <div class="evidence-explanation">Mouse model supports CNS storage-laden macrophage or microglial pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cherry-red-spot-of-the-macula" data-dismech-node="Cherry red spot of the macula" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5579,16 +5890,20 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 is a phenotype from the Human Phenotype Ontology.">
-                        Cherry red spot of the macula
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010729" target="_blank" class="curie-chip curie-chip-hp">HP:0010729</a>
-
-
+This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5609,7 +5924,9 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5640,28 +5957,32 @@ This clinical feature is Cherry red spot of the macula (HP:0010729). HP:0010729 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Integument
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periarticular-subcutaneous-nodules" data-dismech-node="Periarticular subcutaneous nodules" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Joint swelling
+                        Periarticular subcutaneous nodules
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007470</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.">
-                        Joint swelling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp">HP:0001386</a>
-
-
+This clinical feature is Periarticular subcutaneous nodules (HP:0007470). HP:0007470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5682,7 +6003,112 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records periarticular subcutaneous nodules as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subcutaneous nodules, common to all reported FD patients, are composed of lipid-filled macrophages"</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports the nodular phenotype and its macrophage composition.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint swelling
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001386</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5704,7 +6130,9 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36830643" target="_blank">PMID:36830643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5730,9 +6158,105 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-acid-ceramidase-activity" data-dismech-node="Abnormal acid ceramidase activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal acid ceramidase activity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased acid ceramidase activity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0034053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased acid ceramidase activity (HP:0034053). HP:0034053 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records very frequent abnormal enzyme/coenzyme activity; the disease-specific abnormality is decreased acid ceramidase activity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23707712" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"any functionally active acid ceramidase is absent in patient cells"</div>
+
+
+                <div class="evidence-explanation">Patient-cell molecular evidence supports decreased or absent acid ceramidase activity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5747,16 +6271,20 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
-                        Arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
-
-
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5777,7 +6305,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5811,16 +6341,20 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001371</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
-                        Flexion contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
-
-
+This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5841,7 +6375,9 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5863,7 +6399,9 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5897,16 +6435,20 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008947</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.">
-                        Floppy infant
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp">HP:0008947</a>
-
-
+This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5927,7 +6469,9 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5955,7 +6499,7 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5970,16 +6514,20 @@ This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6000,7 +6548,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6034,16 +6584,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6064,7 +6618,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6092,7 +6648,88 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-system-involvement" data-dismech-node="Respiratory system involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory system involvement
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the respiratory system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002086</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records respiratory system abnormality as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Voice
@@ -6107,16 +6744,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001609</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.">
-                        Hoarse voice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp">HP:0001609</a>
-
-
+This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6137,7 +6778,9 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6159,7 +6802,9 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6187,7 +6832,7 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6202,16 +6847,20 @@ This clinical feature is Hoarse voice (HP:0001609). HP:0001609 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6232,7 +6881,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6260,7 +6911,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6275,16 +6926,20 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6305,7 +6960,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6316,337 +6973,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Orphanet records failure to thrive as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-periarticular-subcutaneous-nodules" data-dismech-node="Periarticular subcutaneous nodules" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Periarticular subcutaneous nodules
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Periarticular subcutaneous nodules (HP:0007470). HP:0007470 is a phenotype from the Human Phenotype Ontology.">
-                        Periarticular subcutaneous nodules
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007470" target="_blank" class="curie-chip curie-chip-hp">HP:0007470</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records periarticular subcutaneous nodules as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Subcutaneous nodules, common to all reported FD patients, are composed of lipid-filled macrophages"</div>
-
-
-                <div class="evidence-explanation">Human biomarker study supports the nodular phenotype and its macrophage composition.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-system-involvement" data-dismech-node="Respiratory system involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory system involvement
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the respiratory system (HP:0002086). HP:0002086 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the respiratory system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002086" target="_blank" class="curie-chip curie-chip-hp">HP:0002086</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records respiratory system abnormality as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-foam-cells" data-dismech-node="CNS foam cells" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS foam cells
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS foam cells (HP:0003640). HP:0003640 is a phenotype from the Human Phenotype Ontology.">
-                        CNS foam cells
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003640" target="_blank" class="curie-chip curie-chip-hp">HP:0003640</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records foam cells in visceral organs and CNS as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28342444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28342444" target="_blank">PMID:28342444</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"storage-laden CD68+ microglia and/or macrophages were seen as early as 3 weeks of age"</div>
-
-
-                <div class="evidence-explanation">Mouse model supports CNS storage-laden macrophage or microglial pathology.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-acid-ceramidase-activity" data-dismech-node="Abnormal acid ceramidase activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal acid ceramidase activity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased acid ceramidase activity (HP:0034053). HP:0034053 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased acid ceramidase activity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034053" target="_blank" class="curie-chip curie-chip-hp">HP:0034053</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records very frequent abnormal enzyme/coenzyme activity; the disease-specific abnormality is decreased acid ceramidase activity.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23707712" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"any functionally active acid ceramidase is absent in patient cells"</div>
-
-
-                <div class="evidence-explanation">Patient-cell molecular evidence supports decreased or absent acid ceramidase activity.</div>
 
 
 
@@ -6714,15 +7040,17 @@ This clinical feature is Decreased acid ceramidase activity (HP:0034053). HP:003
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ASAH1
 
 
-    <a href="https://bioregistry.io/hgnc:735" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:735</a>
+    <a href="https://bioregistry.io/hgnc:735" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6754,7 +7082,9 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                         <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6776,7 +7106,9 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6798,7 +7130,9 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32449975" target="_blank">PMID:32449975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6828,6 +7162,108 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-farber-disease-record">
+
+
+    <div class="item-name">Orphanet Farber disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=333" target="_blank" rel="noopener noreferrer" title="Open ORPHA:333">ORPHA:333</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:333 structured record for Farber disease includes exact MONDO and OMIM cross-references, synonyms, definition, autosomal recessive inheritance, ASAH1 disease-gene assertion, prevalence, onset bands, and HPO phenotype annotations used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0009218 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:333 to the same MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:228000 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:228000 as an exact external cross-reference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6841,6 +7277,14 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                 <div class="item-name">
                     Symptom-directed supportive management
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6866,7 +7310,9 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6896,18 +7342,18 @@ This disease-associated gene is ASAH1 (hgnc:735). hgnc:735 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">hematopoietic stem cell transplantation</span>
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -6925,6 +7371,25 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6959,7 +7424,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275553" target="_blank">PMID:28275553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7004,7 +7471,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7045,7 +7514,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23881344" target="_blank">PMID:23881344</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7067,7 +7538,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7097,17 +7570,17 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7125,6 +7598,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7159,7 +7640,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275553" target="_blank">PMID:28275553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7204,7 +7687,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275553" target="_blank">PMID:28275553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7245,7 +7730,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275553" target="_blank">PMID:28275553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7267,7 +7754,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT03233841" target="_blank">clinicaltrials:NCT03233841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7297,17 +7786,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7325,6 +7814,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7359,7 +7856,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35902747" target="_blank">PMID:35902747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7400,7 +7899,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35902747" target="_blank">PMID:35902747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7487,7 +7988,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7527,7 +8030,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7549,7 +8054,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23707712" target="_blank">PMID:23707712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7621,7 +8128,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7661,7 +8170,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7683,7 +8194,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275553" target="_blank">PMID:28275553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7709,6 +8222,527 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-acid-ceramidase-enzyme-activity-assay">
+                <div class="item-name">
+                    Acid ceramidase enzyme activity assay
+
+                </div>
+
+                <div class="item-desc">Diagnosis can be established biochemically by measuring deficient acid ceramidase activity in leukocytes or skin fibroblasts.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACDase activity is determined in leukocytes collected from peripheral blood or from skin fibroblasts obtained by a biopsy."</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports leukocyte or fibroblast enzyme activity testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31835809" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31835809" target="_blank">PMID:31835809</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FD is diagnosed by demonstration of reduced AC activity and abnormally high ceramide levels"</div>
+
+
+                <div class="evidence-explanation">Review supports reduced acid ceramidase activity and elevated ceramide as diagnostic evidence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-asah1-molecular-genetic-testing">
+                <div class="item-name">
+                    ASAH1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing confirms biallelic ASAH1 pathogenic variants and supports family-based diagnosis and recurrence-risk assessment.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27915031" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Definite diagnosis of FD patients can be established by measuring ACDase enzymatic activity and/or sequencing the ASAH1 gene."</div>
+
+
+                <div class="evidence-explanation">Human biomarker study supports ASAH1 sequencing as diagnostic confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-blood-biomarker-development-study">
+                <div class="item-name">
+                    Blood biomarker development study
+
+                </div>
+
+                <div class="item-desc">A multicenter epidemiologic ClinicalTrials.gov protocol evaluated mass spectrometry-based blood biomarkers for earlier and sensitive Farber disease diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02298634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02298634" target="_blank">clinicaltrials:NCT02298634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Development of a new mass spectrometry-based biomarker for the early and sensitive diagnosis of Farber disease from the blood"</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov record supports a Farber disease blood biomarker study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-onset-progressive-multisystem-disease">
+                <div class="item-name">Early-onset progressive multisystem disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Antenatal to childhood, most often infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset can be antenatal, neonatal, infantile, or childhood. Classical disease begins in infancy with progressive joint, subcutaneous, laryngeal, and systemic involvement; severe forms may lead to death in infancy, whereas attenuated forms may be diagnosed later.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet records infancy among Farber disease onset bands.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29048419" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29048419" target="_blank">PMID:29048419</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Farber disease onset is in infancy."</div>
+
+
+                <div class="evidence-explanation">Natural-history analysis supports infancy as typical onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30029679" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30029679" target="_blank">PMID:30029679</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients may develop severe pathologies leading to death in infancy or may develop attenuated forms"</div>
+
+
+                <div class="evidence-explanation">Review supports the broad severity continuum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records Farber disease as ultra-rare with worldwide point prevalence below 1 per 1,000,000.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:333" target="_blank">ORPHA:333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:29048419"</div>
+
+
+                <div class="evidence-explanation">Orphanet records a worldwide point-prevalence band below 1 per 1,000,000.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29048419" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29048419" target="_blank">PMID:29048419</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PurposeFarber disease (OMIM 22800) is an ultrarare progressive multisystemic"</div>
+
+
+                <div class="evidence-explanation">Natural-history study supports the ultra-rare multisystem framing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7723,7 +8757,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-juvenile-idiopathic-arthritis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Juvenile_Idiopathic_Arthritis.html">Juvenile idiopathic arthritis</a>
@@ -7752,7 +8786,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27915031" target="_blank">PMID:27915031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7790,7 +8826,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03233841">
                 <div class="item-name">
                     NCT03233841
 
@@ -7819,7 +8855,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT03233841" target="_blank">clinicaltrials:NCT03233841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7841,7 +8879,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT03233841" target="_blank">clinicaltrials:NCT03233841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7890,7 +8930,6 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <pre class="yaml-preview">name: Farber Disease
 category: Mendelian
 creation_date: &#34;2026-05-05T11:17:39Z&#34;
-updated_date: &#34;2026-05-21T22:43:22Z&#34;
 synonyms:
 - Acid ceramidase deficiency
 - Farber lipogranulomatosis
@@ -7934,13 +8973,13 @@ external_assertions:
     phenotype annotations used in this entry.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0009218 | Exact&#34;
     explanation: Orphanet maps ORPHA:333 to the same MONDO identifier used by this entry.
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:228000 | Exact&#34;
@@ -7955,7 +8994,7 @@ definitions:
     neurologic involvement.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;classical triad of painful and progressively deformed joints, subcutaneous nodules, and progressive hoarseness&#34;
@@ -7976,7 +9015,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -7996,7 +9035,7 @@ prevalence:
     prevalence below 1 per 1,000,000.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:29048419&#34;
@@ -8017,7 +9056,7 @@ progression:
     attenuated forms may be diagnosed later.
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Infancy&#34;
@@ -8052,7 +9091,7 @@ genetic:
   - name: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ASAH1 | N-acylsphingosine amidohydrolase 1 | hgnc:735 | Disease-causing germline mutation(s) in&#34;
@@ -8280,7 +9319,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;respiratory and neurologic involvement&#34;
@@ -8290,7 +9329,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -8359,7 +9398,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001369 | Arthritis | Very frequent (99-80%)&#34;
@@ -8501,7 +9540,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001263 | Global developmental delay | Frequent (79-30%)&#34;
@@ -8511,7 +9550,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001249 | Intellectual disability | Frequent (79-30%)&#34;
@@ -8531,7 +9570,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008947 | Floppy infant | Frequent (79-30%)&#34;
@@ -8570,7 +9609,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:333
-      reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Farber disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0010729 | Cherry red spot of the macula | Frequent (79-30%)&#34;
@@ -8586,7 +9625,7 @@ phenotypes:
       label: Periarticular subcutaneous nodules
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0007470 | Periarticular subcutaneous nodules | Very frequent (99-80%)&#34;
@@ -8607,7 +9646,7 @@ phenotypes:
       label: Arthritis
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001369 | Arthritis | Very frequent (99-80%)&#34;
@@ -8622,7 +9661,7 @@ phenotypes:
       label: Arthralgia
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002829 | Arthralgia | Frequent (79-30%)&#34;
@@ -8637,7 +9676,7 @@ phenotypes:
       label: Flexion contracture
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001371 | Flexion contracture | Very frequent (99-80%)&#34;
@@ -8658,7 +9697,7 @@ phenotypes:
       label: Joint swelling
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001386 | Joint swelling | Very frequent (99-80%)&#34;
@@ -8679,7 +9718,7 @@ phenotypes:
       label: Hoarse voice
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001609 | Hoarse voice | Very frequent (99-80%)&#34;
@@ -8700,7 +9739,7 @@ phenotypes:
       label: Abnormality of the respiratory system
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002086 | Abnormality of the respiratory system | Frequent (79-30%)&#34;
@@ -8715,7 +9754,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -8730,7 +9769,7 @@ phenotypes:
       label: Floppy infant
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008947 | Floppy infant | Frequent (79-30%)&#34;
@@ -8745,7 +9784,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001263 | Global developmental delay | Frequent (79-30%)&#34;
@@ -8760,7 +9799,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001249 | Intellectual disability | Frequent (79-30%)&#34;
@@ -8775,7 +9814,7 @@ phenotypes:
       label: CNS foam cells
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003640 | Foam cells in visceral organs and CNS | Frequent (79-30%)&#34;
@@ -8796,7 +9835,7 @@ phenotypes:
       label: Cherry red spot of the macula
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0010729 | Cherry red spot of the macula | Frequent (79-30%)&#34;
@@ -8811,7 +9850,7 @@ phenotypes:
       label: Decreased acid ceramidase activity
   evidence:
   - reference: ORPHA:333
-    reference_title: &#34;Farber disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Farber disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012379 | Abnormal enzyme/coenzyme activity | Very frequent (99-80%)&#34;
@@ -9622,7 +10661,7 @@ retinal gene therapy remain investigational/preclinical in the cited evidence.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Farber Disease", "mondoId": "MONDO:0009218", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Farber_Disease", "yamlRevision": "c1b871767a9b"};
+        const OS_CONFIG = {"diseaseName": "Farber Disease", "mondoId": "MONDO:0009218", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Farber_Disease", "yamlRevision": "3727636e27ae"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10041,5 +11080,73 @@ retinal gene therapy remain investigational/preclinical in the cited evidence.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

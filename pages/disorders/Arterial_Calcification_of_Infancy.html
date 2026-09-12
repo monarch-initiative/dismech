@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Arterial Calcification of Infancy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Arterial Calcification of Infancy</h1>
             <div class="header-meta">
 
@@ -3929,7 +4076,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3974,7 +4121,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4027,10 +4176,12 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-enpp1-related">
 
                     <div class="item-name">
                         ENPP1-related arterial calcification of infancy
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008817" target="_blank">MONDO:0008817</a>
 
 
 
@@ -4042,18 +4193,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ENPP1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3356</a>
+    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3356</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4080,7 +4233,9 @@ This subtype is caused by variation in ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4106,10 +4261,12 @@ This subtype is caused by variation in ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-abcc6-related">
 
                     <div class="item-name">
                         ABCC6-related arterial calcification of infancy
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013768" target="_blank">MONDO:0013768</a>
 
 
 
@@ -4121,18 +4278,20 @@ This subtype is caused by variation in ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ABCC6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:57</a>
+    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:57</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4159,7 +4318,9 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4222,7 +4383,7 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
 
 
 
-    <span class="entity-ref-chip">treatment#Bisphosphonate therapy</span>
+    <a class="entity-ref-chip" href="#treatment-bisphosphonate-therapy">treatments#Bisphosphonate therapy</a>
 
 
 
@@ -4257,7 +4418,9 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4279,7 +4442,9 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32172442" target="_blank">PMID:32172442</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4323,7 +4488,7 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
 
 
 
-    <span class="entity-ref-chip">treatment#INZ-701 enzyme replacement therapy</span>
+    <a class="entity-ref-chip" href="#treatment-inz-701-enzyme-replacement-therapy">treatments#INZ-701 enzyme replacement therapy</a>
 
 
 
@@ -4352,13 +4517,15 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33900645" target="_blank">PMID:33900645</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4374,13 +4541,15 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT07473973" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT07473973" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07473973" target="_blank">clinicaltrials:NCT07473973</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4432,17 +4601,21 @@ This subtype is caused by variation in ABCC6 (hgnc:57). hgnc:57 is a gene from t
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ENPP1
 
 
-    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3356</a>
+    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:3356</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4467,17 +4640,21 @@ This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABCC6
 
 
-    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:57</a>
+    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:57</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4506,18 +4683,20 @@ This pathophysiological event involves ABCC6 (hgnc:57). hgnc:57 is a gene from t
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased ectopic mineralization, annotated with biomineral tissue development (GO:0031214). GO:0031214 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ectopic mineralization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031214" target="_blank" class="curie-chip curie-chip-go">GO:0031214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ectopic mineralization, annotated with biomineral tissue development (GO:0031214). GO:0031214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4575,7 +4754,9 @@ This pathophysiological event involves increased ectopic mineralization, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4597,7 +4778,9 @@ This pathophysiological event involves increased ectopic mineralization, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4619,7 +4802,9 @@ This pathophysiological event involves increased ectopic mineralization, annotat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4659,17 +4844,21 @@ This pathophysiological event involves increased ectopic mineralization, annotat
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ENPP1
 
 
-    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3356</a>
+    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:3356</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4725,13 +4914,15 @@ This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4764,18 +4955,20 @@ This pathophysiological event involves ENPP1 (hgnc:3356). hgnc:3356 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4803,18 +4996,20 @@ This pathophysiological event involves vascular smooth muscle cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood vessel remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go">GO:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4896,7 +5091,9 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38248755" target="_blank">PMID:38248755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4918,7 +5115,9 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39457141" target="_blank">PMID:39457141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4958,18 +5157,20 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal phosphate ion homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphate ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0055062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal phosphate ion homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5027,7 +5228,9 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5049,7 +5252,9 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5122,7 +5327,9 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5189,15 +5396,13 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5207,8 +5412,104 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-calcification" data-dismech-node="Arterial calcification" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arterial calcification
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vascular calcification</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0004934</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GACI is initially characterized by an abnormal ectopic mineralization process in arteries and soft tissue."</div>
+
+
+                <div class="evidence-explanation">This directly supports arterial and soft-tissue ectopic mineralization.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34355424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Despite a similar prevalence of GACI phenotypes between ENPP1 and ABCC6 deficiencies, including arterial calcification (77.2% and 89.5%, respectively)"</div>
+
+
+                <div class="evidence-explanation">The reported subtype-specific proportions justify the conservative FREQUENT band used for the cross-subtype phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-stenosis" data-dismech-node="Arterial stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5216,16 +5517,20 @@ This pathophysiological event involves abnormal phosphate ion homeostasis (GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100545</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arterial stenosis (HP:0100545). HP:0100545 is a phenotype from the Human Phenotype Ontology.">
-                        Arterial stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100545" target="_blank" class="curie-chip curie-chip-hp">HP:0100545</a>
-
-
+This clinical feature is Arterial stenosis (HP:0100545). HP:0100545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5246,7 +5551,9 @@ This clinical feature is Arterial stenosis (HP:0100545). HP:0100545 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38248755" target="_blank">PMID:38248755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5278,16 +5585,20 @@ This clinical feature is Arterial stenosis (HP:0100545). HP:0100545 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5308,7 +5619,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36937905" target="_blank">PMID:36937905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5340,16 +5653,20 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5370,7 +5687,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38248755" target="_blank">PMID:38248755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5413,16 +5732,22 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,7 +5768,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5459,13 +5786,15 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5508,16 +5837,20 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0004912</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.">
-                        Hypophosphatemic rickets
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp">HP:0004912</a>
-
-
+This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5538,7 +5871,9 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5560,7 +5895,9 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5592,7 +5929,7 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-fusion" data-dismech-node="Cervical spine fusion" data-dismech-type="phenotype">
@@ -5603,16 +5940,22 @@ This clinical feature is Hypophosphatemic rickets (HP:0004912). HP:0004912 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Fused cervical vertebrae</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002949</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cervical spine fusion, annotated with Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.">
-                        Fused cervical vertebrae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp">HP:0002949</a>
-
-
+This clinical feature is Cervical spine fusion, annotated with Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5633,7 +5976,9 @@ This clinical feature is Cervical spine fusion, annotated with Fused cervical ve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5659,117 +6004,28 @@ This clinical feature is Cervical spine fusion, annotated with Fused cervical ve
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-calcification" data-dismech-node="Arterial calcification" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial calcification
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.">
-                        Vascular calcification
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp">HP:0004934</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"GACI is initially characterized by an abnormal ectopic mineralization process in arteries and soft tissue."</div>
-
-
-                <div class="evidence-explanation">This directly supports arterial and soft-tissue ectopic mineralization.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34355424" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Despite a similar prevalence of GACI phenotypes between ENPP1 and ABCC6 deficiencies, including arterial calcification (77.2% and 89.5%, respectively)"</div>
-
-
-                <div class="evidence-explanation">The reported subtype-specific proportions justify the conservative FREQUENT band used for the cross-subtype phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-enthesis-calcification" data-dismech-node="Enthesis calcification" data-dismech-type="phenotype">
                     <div class="item-name">
                         Enthesis calcification
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal Sharpey fiber morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100685" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100685</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Enthesis abnormality, annotated with Abnormal Sharpey fiber morphology (HP:0100685). HP:0100685 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal Sharpey fiber morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100685" target="_blank" class="curie-chip curie-chip-hp">HP:0100685</a>
-
-
+This clinical feature is Enthesis abnormality, annotated with Abnormal Sharpey fiber morphology (HP:0100685). HP:0100685 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5790,7 +6046,9 @@ This clinical feature is Enthesis abnormality, annotated with Abnormal Sharpey f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5868,15 +6126,17 @@ This clinical feature is Enthesis abnormality, annotated with Abnormal Sharpey f
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ENPP1
 
 
-    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3356</a>
+    <a href="https://bioregistry.io/hgnc:3356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:3356</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5902,7 +6162,9 @@ This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5924,7 +6186,9 @@ This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36937905" target="_blank">PMID:36937905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5961,15 +6225,17 @@ This disease-associated gene is ENPP1 (hgnc:3356). hgnc:3356 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC6
 
 
-    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:57</a>
+    <a href="https://bioregistry.io/hgnc:57" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:57</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5995,7 +6261,9 @@ This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38248755" target="_blank">PMID:38248755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6025,6 +6293,92 @@ This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-generalized-arterial-calcification-of-infancy-1-enpp1-related">
+
+
+    <div class="item-name">OMIM generalized arterial calcification of infancy 1 (ENPP1-related)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:208000" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:208000">OMIM:208000</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype-series record for ENPP1-related generalized arterial calcification of infancy (GACI1).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-generalized-arterial-calcification-of-infancy-2-abcc6-related">
+
+
+    <div class="item-name">OMIM generalized arterial calcification of infancy 2 (ABCC6-related)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:614473" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:614473">OMIM:614473</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype record for ABCC6-related generalized arterial calcification of infancy (GACI2).</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6043,18 +6397,18 @@ This disease-associated gene is ABCC6 (hgnc:57). hgnc:57 is a gene from the HUGO
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">bisphosphonate agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">bisphosphonate agent therapy</span>
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bisphosphonate Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.">NCIT:C198585</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198585" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C198585">NCIT:C198585</a>
 
 
 
@@ -6079,36 +6433,59 @@ This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses etidronate, annotated with etidronic acid (CHEBI:4907). CHEBI:4907 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         etidronate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4907" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:4907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etidronate, annotated with etidronic acid (CHEBI:4907). CHEBI:4907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pamidronate (CHEBI:7903). CHEBI:7903 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pamidronate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7903" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7903</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7903" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:7903</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pamidronate (CHEBI:7903). CHEBI:7903 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6134,13 +6511,15 @@ This treatment uses pamidronate (CHEBI:7903). CHEBI:7903 is a therapeutic agent 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6170,18 +6549,20 @@ This treatment uses pamidronate (CHEBI:7903). CHEBI:7903 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Arterial calcification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp">HP:0004934</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004934</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6195,13 +6576,15 @@ This treatment targets Arterial calcification, annotated with Vascular calcifica
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6217,13 +6600,15 @@ This treatment targets Arterial calcification, annotated with Vascular calcifica
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39457141" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39457141" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39457141" target="_blank">PMID:39457141</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6239,13 +6624,15 @@ This treatment targets Arterial calcification, annotated with Vascular calcifica
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34355424" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34355424" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6277,18 +6664,18 @@ This treatment targets Arterial calcification, annotated with Vascular calcifica
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6311,6 +6698,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Supportive care includes management of arterial hypertension, mineral metabolism, hearing and ophthalmologic complications, and coordinated follow-up by an expert multidisciplinary team.</div>
 
 
@@ -6319,63 +6725,71 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertension
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000822</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Congestive heart failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypophosphatemic rickets
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp">HP:0004912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004912</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6395,7 +6809,9 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6427,17 +6843,17 @@ This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotyp
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6455,6 +6871,25 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6482,13 +6917,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33900645" target="_blank">PMID:33900645</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6518,33 +6955,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Arterial calcification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp">HP:0004934</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004934</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypophosphatemic rickets
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp">HP:0004912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004912</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6558,13 +6999,15 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT07473973" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT07473973" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07473973" target="_blank">clinicaltrials:NCT07473973</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6580,13 +7023,15 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33900645" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33900645" target="_blank">PMID:33900645</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6672,7 +7117,9 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6712,7 +7159,9 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6783,7 +7232,9 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6823,7 +7274,9 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6849,6 +7302,532 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-vascular-imaging-for-diffuse-arterial-calcification">
+                <div class="item-name">
+                    Vascular imaging for diffuse arterial calcification
+
+                </div>
+
+                <div class="item-desc">Ultrasound can show echogenic arterial walls and CT can establish the distribution of arterial calcification. Imaging should be interpreted with the clinical presentation and is not by itself molecular subtype-specific.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic imaging testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16502" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C16502</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Diffuse calcification of large- and medium-sized arteries supports GACI in a compatible fetal or infantile presentation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39457141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39457141" target="_blank">PMID:39457141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ultrasonography showed high-intensity lesions in the arteries, and computed tomography revealed calcification of the arteries throughout the body, leading to the diagnosis of GACI."</div>
+
+
+                <div class="evidence-explanation">The case directly documents ultrasound and CT findings used to establish the clinical diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-enpp1-and-abcc6-molecular-genetic-testing">
+                <div class="item-name">
+                    ENPP1 and ABCC6 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Sequence and copy-number analysis of ENPP1 and ABCC6 confirms a molecular subtype when biallelic pathogenic variants are found. A negative result does not exclude a clinical diagnosis because not all reported cases have a resolved molecular cause.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic variants in ENPP1 or ABCC6 support the corresponding molecular subtype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36937905" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36937905" target="_blank">PMID:36937905</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GACI should be considered in an infant presenting with hypertension and extensive arterial calcification, and that genetic testing should be performed."</div>
+
+
+                <div class="evidence-explanation">This supports molecular genetic testing after a compatible vascular presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38248755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38248755" target="_blank">PMID:38248755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole-exome sequencing was applied for the detection of pathogenic variants. Copy-number variants of pathogenic genes were also evaluated through a bioinformatic process and were further validated by real-time quantitative PCR."</div>
+
+
+                <div class="evidence-explanation">The ABCC6 case demonstrates that both sequence and copy-number analysis can be needed for molecular diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fgf23-and-phosphate-assessment-in-enpp1-survivors">
+                <div class="item-name">
+                    FGF23 and phosphate assessment in ENPP1 survivors
+
+                </div>
+
+                <div class="item-desc">Intact FGF23 and age-adjusted serum phosphate help characterize the later hypophosphatemic-rickets phase of ENPP1 deficiency. These findings are subtype- and age-dependent and are not standalone diagnostic criteria for infantile arterial calcification.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fibroblast growth factor 23 measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C96650" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C96650</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> ENPP1-deficient survivors can show elevated intact FGF23, inverse phosphate-FGF23 correlation, and hypophosphatemia.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with ENPP1 deficiency either had hypophosphatemic rickets or were predicted to develop it by 14 years of age; 14/16 had elevated intact FGF23 levels (iFGF23)."</div>
+
+
+                <div class="evidence-explanation">This supports elevated FGF23 and rickets risk as ENPP1-deficiency biomarkers.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Blood phosphate levels correlated inversely with iFGF23."</div>
+
+
+                <div class="evidence-explanation">This supports phosphate-FGF23 coupling in survivor monitoring.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-critical-fetal-and-early-infantile-vascular-phase">
+                <div class="item-name">Critical fetal and early-infantile vascular phase</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Fetal life through the first 6 months after birth</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Severe diffuse arterial disease can cause fetal loss, early myocardial or cerebral ischemic events, heart failure, and death. Ascertainment is enriched for severe cases, but the first six months are the clearest high-risk period in the published natural-history series.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34355424" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34355424" target="_blank">PMID:34355424</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall mortality was 54.7% (13.4% in utero or stillborn), with a 50.4% probability of death before the age of 6 months (critical period)."</div>
+
+
+                <div class="evidence-explanation">The international natural-history review identifies fetal mortality and the first six months as the critical mortality window.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-survivor-multisystem-phase">
+                <div class="item-name">Survivor multisystem phase</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Later infancy through adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Arterial calcification may regress or leave limited residual imaging involvement, while ENPP1-deficient survivors commonly develop FGF23-associated hypophosphatemic rickets and may develop hearing loss, cervical fusion, enthesis calcification, and PXE-like findings. These later complications are not uniformly shared by the ABCC6 subtype.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33005041" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005041" target="_blank">PMID:33005041</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sixteen of 20 subjects presented with arterial calcifications, but only 5 had residual involvement at the time of evaluation. Individuals with ENPP1 deficiency either had hypophosphatemic rickets or were predicted to develop it by 14 years of age; 14/16 had elevated intact FGF23 levels (iFGF23)."</div>
+
+
+                <div class="evidence-explanation">Prospective survivor phenotyping supports evolution from the infantile vascular presentation to later ENPP1-related mineral disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Contemporary review literature describes GACI as ultra-rare; no population-level prevalence estimate is asserted here because the ENPP1 deficiency spectrum extends beyond the infantile vascular presentation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39343469" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39343469" target="_blank">PMID:39343469</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Generalized arterial calcification of infancy (GACI) is an ultra-rare autosomal recessive disorder associated with pathogenic variants in ENPP1, the major gene involved in this condition, and in ABCC6, which is involved in a small fraction of affected individuals."</div>
+
+
+                <div class="evidence-explanation">The contemporary review explicitly describes GACI as ultra-rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6863,7 +7842,7 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pseudoxanthoma-elasticum">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Pseudoxanthoma_Elasticum.html">Pseudoxanthoma Elasticum</a>
@@ -6906,7 +7885,9 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24008425" target="_blank">PMID:24008425</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6944,7 +7925,7 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07473973">
                 <div class="item-name">
                     NCT07473973
 
@@ -6962,18 +7943,20 @@ This treatment targets Hypophosphatemic rickets (HP:0004912). HP:0004912 is a ph
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Arterial calcification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp">HP:0004934</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004934" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0004934</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Arterial calcification, annotated with Vascular calcification (HP:0004934). HP:0004934 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6992,7 +7975,9 @@ This clinical trial targets Arterial calcification, annotated with Vascular calc
                         <a href="https://clinicaltrials.gov/study/NCT07473973" target="_blank">clinicaltrials:NCT07473973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7040,7 +8025,6 @@ This clinical trial targets Arterial calcification, annotated with Vascular calc
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Arterial Calcification of Infancy
 creation_date: &#34;2026-05-05T15:37:54Z&#34;
-updated_date: &#34;2026-07-23T00:00:00Z&#34;
 description: &gt;-
   Arterial calcification of infancy, also called generalized arterial
   calcification of infancy, is an ultra-rare autosomal recessive disorder marked
@@ -7064,6 +8048,11 @@ synonyms:
 has_subtypes:
 - name: ENPP1-related
   display_name: ENPP1-related arterial calcification of infancy
+  subtype_term:
+    preferred_term: arterial calcification, generalized, of infancy, 1
+    term:
+      id: MONDO:0008817
+      label: arterial calcification, generalized, of infancy, 1
   description: &gt;-
     Arterial calcification of infancy caused by biallelic pathogenic variants
     in ENPP1; described in OMIM as GACI1/OMIM:208000. ENPP1 is the major
@@ -7088,6 +8077,11 @@ has_subtypes:
       major reported genetic basis of GACI.
 - name: ABCC6-related
   display_name: ABCC6-related arterial calcification of infancy
+  subtype_term:
+    preferred_term: arterial calcification, generalized, of infancy, 2
+    term:
+      id: MONDO:0013768
+      label: arterial calcification, generalized, of infancy, 2
   description: &gt;-
     Arterial calcification of infancy caused by biallelic pathogenic variants
     in ABCC6; described in OMIM as GACI2/OMIM:614473. This is a minority
@@ -7290,7 +8284,7 @@ pathophysiology:
   evidence:
   - reference: PMID:33005041
     reference_title: Prospective phenotyping of long-term survivors of generalized arterial calcification of infancy (GACI).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Specifically, intimal proliferation results from AMP or adenosine deficiency40
@@ -7393,7 +8387,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39457141
       reference_title: &#34;Preterm Infant with Generalized Arterial Calcification of Infancy Who Survived Due to Early Diagnosis and Appropriate Treatment with Bisphosphonates: A Case Report.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         GACI causes severe hypertension and heart failure, and approximately 50% of
@@ -7410,7 +8404,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38248755
       reference_title: Clinical and Molecular Characterization of a Patient with Generalized Arterial Calcification of Infancy Caused by Rare ABCC6 Mutation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Generalized arterial calcification of infancy (GACI) is a rare autosomal-recessive
@@ -7503,7 +8497,7 @@ pathophysiology:
     evidence:
     - reference: PMID:33005041
       reference_title: Prospective phenotyping of long-term survivors of generalized arterial calcification of infancy (GACI).
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         For ENPP1-deficient individuals, the lifetime risk of cervical spine fusion
@@ -7650,7 +8644,7 @@ phenotypes:
     explanation: The prospective survivor cohort quantifies hearing loss risk in ENPP1 deficiency.
   - reference: PMID:33005041
     reference_title: Prospective phenotyping of long-term survivors of generalized arterial calcification of infancy (GACI).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Similar to the mouse model, our patients’ hearing loss appeared to be progressive,
@@ -7949,7 +8943,7 @@ treatments:
     evidence:
     - reference: PMID:39343469
       reference_title: Generalized Arterial Calcification of Infancy (GACI).
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Treatment options for severe forms of GACI are mostly based on symptomatic management,
@@ -7966,7 +8960,7 @@ treatments:
   evidence:
   - reference: PMID:39343469
     reference_title: Generalized Arterial Calcification of Infancy (GACI).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Treatment options for severe forms of GACI are mostly based on symptomatic management,
@@ -7975,7 +8969,7 @@ treatments:
     explanation: The review supports early bisphosphonate use as an option but frames therapy as symptomatic rather than curative.
   - reference: PMID:39457141
     reference_title: &#34;Preterm Infant with Generalized Arterial Calcification of Infancy Who Survived Due to Early Diagnosis and Appropriate Treatment with Bisphosphonates: A Case Report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Bisphosphonates are effective in treating GACI; however, no standardized treatment
@@ -7983,7 +8977,7 @@ treatments:
     explanation: This supports benefit while noting the absence of a standardized regimen.
   - reference: PMID:34355424
     reference_title: &#34;Ectopic Calcification and Hypophosphatemic Rickets: Natural History of ENPP1 and ABCC6 Deficiencies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Contrary to previous publications, we found that bisphosphonate treatment had
@@ -8051,7 +9045,7 @@ treatments:
     evidence:
     - reference: PMID:33900645
       reference_title: INZ-701 Prevents Ectopic Tissue Calcification and Restores Bone Architecture and Growth in ENPP1-Deficient Mice.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Treatment of ENPP1-deficient mice every
@@ -8075,7 +9069,7 @@ treatments:
   evidence:
   - reference: clinicaltrials:NCT07473973
     reference_title: &#34;The ENERGY 2 Study: An Open-Label Phase 3 Study to Evaluate the Efficacy and Safety of INZ-701 in Infants With Ectonucleotide Pyrophosphatase/Phosphodiesterase 1 (ENPP1) Deficiency&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The primary purpose of ENERGY 2 (Study INZ701-105) is to assess the efficacy
@@ -8083,7 +9077,7 @@ treatments:
     explanation: The Phase 3 trial record supports INZ-701 as an investigational disease-targeted therapy for ENPP1 deficiency.
   - reference: PMID:33900645
     reference_title: INZ-701 Prevents Ectopic Tissue Calcification and Restores Bone Architecture and Growth in ENPP1-Deficient Mice.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       INZ-701, a human ENPP1-Fc protein, is in clinical development as an enzyme
@@ -8144,7 +9138,7 @@ discussions:
   kind: CONTROVERSY
   status: OPEN
   attaches_to:
-  - treatment#Bisphosphonate therapy
+  - treatments#Bisphosphonate therapy
   - pathophysiology#Arterial calcification and stenosis
   rationale: &gt;-
     Case reports describe apparent responses, but the largest start-time-matched
@@ -8179,7 +9173,7 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - treatment#INZ-701 enzyme replacement therapy
+  - treatments#INZ-701 enzyme replacement therapy
   - pathophysiology#Extracellular pyrophosphate anti-mineralization failure
   rationale: &gt;-
     ENPP1-Fc restored PPi and prevented calcification in mice, but the
@@ -8189,7 +9183,7 @@ discussions:
   evidence:
   - reference: PMID:33900645
     reference_title: INZ-701 Prevents Ectopic Tissue Calcification and Restores Bone Architecture and Growth in ENPP1-Deficient Mice.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Treatment of ENPP1-deficient mice every
@@ -8201,7 +9195,7 @@ discussions:
     explanation: Strong mouse efficacy supplies the rationale but not human clinical efficacy.
   - reference: clinicaltrials:NCT07473973
     reference_title: &#34;The ENERGY 2 Study: An Open-Label Phase 3 Study to Evaluate the Efficacy and Safety of INZ-701 in Infants With Ectonucleotide Pyrophosphatase/Phosphodiesterase 1 (ENPP1) Deficiency&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The primary purpose of ENERGY 2 (Study INZ701-105) is to assess the efficacy
@@ -10468,7 +11462,7 @@ This represents the most promising therapeutic advance for GACI. Key evidence:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arterial Calcification of Infancy", "mondoId": "MONDO:0018870", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Calcification_of_Infancy", "yamlRevision": "67b3e240bfa6"};
+        const OS_CONFIG = {"diseaseName": "Arterial Calcification of Infancy", "mondoId": "MONDO:0018870", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Calcification_of_Infancy", "yamlRevision": "20b092c38ae3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10887,5 +11881,73 @@ This represents the most promising therapeutic advance for GACI. Key evidence:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

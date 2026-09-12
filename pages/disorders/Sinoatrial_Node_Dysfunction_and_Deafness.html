@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Sinoatrial Node Dysfunction and Deafness</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Sinoatrial Node Dysfunction and Deafness</h1>
             <div class="header-meta">
 
@@ -3903,38 +4050,127 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
+
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
-
-
-
-
-
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Channelopathy</div>
+
+
+
                 <div class="tag-list">
-                    <span class="tag tag-mechanistic">cardiac channelopathy</span>
+
+
+
+
+
+                    <span class="tag tag-mechanistic" title="SANDD is simultaneously a cardiac channelopathy (loss of the Cav1.3 L-type calcium current in sinoatrial pacemaker cells) and a cochlear synaptopathy (loss of the same current at the inner hair cell ribbon synapse). ChannelopathyOrganSystemEnum is single-valued in the schema, so only the cardiac assignment can be recorded here; the auditory arm is modeled explicitly in the pathophysiology nodes &#34;Loss of Cav1.3 Calcium Current at the Inner Hair Cell Ribbon Synapse&#34; and &#34;Failure of Auditory Synaptic Transmission and Hair Cell Degeneration&#34;.">cardiac channelopathy</span>
+
                 </div>
+
             </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4007,7 +4243,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -4052,7 +4288,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4074,7 +4312,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4096,7 +4336,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36430690" target="_blank">PMID:36430690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4177,7 +4419,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4199,7 +4443,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4221,7 +4467,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10929716" target="_blank">PMID:10929716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4323,6 +4571,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4386,6 +4640,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">In genotyped SANDD individuals, combine otoacoustic emissions (to test outer hair cell integrity), auditory brainstem response and electrocochleography (to localize the block to the synapse versus the nerve), and high-resolution cochlear MRI/CT, then correlate with cochlear implant outcomes.</div>
+
+
+
+
+
+
 
 
 
@@ -4485,6 +4745,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4528,17 +4794,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1391</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4567,18 +4837,20 @@ This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased calcium ion transmembrane transport (GO:0070588). GO:0070588 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go">GO:0070588</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0070588</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased calcium ion transmembrane transport (GO:0070588). GO:0070588 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4604,18 +4876,20 @@ This pathophysiological event involves decreased calcium ion transmembrane trans
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased voltage-gated calcium channel activity (GO:0005245). GO:0005245 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         voltage-gated calcium channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" class="curie-chip curie-chip-go">GO:0005245</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005245</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated calcium channel activity (GO:0005245). GO:0005245 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4680,7 +4954,9 @@ This pathophysiological event involves decreased voltage-gated calcium channel a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4702,7 +4978,9 @@ This pathophysiological event involves decreased voltage-gated calcium channel a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4735,18 +5013,20 @@ This pathophysiological event involves decreased voltage-gated calcium channel a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac pacemaker cell of sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl">CL:1000477</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:1000477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4774,18 +5054,20 @@ This pathophysiological event involves cardiac pacemaker cell of sinoatrial node
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased membrane depolarization during SA node cell action potential (GO:0086046). GO:0086046 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         membrane depolarization during SA node cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086046" target="_blank" class="curie-chip curie-chip-go">GO:0086046</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086046" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0086046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased membrane depolarization during SA node cell action potential (GO:0086046). GO:0086046 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4811,18 +5093,20 @@ This pathophysiological event involves decreased membrane depolarization during 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased voltage-gated calcium channel activity involved SA node cell action potential (GO:0086059). GO:0086059 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         voltage-gated calcium channel activity involved SA node cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086059" target="_blank" class="curie-chip curie-chip-go">GO:0086059</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086059" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0086059</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated calcium channel activity involved SA node cell action potential (GO:0086059). GO:0086059 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4849,18 +5133,20 @@ This pathophysiological event involves decreased voltage-gated calcium channel a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON:0002351 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002351</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON:0002351 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4906,7 +5192,9 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4928,7 +5216,9 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4950,7 +5240,9 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4983,18 +5275,20 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac pacemaker cell of sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl">CL:1000477</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000477" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:1000477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac pacemaker cell of sinoatrial node (CL:1000477). CL:1000477 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5022,18 +5316,20 @@ This pathophysiological event involves cardiac pacemaker cell of sinoatrial node
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5054,18 +5350,20 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of heart rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go">GO:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5093,18 +5391,20 @@ This pathophysiological event involves abnormal regulation of heart rate (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON:0002351 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002351</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON:0002351 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5142,7 +5442,9 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5164,7 +5466,9 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5197,18 +5501,20 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves myocyte of atrioventricular node (CL:1000410). CL:1000410 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         myocyte of atrioventricular node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000410" target="_blank" class="curie-chip curie-chip-cl">CL:1000410</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000410" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:1000410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myocyte of atrioventricular node (CL:1000410). CL:1000410 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5236,18 +5542,20 @@ This pathophysiological event involves myocyte of atrioventricular node (CL:1000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5275,18 +5583,20 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in atrioventricular node (UBERON:0002352). UBERON:0002352 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         atrioventricular node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002352" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002352" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in atrioventricular node (UBERON:0002352). UBERON:0002352 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5324,7 +5634,9 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5340,13 +5652,15 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5362,13 +5676,15 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5408,18 +5724,20 @@ This pathophysiological event occurs in atrioventricular node (UBERON:0002352). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of heart rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go">GO:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5477,7 +5795,9 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5499,7 +5819,9 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5557,7 +5879,9 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5579,7 +5903,9 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5612,18 +5938,20 @@ This pathophysiological event involves decreased regulation of heart rate (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5651,18 +5979,20 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neurotransmitter secretion (GO:0007269). GO:0007269 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neurotransmitter secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="curie-chip curie-chip-go">GO:0007269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007269</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neurotransmitter secretion (GO:0007269). GO:0007269 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5688,18 +6018,20 @@ This pathophysiological event involves decreased neurotransmitter secretion (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased voltage-gated calcium channel activity (GO:0005245). GO:0005245 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         voltage-gated calcium channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" class="curie-chip curie-chip-go">GO:0005245</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0005245</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased voltage-gated calcium channel activity (GO:0005245). GO:0005245 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5726,18 +6058,20 @@ This pathophysiological event involves decreased voltage-gated calcium channel a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5783,7 +6117,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5805,7 +6141,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16354915" target="_blank">PMID:16354915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5827,7 +6165,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16354915" target="_blank">PMID:16354915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5860,18 +6200,20 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5899,18 +6241,20 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal inner ear receptor cell development (GO:0060119). GO:0060119 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inner ear receptor cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060119" target="_blank" class="curie-chip curie-chip-go">GO:0060119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0060119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal inner ear receptor cell development (GO:0060119). GO:0060119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5938,18 +6282,20 @@ This pathophysiological event involves abnormal inner ear receptor cell developm
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5987,7 +6333,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14645476" target="_blank">PMID:14645476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6009,7 +6357,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14645476" target="_blank">PMID:14645476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6031,7 +6381,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16828974" target="_blank">PMID:16828974</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6064,18 +6416,20 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6092,18 +6446,20 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL:0000601 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear outer hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl">CL:0000601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL:0000601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6131,18 +6487,20 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sensory perception of sound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go">GO:0007605</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0007605</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6170,18 +6528,20 @@ This pathophysiological event involves decreased sensory perception of sound (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6219,7 +6579,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10929716" target="_blank">PMID:10929716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6241,7 +6603,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10929716" target="_blank">PMID:10929716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6263,7 +6627,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16828974" target="_blank">PMID:16828974</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6305,18 +6671,20 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves absent sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sensory perception of sound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go">GO:0007605</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0007605</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6344,18 +6712,20 @@ This pathophysiological event involves absent sensory perception of sound (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6378,7 +6748,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6445,13 +6817,13 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6461,8 +6833,266 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-bradycardia" data-dismech-node="Sinus Bradycardia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sinus Bradycardia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001688</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21131953" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All deaf subjects showed pronounced SAN dysfunction at rest."</div>
+
+
+                <div class="evidence-explanation">Every deaf (that is, biallelic) subject in the founding families had resting sinoatrial node dysfunction, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The recorded heart beat rate was 48 beats per minute (bpm) calculated from beat to beat R–R interval"</div>
+
+
+                <div class="evidence-explanation">Quantifies the resting bradycardia in an affected individual.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electrophysiology-of-sinoatrial-node-origin" data-dismech-node="Abnormal Electrophysiology of Sinoatrial Node Origin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Electrophysiology of Sinoatrial Node Origin
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sinoatrial node dysfunction, annotated with Abnormal electrophysiology of sinoatrial node origin (HP:0011702). HP:0011702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21131953" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All deaf subjects showed pronounced SAN dysfunction at rest."</div>
+
+
+                <div class="evidence-explanation">Establishes resting sinoatrial node dysfunction as a constant feature in the founding families, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"His ECG wave form clearly mark regular but slow rhythm, narrow QRS complex, and P wave did not regularly precede the QRS complex."</div>
+
+
+                <div class="evidence-explanation">Describes the electrocardiographic signature of the sinoatrial node dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-heart-rate-variability" data-dismech-node="Increased Heart Rate Variability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Heart Rate Variability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031862" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0031862</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased heart rate variability (HP:0031862). HP:0031862 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Frequency is intentionally omitted. The increased resting heart-rate variability is asserted in the Orphanet-derived MONDO definition of the disease but is not accompanied by a per-individual count or a quantitative HRV index in the primary literature, so no FrequencyEnum band can be justified.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sinoatrial node (SAN) drives heart automaticity and continuously regulates heart rate."</div>
+
+
+                <div class="evidence-explanation">Graded PARTIAL. The primary reports document sinoatrial node dysfunction and beat-to-beat R-R measurement but do not report a quantitative heart-rate-variability index; this snippet supports only the underlying claim that the affected node governs heart rate regulation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6472,16 +7102,20 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279), qualified as temporality recurrent. HP:0001279 is a phenotype from the Human Phenotype Ontology.">
-                        Syncope
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
-
-
+This clinical feature is Syncope (HP:0001279), qualified as temporality recurrent. HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6520,7 +7154,9 @@ This clinical feature is Syncope (HP:0001279), qualified as temporality recurren
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6546,44 +7182,43 @@ This clinical feature is Syncope (HP:0001279), qualified as temporality recurren
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-dyspnea" data-dismech-node="Exertional Dyspnea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-presyncopal-dizziness" data-dismech-node="Presyncopal Dizziness" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Exertional Dyspnea
+                        Presyncopal Dizziness
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Presyncope</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031972</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Presyncope (HP:0031972). HP:0031972 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Frequency omitted: dyspnea is documented in a single affected individual in the replication cohort, which is below the threshold at which a FrequencyEnum band can be justified.</div>
+                    <div class="item-desc">Term choice is deliberate. HPO has no free-standing &#34;dizziness&#34; term at this level of granularity; the obvious candidate, HP:0002321 Vertigo, is `is_a` HP:0001751 Abnormal vestibular function and would therefore assert exactly the vestibular involvement that the source explicitly excludes and that this entry&#39;s `gap_sandd_vestibular_sparing` discussion treats as an open question. HP:0031972 Presyncope is `is_a` HP:0011025 Abnormal cardiovascular system physiology and is defined as &#34;a state of lightheadedness, muscular weakness, blurred vision, and feeling faint&#34;, &#34;most often cardiovascular in cause&#34;, which matches the mechanism curated here. The sources say &#34;dizziness&#34; rather than &#34;presyncope&#34;, so the mapping evidence is graded PARTIAL.</div>
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6593,7 +7228,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6603,62 +7240,11 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                 <div class="evidence-snippet">"There were no obvious signs of vestibular dysfunction, but he did report the symptoms of fatigue, dizziness, and dyspnea."</div>
 
 
-                <div class="evidence-explanation">Single-individual documentation of dyspnea in the replication cohort.</div>
+                <div class="evidence-explanation">Documents dizziness in an affected individual while explicitly excluding vestibular dysfunction as its cause, which is what licenses binding this symptom to the cardiovascular Presyncope term rather than to Vertigo. Graded PARTIAL because the source records &#34;dizziness&#34; and does not itself use the word presyncope.</div>
 
 
 
             </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fatigue
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
 
             <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -6666,7 +7252,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6676,7 +7264,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                 <div class="evidence-snippet">"Additional features include fatigue, dizziness, and episodic syncope."</div>
 
 
-                <div class="evidence-explanation">Fatigue is listed among the additional features of SANDD, mapping to the OCCASIONAL band.</div>
+                <div class="evidence-explanation">Places dizziness alongside frank syncope in the same symptom cluster, supporting a presyncopal rather than vestibular interpretation, and listing it among the additional (non-constant) features that map to the OCCASIONAL band.</div>
 
 
 
@@ -6694,11 +7282,11 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Ear
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-severe-to-profound-sensorineural-deafness" data-dismech-node="Congenital Severe-to-Profound Sensorineural Deafness" data-dismech-type="phenotype">
@@ -6709,16 +7297,22 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital severe-to-profound sensorineural hearing impairment, annotated with Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.">
-                        Congenital sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp">HP:0008527</a>
-
-
+This clinical feature is Congenital severe-to-profound sensorineural hearing impairment, annotated with Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6757,7 +7351,9 @@ This clinical feature is Congenital severe-to-profound sensorineural hearing imp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6779,7 +7375,9 @@ This clinical feature is Congenital severe-to-profound sensorineural hearing imp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6805,200 +7403,41 @@ This clinical feature is Congenital severe-to-profound sensorineural hearing imp
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sinus-bradycardia" data-dismech-node="Sinus Bradycardia" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-dyspnea" data-dismech-node="Exertional Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Sinus Bradycardia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        Exertional Dyspnea
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.">
-                        Sinus bradycardia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp">HP:0001688</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21131953" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All deaf subjects showed pronounced SAN dysfunction at rest."</div>
-
-
-                <div class="evidence-explanation">Every deaf (that is, biallelic) subject in the founding families had resting sinoatrial node dysfunction, supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The recorded heart beat rate was 48 beats per minute (bpm) calculated from beat to beat R–R interval"</div>
-
-
-                <div class="evidence-explanation">Quantifies the resting bradycardia in an affected individual.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-electrophysiology-of-sinoatrial-node-origin" data-dismech-node="Abnormal Electrophysiology of Sinoatrial Node Origin" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Electrophysiology of Sinoatrial Node Origin
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sinoatrial node dysfunction, annotated with Abnormal electrophysiology of sinoatrial node origin (HP:0011702). HP:0011702 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal electrophysiology of sinoatrial node origin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011702" target="_blank" class="curie-chip curie-chip-hp">HP:0011702</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21131953" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All deaf subjects showed pronounced SAN dysfunction at rest."</div>
-
-
-                <div class="evidence-explanation">Establishes resting sinoatrial node dysfunction as a constant feature in the founding families, supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"His ECG wave form clearly mark regular but slow rhythm, narrow QRS complex, and P wave did not regularly precede the QRS complex."</div>
-
-
-                <div class="evidence-explanation">Describes the electrocardiographic signature of the sinoatrial node dysfunction.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-heart-rate-variability" data-dismech-node="Increased Heart Rate Variability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Heart Rate Variability
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased heart rate variability (HP:0031862). HP:0031862 is a phenotype from the Human Phenotype Ontology.">
-                        Increased heart rate variability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031862" target="_blank" class="curie-chip curie-chip-hp">HP:0031862</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Frequency is intentionally omitted. The increased resting heart-rate variability is asserted in the Orphanet-derived MONDO definition of the disease but is not accompanied by a per-individual count or a quantitative HRV index in the primary literature, so no FrequencyEnum band can be justified.</div>
+                    <div class="item-desc">Frequency omitted: dyspnea is documented in a single affected individual in the replication cohort, which is below the threshold at which a FrequencyEnum band can be justified.</div>
 
 
 
@@ -7009,23 +7448,25 @@ This clinical feature is Increased heart rate variability (HP:0031862). HP:00318
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The sinoatrial node (SAN) drives heart automaticity and continuously regulates heart rate."</div>
+                <div class="evidence-snippet">"There were no obvious signs of vestibular dysfunction, but he did report the symptoms of fatigue, dizziness, and dyspnea."</div>
 
 
-                <div class="evidence-explanation">Graded PARTIAL. The primary reports document sinoatrial node dysfunction and beat-to-beat R-R measurement but do not report a quantitative heart-rate-variability index; this snippet supports only the underlying claim that the affected node governs heart rate regulation.</div>
+                <div class="evidence-explanation">Single-individual documentation of dyspnea in the replication cohort.</div>
 
 
 
@@ -7041,61 +7482,50 @@ This clinical feature is Increased heart rate variability (HP:0031862). HP:00318
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-presyncopal-dizziness" data-dismech-node="Presyncopal Dizziness" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Presyncopal Dizziness
+                        Fatigue
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Presyncope (HP:0031972). HP:0031972 is a phenotype from the Human Phenotype Ontology.">
-                        Presyncope
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp">HP:0031972</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
-
-                    <div class="item-desc">Term choice is deliberate. HPO has no free-standing &#34;dizziness&#34; term at this level of granularity; the obvious candidate, HP:0002321 Vertigo, is `is_a` HP:0001751 Abnormal vestibular function and would therefore assert exactly the vestibular involvement that the source explicitly excludes and that this entry&#39;s `gap_sandd_vestibular_sparing` discussion treats as an open question. HP:0031972 Presyncope is `is_a` HP:0011025 Abnormal cardiovascular system physiology and is defined as &#34;a state of lightheadedness, muscular weakness, blurred vision, and feeling faint&#34;, &#34;most often cardiovascular in cause&#34;, which matches the mechanism curated here. The sources say &#34;dizziness&#34; rather than &#34;presyncope&#34;, so the mapping evidence is graded PARTIAL.</div>
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"There were no obvious signs of vestibular dysfunction, but he did report the symptoms of fatigue, dizziness, and dyspnea."</div>
-
-
-                <div class="evidence-explanation">Documents dizziness in an affected individual while explicitly excluding vestibular dysfunction as its cause, which is what licenses binding this symptom to the cardiovascular Presyncope term rather than to Vertigo. Graded PARTIAL because the source records &#34;dizziness&#34; and does not itself use the word presyncope.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -7103,7 +7533,9 @@ This clinical feature is Presyncope (HP:0031972). HP:0031972 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7113,7 +7545,7 @@ This clinical feature is Presyncope (HP:0031972). HP:0031972 is a phenotype from
                 <div class="evidence-snippet">"Additional features include fatigue, dizziness, and episodic syncope."</div>
 
 
-                <div class="evidence-explanation">Places dizziness alongside frank syncope in the same symptom cluster, supporting a presyncopal rather than vestibular interpretation, and listing it among the additional (non-constant) features that map to the OCCASIONAL band.</div>
+                <div class="evidence-explanation">Fatigue is listed among the additional features of SANDD, mapping to the OCCASIONAL band.</div>
 
 
 
@@ -7179,15 +7611,17 @@ This clinical feature is Presyncope (HP:0031972). HP:0031972 is a phenotype from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:1391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7211,7 +7645,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7233,7 +7669,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7255,7 +7693,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7292,15 +7732,17 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:1391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7324,7 +7766,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7346,7 +7790,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23913001" target="_blank">PMID:23913001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7368,7 +7814,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36430690" target="_blank">PMID:36430690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7400,6 +7848,9 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7418,18 +7869,18 @@ This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from th
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">pacemaker placement<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.">pacemaker placement</span>
+This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pacemaker Placement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80434" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical intervention from the NCI Thesaurus.">NCIT:C80434</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80434" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80434">NCIT:C80434</a>
 
 
 
@@ -7447,6 +7898,25 @@ This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7474,13 +7944,15 @@ This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7510,33 +7982,37 @@ This treatment is pacemaker placement (NCIT:C80434). NCIT:C80434 is a clinical i
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sinus bradycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp">HP:0001688</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001688</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Syncope
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001279</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7550,13 +8026,15 @@ This treatment targets Syncope (HP:0001279). HP:0001279 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7588,18 +8066,18 @@ This treatment targets Syncope (HP:0001279). HP:0001279 is a phenotype from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">cochlear implantation<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">cochlear implantation</span>
+This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7622,6 +8100,25 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Surgical cochlear implantation is the standard habilitation for congenital severe-to-profound sensorineural hearing loss and is the pragmatic option for the auditory arm of SANDD. No SANDD-specific implantation outcome data have been published; whether the underlying lesion is a pure presynaptic synaptopathy with a preserved spiral ganglion, which would predict good implant outcomes, is recorded as an open question in this entry&#39;s discussions.</div>
 
 
@@ -7630,18 +8127,20 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Congenital sensorineural hearing impairment (HP:0008527). HP:0008527 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Congenital sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp">HP:0008527</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008527</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Congenital sensorineural hearing impairment (HP:0008527). HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7661,18 +8160,18 @@ This treatment targets Congenital sensorineural hearing impairment (HP:0008527).
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7695,6 +8194,25 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive counseling for consanguineous families, including the 25% per-pregnancy recurrence risk for carrier couples and the availability of targeted testing for the founder p.Gly403_Val404insGly allele in families of Khyber Pakhtunkhwa origin. Heterozygous carriers are unaffected.</div>
 
 
@@ -7708,13 +8226,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7746,17 +8266,17 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7774,6 +8294,25 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7807,7 +8346,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7848,7 +8389,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7878,6 +8421,749 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electrocardiography-and-ambulatory-holter-rhythm-monitoring">
+                <div class="item-name">
+                    Electrocardiography and ambulatory (Holter) rhythm monitoring
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Resting bradycardia with sinoatrial node dysfunction was present in every affected individual across the reported families, so a normal resting ECG argues strongly against the diagnosis in a congenitally deaf proband.)</span>
+
+                </div>
+
+                <div class="item-desc">A resting 12-lead ECG establishes the sinoatrial abnormality: a slow but regular rhythm with a narrow QRS complex, P waves that do not regularly precede the QRS, and a normal QT interval (which is what separates SANDD at the bedside from Jervell and Lange-Nielsen syndrome). Ambulatory Holter recording quantifies the mean and minimum rate and captures pauses; Holter tracings from genotyped SANDD homozygotes are published. Exercise testing is used to demonstrate chronotropic incompetence when exertional symptoms are present.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electrocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C38053</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"His ECG wave form clearly mark regular but slow rhythm, narrow QRS complex, and P wave did not regularly precede the QRS complex."</div>
+
+
+                <div class="evidence-explanation">Describes the diagnostic electrocardiographic signature recorded in an affected individual.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21131953" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131953" target="_blank">PMID:21131953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All deaf subjects showed pronounced SAN dysfunction at rest."</div>
+
+
+                <div class="evidence-explanation">Supports resting electrocardiographic assessment as sufficient to detect the cardiac abnormality, which was present at rest in all affected individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ambulatory-holter-monitoring">
+                <div class="item-name">
+                    Ambulatory Holter monitoring
+
+                </div>
+
+                <div class="item-desc">Continuous ambulatory ECG quantifies mean, maximum, and minimum heart rate over the day-night cycle and documents sinus pauses. Holter recordings from homozygous SANDD subjects have been published and reproduced in review figures.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Holter monitoring
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38064" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C38064</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27374078" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27374078" target="_blank">PMID:27374078</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"sample Holter ECG recordings from individuals with normal heart rate (a), or from SANDD affected subjects, who were homozygous for the mutation"</div>
+
+
+                <div class="evidence-explanation">Confirms that Holter monitoring has been applied to genotyped SANDD homozygotes and used to characterize their rhythm against controls.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-audiometric-assessment">
+                <div class="item-name">
+                    Audiometric assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Congenital severe-to-profound sensorineural hearing loss across all frequencies, with clinically normal vestibular function.)</span>
+
+                </div>
+
+                <div class="item-desc">Pure-tone audiometry, supplemented in infancy by auditory brainstem response and otoacoustic emission testing, establishes the degree and configuration of the hearing loss. In SANDD it is congenital, bilateral, and severe (71-95 dB) to profound (&gt;95 dB) across all frequencies, and formal vestibular assessment has not shown accompanying vestibular dysfunction.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        audiometric testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C38036</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deafness was congenital and severe (71–95 dB) or profound (&gt;95 dB) in all frequencies for all affected members of the SANDD families"</div>
+
+
+                <div class="evidence-explanation">Reports the audiometric thresholds that define the auditory arm of the diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were no obvious signs of vestibular dysfunction"</div>
+
+
+                <div class="evidence-explanation">Documents the negative vestibular finding that accompanies the audiometric result and helps separate SANDD from syndromic deafness with vestibular involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cacna1d-molecular-genetic-testing">
+                <div class="item-name">
+                    CACNA1D molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation requires two pathogenic CACNA1D loss-of-function alleles in trans in an individual with a compatible phenotype. In families of Khyber Pakhtunkhwa origin, targeted testing for the founder p.(Gly403_Val404insGly) allele is the efficient first step; otherwise CACNA1D sequencing, a combined hearing-loss/arrhythmia panel, or exome sequencing is appropriate. Parental testing confirms phase and segregation. Interpretation must be direction-aware: heterozygous CACNA1D variants, particularly gain-of-function ones, cause mechanistically distinct dominant disorders and do not establish SANDD.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We studied five Pakistani families with SANDD and characterized a new missense variant p.(A376V) in CACNA1D in one family, and further characterized the founder variant p.(G403_V404insG) in four additional pedigrees."</div>
+
+
+                <div class="evidence-explanation">Documents the two CACNA1D alleles that molecular testing is looking for, including the recurrent founder variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36430690" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36430690" target="_blank">PMID:36430690</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"So far, homozygous loss of function mutations in CACNA1D encoding the Cav1.3 α1-subunit are described in congenital sinus node dysfunction and deafness."</div>
+
+
+                <div class="evidence-explanation">States the zygosity and functional-direction requirement that makes a molecular diagnosis of SANDD, as opposed to one of the heterozygous CACNA1D disorders.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiac-screening-of-individuals-with-congenital-deafness">
+                <div class="item-name">
+                    Cardiac screening of individuals with congenital deafness
+
+                </div>
+
+                <div class="item-desc">Because deafness is the ascertaining feature and the bradycardia may be clinically silent, electrocardiographic screening of individuals with congenital deafness in the founder region is recommended, so that affected individuals enter cardiac follow-up before symptomatic sinus node failure develops. The same logic underlies the long-standing practice of screening congenitally deaf children for the QT prolongation of Jervell and Lange-Nielsen syndrome.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C15419</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">Relocated from `treatments:` to `diagnosis:` because this is a case-finding procedure that detects the sinoatrial phenotype rather than a therapeutic action that treats it.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, screening patients with congenital deafness for SAN dysfunction in this province could ensure adequate follow-up and prevent cardiac failure associated with SAN."</div>
+
+
+                <div class="evidence-explanation">The replication study explicitly recommends screening congenitally deaf individuals in the founder region for sinoatrial node dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-echocardiography-to-exclude-structural-heart-disease">
+                <div class="item-name">
+                    Echocardiography to exclude structural heart disease
+
+                </div>
+
+                <div class="item-desc">Echocardiography is used to confirm that the heart is structurally normal, which is a defining condition of the inherited-channelopathy framing that places SANDD in the cardiac ion-channel module, and to exclude structural or cardiomyopathic causes of bradyarrhythmia. It also separates SANDD from HCN4-related bradycardia with left ventricular noncompaction and from LMNA-related conduction disease with cardiomyopathy.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        echocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C16525</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">No SANDD-specific imaging series has been published, so no evidence item is attached. This entry lists echocardiography as the standard exclusion step for structural causes of bradyarrhythmia rather than citing a stretched source; the project&#39;s evidence policy prefers an unevidenced description to a fabricated or over-reaching citation.</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">SANDD is known from a very small number of consanguineous Pakistani families: two in the founding report and five in the subsequent replication study. No population-based prevalence estimate exists. The Orphanet epidemiology record for ORPHA:324321 was not consulted because the local Orphadata refresh is currently broken (checksum failure), so only the qualitative ULTRA_RARE band is asserted here.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sinoatrial node dysfunction and deafness (SANDD) syndrome is rare and characterized by a low heart beat and severe-to-profound deafness."</div>
+
+
+                <div class="evidence-explanation">Establishes the disorder as rare; combined with the fact that the total published cohort is a handful of families, this supports the ULTRA_RARE qualitative band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32601767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32601767" target="_blank">PMID:32601767</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ca2+ channel channelopathies specifically affecting cardiac automaticity are considered rare."</div>
+
+
+                <div class="evidence-explanation">Independent review characterizes this class of calcium-channel automaticity channelopathies, of which SANDD is the exemplar, as rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-khyber-pakhtunkhwa-province-pakistan">
+                <div class="item-name">Khyber Pakhtunkhwa province, Pakistan</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">The p.Gly403_Val404insGly founder allele has so far been observed only in families from the Khyber Pakhtunkhwa (KPK) province of Pakistan, giving a locally enriched but unquantified burden and motivating targeted cardiac screening of congenitally deaf individuals in that region.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30498240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30498240" target="_blank">PMID:30498240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This study is of clinical importance as the CACNA1D founder variant is only observed in families from the Khyber Pakhtunkhwa (KPK) province, in Pakistan."</div>
+
+
+                <div class="evidence-explanation">Documents the geographic restriction of the founder allele without giving a numeric rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7996,7 +9282,7 @@ classifications:
     evidence:
     - reference: PMID:21131953
       reference_title: &#34;Loss of Ca(v)1.3 (CACNA1D) function in a human channelopathy with bradycardia and congenital deafness.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We describe a human channelopathy (termed SANDD syndrome, sinoatrial node dysfunction and deafness) with a cardiac and auditory phenotype that closely resembles that of Cacna1d(-/-) mice.&#34;
       explanation: &gt;-
@@ -8556,7 +9842,7 @@ pathophysiology:
       establishing the atrioventricular arm in the model organism.
   - reference: PMID:27374078
     reference_title: &#34;Rescuing cardiac automaticity in L-type Cav1.3 channelopathies and beyond.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;L-type Cav 1.3 channels play a major role in the generation and regulation of sino-atrial pacemaker activity and atrioventricular conduction.&#34;
     explanation: &gt;-
@@ -8565,7 +9851,7 @@ pathophysiology:
       atrioventricular block in human SANDD.
   - reference: PMID:30498240
     reference_title: &#34;Identification of CACNA1D variants associated with sinoatrial node dysfunction and deafness in additional Pakistani families reveals a clinical significance.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;P wave did not regularly precede the QRS complex&#34;
     explanation: &gt;-
@@ -8625,7 +9911,7 @@ pathophysiology:
     evidence:
     - reference: PMID:27374078
       reference_title: &#34;Rescuing cardiac automaticity in L-type Cav1.3 channelopathies and beyond.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Disease of the sinus node and impairment of atrioventricular conduction induce an excessively low ventricular rate (bradycardia), which cannot meet the needs of the organism.&#34;
       explanation: &gt;-
@@ -8635,7 +9921,7 @@ pathophysiology:
         exertional syncope in SANDD specifically.
     - reference: PMID:30498240
       reference_title: &#34;Identification of CACNA1D variants associated with sinoatrial node dysfunction and deafness in additional Pakistani families reveals a clinical significance.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Additional features include fatigue, dizziness, and episodic syncope.&#34;
       explanation: &gt;-
@@ -9166,7 +10452,7 @@ phenotypes:
   evidence:
   - reference: PMID:30498240
     reference_title: &#34;Identification of CACNA1D variants associated with sinoatrial node dysfunction and deafness in additional Pakistani families reveals a clinical significance.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The sinoatrial node (SAN) drives heart automaticity and continuously regulates heart rate.&#34;
     explanation: &gt;-
@@ -9246,7 +10532,7 @@ phenotypes:
   evidence:
   - reference: PMID:30498240
     reference_title: &#34;Identification of CACNA1D variants associated with sinoatrial node dysfunction and deafness in additional Pakistani families reveals a clinical significance.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There were no obvious signs of vestibular dysfunction, but he did report the symptoms of fatigue, dizziness, and dyspnea.&#34;
     explanation: &gt;-
@@ -9486,7 +10772,7 @@ treatments:
     evidence:
     - reference: PMID:27374078
       reference_title: &#34;Rescuing cardiac automaticity in L-type Cav1.3 channelopathies and beyond.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Implantation of an electronic pacemaker constitutes the only available therapy for SSS.&#34;
       explanation: &gt;-
@@ -9506,7 +10792,7 @@ treatments:
   evidence:
   - reference: PMID:27374078
     reference_title: &#34;Rescuing cardiac automaticity in L-type Cav1.3 channelopathies and beyond.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Implantation of an electronic pacemaker constitutes the only available therapy for SSS.&#34;
     explanation: &gt;-
@@ -9555,7 +10841,7 @@ treatments:
   evidence:
   - reference: PMID:30498240
     reference_title: &#34;Identification of CACNA1D variants associated with sinoatrial node dysfunction and deafness in additional Pakistani families reveals a clinical significance.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We show that affected individuals in the four families which segregate p.(G403_V404insG) share a 1.03 MB haplotype on 3p21.1 suggesting they share a common distant ancestor.&#34;
     explanation: &gt;-
@@ -10115,7 +11401,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sinoatrial Node Dysfunction and Deafness", "mondoId": "MONDO:0013960", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sinoatrial_Node_Dysfunction_and_Deafness", "yamlRevision": "56066f30f80c"};
+        const OS_CONFIG = {"diseaseName": "Sinoatrial Node Dysfunction and Deafness", "mondoId": "MONDO:0013960", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sinoatrial_Node_Dysfunction_and_Deafness", "yamlRevision": "5b8453700c81"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10534,5 +11820,73 @@ treatments:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

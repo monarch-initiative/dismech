@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>GPR101-related pituitary adenoma 2</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>GPR101-related pituitary adenoma 2</h1>
             <div class="header-meta">
 
@@ -3968,7 +4115,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-dominant">
                 <div class="item-name">
                     X-linked dominant
 
@@ -4013,7 +4160,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712922" target="_blank">PMID:25712922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4035,7 +4184,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38696651" target="_blank">PMID:38696651</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4135,7 +4286,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27245663" target="_blank">PMID:27245663</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4214,7 +4367,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4256,6 +4411,70 @@
 
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        somatotroph
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002312</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        mammotroph
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002311" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002311</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -4264,17 +4483,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:14963</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4310,17 +4533,21 @@ This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this genetic context concerns this gene
-This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:14963</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4369,18 +4596,20 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0000007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4418,7 +4647,9 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4440,7 +4671,9 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27245663" target="_blank">PMID:27245663</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4462,7 +4695,9 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27245663" target="_blank">PMID:27245663</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4500,17 +4735,21 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:14963</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4542,17 +4781,21 @@ This pathophysiological event involves GPR101 (hgnc:14963). hgnc:14963 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this genetic context concerns this gene
-This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:14963</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4616,7 +4859,9 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4638,7 +4883,9 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27245663" target="_blank">PMID:27245663</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4671,18 +4918,20 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4699,18 +4948,20 @@ This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mammotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002311" target="_blank" class="curie-chip curie-chip-cl">CL:0002311</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002311" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002311</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4736,17 +4987,21 @@ This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:14963</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4779,18 +5034,20 @@ This pathophysiological event involves increased GPR101 (hgnc:14963). hgnc:14963
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased adenylate cyclase-activating GPCR signaling, annotated with adenylate cyclase-activating G protein-coupled receptor signaling pathway (GO:0007189). GO:0007189 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         adenylate cyclase-activating GPCR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go">GO:0007189</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adenylate cyclase-activating GPCR signaling, annotated with adenylate cyclase-activating G protein-coupled receptor signaling pathway (GO:0007189). GO:0007189 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4816,18 +5073,20 @@ This pathophysiological event involves increased adenylate cyclase-activating GP
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased GPR101 G protein-coupled receptor activity, annotated with G protein-coupled receptor activity (GO:0004930). GO:0004930 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         GPR101 G protein-coupled receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004930" target="_blank" class="curie-chip curie-chip-go">GO:0004930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0004930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased GPR101 G protein-coupled receptor activity, annotated with G protein-coupled receptor activity (GO:0004930). GO:0004930 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4848,18 +5107,20 @@ This pathophysiological event involves increased GPR101 G protein-coupled recept
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased adenylate cyclase activator activity (GO:0010856). GO:0010856 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         adenylate cyclase activator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010856" target="_blank" class="curie-chip curie-chip-go">GO:0010856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010856" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0010856</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased adenylate cyclase activator activity (GO:0010856). GO:0010856 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4916,7 +5177,9 @@ This pathophysiological event involves increased adenylate cyclase activator act
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4938,7 +5201,9 @@ This pathophysiological event involves increased adenylate cyclase activator act
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4971,18 +5236,20 @@ This pathophysiological event involves increased adenylate cyclase activator act
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5010,18 +5277,20 @@ This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5087,7 +5356,9 @@ This pathophysiological event involves increased cAMP/PKA signal transduction (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5120,18 +5391,20 @@ This pathophysiological event involves increased cAMP/PKA signal transduction (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5159,18 +5432,20 @@ This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         growth hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go">GO:0030252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5213,7 +5488,9 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5229,13 +5506,15 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25470569" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25470569" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5257,7 +5536,9 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5290,18 +5571,20 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5318,18 +5601,20 @@ This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mammotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002311" target="_blank" class="curie-chip curie-chip-cl">CL:0002311</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002311" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002311</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5357,18 +5642,20 @@ This pathophysiological event involves mammotroph (CL:0002311). CL:0002311 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5396,18 +5683,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5430,7 +5719,9 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5478,7 +5769,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Extensive pituitary surgery for local control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"X-LAG frequently requires surgery for pituitary macroadenoma or hyperplasia, but extensive resection can produce permanent hypopituitarism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GPR101\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"association\": \"Xq26.3 copy-number gain including GPR101 causes X-linked acrogigantism. Recurrent GPR101 p.E308D variants were reported in acromegaly, but later cohort data did not support increased prevalence, so point-variant causality is modeled as provisional rather than as the core PITA2 mechanism.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"GPR101 copy-number gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 is the explicit gene-level entry point for PITA2. Germline or post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the established causal route for X-linked acrogigantism.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"GPR101 is affected by germline or somatic dosage gain in X-linked acrogigantism.\", \"allelic_events\": [\"COPY_NUMBER_GAIN\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"trigger\", \"locations\": [\"pituitary gland\"]}}, {\"id\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 encodes a GPCR that can couple to stimulatory G protein signaling, providing a gene-explicit route into adenylate cyclase activation and cAMP pathway overactivation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"adenylate cyclase-activating GPCR signaling\"], \"molecular_functions\": [\"GPR101 G protein-coupled receptor activity\", \"adenylate cyclase activator activity\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"role\": \"upstream_effector\"}}, {\"id\": \"Growth hormone excess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000845\"}}, {\"id\": \"Increased cAMP/PKA signaling in somatotrophs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 activation converges on the shared somatotroph cAMP/PKA signaling module, matching the downstream segment also reached by GNAS activation and AIP loss through different entry points.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"cAMP/PKA signal transduction\"], \"role\": \"central_effector\"}}, {\"id\": \"Increased growth hormone secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatotroph-lineage cells release excess growth hormone downstream of GPR101-driven cAMP/PKA pathway activation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Pegvisomant-based GH receptor blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegvisomant can control IGF1/GH action in X-LAG when surgery and somatostatin analogs are insufficient, often as part of combination therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"growth hormone receptor antagonist\", \"pegvisomant\"]}}, {\"id\": \"Pituitary macroadenoma or hyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025693\"}}, {\"id\": \"Reported GPR101 p.E308D variant association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GPR101 p.E308D missense variant was reported in a subset of acromegaly cases and showed activity in GH3 cell assays, but a later cohort did not find increased prevalence in acromegaly. It is therefore retained as a provisional association rather than used as the main PITA2 causal entry point.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Reported p.E308D observations include tumor and constitutive DNA contexts, but population enrichment and clinical causality remain unresolved.\", \"allelic_events\": [\"MISSENSE_VARIANT\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"provisional_trigger\"}}, {\"id\": \"Somatostatin analog therapy with limited control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogs may be used for GH excess but are often insufficient as sole therapy in X-LAG, despite SSTR2 expression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101-related disease produces pituitary macroadenomas or pituitary hyperplasia, often with somatotroph and mammotroph lineage features.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"consequence\", \"locations\": [\"pituitary gland\"]}}], \"edges\": [{\"source\": \"GPR101 copy-number gain\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased GPR101 dosage or activity increases GPCR signaling capacity upstream of cAMP production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"target\": \"Increased cAMP/PKA signaling in somatotrophs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adenylate cyclase-activating GPCR signaling increases cAMP availability and PKA signaling in somatotroph-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling increases secretory drive in somatotroph-lineage pituitary cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling supports proliferation and adenoma or hyperplasia formation in GH/PRL-lineage pituitary tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Pituitary macroadenoma or hyperplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pegvisomant-based GH receptor blockade\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101 copy-number gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"Reported GPR101 p.E308D variant association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Extensive pituitary surgery for local control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"X-LAG frequently requires surgery for pituitary macroadenoma or hyperplasia, but extensive resection can produce permanent hypopituitarism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GPR101\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"association\": \"Xq26.3 copy-number gain including GPR101 causes X-linked acrogigantism. Recurrent GPR101 p.E308D variants were reported in acromegaly, but later cohort data did not support increased prevalence, so point-variant causality is modeled as provisional rather than as the core PITA2 mechanism.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"GPR101 copy-number gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 is the explicit gene-level entry point for PITA2. Germline or post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the established causal route for X-linked acrogigantism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"GPR101 is affected by germline or somatic dosage gain in X-linked acrogigantism.\", \"allelic_events\": [\"COPY_NUMBER_GAIN\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"trigger\", \"locations\": [\"pituitary gland\"]}}, {\"id\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 encodes a GPCR that can couple to stimulatory G protein signaling, providing a gene-explicit route into adenylate cyclase activation and cAMP pathway overactivation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"adenylate cyclase-activating GPCR signaling\"], \"molecular_functions\": [\"GPR101 G protein-coupled receptor activity\", \"adenylate cyclase activator activity\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"role\": \"upstream_effector\"}}, {\"id\": \"Growth hormone excess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000845\"}}, {\"id\": \"Increased cAMP/PKA signaling in somatotrophs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 activation converges on the shared somatotroph cAMP/PKA signaling module, matching the downstream segment also reached by GNAS activation and AIP loss through different entry points.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"cAMP/PKA signal transduction\"], \"role\": \"central_effector\"}}, {\"id\": \"Increased growth hormone secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatotroph-lineage cells release excess growth hormone downstream of GPR101-driven cAMP/PKA pathway activation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Pegvisomant-based GH receptor blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegvisomant can control IGF1/GH action in X-LAG when surgery and somatostatin analogs are insufficient, often as part of combination therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"growth hormone receptor antagonist\", \"pegvisomant\"]}}, {\"id\": \"Pituitary macroadenoma or hyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025693\"}}, {\"id\": \"Reported GPR101 p.E308D variant association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GPR101 p.E308D missense variant was reported in a subset of acromegaly cases and showed activity in GH3 cell assays, but a later cohort did not find increased prevalence in acromegaly. It is therefore retained as a provisional association rather than used as the main PITA2 causal entry point.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Reported p.E308D observations include tumor and constitutive DNA contexts, but population enrichment and clinical causality remain unresolved.\", \"allelic_events\": [\"MISSENSE_VARIANT\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"provisional_trigger\"}}, {\"id\": \"Somatostatin analog therapy with limited control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogs may be used for GH excess but are often insufficient as sole therapy in X-LAG, despite SSTR2 expression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101-related disease produces pituitary macroadenomas or pituitary hyperplasia, often with somatotroph and mammotroph lineage features.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"consequence\", \"locations\": [\"pituitary gland\"]}}], \"edges\": [{\"source\": \"GPR101 copy-number gain\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased GPR101 dosage or activity increases GPCR signaling capacity upstream of cAMP production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"target\": \"Increased cAMP/PKA signaling in somatotrophs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adenylate cyclase-activating GPCR signaling increases cAMP availability and PKA signaling in somatotroph-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling increases secretory drive in somatotroph-lineage pituitary cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling supports proliferation and adenoma or hyperplasia formation in GH/PRL-lineage pituitary tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Pituitary macroadenoma or hyperplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pegvisomant-based GH receptor blockade\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101 copy-number gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"Reported GPR101 p.E308D variant association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5495,26 +5786,48 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-excess" data-dismech-node="Growth hormone excess" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Growth hormone excess
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Growth<span class="pill-count">(1)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
+
+
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-excess" data-dismech-node="Growth hormone excess" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth hormone excess
 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating growth hormone concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000845</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp">HP:0000845</a>
-
-
+This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5532,7 +5845,9 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5556,27 +5871,33 @@ This clinical feature is Elevated circulating growth hormone concentration (HP:0
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-hyperprolactinemia" data-dismech-node="Hyperprolactinemia" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Hyperprolactinemia
-
-
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperprolactinemia" data-dismech-node="Hyperprolactinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperprolactinemia
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating prolactin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp">HP:0000870</a>
-
-
+This clinical feature is Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5594,7 +5915,9 @@ This clinical feature is Increased circulating prolactin concentration (HP:00008
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5618,27 +5941,31 @@ This clinical feature is Increased circulating prolactin concentration (HP:00008
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-pituitary-macroadenoma-or-hyperplasia" data-dismech-node="Pituitary macroadenoma or hyperplasia" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Pituitary macroadenoma or hyperplasia
-
-
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pituitary-macroadenoma-or-hyperplasia" data-dismech-node="Pituitary macroadenoma or hyperplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pituitary macroadenoma or hyperplasia
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0025693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pituitary macroadenoma (HP:0025693). HP:0025693 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025693" target="_blank" class="curie-chip curie-chip-hp">HP:0025693</a>
-
-
+This clinical feature is Pituitary macroadenoma (HP:0025693). HP:0025693 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5656,7 +5983,9 @@ This clinical feature is Pituitary macroadenoma (HP:0025693). HP:0025693 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5680,27 +6009,40 @@ This clinical feature is Pituitary macroadenoma (HP:0025693). HP:0025693 is a ph
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-acral-overgrowth-and-coarse-facial-features" data-dismech-node="Acral overgrowth and coarse facial features" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Acral overgrowth and coarse facial features
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acral-overgrowth-and-coarse-facial-features" data-dismech-node="Acral overgrowth and coarse facial features" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acral overgrowth and coarse facial features
 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0033794</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033794" target="_blank" class="curie-chip curie-chip-hp">HP:0033794</a>
-
-
+This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5718,7 +6060,9 @@ This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712922" target="_blank">PMID:25712922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5742,8 +6086,34 @@ This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotyp
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5770,15 +6140,17 @@ This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotyp
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GPR101
 
 
-    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14963</a>
+    <a href="https://bioregistry.io/hgnc:14963" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:14963</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5804,7 +6176,9 @@ This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5834,6 +6208,9 @@ This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5850,18 +6227,18 @@ This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5879,6 +6256,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5910,18 +6306,20 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pituitary macroadenoma (HP:0025693). HP:0025693 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pituitary macroadenoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025693" target="_blank" class="curie-chip curie-chip-hp">HP:0025693</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0025693</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pituitary macroadenoma (HP:0025693). HP:0025693 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5941,7 +6339,9 @@ This treatment targets Pituitary macroadenoma (HP:0025693). HP:0025693 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712922" target="_blank">PMID:25712922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5971,17 +6371,17 @@ This treatment targets Pituitary macroadenoma (HP:0025693). HP:0025693 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Somatostatin Analog Therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a clinical intervention from the NCI Thesaurus.">Somatostatin Analog Therapy</span>
+This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15449" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a clinical intervention from the NCI Thesaurus.">NCIT:C15449</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15449" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15449">NCIT:C15449</a>
 
 
 
@@ -5999,6 +6399,14 @@ This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a cl
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6030,18 +6438,20 @@ This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a cl
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Growth hormone excess
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6061,7 +6471,9 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712922" target="_blank">PMID:25712922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6091,18 +6503,18 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Growth Hormone Receptor Antagonist Therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Growth Hormone Receptor Antagonist Therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Growth Hormone Receptor Antagonist Therapy</span>
+This treatment is Growth Hormone Receptor Antagonist Therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Growth Hormone Receptor Antagonist Therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6127,36 +6539,48 @@ This treatment is Growth Hormone Receptor Antagonist Therapy, annotated with Pha
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses growth hormone receptor antagonist (NCIT:C63347). NCIT:C63347 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         growth hormone receptor antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C63347" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C63347</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C63347" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C63347</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses growth hormone receptor antagonist (NCIT:C63347). NCIT:C63347 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pegvisomant (NCIT:C61881). NCIT:C61881 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         pegvisomant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61881" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C61881</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61881" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C61881</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pegvisomant (NCIT:C61881). NCIT:C61881 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6168,18 +6592,20 @@ This treatment uses pegvisomant (NCIT:C61881). NCIT:C61881 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Growth hormone excess
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6199,7 +6625,9 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712922" target="_blank">PMID:25712922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6221,7 +6649,9 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38696651" target="_blank">PMID:38696651</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6251,6 +6681,216 @@ This treatment targets Growth hormone excess, annotated with Elevated circulatin
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-xq26-3-gpr101-copy-number-testing">
+                <div class="item-name">
+                    Xq26.3/GPR101 copy-number testing
+
+                </div>
+
+                <div class="item-desc">Early-onset pituitary gigantism should prompt copy-number testing for Xq26.3/GPR101 duplication; suspected mosaic cases may require tissue beyond peripheral blood.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of germline or mosaic GPR101 duplication supports the molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27245663" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27245663" target="_blank">PMID:27245663</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pathological features of XLAG-associated pituitary adenomas are typical and, together with the clinical phenotype, should prompt genetic testing."</div>
+
+
+                <div class="evidence-explanation">This supports using the XLAG phenotype and pathology to trigger GPR101 duplication testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26982009" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26982009" target="_blank">PMID:26982009</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a negative test for Xq26.3 microduplication or GPR101 duplication on peripheral blood DNA does not exclude the diagnosis of XLAG because it can result from a mosaic mutation affecting the pituitary."</div>
+
+
+                <div class="evidence-explanation">This supports tissue-aware copy-number testing when clinical suspicion persists despite negative blood testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-childhood-growth-hormone-excess-phase">
+                <div class="item-name">Early childhood growth hormone excess phase</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: infancy to early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Xq26.3 microduplication carriers in the discovery cohort had disease onset during early childhood, often with rapid growth during infancy before detection of pituitary hyperplasia or adenoma.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25470569" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25470569" target="_blank">PMID:25470569</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the patients had disease onset during early childhood."</div>
+
+
+                <div class="evidence-explanation">This supports early childhood onset as a characteristic timing for the X-LAG/GPR101 duplication presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6429,6 +7069,15 @@ genetic:
       the Xq26.3 duplication syndrome.
 pathophysiology:
 - name: GPR101 copy-number gain
+  cell_types:
+  - preferred_term: somatotroph
+    term:
+      id: CL:0002312
+      label: somatotroph
+  - preferred_term: mammotroph
+    term:
+      id: CL:0002311
+      label: mammotroph
   description: &gt;-
     GPR101 is the explicit gene-level entry point for PITA2. Germline or
     post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the
@@ -6689,7 +7338,7 @@ pathophysiology:
       the appropriate anchor for this node in the duplication chain.
   - reference: PMID:25470569
     reference_title: &#34;Gigantism and acromegaly due to Xq26 microduplications and GPR101 mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       When the mutation was transfected into rat GH3 cells, it led to increased
@@ -7973,7 +8622,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GPR101-related pituitary adenoma 2", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GPR101-related_pituitary_adenoma_2", "yamlRevision": "2f9f25dcd3f4"};
+        const OS_CONFIG = {"diseaseName": "GPR101-related pituitary adenoma 2", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GPR101-related_pituitary_adenoma_2", "yamlRevision": "025d3205f1fe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8392,5 +9041,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

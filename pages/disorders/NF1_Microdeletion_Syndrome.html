@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>NF1 Microdeletion Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>NF1 Microdeletion Syndrome</h1>
             <div class="header-meta">
 
@@ -3895,7 +4042,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3940,7 +4087,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3962,7 +4111,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4026,17 +4177,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7765</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4065,18 +4220,20 @@ This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4154,7 +4311,9 @@ This pathophysiological event involves Ras protein signal transduction (GO:00072
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4176,7 +4335,9 @@ This pathophysiological event involves Ras protein signal transduction (GO:00072
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38448973" target="_blank">PMID:38448973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4216,17 +4377,21 @@ This pathophysiological event involves Ras protein signal transduction (GO:00072
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SUZ12 (hgnc:17101). hgnc:17101 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SUZ12
 
 
-    <a href="https://bioregistry.io/hgnc:17101" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17101</a>
+    <a href="https://bioregistry.io/hgnc:17101" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:17101</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SUZ12 (hgnc:17101). hgnc:17101 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4288,7 +4453,9 @@ This pathophysiological event involves SUZ12 (hgnc:17101). hgnc:17101 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4328,17 +4495,21 @@ This pathophysiological event involves SUZ12 (hgnc:17101). hgnc:17101 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CRLF3 (hgnc:17177). hgnc:17177 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CRLF3
 
 
-    <a href="https://bioregistry.io/hgnc:17177" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17177</a>
+    <a href="https://bioregistry.io/hgnc:17177" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:17177</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CRLF3 (hgnc:17177). hgnc:17177 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4367,18 +4538,20 @@ This pathophysiological event involves CRLF3 (hgnc:17177). hgnc:17177 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neurogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go">GO:0022008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0022008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4432,7 +4605,9 @@ This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34233200" target="_blank">PMID:34233200</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4472,17 +4647,21 @@ This pathophysiological event involves neurogenesis (GO:0022008). GO:0022008 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7765</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4529,7 +4708,9 @@ This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38874808" target="_blank">PMID:38874808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4600,15 +4781,13 @@ This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4629,16 +4808,22 @@ This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
-
-
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4659,7 +4844,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4702,16 +4889,22 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4732,7 +4925,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4766,16 +4961,20 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.">
-                        Macrocephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp">HP:0000256</a>
-
-
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4796,7 +4995,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34168676" target="_blank">PMID:34168676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4828,7 +5029,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cafe-au-lait-macules" data-dismech-node="Cafe-au-lait Macules" data-dismech-type="phenotype">
@@ -4839,16 +5040,22 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Multiple cafe-au-lait spots</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0007565</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is a phenotype from the Human Phenotype Ontology.">
-                        Multiple cafe-au-lait spots
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007565" target="_blank" class="curie-chip curie-chip-hp">HP:0007565</a>
-
-
+This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4869,7 +5076,9 @@ This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4895,6 +5104,78 @@ This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intertriginous-freckling" data-dismech-node="Intertriginous Freckling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intertriginous Freckling
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Axillary freckling</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000997" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000997</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axillary freckling (HP:0000997). HP:0000997 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple café au lait macules, intertriginous freckling, multiple cutaneous neurofibromas, and learning disability or behavior problems."</div>
+
+
+                <div class="evidence-explanation">The GeneReviews NF1 chapter (Clinical Characteristics) lists intertriginous freckling among the defining features of the NF1 phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-and-plexiform-neurofibromas" data-dismech-node="Cutaneous and Plexiform Neurofibromas" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cutaneous and Plexiform Neurofibromas
@@ -4903,16 +5184,20 @@ This clinical feature is Multiple cafe-au-lait spots (HP:0007565). HP:0007565 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001067</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neurofibroma (HP:0001067). HP:0001067 is a phenotype from the Human Phenotype Ontology.">
-                        Neurofibroma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001067" target="_blank" class="curie-chip curie-chip-hp">HP:0001067</a>
-
-
+This clinical feature is Neurofibroma (HP:0001067). HP:0001067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4933,7 +5218,9 @@ This clinical feature is Neurofibroma (HP:0001067). HP:0001067 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39022906" target="_blank">PMID:39022906</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4976,16 +5263,22 @@ This clinical feature is Neurofibroma (HP:0001067). HP:0001067 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5006,7 +5299,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5049,16 +5344,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.">
-                        Tall stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp">HP:0000098</a>
-
-
+This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5079,7 +5378,9 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34168676" target="_blank">PMID:34168676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5122,16 +5423,22 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neurofibrosarcoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100697" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100697</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neurofibrosarcoma (HP:0100697). HP:0100697 is a phenotype from the Human Phenotype Ontology.">
-                        Neurofibrosarcoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100697" target="_blank" class="curie-chip curie-chip-hp">HP:0100697</a>
-
-
+This clinical feature is Neurofibrosarcoma (HP:0100697). HP:0100697 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5152,7 +5459,9 @@ This clinical feature is Neurofibrosarcoma (HP:0100697). HP:0100697 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28213670" target="_blank">PMID:28213670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5163,79 +5472,6 @@ This clinical feature is Neurofibrosarcoma (HP:0100697). HP:0100697 is a phenoty
 
 
                 <div class="evidence-explanation">Directly quantifies the elevated lifetime MPNST risk in microdeletion patients relative to the general NF1 population.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intertriginous-freckling" data-dismech-node="Intertriginous Freckling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intertriginous Freckling
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axillary freckling (HP:0000997). HP:0000997 is a phenotype from the Human Phenotype Ontology.">
-                        Axillary freckling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000997" target="_blank" class="curie-chip curie-chip-hp">HP:0000997</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301288" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"multiple café au lait macules, intertriginous freckling, multiple cutaneous neurofibromas, and learning disability or behavior problems."</div>
-
-
-                <div class="evidence-explanation">The GeneReviews NF1 chapter (Clinical Characteristics) lists intertriginous freckling among the defining features of the NF1 phenotype.</div>
 
 
 
@@ -5303,15 +5539,17 @@ This clinical feature is Axillary freckling (HP:0000997). HP:0000997 is a phenot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:7765</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5344,15 +5582,17 @@ This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SUZ12 (hgnc:17101). hgnc:17101 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SUZ12
 
 
-    <a href="https://bioregistry.io/hgnc:17101" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17101</a>
+    <a href="https://bioregistry.io/hgnc:17101" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:17101</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SUZ12 (hgnc:17101). hgnc:17101 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5379,15 +5619,17 @@ This disease-associated gene is SUZ12 (hgnc:17101). hgnc:17101 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RNF135 (hgnc:21158). hgnc:21158 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RNF135
 
 
-    <a href="https://bioregistry.io/hgnc:21158" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21158</a>
+    <a href="https://bioregistry.io/hgnc:21158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:21158</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RNF135 (hgnc:21158). hgnc:21158 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5414,15 +5656,17 @@ This disease-associated gene is RNF135 (hgnc:21158). hgnc:21158 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CRLF3
 
 
-    <a href="https://bioregistry.io/hgnc:17177" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17177</a>
+    <a href="https://bioregistry.io/hgnc:17177" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:17177</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5440,6 +5684,9 @@ This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from th
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5464,6 +5711,14 @@ This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from th
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because of the elevated MPNST risk, microdeletion patients warrant heightened clinical surveillance. An NF1 microdeletion involving SUZ12 is recognized as a high-risk cancer-predisposition genotype, and patients with NF1 whole-gene deletions require more frequent targeted follow up, including whole-body MRI in some protocols for early detection of malignant transformation.</div>
 
 
@@ -5483,7 +5738,9 @@ This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5519,6 +5776,14 @@ This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from th
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">The MEK1/2 inhibitor selumetinib is used for symptomatic, inoperable plexiform neurofibromas in NF1 and is applicable to microdeletion patients with plexiform tumors; it is not specific to the microdeletion itself.</div>
 
 
@@ -5545,18 +5810,20 @@ This disease-associated gene is CRLF3 (hgnc:17177). hgnc:17177 is a gene from th
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Neurofibroma (HP:0001067). HP:0001067 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neurofibroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001067" target="_blank" class="curie-chip curie-chip-hp">HP:0001067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001067</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neurofibroma (HP:0001067). HP:0001067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5576,7 +5843,9 @@ This treatment targets Neurofibroma (HP:0001067). HP:0001067 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5606,6 +5875,153 @@ This treatment targets Neurofibroma (HP:0001067). HP:0001067 is a phenotype from
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-copy-number-confirmation-of-the-nf1-microdeletion">
+                <div class="item-name">
+                    Copy-number confirmation of the NF1 microdeletion
+
+                </div>
+
+                <div class="item-desc">Distinguishing the microdeletion from an intragenic NF1 variant requires copy-number detection, not sequence analysis alone. An assay capable of detecting whole-gene dosage loss (multiplex ligation-dependent probe amplification, MLPA) is used first, and chromosomal microarray / array-CGH confirms the deletion and defines its extent and co-deleted genes. This is what separates the microdeletion syndrome from intragenic NF1.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301288" target="_blank">PMID:20301288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of NF1 is established in a proband with two or more of the characteristic clinical features or one characteristic clinical feature and a heterozygous NF1 pathogenic variant."</div>
+
+
+                <div class="evidence-explanation">GeneReviews (Diagnosis/Testing) defines the NF1 diagnostic criteria; the microdeletion is identified within this framework by copy-number testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34168676" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34168676" target="_blank">PMID:34168676</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Positive results were confirmed by repeated MLPA experiments and further investigated with array CGH."</div>
+
+
+                <div class="evidence-explanation">Buki et al. describe the MLPA-then-array-CGH copy-number workflow used to detect and confirm NF1 microdeletions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5639,7 +6055,6 @@ This treatment targets Neurofibroma (HP:0001067). HP:0001067 is a phenotype from
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: NF1 Microdeletion Syndrome
 creation_date: &#34;2026-07-23T00:00:00Z&#34;
-updated_date: &#34;2026-07-23T00:00:00Z&#34;
 description: &gt;-
   NF1 microdeletion syndrome (chromosome 17q11.2 deletion syndrome, 1.4 Mb) is a
   contiguous gene deletion disorder caused by recurrent germline deletion of the
@@ -6606,7 +7021,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "NF1 Microdeletion Syndrome", "mondoId": "MONDO:0013357", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NF1_Microdeletion_Syndrome", "yamlRevision": "c97f076c5748"};
+        const OS_CONFIG = {"diseaseName": "NF1 Microdeletion Syndrome", "mondoId": "MONDO:0013357", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "NF1_Microdeletion_Syndrome", "yamlRevision": "9573ea53a322"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7025,5 +7440,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

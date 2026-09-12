@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Burkitt Lymphoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Burkitt Lymphoma</h1>
             <div class="header-meta">
 
@@ -3815,7 +3962,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3895,34 +4042,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Lymphoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3965,7 +4199,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-endemic-burkitt-lymphoma">
 
                     <div class="item-name">
                         Endemic Burkitt Lymphoma
@@ -3999,7 +4233,9 @@
                         <a href="https://bioregistry.io/DOI:10.1182/blood.2019004099" target="_blank">DOI:10.1182/blood.2019004099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4021,7 +4257,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7797201" target="_blank">PMID:7797201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4047,7 +4285,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sporadic-burkitt-lymphoma">
 
                     <div class="item-name">
                         Sporadic Burkitt Lymphoma
@@ -4081,7 +4319,9 @@
                         <a href="https://bioregistry.io/DOI:10.1182/blood.2019004099" target="_blank">DOI:10.1182/blood.2019004099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4107,7 +4347,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-immunodeficiency-associated-burkitt-lymphoma">
 
                     <div class="item-name">
                         Immunodeficiency-Associated Burkitt Lymphoma
@@ -4141,7 +4381,9 @@
                         <a href="https://bioregistry.io/DOI:10.1182/blood.2019004099" target="_blank">DOI:10.1182/blood.2019004099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4196,18 +4438,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         germinal center B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4235,17 +4479,21 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MYC
 
 
-    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7553</a>
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7553</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4268,24 +4516,46 @@ This pathophysiological event involves MYC (hgnc:7553). hgnc:7553 is a gene from
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
 
 
 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0045944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4351,7 +4621,9 @@ This pathophysiological event involves increased positive regulation of transcri
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40893393" target="_blank">PMID:40893393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4373,7 +4645,9 @@ This pathophysiological event involves increased positive regulation of transcri
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1301171" target="_blank">PMID:1301171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4406,18 +4680,20 @@ This pathophysiological event involves increased positive regulation of transcri
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         germinal center B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl">CL:0000844</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4445,17 +4721,21 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ID3 (hgnc:5362). hgnc:5362 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ID3
 
 
-    <a href="https://bioregistry.io/hgnc:5362" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5362</a>
+    <a href="https://bioregistry.io/hgnc:5362" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5362</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ID3 (hgnc:5362). hgnc:5362 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4480,17 +4760,21 @@ This pathophysiological event involves ID3 (hgnc:5362). hgnc:5362 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TCF3 (hgnc:11633). hgnc:11633 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TCF3
 
 
-    <a href="https://bioregistry.io/hgnc:11633" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11633</a>
+    <a href="https://bioregistry.io/hgnc:11633" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:11633</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TCF3 (hgnc:11633). hgnc:11633 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4515,17 +4799,21 @@ This pathophysiological event involves TCF3 (hgnc:11633). hgnc:11633 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CCND3 (hgnc:1585). hgnc:1585 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CCND3
 
 
-    <a href="https://bioregistry.io/hgnc:1585" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1585</a>
+    <a href="https://bioregistry.io/hgnc:1585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:1585</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCND3 (hgnc:1585). hgnc:1585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4554,18 +4842,20 @@ This pathophysiological event involves CCND3 (hgnc:1585). hgnc:1585 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4623,7 +4913,9 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24492847" target="_blank">PMID:24492847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4663,17 +4955,21 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4702,18 +4998,20 @@ This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4756,7 +5054,9 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                         <a href="https://bioregistry.io/DOI:10.3390/lymphatics1020010" target="_blank">DOI:10.3390/lymphatics1020010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4796,18 +5096,20 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4897,7 +5199,9 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40893393" target="_blank">PMID:40893393</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4932,7 +5236,7 @@ This pathophysiological event involves increased cell population proliferation (
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-aggressive-b-cell-lymphoma">
                 <div class="item-name">
                     Aggressive B-Cell Lymphoma
 
@@ -4956,7 +5260,9 @@ This pathophysiological event involves increased cell population proliferation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36522349" target="_blank">PMID:36522349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4999,7 +5305,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapidly enlarging abdominal disease is a common presentation of pediatric and sporadic Burkitt lymphoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031500\"}}, {\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"While MYC normally sensitizes cells to apoptosis, Burkitt lymphoma cells acquire mutations or alterations that counteract MYC-induced apoptosis. Cooperating TP53 alterations and EBV-associated survival signals can counteract cell death in subsets of Burkitt lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"CCND3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCND3\"], \"gene_terms\": [{\"label\": \"CCND3\", \"id\": \"hgnc:1585\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Central Nervous System Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Burkitt lymphoma can involve the central nervous system at diagnosis and requires CNS-oriented risk assessment and therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of constitutive MYC-driven proliferation and apoptosis resistance results in rapidly growing tumors and aggressive clinical progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"ID3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ID3\"], \"gene_terms\": [{\"label\": \"ID3\", \"id\": \"hgnc:5362\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Increased Circulating Lactate Dehydrogenase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked LDH elevation is a measurable correlate of high tumor burden and rapid tumor turnover.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025435\"}}, {\"id\": \"Jaw Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaw and facial-bone involvement is a characteristic presentation of endemic Burkitt lymphoma in children.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030793\"}}, {\"id\": \"MYC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYC\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}], \"association\": \"Somatic Translocation\", \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"MYC Translocation and Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hallmark of Burkitt lymphoma is translocation of the MYC oncogene on chromosome 8 to an immunoglobulin locus, most commonly t(8;14)(q24;q32) involving the IGH locus, or less commonly t(2;8) or t(8;22) involving light chain loci. This places MYC under control of immunoglobulin enhancers, resulting in constitutive MYC overexpression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"MYC\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}]}}, {\"id\": \"TCF3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCF3\"], \"gene_terms\": [{\"label\": \"TCF3\", \"id\": \"hgnc:11633\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Tumor Lysis Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High tumor burden and rapid cell turnover confer a substantial risk of tumor lysis syndrome, including at initial presentation and after therapy begins.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Uncontrolled B-Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive MYC activity drives cell-cycle progression. Cooperating ID3 loss-of-function or TCF3 activating mutations reinforce tonic B-cell-receptor and PI3K signaling and promote cyclin-D3-dependent G1-S progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"ID3\", \"TCF3\", \"CCND3\"], \"gene_terms\": [{\"label\": \"ID3\", \"id\": \"hgnc:5362\"}, {\"label\": \"TCF3\", \"id\": \"hgnc:11633\"}, {\"label\": \"CCND3\", \"id\": \"hgnc:1585\"}]}}], \"edges\": [{\"source\": \"MYC Translocation and Oncogene Activation\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC drives cell cycle entry and proliferation\"}, {\"source\": \"MYC Translocation and Oncogene Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC cooperates with anti-apoptotic signals to enable tumor cell survival\"}, {\"source\": \"Uncontrolled B-Cell Proliferation\", \"target\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extremely rapid proliferation leads to aggressive clinical behavior\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Abdominal Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid extranodal tumor expansion can produce a clinically apparent abdominal mass.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Jaw Swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid craniofacial tumor expansion in endemic Burkitt lymphoma produces jaw swelling.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Increased Circulating Lactate Dehydrogenase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High tumor burden and turnover are reflected by increased circulating LDH.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Tumor Lysis Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High tumor burden and rapid cell turnover create a substantial risk of spontaneous or treatment-associated tumor lysis.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Central Nervous System Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapidly progressive Burkitt lymphoma can involve the central nervous system.\"}, {\"source\": \"MYC\", \"target\": \"MYC Translocation and Oncogene Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ID3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCF3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCND3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapidly enlarging abdominal disease is a common presentation of pediatric and sporadic Burkitt lymphoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031500\"}}, {\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"While MYC normally sensitizes cells to apoptosis, Burkitt lymphoma cells acquire mutations or alterations that counteract MYC-induced apoptosis. Cooperating TP53 alterations and EBV-associated survival signals can counteract cell death in subsets of Burkitt lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"CCND3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCND3\"], \"gene_terms\": [{\"label\": \"CCND3\", \"id\": \"hgnc:1585\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Central Nervous System Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Burkitt lymphoma can involve the central nervous system at diagnosis and requires CNS-oriented risk assessment and therapy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of constitutive MYC-driven proliferation and apoptosis resistance results in rapidly growing tumors and aggressive clinical progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"ID3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ID3\"], \"gene_terms\": [{\"label\": \"ID3\", \"id\": \"hgnc:5362\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Increased Circulating Lactate Dehydrogenase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked LDH elevation is a measurable correlate of high tumor burden and rapid tumor turnover.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0025435\"}}, {\"id\": \"Jaw Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaw and facial-bone involvement is a characteristic presentation of endemic Burkitt lymphoma in children.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030793\"}}, {\"id\": \"MYC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYC\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}], \"association\": \"Somatic Translocation\", \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"MYC Translocation and Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hallmark of Burkitt lymphoma is translocation of the MYC oncogene on chromosome 8 to an immunoglobulin locus, most commonly t(8;14)(q24;q32) involving the IGH locus, or less commonly t(2;8) or t(8;22) involving light chain loci. This places MYC under control of immunoglobulin enhancers, resulting in constitutive MYC overexpression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"MYC\"], \"gene_terms\": [{\"label\": \"MYC\", \"id\": \"hgnc:7553\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"TCF3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCF3\"], \"gene_terms\": [{\"label\": \"TCF3\", \"id\": \"hgnc:11633\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\", \"relationship_type\": \"COOPERATING\"}}, {\"id\": \"Tumor Lysis Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High tumor burden and rapid cell turnover confer a substantial risk of tumor lysis syndrome, including at initial presentation and after therapy begins.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\"}}, {\"id\": \"Uncontrolled B-Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive MYC activity drives cell-cycle progression. Cooperating ID3 loss-of-function or TCF3 activating mutations reinforce tonic B-cell-receptor and PI3K signaling and promote cyclin-D3-dependent G1-S progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"ID3\", \"TCF3\", \"CCND3\"], \"gene_terms\": [{\"label\": \"ID3\", \"id\": \"hgnc:5362\"}, {\"label\": \"TCF3\", \"id\": \"hgnc:11633\"}, {\"label\": \"CCND3\", \"id\": \"hgnc:1585\"}]}}], \"edges\": [{\"source\": \"MYC Translocation and Oncogene Activation\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC drives cell cycle entry and proliferation\"}, {\"source\": \"MYC Translocation and Oncogene Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC cooperates with anti-apoptotic signals to enable tumor cell survival\"}, {\"source\": \"Uncontrolled B-Cell Proliferation\", \"target\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extremely rapid proliferation leads to aggressive clinical behavior\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Abdominal Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid extranodal tumor expansion can produce a clinically apparent abdominal mass.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Jaw Swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid craniofacial tumor expansion in endemic Burkitt lymphoma produces jaw swelling.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Increased Circulating Lactate Dehydrogenase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High tumor burden and turnover are reflected by increased circulating LDH.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Tumor Lysis Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High tumor burden and rapid cell turnover create a substantial risk of spontaneous or treatment-associated tumor lysis.\"}, {\"source\": \"High-Grade Malignancy with Rapid Tumor Growth\", \"target\": \"Central Nervous System Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapidly progressive Burkitt lymphoma can involve the central nervous system.\"}, {\"source\": \"MYC\", \"target\": \"MYC Translocation and Oncogene Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ID3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCF3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCND3\", \"target\": \"Uncontrolled B-Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5012,25 +5318,110 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-cell-lymphoma" data-dismech-node="B-Cell Lymphoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B-Cell Lymphoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012191</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">HP:0030080 &#34;Burkitt lymphoma&#34; exists and looks like the more specific binding, but it is deliberately NOT used here. HPO places HP:0030080 under HP:0012539 Non-Hodgkin lymphoma, which is a sibling of HP:0012191 B-cell lymphoma rather than a descendant of it (verified with OAK: the ancestors of HP:0030080 are Neoplasm / Lymphoma / Hematological neoplasm / Non-Hodgkin lymphoma, and HP:0012191 is not among them). Because grouping criteria are evaluated over the ontology closure, swapping to HP:0030080 would pass every validator while silently turning this entry into a NOT_SATISFIED contradiction against a HAS_PHENOTYPE HP:0012191 criterion. This looks like a genuine HPO gap — Burkitt lymphoma is unambiguously a mature B-cell neoplasm — and warrants an upstream NTR to reparent HP:0030080 under HP:0012191.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36522349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36522349" target="_blank">PMID:36522349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Burkitt lymphoma (BL) is an aggressive form of B cell lymphoma that can affect children and adults."</div>
+
+
+                <div class="evidence-explanation">Directly states Burkitt lymphoma is a form of B-cell lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
@@ -5043,16 +5434,20 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5067,13 +5462,15 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40893393" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40893393" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40893393" target="_blank">PMID:40893393</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5101,7 +5498,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -5114,16 +5511,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0031500</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal mass
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031500" target="_blank" class="curie-chip curie-chip-hp">HP:0031500</a>
-
-
+This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5144,7 +5545,9 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38091052" target="_blank">PMID:38091052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5172,31 +5575,114 @@ This clinical feature is Abdominal mass (HP:0031500). HP:0031500 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
+                    Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-involvement" data-dismech-node="Central Nervous System Involvement" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-jaw-swelling" data-dismech-node="Jaw Swelling" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Central Nervous System Involvement
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        Jaw Swelling
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030793</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.">
-                        Malignant neoplasm of the central nervous system
+This clinical feature is Jaw swelling (HP:0030793). HP:0030793 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp">HP:0100836</a>
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19623516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19623516" target="_blank">PMID:19623516</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The endemic form of this malignancy occurs primarily in children aged 5 to 7 years, and it presents with jaw and facial bone involvement."</div>
+
+
+                <div class="evidence-explanation">This clinical review supports jaw involvement as a characteristic manifestation of endemic Burkitt lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-dehydrogenase" data-dismech-node="Increased Circulating Lactate Dehydrogenase" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Circulating Lactate Dehydrogenase
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating lactate dehydrogenase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0025435</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5217,7 +5703,90 @@ This clinical feature is Malignant neoplasm of the central nervous system (HP:01
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38091052" target="_blank">PMID:38091052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"170 (37.2%) had lactate dehydrogenase (LDH) levels ≥ 1000 U/L at initial diagnosis, and 137 (30%) had tumor lysis syndrome."</div>
+
+
+                <div class="evidence-explanation">The cohort found marked LDH elevation in 37.2% of 456 children with Burkitt lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-involvement" data-dismech-node="Central Nervous System Involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Central Nervous System Involvement
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Malignant neoplasm of the central nervous system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100836</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38091052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38091052" target="_blank">PMID:38091052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5245,138 +5814,12 @@ This clinical feature is Malignant neoplasm of the central nervous system (HP:01
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-jaw-swelling" data-dismech-node="Jaw Swelling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Jaw Swelling
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Jaw swelling (HP:0030793). HP:0030793 is a phenotype from the Human Phenotype Ontology.">
-                        Jaw swelling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030793" target="_blank" class="curie-chip curie-chip-hp">HP:0030793</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19623516" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19623516" target="_blank">PMID:19623516</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The endemic form of this malignancy occurs primarily in children aged 5 to 7 years, and it presents with jaw and facial bone involvement."</div>
-
-
-                <div class="evidence-explanation">This clinical review supports jaw involvement as a characteristic manifestation of endemic Burkitt lymphoma.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-dehydrogenase" data-dismech-node="Increased Circulating Lactate Dehydrogenase" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Circulating Lactate Dehydrogenase
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating lactate dehydrogenase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp">HP:0025435</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38091052" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38091052" target="_blank">PMID:38091052</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"170 (37.2%) had lactate dehydrogenase (LDH) levels ≥ 1000 U/L at initial diagnosis, and 137 (30%) had tumor lysis syndrome."</div>
-
-
-                <div class="evidence-explanation">The cohort found marked LDH elevation in 37.2% of 456 children with Burkitt lymphoma.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tumor-lysis-syndrome" data-dismech-node="Tumor Lysis Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5405,7 +5848,9 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38091052" target="_blank">PMID:38091052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5483,15 +5928,17 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYC
 
 
-    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7553</a>
+    <a href="https://bioregistry.io/hgnc:7553" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7553</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5515,7 +5962,9 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1301171" target="_blank">PMID:1301171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5552,15 +6001,17 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5584,7 +6035,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.3390/lymphatics1020010" target="_blank">DOI:10.3390/lymphatics1020010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5621,15 +6074,17 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ID3 (hgnc:5362). hgnc:5362 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ID3
 
 
-    <a href="https://bioregistry.io/hgnc:5362" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5362</a>
+    <a href="https://bioregistry.io/hgnc:5362" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:5362</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ID3 (hgnc:5362). hgnc:5362 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5653,7 +6108,9 @@ This disease-associated gene is ID3 (hgnc:5362). hgnc:5362 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24492847" target="_blank">PMID:24492847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5690,15 +6147,17 @@ This disease-associated gene is ID3 (hgnc:5362). hgnc:5362 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TCF3 (hgnc:11633). hgnc:11633 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TCF3
 
 
-    <a href="https://bioregistry.io/hgnc:11633" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11633</a>
+    <a href="https://bioregistry.io/hgnc:11633" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11633</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCF3 (hgnc:11633). hgnc:11633 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5722,7 +6181,9 @@ This disease-associated gene is TCF3 (hgnc:11633). hgnc:11633 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24492847" target="_blank">PMID:24492847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5759,15 +6220,17 @@ This disease-associated gene is TCF3 (hgnc:11633). hgnc:11633 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CCND3 (hgnc:1585). hgnc:1585 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CCND3
 
 
-    <a href="https://bioregistry.io/hgnc:1585" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1585</a>
+    <a href="https://bioregistry.io/hgnc:1585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1585</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CCND3 (hgnc:1585). hgnc:1585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5791,7 +6254,9 @@ This disease-associated gene is CCND3 (hgnc:1585). hgnc:1585 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24492847" target="_blank">PMID:24492847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5821,6 +6286,9 @@ This disease-associated gene is CCND3 (hgnc:1585). hgnc:1585 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5837,18 +6305,18 @@ This disease-associated gene is CCND3 (hgnc:1585). hgnc:1585 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -5866,6 +6334,14 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5890,7 +6366,9 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36522349" target="_blank">PMID:36522349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5920,18 +6398,18 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -5956,21 +6434,31 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5993,7 +6481,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32492302" target="_blank">PMID:32492302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6023,18 +6513,18 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6059,36 +6549,48 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses allopurinol (NCIT:C224). NCIT:C224 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         allopurinol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C224" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C224</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C224" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses allopurinol (NCIT:C224). NCIT:C224 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rasburicase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2404" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2404</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2404" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C2404</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6111,7 +6613,9 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39909657" target="_blank">PMID:39909657</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6143,6 +6647,361 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-morphology-and-myc-centered-diagnostic-confirmation">
+                <div class="item-name">
+                    Morphology and MYC-centered diagnostic confirmation
+
+                </div>
+
+                <div class="item-desc">Burkitt lymphoma diagnosis integrates tumor morphology, MYC expression or rearrangement, and B-cell immunophenotyping; extranodal cases still require tissue confirmation with lymphoma markers.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> High-grade B-cell lymphoma morphology with high MYC expression and/or MYC translocation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36522349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36522349" target="_blank">PMID:36522349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BL is diagnosed on the basis of morphology and high expression of MYC."</div>
+
+
+                <div class="evidence-explanation">The disease primer summarizes morphology and MYC expression as core diagnostic criteria.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40893393" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40893393" target="_blank">PMID:40893393</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Push enteroscopy with biopsy confirmed the recurrence of BL in the jejunum, with positive markers for CD45, CD20, BCL6, and c-Myc."</div>
+
+
+                <div class="evidence-explanation">This case illustrates tissue confirmation with B-cell and MYC immunophenotypic markers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-2000-2019">
+                <div class="item-name">United States, 2000-2019</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.396 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">SEER 22 age-standardized incidence was 3.96 per million person-years, with a 2.85:1 male-to-female ratio; incidence varied by age and changed over time.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/ijc.34618" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ijc.34618" target="_blank">DOI:10.1002/ijc.34618</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The age‐standardized BL incidence rate was 3.96/million person‐years, with a 2.85:1 male‐to‐female ratio."</div>
+
+
+                <div class="evidence-explanation">SEER 22 directly quantifies United States Burkitt lymphoma incidence and the sex ratio during 2000-2019.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-epstein-barr-virus-ebv">
+                <div class="item-name">Epstein-Barr Virus (EBV)</div>
+
+                <div class="item-desc">EBV infection is strongly associated with endemic Burkitt lymphoma and occurs in smaller, variable fractions of other forms. EBV-positive tumors commonly show restricted latency programs, and EBV can provide survival advantages that counter MYC-associated apoptotic pressure.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human gammaherpesvirus 4
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10376" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:10376</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7797201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7797201" target="_blank">PMID:7797201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There is a strong association (approximately 95%) of endemic Burkitt&#39;s lymphoma with Epstein-Barr virus (EBV)"</div>
+
+
+                <div class="evidence-explanation">Abstract reports high EBV association in endemic Burkitt lymphoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.26508/lsa.202101355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.26508/lsa.202101355" target="_blank">DOI:10.26508/lsa.202101355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EBV has been shown to provide a survival advantage by limiting apoptosis induced by the overexpression of MYC, and functional analysis of apoptosis-related proteins demonstrates that EBV suppresses apoptosis in multiple latency types including eBL"</div>
+
+
+                <div class="evidence-explanation">This review and model-development study describes an EBV-associated survival mechanism that counteracts MYC-induced apoptosis in endemic Burkitt lymphoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/diagnostics13122068" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/diagnostics13122068" target="_blank">DOI:10.3390/diagnostics13122068</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of Epstein–Barr virus in patients with Burkitt lymphoma was 57.5% (95% CI: 51.5 to 63.4, n = 4837)."</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 135 studies directly estimates worldwide EBV prevalence among patients with Burkitt lymphoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -6155,7 +7014,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001067">
                 <div class="item-name">
                     Integrated genomic, transcriptional and epigenomic analyses in germinal center-cell lymphomas link the mutation landscape with differential DNA methylation in Burkitt lymphoma
 
@@ -6190,7 +7049,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001199">
                 <div class="item-name">
                     MINCR is a MYC-induced lncRNA able to modulate MYC’s transcriptional network in Burkitt lymphoma cells
 
@@ -6225,7 +7084,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002198">
                 <div class="item-name">
                     The genomic landscape of Burkitt Lymphoma
 
@@ -6260,7 +7119,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000080781">
                 <div class="item-name">
                     HSP90 promotes Burkitt lymphoma cell survival by maintaining tonic B cell receptor signaling
 
@@ -6293,7 +7152,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs001282">
                 <div class="item-name">
                     Genomics of Endemic Burkitt Lymphoma
 
@@ -6326,7 +7185,7 @@ This treatment uses rasburicase (NCIT:C2404). NCIT:C2404 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000562">
                 <div class="item-name">
                     The Genetic Landscape of Mutations in Burkitt Lymphoma
 
@@ -6486,13 +7345,15 @@ infectious_agent:
     snippet: EBV has been shown to provide a survival advantage by limiting apoptosis induced by the overexpression of MYC, and functional analysis of apoptosis-related proteins demonstrates that EBV suppresses apoptosis in multiple latency types including eBL
     explanation: This review and model-development study describes an EBV-associated survival mechanism that counteracts MYC-induced apoptosis in endemic Burkitt lymphoma.
   - reference: DOI:10.3390/diagnostics13122068
-    reference_title: &#34;Prevalence of Epstein–Barr Virus in Patients with Burkitt Lymphoma: A Systematic Review and Meta-Analysis.&#34;
+    reference_title: &#34;Worldwide Prevalence of Epstein–Barr Virus in Patients with Burkitt Lymphoma: A Systematic Review and Meta-Analysis&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of Epstein–Barr virus in patients with Burkitt lymphoma was 57.5% (95% CI: 51.5 to 63.4, n = 4837).&#34;
     explanation: Meta-analysis of 135 studies directly estimates worldwide EBV prevalence among patients with Burkitt lymphoma.
 pathophysiology:
 - name: MYC Translocation and Oncogene Activation
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     The hallmark of Burkitt lymphoma is translocation of the MYC oncogene on
     chromosome 8 to an immunoglobulin locus, most commonly t(8;14)(q24;q32)
@@ -6698,6 +7559,37 @@ histopathology:
     explanation: Abstract describes Burkitt lymphoma as an aggressive B-cell lymphoma.
 
 phenotypes:
+- category: Neoplastic
+  name: B-Cell Lymphoma
+  description: &gt;-
+    Burkitt lymphoma is an aggressive neoplasm of mature B lymphocytes and is
+    classified as a B-cell non-Hodgkin lymphoma.
+  phenotype_term:
+    preferred_term: B-cell lymphoma
+    term:
+      id: HP:0012191
+      label: B-cell lymphoma
+  evidence:
+  - reference: PMID:36522349
+    reference_title: &#34;Burkitt lymphoma.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Burkitt lymphoma (BL) is an aggressive form of B cell lymphoma that can
+      affect children and adults.
+    explanation: Directly states Burkitt lymphoma is a form of B-cell lymphoma.
+  notes: &gt;-
+    HP:0030080 &#34;Burkitt lymphoma&#34; exists and looks like the more specific
+    binding, but it is deliberately NOT used here. HPO places HP:0030080 under
+    HP:0012539 Non-Hodgkin lymphoma, which is a sibling of HP:0012191 B-cell
+    lymphoma rather than a descendant of it (verified with OAK: the ancestors of
+    HP:0030080 are Neoplasm / Lymphoma / Hematological neoplasm / Non-Hodgkin
+    lymphoma, and HP:0012191 is not among them). Because grouping criteria are
+    evaluated over the ontology closure, swapping to HP:0030080 would pass every
+    validator while silently turning this entry into a NOT_SATISFIED
+    contradiction against a HAS_PHENOTYPE HP:0012191 criterion. This looks like a
+    genuine HPO gap — Burkitt lymphoma is unambiguously a mature B-cell neoplasm
+    — and warrants an upstream NTR to reparent HP:0030080 under HP:0012191.
 - category: Abdominal
   name: Abdominal Mass
   description: &gt;-
@@ -6797,7 +7689,7 @@ phenotypes:
   evidence:
   - reference: PMID:40893393
     reference_title: &#34;Navigating Rare Presentations: Recurrent Burkitt Lymphoma Presenting as a Jejunal Mass.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Jejunal involvement in BL is rare compared to more common sites like the lymph nodes and central nervous system.&#34;
     explanation: The clinical report and review identify lymph nodes as a common site of Burkitt lymphoma involvement.
@@ -7194,7 +8086,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1002/ijc.34618" target="_blank">DOI:10.1002/ijc.34618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7263,7 +8157,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1002/path.6246" target="_blank">DOI:10.1002/path.6246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7332,7 +8228,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.1182/blood.2019004099" target="_blank">DOI:10.1182/blood.2019004099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7401,7 +8299,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.26508/lsa.202101355" target="_blank">DOI:10.26508/lsa.202101355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7470,7 +8370,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/diagnostics13122068" target="_blank">DOI:10.3390/diagnostics13122068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7539,7 +8441,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms252313213" target="_blank">DOI:10.3390/ijms252313213</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7608,7 +8512,9 @@ datasets:
                         <a href="https://bioregistry.io/DOI:10.3390/lymphatics1020010" target="_blank">DOI:10.3390/lymphatics1020010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7978,7 +8884,7 @@ These anatomical suggestions align with “high extranodal involvement” emphas
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Burkitt Lymphoma", "mondoId": "MONDO:0007243", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Burkitt_Lymphoma", "yamlRevision": "f204b2ac9bbd"};
+        const OS_CONFIG = {"diseaseName": "Burkitt Lymphoma", "mondoId": "MONDO:0007243", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Burkitt_Lymphoma", "yamlRevision": "6f71549022f7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8397,5 +9303,73 @@ These anatomical suggestions align with “high extranodal involvement” emphas
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

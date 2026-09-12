@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Distal Hereditary Motor Neuronopathy, Autosomal Dominant</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Distal Hereditary Motor Neuronopathy, Autosomal Dominant</h1>
             <div class="header-meta">
 
@@ -3691,7 +3838,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F) and HSPB8 (dHMN2A), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry.
+                Autosomal dominant distal hereditary motor neuronopathy (dHMN; also called autosomal dominant distal spinal muscular atrophy, dSMA) is a clinically and genetically heterogeneous group of inherited lower motor neuron disorders characterized by slowly progressive, length-dependent distal muscle weakness and atrophy with minimal or absent sensory involvement. Neurophysiology shows chronic neurogenic denervation on EMG with a motor axonal pattern on nerve conduction studies and preserved sensory responses, distinguishing dHMN from axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are caused by heterozygous mutations in genes affecting motor-neuron and distal-axon biology, prominently the small heat-shock protein chaperones HSPB1 (dHMN2B / CMT2F), HSPB3 (dHMN2C) and HSPB8 (dHMN2A, split out - see below), the endoplasmic-reticulum protein seipin BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1 (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1 (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation channel TRPV4 (scapuloperoneal/congenital distal SMA spectrum). Recurrent pathogenic mechanisms include disrupted protein quality control with aggregation, impaired axonal transport, defective tRNA charging/translation, and disturbed neuromuscular-junction transmission. The autosomal recessive forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry. HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried here as a subtype - it is curated as a specific toxic-gain-of-function proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3 chaperone-assisted selective autophagy complex, which is finer than the general proteostasis framing of this entry. Its subtype row, HSPB8 genetic block and OMIM:158590 assertion moved with it. A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9 (MONDO:0060585) and has its own entry, `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in here - its curated mechanism is two-armed (dominant-negative loss of tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic TrpRS activity) and is not represented by the proteostasis and axonal-transport framing of this entry.
 
             </p>
 
@@ -3882,27 +4029,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3961,68 +4185,7 @@
 
 
 
-                <div class="item-box subtype-box">
-
-                    <div class="item-name">
-                        dHMN2A (HSPB8-related)
-
-
-
-                    </div>
-                    <div class="subtype-meta">
-
-
-
-
-
-                    </div>
-
-                    <div class="item-desc">Autosomal dominant distal hereditary motor neuropathy type II caused by heterozygous missense mutations in HSPB8 (HSP22), most recurrently at the K141 hot-spot residue. HSPB8 is a small heat-shock protein chaperone; mutant protein promotes intracellular aggregate formation and binds its partner HSPB1 abnormally.
-</div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15122253" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In two pedigrees with distal hereditary motor neuropathy type II linked to chromosome 12q24.3, we identified the same mutation (K141N) in small heat-shock 22-kDa protein 8 (encoded by HSPB8; also called HSP22)."</div>
-
-
-                <div class="evidence-explanation">Establishes heterozygous HSPB8 K141 mutations as the cause of dominant dHMN type II.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-                </div>
-
-
-
-
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn2b">
 
                     <div class="item-name">
                         dHMN2B / CMT2F (HSPB1-related)
@@ -4057,7 +4220,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122254" target="_blank">PMID:15122254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4083,7 +4248,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn5">
 
                     <div class="item-name">
                         dHMN5 / Silver syndrome (BSCL2-related)
@@ -4118,7 +4283,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14981520" target="_blank">PMID:14981520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4144,7 +4311,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn5-gars">
 
                     <div class="item-name">
                         dHMN5 / CMT2D (GARS1-related)
@@ -4179,7 +4346,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12690580" target="_blank">PMID:12690580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4205,7 +4374,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn7b">
 
                     <div class="item-name">
                         dHMN7B (DCTN1-related)
@@ -4240,7 +4409,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12627231" target="_blank">PMID:12627231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4266,7 +4437,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn7a">
 
                     <div class="item-name">
                         dHMN7A (SLC5A7-related)
@@ -4301,7 +4472,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23141292" target="_blank">PMID:23141292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4327,7 +4500,143 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn2c">
+
+                    <div class="item-name">
+                        dHMN2C (HSPB3-related)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013243" target="_blank">MONDO:0013243</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                HSPB3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:5248" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:5248</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HSPB3 (hgnc:5248). hgnc:5248 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Distal hereditary motor neuronopathy type 2C, caused by a heterozygous variant in HSPB3 (HSPL27), a third small heat-shock protein of the same family as the HSPB1 and HSPB8 genes that dominate this entry. The founding report identified c.21G&gt;T (p.Arg7Ser) in the N-terminal domain in two affected siblings with an asymmetric, length-dependent, predominantly motor axonal neuropathy, found by screening all ten sHSP genes in a neuropathy cohort rather than by linkage. A second heterozygous allele, c.352T&gt;C (p.Tyr118His) in the alpha-crystallin domain, was later reported in a Korean family that was ascribed to axonal CMT2 rather than to dHMN, so the two published alleles sit on either side of the dHMN/CMT2 boundary that this entry otherwise draws electrophysiologically.
+The evidence base is deliberately recorded as thin. A 2016 review of the chaperone dHMNs states that only one family was then known to carry a clinical HSPB3 mutation, and ClinGen&#39;s Gene-Disease Validity table (release pinned in data/clingen/MANIFEST.yaml) contains no HSPB3 assertion at all, while it classifies HSPB8 as Definitive for MONDO:0015362 - this entry&#39;s own disease term. HSPB3 is therefore curated here as a subtype row rather than as a separate disease entry: it has two reported alleles in two families and no disease-specific pathophysiology that is distinguishable from the chaperone/proteostasis chain this entry already models.
+Naming trap. dHMN2C (HSPB3) is not HMSN2C, the hereditary motor and sensory neuropathy caused by TRPV4 that appears in the `dHMN-TRPV4` row of this same entry. The two abbreviations differ by one letter and name different genes and different diseases.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20142617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20142617" target="_blank">PMID:20142617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A missense mutation in the gene encoding small heat shock protein B3 (HSPB3, also called HSP27, protein 3) was discovered in 2 siblings with an asymmetric axonal motor neuropathy."</div>
+
+
+                <div class="evidence-explanation">Founding report assigning HSPB3 to a dominant-pattern axonal motor neuropathy, which is the gene-disease claim this subtype row makes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20142617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20142617" target="_blank">PMID:20142617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mutation, HSPB3(R7S), is located in the N-terminal domain and involves the loss of a conserved arginine."</div>
+
+
+                <div class="evidence-explanation">Locates the founding allele in the N-terminal domain, which is what distinguishes it from the alpha-crystallin-domain allele reported later.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28018906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28018906" target="_blank">PMID:28018906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At present, only one family is thought to carry clinical mutations in the HSPB3/HSPL27 gene: a missense mutation c.21G&gt;T (p.R7S) described in two affected sisters who suffer from dHMN (dHMN2C)"</div>
+
+
+                <div class="evidence-explanation">Review naming the entity dHMN2C and recording how narrow the evidence base was, which is the reason this is a subtype row rather than its own entry.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-dhmn-trpv4">
 
                     <div class="item-name">
                         Scapuloperoneal / congenital distal SMA (TRPV4-related)
@@ -4362,7 +4671,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20037588" target="_blank">PMID:20037588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4418,18 +4729,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4457,18 +4770,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Protein folding (chaperone function), annotated with protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Protein folding (chaperone function)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Protein folding (chaperone function), annotated with protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4527,7 +4842,9 @@ This pathophysiological event involves decreased Protein folding (chaperone func
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21902652" target="_blank">PMID:21902652</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4561,18 +4878,20 @@ This pathophysiological event involves decreased Protein folding (chaperone func
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4600,18 +4919,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go">GO:0098930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0098930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4670,7 +4991,9 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14981520" target="_blank">PMID:14981520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4692,7 +5015,9 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12627231" target="_blank">PMID:12627231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4726,18 +5051,20 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4765,18 +5092,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Anterograde axonal transport (GO:0008089). GO:0008089 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Anterograde axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008089" target="_blank" class="curie-chip curie-chip-go">GO:0008089</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008089" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008089</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Anterograde axonal transport (GO:0008089). GO:0008089 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4835,7 +5164,9 @@ This pathophysiological event involves decreased Anterograde axonal transport (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4894,7 +5225,9 @@ This pathophysiological event involves decreased Anterograde axonal transport (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4961,13 +5294,11 @@ This pathophysiological event involves decreased Anterograde axonal transport (G
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4977,7 +5308,7 @@ This pathophysiological event involves decreased Anterograde axonal transport (G
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes cavus" data-dismech-type="phenotype">
@@ -4986,16 +5317,20 @@ This pathophysiological event involves decreased Anterograde axonal transport (G
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001761</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.">
-                        Pes cavus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp">HP:0001761</a>
-
-
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5016,7 +5351,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14981520" target="_blank">PMID:14981520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5042,13 +5379,83 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-drop" data-dismech-node="Foot drop" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Foot drop
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Foot dorsiflexor weakness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0009027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36445400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"length-dependent distal muscle weakness and atrophy"</div>
+
+
+                <div class="evidence-explanation">Foot drop (ankle dorsiflexor weakness) is the cardinal lower-limb manifestation of the length-dependent distal motor weakness that defines dHMN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-distal-muscle-weakness" data-dismech-node="Distal muscle weakness" data-dismech-type="phenotype">
@@ -5057,16 +5464,20 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002460</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal muscle weakness (HP:0002460), qualified as course progressive. HP:0002460 is a phenotype from the Human Phenotype Ontology.">
-                        Distal muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
-
-
+This clinical feature is Distal muscle weakness (HP:0002460), qualified as course progressive. HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5105,7 +5516,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5131,22 +5544,94 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal amyotrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Distal amyotrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15122253" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pure motor disorders of the peripheral nervous system resulting in severe atrophy and wasting of distal limb muscles"</div>
+
+
+                <div class="evidence-explanation">Severe distal muscle atrophy is a hallmark of dominant dHMN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spasticity
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
-                        Spasticity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
-
-
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5167,7 +5652,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14981520" target="_blank">PMID:14981520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5199,78 +5686,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gait disturbance
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
-                        Gait disturbance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36445400" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"length-dependent distal muscle weakness and atrophy"</div>
-
-
-                <div class="evidence-explanation">The distal lower-limb weakness of dHMN produces a steppage / foot-drop gait disturbance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lower-motor-neuron-axonal-degeneration" data-dismech-node="Lower motor neuron axonal degeneration" data-dismech-type="phenotype">
@@ -5279,16 +5695,22 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal lower motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002366" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002366</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP:0002366 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal lower motor neuron morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002366" target="_blank" class="curie-chip curie-chip-hp">HP:0002366</a>
-
-
+This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP:0002366 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,7 +5731,9 @@ This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36380488" target="_blank">PMID:36380488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5335,84 +5759,26 @@ This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal amyotrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal amyotrophy
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.">
-                        Distal amyotrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp">HP:0003693</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15122253" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pure motor disorders of the peripheral nervous system resulting in severe atrophy and wasting of distal limb muscles"</div>
-
-
-                <div class="evidence-explanation">Severe distal muscle atrophy is a hallmark of dominant dHMN.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-motor-axonal-neuropathy" data-dismech-node="Motor axonal neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor axonal neuropathy
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007002</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a phenotype from the Human Phenotype Ontology.">
-                        Motor axonal neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007002" target="_blank" class="curie-chip curie-chip-hp">HP:0007002</a>
-
-
+This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5433,7 +5799,9 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21902652" target="_blank">PMID:21902652</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5459,22 +5827,26 @@ This clinical feature is Motor axonal neuropathy (HP:0007002). HP:0007002 is a p
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-drop" data-dismech-node="Foot drop" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Foot drop
+                        Gait disturbance
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001288</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP:0009027). HP:0009027 is a phenotype from the Human Phenotype Ontology.">
-                        Foot dorsiflexor weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009027" target="_blank" class="curie-chip curie-chip-hp">HP:0009027</a>
-
-
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5495,7 +5867,9 @@ This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5505,7 +5879,7 @@ This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP
                 <div class="evidence-snippet">"length-dependent distal muscle weakness and atrophy"</div>
 
 
-                <div class="evidence-explanation">Foot drop (ankle dorsiflexor weakness) is the cardinal lower-limb manifestation of the length-dependent distal motor weakness that defines dHMN.</div>
+                <div class="evidence-explanation">The distal lower-limb weakness of dHMN produces a steppage / foot-drop gait disturbance.</div>
 
 
 
@@ -5560,77 +5934,6 @@ This clinical feature is Foot drop, annotated with Foot dorsiflexor weakness (HP
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box genetic-box anchor-target" id="genetic-hspb8" data-dismech-node="HSPB8" data-dismech-type="genetic">
-                <div class="item-name">
-                    HSPB8
-
-                </div>
-
-                <div class="item-meta">
-
-
-
-
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from the HUGO Gene Nomenclature Committee.">
-                        Gene: HSPB8
-
-
-    <a href="https://bioregistry.io/hgnc:30171" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30171</a>
-
-
-                    </span>
-
-
-
-                </div>
-
-
-                <div class="item-meta">
-
-                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
-
-                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15122253" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122253" target="_blank">PMID:15122253</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we identified the same mutation (K141N) in small heat-shock 22-kDa protein 8 (encoded by HSPB8; also called HSP22)."</div>
-
-
-                <div class="evidence-explanation">HSPB8 K141 mutations cause dominant dHMN type II.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-            </div>
-
             <div class="item-box genetic-box anchor-target" id="genetic-hspb1" data-dismech-node="HSPB1" data-dismech-type="genetic">
                 <div class="item-name">
                     HSPB1
@@ -5642,15 +5945,17 @@ This disease-associated gene is HSPB8 (hgnc:30171). hgnc:30171 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HSPB1
 
 
-    <a href="https://bioregistry.io/hgnc:5246" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5246</a>
+    <a href="https://bioregistry.io/hgnc:5246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:5246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5678,7 +5983,9 @@ This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122254" target="_blank">PMID:15122254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5713,15 +6020,17 @@ This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BSCL2
 
 
-    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15832</a>
+    <a href="https://bioregistry.io/hgnc:15832" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:15832</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5749,7 +6058,9 @@ This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14981520" target="_blank">PMID:14981520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5784,15 +6095,17 @@ This disease-associated gene is BSCL2 (hgnc:15832). hgnc:15832 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GARS1
 
 
-    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4162</a>
+    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:4162</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5820,7 +6133,9 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12690580" target="_blank">PMID:12690580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5855,15 +6170,17 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DCTN1
 
 
-    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2711</a>
+    <a href="https://bioregistry.io/hgnc:2711" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2711</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5891,7 +6208,9 @@ This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12627231" target="_blank">PMID:12627231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,15 +6245,17 @@ This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SLC5A7 (hgnc:14025). hgnc:14025 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC5A7
 
 
-    <a href="https://bioregistry.io/hgnc:14025" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14025</a>
+    <a href="https://bioregistry.io/hgnc:14025" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:14025</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC5A7 (hgnc:14025). hgnc:14025 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5962,7 +6283,9 @@ This disease-associated gene is SLC5A7 (hgnc:14025). hgnc:14025 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23141292" target="_blank">PMID:23141292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5973,6 +6296,105 @@ This disease-associated gene is SLC5A7 (hgnc:14025). hgnc:14025 is a gene from t
 
 
                 <div class="evidence-explanation">A dominant SLC5A7 mutation causes dHMN type VII.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-hspb3" data-dismech-node="HSPB3" data-dismech-type="genetic">
+                <div class="item-name">
+                    HSPB3
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HSPB3
+
+
+    <a href="https://bioregistry.io/hgnc:5248" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:5248</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HSPB3 (hgnc:5248). hgnc:5248 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28018906" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28018906" target="_blank">PMID:28018906</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HSPB3 interacts with HSPB2 and these two proteins in turn both interact with HSPB8, potentially contributing to maintain myofibril integrity"</div>
+
+
+                <div class="evidence-explanation">Places HSPB3 inside the same small heat-shock protein complex as HSPB8, which is why a variant in it plausibly acts through the proteostasis chain this entry models. The functional link is stated as a potential contribution, not a demonstrated disease mechanism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37804589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37804589" target="_blank">PMID:37804589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this human HSPB3 mutant gene induced a loss of motor activity accompanied by reduced mitochondrial membrane potential in fly neuronal tissues"</div>
+
+
+                <div class="evidence-explanation">First animal model of an HSPB3 variant, showing the patient-derived Y118H allele produces a motor phenotype in fly neurons. It is a fly model of the CMT2-associated allele, not of the dHMN2C R7S allele, so it supports the gene being pathogenic rather than the specific dHMN2C mechanism.</div>
 
 
 
@@ -5997,15 +6419,17 @@ This disease-associated gene is SLC5A7 (hgnc:14025). hgnc:14025 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRPV4
 
 
-    <a href="https://bioregistry.io/hgnc:18083" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18083</a>
+    <a href="https://bioregistry.io/hgnc:18083" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:18083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6033,7 +6457,9 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20037588" target="_blank">PMID:20037588</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6063,6 +6489,203 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-dhmn2b-cmt2f-hspb1">
+
+
+    <div class="item-name">OMIM dHMN2B / CMT2F (HSPB1)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:606595" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:606595">OMIM:606595</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for distal hereditary motor neuronopathy type 2B / CMT2F (HSPB1-related).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-dhmn5-silver-syndrome-bscl2">
+
+
+    <div class="item-name">OMIM dHMN5 / Silver syndrome (BSCL2)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:270685" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:270685">OMIM:270685</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for Silver syndrome / distal hereditary motor neuropathy type V (BSCL2-related).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-dhmn5-cmt2d-gars1">
+
+
+    <div class="item-name">OMIM dHMN5 / CMT2D (GARS1)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:601472" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:601472">OMIM:601472</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for distal spinal muscular atrophy type V / CMT2D (GARS1-related).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-dhmn7b-dctn1">
+
+
+    <div class="item-name">OMIM dHMN7B (DCTN1)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:607641" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:607641">OMIM:607641</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for distal hereditary motor neuronopathy type 7B (DCTN1-related).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-dhmn2c-hspb3">
+
+
+    <div class="item-name">OMIM dHMN2C (HSPB3)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:613376" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:613376">OMIM:613376</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for distal hereditary motor neuronopathy type 2C (HSPB3-related). The number is taken from the MONDO:0013243 cross-reference set rather than from recall.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6079,17 +6702,17 @@ This disease-associated gene is TRPV4 (hgnc:18083). hgnc:18083 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6107,6 +6730,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6130,18 +6761,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -6164,6 +6795,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Supportive rehabilitation including physical therapy and ankle-foot orthoses to manage distal weakness, foot drop, and gait disturbance.
 </div>
 
@@ -6173,18 +6823,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6202,18 +6854,18 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6231,6 +6883,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6254,6 +6914,170 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-pooled-hmn-estimate">
+                <div class="item-name">general (pooled HMN estimate)</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Cumulative estimated prevalence of hereditary motor neuropathies is 2.14 per 100,000; a dHMN cohort study reported a minimum prevalence of 2.3 per 100,000. Most dominant dHMN families carry mutations in HSPB1, GARS1, BICD2, or DNAJB2.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36445400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their cumulative estimated prevalence is 2.14/100 000 and, to date, around 30 causative genes have been identified with autosomal dominant, recessive,and X-linked inheritance."</div>
+
+
+                <div class="evidence-explanation">Provides the pooled HMN prevalence estimate and notes dominant inheritance among causes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33369814" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33369814" target="_blank">PMID:33369814</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The calculated minimum prevalence of dHMN was 2.3 per 100,000 individuals."</div>
+
+
+                <div class="evidence-explanation">Provides a population-specific minimum dHMN prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-dhmn-cohort-gene-frequencies">
+                <div class="item-name">dHMN cohort (gene frequencies)</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">In a genetically screened dHMN cohort, the most frequent causes were dominant-acting HSPB1 and GARS1 mutations.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33369814" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33369814" target="_blank">PMID:33369814</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most frequent cause of distal hereditary motor neuropathies were mutations in HSPB1 (10.4%), GARS1 (9.8%), BICD2 (8.0%), and DNAJB2 (6.7%) genes."</div>
+
+
+                <div class="evidence-explanation">HSPB1 and GARS1 are the most frequent (dominant) dHMN genes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6299,7 +7123,8 @@ description: &gt;
   axonal Charcot-Marie-Tooth disease (CMT2). The autosomal dominant forms are
   caused by heterozygous mutations in genes affecting motor-neuron and
   distal-axon biology, prominently the small heat-shock protein chaperones HSPB1
-  (dHMN2B / CMT2F) and HSPB8 (dHMN2A), the endoplasmic-reticulum protein seipin
+  (dHMN2B / CMT2F), HSPB3 (dHMN2C) and HSPB8 (dHMN2A, split out - see below), the
+  endoplasmic-reticulum protein seipin
   BSCL2 (dHMN5 / Silver syndrome), the aminoacyl-tRNA synthetase GARS1
   (dHMN5 / CMT2D spectrum), the axonal-transport motor adaptor DCTN1
   (dynactin), the presynaptic choline transporter SLC5A7 (dHMN7A), and the cation
@@ -6308,6 +7133,20 @@ description: &gt;
   aggregation, impaired axonal transport, defective tRNA charging/translation,
   and disturbed neuromuscular-junction transmission. The autosomal recessive
   forms (e.g., IGHMBP2/SMARD1, SIGMAR1, PLEKHG5) are a distinct sibling entry.
+  HSPB8 causes dHMN type 2A (MONDO:0008025) and now has its own entry,
+  `Distal_Hereditary_Motor_Neuronopathy_Type_2A`, rather than being carried
+  here as a subtype - it is curated as a specific toxic-gain-of-function
+  proteostasis lesion at the K141 hot spot, running through the HSPB8-BAG3
+  chaperone-assisted selective autophagy complex, which is finer than the
+  general proteostasis framing of this entry. Its subtype row, HSPB8 genetic
+  block and OMIM:158590 assertion moved with it.
+  A second aminoacyl-tRNA synthetase gene, WARS1, causes dHMN type 9
+  (MONDO:0060585) and has its own entry,
+  `Distal_Hereditary_Motor_Neuronopathy_Type_9`, rather than being folded in
+  here - its curated mechanism is two-armed (dominant-negative loss of
+  tryptophanyl-tRNA charging plus potentiation of a non-canonical angiostatic
+  TrpRS activity) and is not represented by the proteostasis and
+  axonal-transport framing of this entry.
 disease_term:
   preferred_term: autosomal dominant distal hereditary motor neuropathy
   term:
@@ -6324,11 +7163,6 @@ references:
 - reference: PMID:21902652
   title: &#34;Molecular genetics and mechanisms of disease in distal hereditary motor neuropathies: insights directing future genetic studies.&#34;
 external_assertions:
-- name: OMIM dHMN2A (HSPB8)
-  source: OMIM
-  assertion_type: disease_record
-  external_id: OMIM:158590
-  description: OMIM phenotype entry for distal hereditary motor neuronopathy type 2A (HSPB8-related).
 - name: OMIM dHMN2B / CMT2F (HSPB1)
   source: OMIM
   assertion_type: disease_record
@@ -6349,22 +7183,15 @@ external_assertions:
   assertion_type: disease_record
   external_id: OMIM:607641
   description: OMIM phenotype entry for distal hereditary motor neuronopathy type 7B (DCTN1-related).
+- name: OMIM dHMN2C (HSPB3)
+  source: OMIM
+  assertion_type: disease_record
+  external_id: OMIM:613376
+  description: &gt;-
+    OMIM phenotype entry for distal hereditary motor neuronopathy type 2C
+    (HSPB3-related). The number is taken from the MONDO:0013243 cross-reference
+    set rather than from recall.
 has_subtypes:
-- name: dHMN2A
-  display_name: dHMN2A (HSPB8-related)
-  description: &gt;
-    Autosomal dominant distal hereditary motor neuropathy type II caused by
-    heterozygous missense mutations in HSPB8 (HSP22), most recurrently at the
-    K141 hot-spot residue. HSPB8 is a small heat-shock protein chaperone; mutant
-    protein promotes intracellular aggregate formation and binds its partner
-    HSPB1 abnormally.
-  evidence:
-  - reference: PMID:15122253
-    reference_title: &#34;Hot-spot residue in small heat-shock protein 22 causes distal motor neuropathy.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;In two pedigrees with distal hereditary motor neuropathy type II linked to chromosome 12q24.3, we identified the same mutation (K141N) in small heat-shock 22-kDa protein 8 (encoded by HSPB8; also called HSP22).&#34;
-    explanation: Establishes heterozygous HSPB8 K141 mutations as the cause of dominant dHMN type II.
 - name: dHMN2B
   display_name: dHMN2B / CMT2F (HSPB1-related)
   description: &gt;
@@ -6437,6 +7264,79 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Using linkage analysis and whole-exome sequencing of DNA samples from subjects with distal hereditary motor neuropathy type VII, we identified a mutation in SLC5A7, which encodes the presynaptic choline transporter (CHT)&#34;
     explanation: Establishes a dominant SLC5A7 mutation as the cause of dHMN type VII.
+- name: dHMN2C
+  display_name: dHMN2C (HSPB3-related)
+  description: &gt;
+    Distal hereditary motor neuronopathy type 2C, caused by a heterozygous
+    variant in HSPB3 (HSPL27), a third small heat-shock protein of the same
+    family as the HSPB1 and HSPB8 genes that dominate this entry. The founding
+    report identified c.21G&gt;T (p.Arg7Ser) in the N-terminal domain in two
+    affected siblings with an asymmetric, length-dependent, predominantly motor
+    axonal neuropathy, found by screening all ten sHSP genes in a neuropathy
+    cohort rather than by linkage. A second heterozygous allele, c.352T&gt;C
+    (p.Tyr118His) in the alpha-crystallin domain, was later reported in a Korean
+    family that was ascribed to axonal CMT2 rather than to dHMN, so the two
+    published alleles sit on either side of the dHMN/CMT2 boundary that this
+    entry otherwise draws electrophysiologically.
+
+    The evidence base is deliberately recorded as thin. A 2016 review of the
+    chaperone dHMNs states that only one family was then known to carry a
+    clinical HSPB3 mutation, and ClinGen&#39;s Gene-Disease Validity table (release
+    pinned in data/clingen/MANIFEST.yaml) contains no HSPB3 assertion at all,
+    while it classifies HSPB8 as Definitive for MONDO:0015362 - this entry&#39;s own
+    disease term.
+    HSPB3 is therefore curated here as a subtype row rather than as a separate
+    disease entry: it has two reported alleles in two families and no
+    disease-specific pathophysiology that is distinguishable from the
+    chaperone/proteostasis chain this entry already models.
+
+    Naming trap. dHMN2C (HSPB3) is not HMSN2C, the hereditary motor and sensory
+    neuropathy caused by TRPV4 that appears in the `dHMN-TRPV4` row of this same
+    entry. The two abbreviations differ by one letter and name different genes
+    and different diseases.
+  subtype_term:
+    preferred_term: neuronopathy, distal hereditary motor, type 2C
+    term:
+      id: MONDO:0013243
+      label: neuronopathy, distal hereditary motor, type 2C
+  genes:
+  - preferred_term: HSPB3
+    term:
+      id: hgnc:5248
+      label: HSPB3
+  evidence:
+  - reference: PMID:20142617
+    reference_title: &#34;Mutant small heat shock protein B3 causes motor neuropathy: utility of a candidate gene approach.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A missense mutation in the gene encoding small heat shock protein B3 (HSPB3, also called HSP27, protein 3) was discovered in 2 siblings with an asymmetric axonal motor neuropathy.&#34;
+    explanation: &gt;-
+      Founding report assigning HSPB3 to a dominant-pattern axonal motor
+      neuropathy, which is the gene-disease claim this subtype row makes.
+  - reference: PMID:20142617
+    reference_title: &#34;Mutant small heat shock protein B3 causes motor neuropathy: utility of a candidate gene approach.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The mutation, HSPB3(R7S), is located in the N-terminal domain and involves the loss of a conserved arginine.&#34;
+    explanation: &gt;-
+      Locates the founding allele in the N-terminal domain, which is what
+      distinguishes it from the alpha-crystallin-domain allele reported later.
+  - reference: PMID:28018906
+    reference_title: &#34;Chaperonopathies: Spotlight on Hereditary Motor Neuropathies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;At present, only one family is thought to carry clinical mutations in the HSPB3/HSPL27 gene: a missense mutation c.21G&gt;T (p.R7S) described in two affected sisters who suffer from dHMN (dHMN2C)&#34;
+    explanation: &gt;-
+      Review naming the entity dHMN2C and recording how narrow the evidence base
+      was, which is the reason this is a subtype row rather than its own entry.
+  - reference: PMID:29341343
+    reference_title: &#34;Small heat shock protein B3 (HSPB3) mutation in an axonal Charcot-Marie-Tooth disease family.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified a heterozygous mutation (c.352T&gt;C, p.Tyr118His) in the HSPB3 from a Charcot-Marie-Tooth disease type 2 (CMT2) family by the method of targeted next generation sequencing.&#34;
+    explanation: &gt;-
+      Second reported HSPB3 family; the allele is heterozygous, and the family was
+      classified as axonal CMT2 rather than dHMN.
 - name: dHMN-TRPV4
   display_name: Scapuloperoneal / congenital distal SMA (TRPV4-related)
   description: &gt;
@@ -6708,25 +7608,6 @@ phenotypes:
     snippet: &#34;length-dependent distal muscle weakness and atrophy&#34;
     explanation: The distal lower-limb weakness of dHMN produces a steppage / foot-drop gait disturbance.
 genetic:
-- name: HSPB8
-  gene_term:
-    preferred_term: HSPB8
-    term:
-      id: hgnc:30171
-      label: HSPB8
-  inheritance:
-  - name: Autosomal Dominant
-  subtype: dHMN2A
-  notes: &gt;
-    Heterozygous HSPB8 (HSP22) K141 hot-spot missense mutations cause dominant
-    dHMN type II; mutant protein forms intracellular aggregates.
-  evidence:
-  - reference: PMID:15122253
-    reference_title: &#34;Hot-spot residue in small heat-shock protein 22 causes distal motor neuropathy.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we identified the same mutation (K141N) in small heat-shock 22-kDa protein 8 (encoded by HSPB8; also called HSP22).&#34;
-    explanation: HSPB8 K141 mutations cause dominant dHMN type II.
 - name: HSPB1
   gene_term:
     preferred_term: HSPB1
@@ -6823,6 +7704,46 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This dominantly segregating SLC5A7 mutation truncates the encoded product just beyond the final transmembrane domain, eliminating cytosolic-C-terminus sequences known to regulate surface transporter trafficking.&#34;
     explanation: A dominant SLC5A7 mutation causes dHMN type VII.
+- name: HSPB3
+  gene_term:
+    preferred_term: HSPB3
+    term:
+      id: hgnc:5248
+      label: HSPB3
+  inheritance:
+  - name: Autosomal Dominant
+  subtype: dHMN2C
+  notes: &gt;
+    Heterozygous HSPB3 (HSPL27) missense variants are reported in two families:
+    p.Arg7Ser in the N-terminal domain (dHMN2C) and p.Tyr118His in the
+    alpha-crystallin domain (reported as axonal CMT2). HSPB3 differs from HSPB1
+    and HSPB8 in being tissue-restricted rather than ubiquitous, and it forms
+    hetero-oligomers with HSPB2 and HSPB8, which is the proposed route by which
+    a variant in it reaches the same chaperone machinery. ClinGen&#39;s Gene-Disease
+    Validity table (release pinned in data/clingen/MANIFEST.yaml) contains no
+    HSPB3 assertion, so the gene-disease relationship has not been classified by
+    that panel either way.
+  evidence:
+  - reference: PMID:28018906
+    reference_title: &#34;Chaperonopathies: Spotlight on Hereditary Motor Neuropathies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;HSPB3 interacts with HSPB2 and these two proteins in turn both interact with HSPB8, potentially contributing to maintain myofibril integrity&#34;
+    explanation: &gt;-
+      Places HSPB3 inside the same small heat-shock protein complex as HSPB8,
+      which is why a variant in it plausibly acts through the proteostasis chain
+      this entry models. The functional link is stated as a potential
+      contribution, not a demonstrated disease mechanism.
+  - reference: PMID:37804589
+    reference_title: &#34;PINK1 and Parkin rescue motor defects and mitochondria dysfunction induced by a patient-derived HSPB3 mutant in Drosophila models.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;this human HSPB3 mutant gene induced a loss of motor activity accompanied by reduced mitochondrial membrane potential in fly neuronal tissues&#34;
+    explanation: &gt;-
+      First animal model of an HSPB3 variant, showing the patient-derived Y118H
+      allele produces a motor phenotype in fly neurons. It is a fly model of the
+      CMT2-associated allele, not of the dHMN2C R7S allele, so it supports the
+      gene being pathogenic rather than the specific dHMN2C mechanism.
 - name: TRPV4
   gene_term:
     preferred_term: TRPV4
@@ -7464,7 +8385,7 @@ alongside quantitative MRI and gait outcomes (NCT04193228 chunk 1). This demonst
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Distal Hereditary Motor Neuronopathy, Autosomal Dominant", "mondoId": "MONDO:0015362", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Dominant", "yamlRevision": "09c2057328d1"};
+        const OS_CONFIG = {"diseaseName": "Distal Hereditary Motor Neuronopathy, Autosomal Dominant", "mondoId": "MONDO:0015362", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Distal_Hereditary_Motor_Neuronopathy,_Autosomal_Dominant", "yamlRevision": "b42682546489"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7883,5 +8804,73 @@ alongside quantitative MRI and gait outcomes (NCT04193228 chunk 1). This demonst
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

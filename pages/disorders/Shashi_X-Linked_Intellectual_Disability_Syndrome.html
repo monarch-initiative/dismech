@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Shashi X-Linked Intellectual Disability Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Shashi X-Linked Intellectual Disability Syndrome</h1>
             <div class="header-meta">
 
@@ -3909,7 +4056,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
                 <div class="item-name">
                     X-linked recessive inheritance
 
@@ -3954,7 +4101,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3976,7 +4125,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3998,7 +4149,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4091,7 +4244,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42360281" target="_blank">PMID:42360281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4113,7 +4268,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42360281" target="_blank">PMID:42360281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4203,6 +4360,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4220,13 +4383,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39356106" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39356106" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39356106" target="_blank">PMID:39356106</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4278,17 +4443,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RBMX (hgnc:9910). hgnc:9910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RBMX
 
 
-    <a href="https://bioregistry.io/hgnc:9910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9910</a>
+    <a href="https://bioregistry.io/hgnc:9910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBMX (hgnc:9910). hgnc:9910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4318,18 +4487,20 @@ This pathophysiological event involves RBMX (hgnc:9910). hgnc:9910 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0003729 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mRNA binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003729" target="_blank" class="curie-chip curie-chip-go">GO:0003729</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003729" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003729</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0003729 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4410,7 +4581,9 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4432,7 +4605,9 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4454,7 +4629,9 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37277488" target="_blank">PMID:37277488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4494,18 +4671,20 @@ This pathophysiological event involves decreased mRNA binding (GO:0003729). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of mRNA splicing, via spliceosome (GO:0048024). GO:0048024 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048024" target="_blank" class="curie-chip curie-chip-go">GO:0048024</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048024" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048024</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of mRNA splicing, via spliceosome (GO:0048024). GO:0048024 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4563,7 +4742,9 @@ This pathophysiological event involves abnormal regulation of mRNA splicing, via
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31445886" target="_blank">PMID:31445886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4585,7 +4766,9 @@ This pathophysiological event involves abnormal regulation of mRNA splicing, via
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31445886" target="_blank">PMID:31445886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4601,13 +4784,15 @@ This pathophysiological event involves abnormal regulation of mRNA splicing, via
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24692659" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24692659" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24692659" target="_blank">PMID:24692659</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4649,18 +4834,20 @@ This pathophysiological event involves abnormal regulation of mRNA splicing, via
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein-containing complex assembly (GO:0065003). GO:0065003 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein-containing complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0065003" target="_blank" class="curie-chip curie-chip-go">GO:0065003</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0065003" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0065003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein-containing complex assembly (GO:0065003). GO:0065003 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4718,7 +4905,9 @@ This pathophysiological event involves decreased protein-containing complex asse
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4758,18 +4947,20 @@ This pathophysiological event involves decreased protein-containing complex asse
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4827,7 +5018,9 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4849,7 +5042,9 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4889,18 +5084,20 @@ This pathophysiological event involves abnormal mRNA splicing, via spliceosome (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased signal transduction by p53 class mediator (GO:0072331). GO:0072331 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         signal transduction by p53 class mediator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go">GO:0072331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0072331</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased signal transduction by p53 class mediator (GO:0072331). GO:0072331 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4958,7 +5155,9 @@ This pathophysiological event involves increased signal transduction by p53 clas
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4991,18 +5190,20 @@ This pathophysiological event involves increased signal transduction by p53 clas
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5030,18 +5231,20 @@ This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5062,18 +5265,20 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5101,18 +5306,20 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5150,7 +5357,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5190,18 +5399,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cerebral cortex development (GO:0021987). GO:0021987 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cerebral cortex development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go">GO:0021987</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0021987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cerebral cortex development (GO:0021987). GO:0021987 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5229,18 +5440,20 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5278,7 +5491,9 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42360281" target="_blank">PMID:42360281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5294,13 +5509,15 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5373,7 +5590,9 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42360281" target="_blank">PMID:42360281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5444,11 +5663,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5467,16 +5686,22 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Macrotia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000400</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:0000400 is a phenotype from the Human Phenotype Ontology.">
-                        Macrotia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp">HP:0000400</a>
-
-
+This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:0000400 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5497,7 +5722,9 @@ This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5540,16 +5767,20 @@ This clinical feature is Large ears, annotated with Macrotia (HP:0000400). HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype from the Human Phenotype Ontology.">
-                        Macroorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp">HP:0000053</a>
-
-
+This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5570,7 +5801,9 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5592,7 +5825,9 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5624,7 +5859,7 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-distinctive-craniofacial-dysmorphism" data-dismech-node="Distinctive craniofacial dysmorphism" data-dismech-type="phenotype">
@@ -5635,16 +5870,22 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Coarse facial features</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.">
-                        Coarse facial features
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp">HP:0000280</a>
-
-
+This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5665,7 +5906,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5687,7 +5930,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5713,274 +5958,28 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bulbous-nose" data-dismech-node="Bulbous nose" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bulbous nose
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.">
-                        Bulbous nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp">HP:0000414</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
-
-
-                <div class="evidence-explanation">A bulbous nose is explicitly listed among the clinical findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Obesity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.">
-                        Obesity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp">HP:0001513</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
-
-
-                <div class="evidence-explanation">Obesity is listed among the defining clinical findings of the syndrome in the index kindred. The VERY_FREQUENT band is assigned under the DisMech qualitative mapping for a highly characteristic feature; the abstract summarises findings across the seven living affected males as a group and does not tabulate per-patient counts.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:12605440" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical features consist of coarse face, prominent lower lip, large testes, and obesity."</div>
-
-
-                <div class="evidence-explanation">Obesity was also present in the second reported family.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-moderate-intellectual-disability" data-dismech-node="Moderate intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Moderate intellectual disability
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Moderate intellectual disability (HP:0002342). HP:0002342 is a phenotype from the Human Phenotype Ontology.">
-                        Moderate intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp">HP:0002342</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
-
-
-                <div class="evidence-explanation">Moderate intellectual disability is listed among the defining clinical findings of the syndrome in the index kindred. The VERY_FREQUENT band is assigned under the DisMech qualitative mapping for a highly characteristic feature; the abstract summarises findings across the seven living affected males as a group and does not tabulate per-patient counts, so an exact percentage cannot be derived.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A novel X-linked intellectual disability (XLID) syndrome with moderate intellectual disability and distinguishing craniofacial dysmorphisms had been previously mapped to the Xq26-q27 interval."</div>
-
-
-                <div class="evidence-explanation">Independently characterizes the syndrome as one of moderate intellectual disability.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-lower-lip" data-dismech-node="Prominent lower lip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Prominent lower lip
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Thick lower lip vermilion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000179</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prominent lower lip, annotated with Thick lower lip vermilion (HP:0000179). HP:0000179 is a phenotype from the Human Phenotype Ontology.">
-                        Thick lower lip vermilion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000179" target="_blank" class="curie-chip curie-chip-hp">HP:0000179</a>
-
-
+This clinical feature is Prominent lower lip, annotated with Thick lower lip vermilion (HP:0000179). HP:0000179 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6001,7 +6000,9 @@ This clinical feature is Prominent lower lip, annotated with Thick lower lip ver
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6023,7 +6024,9 @@ This clinical feature is Prominent lower lip, annotated with Thick lower lip ver
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6055,16 +6058,22 @@ This clinical feature is Prominent lower lip, annotated with Thick lower lip ver
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Periorbital fullness</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Puffy eyelids, annotated with Periorbital fullness (HP:0000629). HP:0000629 is a phenotype from the Human Phenotype Ontology.">
-                        Periorbital fullness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" class="curie-chip curie-chip-hp">HP:0000629</a>
-
-
+This clinical feature is Puffy eyelids, annotated with Periorbital fullness (HP:0000629). HP:0000629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6085,7 +6094,9 @@ This clinical feature is Puffy eyelids, annotated with Periorbital fullness (HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6117,16 +6128,20 @@ This clinical feature is Puffy eyelids, annotated with Periorbital fullness (HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0045025</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a phenotype from the Human Phenotype Ontology.">
-                        Narrow palpebral fissure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp">HP:0045025</a>
-
-
+This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6147,7 +6162,9 @@ This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6179,16 +6196,20 @@ This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000336</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 is a phenotype from the Human Phenotype Ontology.">
-                        Prominent supraorbital ridges
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000336" target="_blank" class="curie-chip curie-chip-hp">HP:0000336</a>
-
-
+This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6209,7 +6230,9 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6220,6 +6243,280 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
 
 
                 <div class="evidence-explanation">Prominent supraorbital ridges are explicitly listed among the clinical findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bulbous-nose" data-dismech-node="Bulbous nose" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bulbous nose
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000414</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
+
+
+                <div class="evidence-explanation">A bulbous nose is explicitly listed among the clinical findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-moderate-intellectual-disability" data-dismech-node="Moderate intellectual disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Moderate intellectual disability
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002342</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Moderate intellectual disability (HP:0002342). HP:0002342 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
+
+
+                <div class="evidence-explanation">Moderate intellectual disability is listed among the defining clinical findings of the syndrome in the index kindred. The VERY_FREQUENT band is assigned under the DisMech qualitative mapping for a highly characteristic feature; the abstract summarises findings across the seven living affected males as a group and does not tabulate per-patient counts, so an exact percentage cannot be derived.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A novel X-linked intellectual disability (XLID) syndrome with moderate intellectual disability and distinguishing craniofacial dysmorphisms had been previously mapped to the Xq26-q27 interval."</div>
+
+
+                <div class="evidence-explanation">Independently characterizes the syndrome as one of moderate intellectual disability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Obesity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical findings in the seven living affected males include a moderate degree of mental retardation (MR), coarse facies, puffy eyelids, narrow palpebral fissures, prominent supraorbital ridges, a bulbous nose, a prominent lower lip, large ears, obesity, and large testicles."</div>
+
+
+                <div class="evidence-explanation">Obesity is listed among the defining clinical findings of the syndrome in the index kindred. The VERY_FREQUENT band is assigned under the DisMech qualitative mapping for a highly characteristic feature; the abstract summarises findings across the seven living affected males as a group and does not tabulate per-patient counts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12605440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical features consist of coarse face, prominent lower lip, large testes, and obesity."</div>
+
+
+                <div class="evidence-explanation">Obesity was also present in the second reported family.</div>
 
 
 
@@ -6287,15 +6584,17 @@ This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBMX
 
 
-    <a href="https://bioregistry.io/hgnc:9910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9910</a>
+    <a href="https://bioregistry.io/hgnc:9910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6321,7 +6620,9 @@ This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6337,13 +6638,15 @@ This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6365,7 +6668,9 @@ This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34260915" target="_blank">PMID:34260915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6402,15 +6707,17 @@ This disease-associated gene is RBMX (hgnc:9910). hgnc:9910 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBMXL1
 
 
-    <a href="https://bioregistry.io/hgnc:25073" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25073</a>
+    <a href="https://bioregistry.io/hgnc:25073" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:25073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6434,7 +6741,9 @@ This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42360281" target="_blank">PMID:42360281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6464,6 +6773,9 @@ This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6480,18 +6792,18 @@ This disease-associated gene is RBMXL1 (hgnc:25073). hgnc:25073 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6514,6 +6826,25 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Management is supportive; no disease-modifying therapy exists. Because the disorder is X-linked recessive and carrier females can be identified molecularly, genetic counseling and carrier testing for at-risk female relatives are central to family management.</div>
 
 
@@ -6527,13 +6858,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6565,6 +6898,302 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-for-rbmx">
+                <div class="item-name">
+                    Molecular genetic testing for RBMX
+
+                </div>
+
+                <div class="item-desc">Identification of a pathogenic RBMX variant in a hemizygous male with the characteristic phenotype confirms the diagnosis. The causal gene was identified by whole exome sequencing in the index family after linkage mapping to Xq26-q27.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25256757" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25256757" target="_blank">PMID:25256757</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On whole exome sequencing in the large family originally reported with this disorder, we identified a 23 bp frameshift deletion in the RNA binding motif protein X-linked (RBMX) gene at Xq26 in the affected males (n = 7), one carrier female, absent in unaffected males (n = 2) and in control..."</div>
+
+
+                <div class="evidence-explanation">Exome sequencing establishing the RBMX variant is the definitive diagnostic step.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exclusion-of-fragile-x-syndrome-and-chromosomal-abnormality">
+                <div class="item-name">
+                    Exclusion of fragile X syndrome and chromosomal abnormality
+
+                </div>
+
+                <div class="item-desc">Because the phenotype overlaps fragile X syndrome (intellectual disability, large ears, macroorchidism), karyotype and FMR1 testing were normal in the index family and remain a necessary exclusion before this diagnosis is considered.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The blood-lymphocyte karyotype and the results of DNA analysis for fragile-X syndrome and of other routine investigations are normal."</div>
+
+
+                <div class="evidence-explanation">Documents that normal karyotype and normal fragile X testing were part of establishing this as a distinct entity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Only two families have been reported: the original four-generation North Carolina kindred with seven living affected males, and a Brazilian family with two affected brothers.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10677307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a novel X-linked mental retardation (XLMR) syndrome, with characteristic facial dysmorphic features, segregating in a large North Carolina family. Only males are affected, over four generations."</div>
+
+
+                <div class="evidence-explanation">Establishes the size and structure of the index kindred, the primary source of reported cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12605440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12605440" target="_blank">PMID:12605440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This report describes a family with mental retardation in two brothers."</div>
+
+
+                <div class="evidence-explanation">The only additional reported family contributes two further affected males, supporting an ultra-rare literature case count.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6579,7 +7208,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fragile-x-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Fragile_X_Syndrome.html">Fragile X syndrome</a>
@@ -6628,7 +7257,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10677307" target="_blank">PMID:10677307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6653,15 +7284,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-gustavson-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Gustavson syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Severe_X-linked_Intellectual_Disability_Gustavson_Type.html">Gustavson syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0010661" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0010661" target="_blank">
                             MONDO:0010661
                         </a>
                     </span>
@@ -6703,7 +7333,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37277488" target="_blank">PMID:37277488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6725,7 +7357,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37277488" target="_blank">PMID:37277488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6936,7 +7570,8 @@ pathophysiology:
       reference_title: &gt;-
         A unique form of mental retardation with a distinctive phenotype maps to
         Xq26-q27.
-      supports: PARTIAL
+      supports: SUPPORT
+      directness: INDIRECT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Cephalometric measurements suggest that the affected males have a
@@ -6945,7 +7580,7 @@ pathophysiology:
       explanation: &gt;-
         Documents that the craniofacial phenotype co-occurs with the syndrome in
         affected males. It does not establish the developmental intermediates
-        between RBMX loss and craniofacial patterning, hence PARTIAL.
+        between RBMX loss and craniofacial patterning, hence INDIRECT.
   - target: Obesity
     description: &gt;-
       Obesity is a consistent non-neurological feature of the syndrome and is
@@ -6955,7 +7590,7 @@ pathophysiology:
     evidence:
     - reference: PMID:12605440
       reference_title: &#39;Shashi XLMR syndrome: report of a second family.&#39;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The clinical features consist of coarse face, prominent lower lip, large
@@ -6976,7 +7611,7 @@ pathophysiology:
       reference_title: &gt;-
         RBMX functional retrocopy safeguards brain development in a
         species-dependent context.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Hemizygous RBMX variants lead to neurodevelopmental disorders
@@ -7032,7 +7667,7 @@ pathophysiology:
     reference_title: &gt;-
       Characterization of the RNA recognition mode of hnRNP G extends its role
       in SMN2 splicing regulation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       We report that in addition to the C-terminal region of hnRNP G, the RNA
@@ -7047,7 +7682,7 @@ pathophysiology:
       An anciently diverged family of RNA binding proteins maintain correct
       splicing of a class of ultra-long exons through cryptic splice site
       repression.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       RBMX protein-RNA interactions are enriched within ultra-long exons,
@@ -7063,7 +7698,7 @@ pathophysiology:
       An anciently diverged family of RNA binding proteins maintain correct
       splicing of a class of ultra-long exons through cryptic splice site
       repression.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       The C-terminal disordered domain of RBMXL2 is sufficient to rescue proper
@@ -7296,7 +7931,7 @@ pathophysiology:
       reference_title: &gt;-
         The RBMX gene as a candidate for the Shashi X-linked intellectual
         disability syndrome.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Prior expression and animal modeling studies indicate that loss of
@@ -7341,7 +7976,7 @@ pathophysiology:
     reference_title: &gt;-
       The RBMX gene as a candidate for the Shashi X-linked intellectual
       disability syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Prior expression and animal modeling studies indicate that loss of
@@ -7758,7 +8393,7 @@ genetic:
     reference_title: &gt;-
       The RBMX gene as a candidate for the Shashi X-linked intellectual
       disability syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The RBMX gene has not been previously causal of human disease.
@@ -8008,7 +8643,7 @@ treatments:
     reference_title: &gt;-
       The RBMX gene as a candidate for the Shashi X-linked intellectual
       disability syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       On whole exome sequencing in the large family originally reported with
@@ -8085,7 +8720,7 @@ discussions:
       An anciently diverged family of RNA binding proteins maintain correct
       splicing of a class of ultra-long exons through cryptic splice site
       repression.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       Here, we show that in somatic cells the similar yet ubiquitously
@@ -9181,7 +9816,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Shashi X-Linked Intellectual Disability Syndrome", "mondoId": "MONDO:0010277", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shashi_X-Linked_Intellectual_Disability_Syndrome", "yamlRevision": "ee2c1fc4f9eb"};
+        const OS_CONFIG = {"diseaseName": "Shashi X-Linked Intellectual Disability Syndrome", "mondoId": "MONDO:0010277", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shashi_X-Linked_Intellectual_Disability_Syndrome", "yamlRevision": "ca28be3010a8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9600,5 +10235,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

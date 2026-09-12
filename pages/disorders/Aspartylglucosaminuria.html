@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Aspartylglucosaminuria</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aspartylglucosaminuria</h1>
             <div class="header-meta">
 
@@ -3912,6 +4059,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3921,9 +4138,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 27 &#34;Lysosomal storage diseases with skeletal involvement (dysostosis multiplex group)&#34;; listed as &#34;Aspartylglucosaminuria&#34;.">lysosomal storage with skeletal involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3994,7 +4227,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-aspartylglucosaminuria-definition">
                 <div class="item-name">Orphanet aspartylglucosaminuria definition</div>
 
                 <div class="item-desc">A rare oligosaccharidosis with facial dysmorphism, progressive intellectual disability, and psychomotor deterioration caused by accumulation of glycoasparagines in tissues and body fluids.
@@ -4039,7 +4272,9 @@
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4075,7 +4310,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4120,7 +4355,9 @@
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4185,17 +4422,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         AGA
 
 
-    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:318</a>
+    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:318</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4224,18 +4465,20 @@ This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from t
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycoprotein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go">GO:0006516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4256,18 +4499,20 @@ This pathophysiological event involves decreased glycoprotein catabolic process 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein deglycosylation (GO:0006517). GO:0006517 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein deglycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006517" target="_blank" class="curie-chip curie-chip-go">GO:0006517</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006517" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006517</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein deglycosylation (GO:0006517). GO:0006517 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4294,18 +4539,20 @@ This pathophysiological event involves decreased protein deglycosylation (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4344,7 +4591,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4366,7 +4615,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4388,7 +4639,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10571008" target="_blank">PMID:10571008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4429,17 +4682,21 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         AGA
 
 
-    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:318</a>
+    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:318</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4468,18 +4725,20 @@ This pathophysiological event involves AGA (hgnc:318). hgnc:318 is a gene from t
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4500,18 +4759,20 @@ This pathophysiological event involves abnormal protein folding (GO:0006457). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein maturation (GO:0051604). GO:0051604 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein maturation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051604" target="_blank" class="curie-chip curie-chip-go">GO:0051604</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051604" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0051604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein maturation (GO:0051604). GO:0051604 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4569,7 +4830,9 @@ This pathophysiological event involves abnormal protein maturation (GO:0051604).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11309371" target="_blank">PMID:11309371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4591,7 +4854,9 @@ This pathophysiological event involves abnormal protein maturation (GO:0051604).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11309371" target="_blank">PMID:11309371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4632,18 +4897,20 @@ This pathophysiological event involves abnormal protein maturation (GO:0051604).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycoprotein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go">GO:0006516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycoprotein catabolic process (GO:0006516). GO:0006516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4670,18 +4937,20 @@ This pathophysiological event involves decreased glycoprotein catabolic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4744,7 +5013,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4766,7 +5037,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4788,7 +5061,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4822,18 +5097,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4850,18 +5127,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl">CL:0000125</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000125</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4878,18 +5157,20 @@ This pathophysiological event involves glial cell (CL:0000125). CL:0000125 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4919,18 +5200,20 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4939,18 +5222,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5036,7 +5321,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9425233" target="_blank">PMID:9425233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5058,7 +5345,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5080,7 +5369,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5124,33 +5415,37 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in connective tissue (UBERON:0002384). UBERON:0002384 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         connective tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002384</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in connective tissue (UBERON:0002384). UBERON:0002384 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cartilage tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002418</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002418</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5436,7 +5731,9 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5458,7 +5755,9 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5527,25 +5826,25 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(12)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Musculoskeletal<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(13)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5566,16 +5865,20 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.">
-                        Splenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp">HP:0001744</a>
-
-
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5596,7 +5899,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5628,8 +5933,78 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical hernia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Umbilical hernia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001537</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001537 | Umbilical hernia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-inguinal-hernia" data-dismech-node="Inguinal hernia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5639,16 +6014,20 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000023</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.">
-                        Inguinal hernia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp">HP:0000023</a>
-
-
+This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5669,7 +6048,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5691,7 +6072,9 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5725,16 +6108,20 @@ This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5755,7 +6142,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5787,27 +6176,31 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-otitis-media" data-dismech-node="Chronic otitis media" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microtia" data-dismech-node="Microtia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Chronic otitis media
+                        Microtia
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008551</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phenotype from the Human Phenotype Ontology.">
-                        Chronic otitis media
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp">HP:0000389</a>
-
-
+This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5828,7 +6221,79 @@ This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phen
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0008551 | Microtia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-otitis-media" data-dismech-node="Chronic otitis media" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic otitis media
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000389</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5871,16 +6336,20 @@ This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5901,7 +6370,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5933,7 +6404,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-macroorchidism" data-dismech-node="Macroorchidism" data-dismech-type="phenotype">
@@ -5944,16 +6415,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype from the Human Phenotype Ontology.">
-                        Macroorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" class="curie-chip curie-chip-hp">HP:0000053</a>
-
-
+This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5974,7 +6449,9 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6000,33 +6477,28 @@ This clinical feature is Macroorchidism (HP:0000053). HP:0000053 is a phenotype 
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aspartylglucosaminuria" data-dismech-node="Aspartylglucosaminuria" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Coarse facial features
+                        Aspartylglucosaminuria
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012068" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012068</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.">
-                        Coarse facial features
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp">HP:0000280</a>
-
-
+This clinical feature is Aspartylglucosaminuria (HP:0012068). HP:0012068 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6047,7 +6519,158 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012068 | Aspartylglucosaminuria | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">12</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gingival-overgrowth" data-dismech-node="Gingival overgrowth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gingival overgrowth
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000212</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gingival overgrowth (HP:0000212). HP:0000212 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000212 | Gingival overgrowth | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse facial features" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Coarse facial features
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6081,16 +6704,20 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6111,7 +6738,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6119,6 +6748,146 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                 </div>
 
                 <div class="evidence-snippet">"HP:0001999 | Abnormal facial shape | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-face" data-dismech-node="Large face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Large face
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large face (HP:0100729). HP:0100729 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100729 | Large face | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mandibular-prognathia" data-dismech-node="Mandibular prognathia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Mandibular prognathia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000303</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000303 | Mandibular prognathia | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -6145,16 +6914,20 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000158</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.">
-                        Macroglossia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp">HP:0000158</a>
-
-
+This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6175,7 +6948,9 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6209,16 +6984,20 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000164</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the dentition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp">HP:0000164</a>
-
-
+This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6239,7 +7018,9 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6273,16 +7054,20 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000670</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.">
-                        Carious teeth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp">HP:0000670</a>
-
-
+This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6303,7 +7088,9 @@ This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6311,6 +7098,76 @@ This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype f
                 </div>
 
                 <div class="evidence-snippet">"HP:0000670 | Carious teeth | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide nasal bridge
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000431 | Wide nasal bridge | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -6337,16 +7194,20 @@ This clinical feature is Carious teeth (HP:0000670). HP:0000670 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003196</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.">
-                        Short nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp">HP:0003196</a>
-
-
+This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6367,7 +7228,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6401,16 +7264,20 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012471" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012471</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a phenotype from the Human Phenotype Ontology.">
-                        Thick vermilion border
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012471" target="_blank" class="curie-chip curie-chip-hp">HP:0012471</a>
-
-
+This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6431,7 +7298,9 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6439,6 +7308,76 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
                 </div>
 
                 <div class="evidence-snippet">"HP:0012471 | Thick vermilion border | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-calvaria" data-dismech-node="Thickened calvaria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thickened calvaria
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002684</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thickened calvaria (HP:0002684). HP:0002684 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002684 | Thickened calvaria | Frequent (79-30%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -6474,16 +7413,20 @@ This clinical feature is Thick vermilion border (HP:0012471). HP:0012471 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002205</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent respiratory infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp">HP:0002205</a>
-
-
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6504,7 +7447,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6526,7 +7471,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6558,7 +7505,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes planus" data-dismech-type="phenotype">
@@ -6569,16 +7516,20 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001763</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.">
-                        Pes planus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp">HP:0001763</a>
-
-
+This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6599,7 +7550,9 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6625,33 +7578,28 @@ This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-morphology-of-ulna" data-dismech-node="Abnormal morphology of ulna" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Arthritis
+                        Abnormal morphology of ulna
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0040071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
-                        Arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
-
-
+This clinical feature is Abnormal morphology of ulna (HP:0040071). HP:0040071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6672,7 +7620,167 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0040071 | Abnormal morphology of ulna | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-amino-acid-metabolism" data-dismech-node="Abnormality of amino acid metabolism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of amino acid metabolism
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0004337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of amino acid metabolism (HP:0004337). HP:0004337 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004337 | Abnormality of amino acid metabolism | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">9</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arthritis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6706,16 +7814,20 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.">
-                        Joint stiffness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp">HP:0001387</a>
-
-
+This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6736,7 +7848,9 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6770,16 +7884,20 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed skeletal maturation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp">HP:0002750</a>
-
-
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6800,7 +7918,9 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6834,16 +7954,20 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003468</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal vertebral morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp">HP:0003468</a>
-
-
+This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6864,7 +7988,9 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6872,6 +7998,76 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
                 </div>
 
                 <div class="evidence-snippet">"HP:0003468 | Abnormal vertebral morphology | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-beaking-of-vertebral-bodies" data-dismech-node="Beaking of vertebral bodies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Beaking of vertebral bodies
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0004568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Beaking of vertebral bodies (HP:0004568). HP:0004568 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004568 | Beaking of vertebral bodies | Occasional (29-5%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -6898,16 +8094,20 @@ This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6928,7 +8128,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6962,16 +8164,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000768</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.">
-                        Pectus carinatum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp">HP:0000768</a>
-
-
+This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6992,7 +8198,9 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7000,1006 +8208,6 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
                 </div>
 
                 <div class="evidence-snippet">"HP:0000768 | Pectus carinatum | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual disability
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001249 | Intellectual disability | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27906067" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Progressive intellectual and physical disability is the main symptom"</div>
-
-
-                <div class="evidence-explanation">Review directly supports progressive intellectual disability.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed speech and language development
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed speech and language development
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp">HP:0000750</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000750 | Delayed speech and language development | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-speech-or-vocalization" data-dismech-node="Abnormality of speech or vocalization" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of speech or vocalization
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of speech or vocalization, annotated with Abnormal speech pattern (HP:0002167). HP:0002167 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal speech pattern
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp">HP:0002167</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002167 | Abnormality of speech or vocalization | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyskinesia" data-dismech-node="Dyskinesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dyskinesia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.">
-                        Dyskinesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp">HP:0100660</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100660 | Dyskinesia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001250 | Seizure | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-behavior" data-dismech-node="Atypical behavior" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atypical behavior
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000708 | Atypical behavior | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep disturbance
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
-                        Sleep disturbance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002360 | Sleep abnormality | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">13</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gingival-overgrowth" data-dismech-node="Gingival overgrowth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gingival overgrowth
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gingival overgrowth (HP:0000212). HP:0000212 is a phenotype from the Human Phenotype Ontology.">
-                        Gingival overgrowth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" class="curie-chip curie-chip-hp">HP:0000212</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000212 | Gingival overgrowth | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-large-face" data-dismech-node="Large face" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Large face
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Large face (HP:0100729). HP:0100729 is a phenotype from the Human Phenotype Ontology.">
-                        Large face
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100729" target="_blank" class="curie-chip curie-chip-hp">HP:0100729</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100729 | Large face | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mandibular-prognathia" data-dismech-node="Mandibular prognathia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mandibular prognathia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mandibular prognathia (HP:0000303). HP:0000303 is a phenotype from the Human Phenotype Ontology.">
-                        Mandibular prognathia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" class="curie-chip curie-chip-hp">HP:0000303</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000303 | Mandibular prognathia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide nasal bridge
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.">
-                        Wide nasal bridge
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp">HP:0000431</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000431 | Wide nasal bridge | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-microtia" data-dismech-node="Microtia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Microtia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.">
-                        Microtia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp">HP:0008551</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0008551 | Microtia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-umbilical-hernia" data-dismech-node="Umbilical hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Umbilical hernia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.">
-                        Umbilical hernia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp">HP:0001537</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001537 | Umbilical hernia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-beaking-of-vertebral-bodies" data-dismech-node="Beaking of vertebral bodies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Beaking of vertebral bodies
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Beaking of vertebral bodies (HP:0004568). HP:0004568 is a phenotype from the Human Phenotype Ontology.">
-                        Beaking of vertebral bodies
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004568" target="_blank" class="curie-chip curie-chip-hp">HP:0004568</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004568 | Beaking of vertebral bodies | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-calvaria" data-dismech-node="Thickened calvaria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thickened calvaria
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thickened calvaria (HP:0002684). HP:0002684 is a phenotype from the Human Phenotype Ontology.">
-                        Thickened calvaria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002684" target="_blank" class="curie-chip curie-chip-hp">HP:0002684</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002684 | Thickened calvaria | Frequent (79-30%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -8026,16 +8234,20 @@ This clinical feature is Thickened calvaria (HP:0002684). HP:0002684 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0003103</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cortical bone morphology (HP:0003103). HP:0003103 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal cortical bone morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003103" target="_blank" class="curie-chip curie-chip-hp">HP:0003103</a>
-
-
+This clinical feature is Abnormal cortical bone morphology (HP:0003103). HP:0003103 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8056,7 +8268,9 @@ This clinical feature is Abnormal cortical bone morphology (HP:0003103). HP:0003
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8090,16 +8304,20 @@ This clinical feature is Abnormal cortical bone morphology (HP:0003103). HP:0003
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0008430</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anterior beaking of lumbar vertebrae (HP:0008430). HP:0008430 is a phenotype from the Human Phenotype Ontology.">
-                        Anterior beaking of lumbar vertebrae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008430" target="_blank" class="curie-chip curie-chip-hp">HP:0008430</a>
-
-
+This clinical feature is Anterior beaking of lumbar vertebrae (HP:0008430). HP:0008430 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8120,7 +8338,9 @@ This clinical feature is Anterior beaking of lumbar vertebrae (HP:0008430). HP:0
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8146,24 +8366,131 @@ This clinical feature is Anterior beaking of lumbar vertebrae (HP:0008430). HP:0
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-morphology-of-ulna" data-dismech-node="Abnormal morphology of ulna" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">7</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal morphology of ulna
+                        Intellectual disability
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal morphology of ulna (HP:0040071). HP:0040071 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal morphology of ulna
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040071" target="_blank" class="curie-chip curie-chip-hp">HP:0040071</a>
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001249 | Intellectual disability | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27906067" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive intellectual and physical disability is the main symptom"</div>
+
+
+                <div class="evidence-explanation">Review directly supports progressive intellectual disability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed speech and language development
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8184,14 +8511,16 @@ This clinical feature is Abnormal morphology of ulna (HP:0040071). HP:0040071 is
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0040071 | Abnormal morphology of ulna | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0000750 | Delayed speech and language development | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -8210,24 +8539,30 @@ This clinical feature is Abnormal morphology of ulna (HP:0040071). HP:0040071 is
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aspartylglucosaminuria" data-dismech-node="Aspartylglucosaminuria" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-speech-or-vocalization" data-dismech-node="Abnormality of speech or vocalization" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Aspartylglucosaminuria
+                        Abnormality of speech or vocalization
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal speech pattern</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002167</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aspartylglucosaminuria (HP:0012068). HP:0012068 is a phenotype from the Human Phenotype Ontology.">
-                        Aspartylglucosaminuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012068" target="_blank" class="curie-chip curie-chip-hp">HP:0012068</a>
-
-
+This clinical feature is Abnormality of speech or vocalization, annotated with Abnormal speech pattern (HP:0002167). HP:0002167 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8248,14 +8583,16 @@ This clinical feature is Aspartylglucosaminuria (HP:0012068). HP:0012068 is a ph
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0012068 | Aspartylglucosaminuria | Very frequent (99-80%)"</div>
+                <div class="evidence-snippet">"HP:0002167 | Abnormality of speech or vocalization | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -8274,24 +8611,28 @@ This clinical feature is Aspartylglucosaminuria (HP:0012068). HP:0012068 is a ph
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-amino-acid-metabolism" data-dismech-node="Abnormality of amino acid metabolism" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyskinesia" data-dismech-node="Dyskinesia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormality of amino acid metabolism
+                        Dyskinesia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0100660</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of amino acid metabolism (HP:0004337). HP:0004337 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of amino acid metabolism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004337" target="_blank" class="curie-chip curie-chip-hp">HP:0004337</a>
-
-
+This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8312,14 +8653,226 @@ This clinical feature is Abnormality of amino acid metabolism (HP:0004337). HP:0
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0004337 | Abnormality of amino acid metabolism | Very frequent (99-80%)"</div>
+                <div class="evidence-snippet">"HP:0100660 | Dyskinesia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001250 | Seizure | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-behavior" data-dismech-node="Atypical behavior" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atypical behavior
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000708 | Atypical behavior | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sleep disturbance
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002360 | Sleep abnormality | Occasional (29-5%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet provides the disease-phenotype association and frequency band.</div>
@@ -8390,15 +8943,17 @@ This clinical feature is Abnormality of amino acid metabolism (HP:0004337). HP:0
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AGA
 
 
-    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:318</a>
+    <a href="https://bioregistry.io/hgnc:318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8420,7 +8975,9 @@ This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8442,7 +8999,9 @@ This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8464,7 +9023,9 @@ This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8496,6 +9057,108 @@ This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-aspartylglucosaminuria-disease-record">
+
+
+    <div class="item-name">Orphanet Aspartylglucosaminuria disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=93" target="_blank" rel="noopener noreferrer" title="Open ORPHA:93">ORPHA:93</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:93 structured record for Aspartylglucosaminuria includes the exact MONDO cross-reference, definition, autosomal recessive inheritance, epidemiology, AGA gene association, and HPO phenotype annotations used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0008830 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:93 to the same MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:208400 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:208400 as an exact external cross-reference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8512,18 +9175,18 @@ This disease-associated gene is AGA (hgnc:318). hgnc:318 is a gene from the HUGO
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8546,6 +9209,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">No approved disease-modifying therapy is currently available; supportive care focuses on early interventions, management of neurodevelopmental, seizure, infection, sleep, orthopedic, and functional complications, and anticipatory guidance.
 </div>
 
@@ -8555,33 +9226,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Intellectual disability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8601,7 +9276,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8631,18 +9308,18 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">bone marrow transplantation<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a clinical intervention from the NCI Thesaurus.">bone marrow transplantation</span>
+This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bone Marrow Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15194" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a clinical intervention from the NCI Thesaurus.">NCIT:C15194</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15194" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15194">NCIT:C15194</a>
 
 
 
@@ -8660,6 +9337,14 @@ This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a cl
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8685,7 +9370,9 @@ This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8707,7 +9394,9 @@ This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8737,18 +9426,18 @@ This treatment is bone marrow transplantation (NCIT:C15194). NCIT:C15194 is a cl
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">enzyme replacement or supplementation therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">enzyme replacement or supplementation therapy</span>
+This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Protein Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">NCIT:C16221</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16221">NCIT:C16221</a>
 
 
 
@@ -8766,6 +9455,25 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8800,7 +9508,9 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8845,7 +9555,9 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8886,7 +9598,9 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8908,7 +9622,9 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8938,18 +9654,18 @@ This treatment is enzyme replacement or supplementation therapy, annotated with 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -8967,6 +9683,25 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9001,7 +9736,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9046,7 +9783,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9091,7 +9830,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9113,7 +9854,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9154,7 +9897,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9176,7 +9921,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="https://clinicaltrials.gov/study/NCT07530796" target="_blank">clinicaltrials:NCT07530796</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9263,7 +10010,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9303,7 +10052,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9325,7 +10076,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9396,7 +10149,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982794" target="_blank">PMID:36982794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9436,7 +10191,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9458,7 +10215,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982794" target="_blank">PMID:36982794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9484,6 +10243,442 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urinary-aspartylglucosamine-testing">
+                <div class="item-name">
+                    Urinary aspartylglucosamine testing
+
+                </div>
+
+                <div class="item-desc">Biochemical diagnosis can be supported by detecting large urinary amounts of aspartylglucosamine/GlcNAc-Asn.
+</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Increased urinary aspartylglucosamine supports AGA deficiency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Large amounts of GlcNAc-Asn substrate can be readily detected in urine of AGU patients and is thereby used as a diagnostic biomarker."</div>
+
+
+                <div class="evidence-explanation">Study supports urinary GlcNAc-Asn as a diagnostic biomarker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-aga-molecular-genetic-testing">
+                <div class="item-name">
+                    AGA molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms diagnosis by identifying biallelic pathogenic AGA variants.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-65">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic AGA variants confirm aspartylglucosaminuria.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33439067" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33439067" target="_blank">PMID:33439067</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AGU is caused by pathogenic variants in the aspartylglucosaminidase (AGA) gene"</div>
+
+
+                <div class="evidence-explanation">Clinical review supports AGA sequencing as confirmatory molecular testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-aga-enzyme-activity-assay">
+                <div class="item-name">
+                    Serum AGA enzyme activity assay
+
+                </div>
+
+                <div class="item-desc">A validated fluorometric serum assay can demonstrate deficient aspartylglucosaminidase activity and support biochemical diagnosis; molecular testing remains appropriate for genetic confirmation.
+</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Markedly reduced serum AGA activity supports aspartylglucosaminuria.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36982794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982794" target="_blank">PMID:36982794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that the validated AGA activity assay is suitable for the assessment of AGA activity in the serum of healthy donors and AGU patients, and it can be used for diagnostics of AGU and, potentially, for following a treatment effect."</div>
+
+
+                <div class="evidence-explanation">This directly supports serum AGA activity measurement as a diagnostic biochemical assay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-onset-progressive-neurodevelopmental-disease">
+                <div class="item-name">Childhood-onset progressive neurodevelopmental disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood onward</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Children may appear relatively well in infancy, then develop delayed speech, learning impairment, behavioral changes, and progressive intellectual and physical disability. Adult patients often become highly dependent on supportive care, with premature death commonly before age 50.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Childhood"</div>
+
+
+                <div class="evidence-explanation">Orphanet records childhood onset for aspartylglucosaminuria.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27906067" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27906067" target="_blank">PMID:27906067</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive intellectual and physical disability is the main symptom leading to death usually before the age of 50"</div>
+
+
+                <div class="evidence-explanation">Review describes the progressive natural history and premature mortality.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33186692" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33186692" target="_blank">PMID:33186692</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median lifespan of AGU patients is approximately 30 to 40 years."</div>
+
+
+                <div class="evidence-explanation">Provides a quantitative median-lifespan estimate for AGU patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records worldwide point prevalence as unknown, with higher prevalence at birth reported in Finland and rarer prevalence at birth in Australia and Sweden.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unknown | Worldwide | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet records worldwide point prevalence as unknown.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:93" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:93" target="_blank">ORPHA:93</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Finland | Prevalence at birth | PMID:27906067"</div>
+
+
+                <div class="evidence-explanation">Orphanet records a higher Finnish birth-prevalence band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -9499,7 +10694,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07530796">
                 <div class="item-name">
                     NCT07530796
 
@@ -9528,7 +10723,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="https://clinicaltrials.gov/study/NCT07530796" target="_blank">clinicaltrials:NCT07530796</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9577,7 +10774,6 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <pre class="yaml-preview">name: Aspartylglucosaminuria
 category: Mendelian
 creation_date: &#39;2026-05-03T15:19:05Z&#39;
-updated_date: &#39;2026-05-18T11:24:09Z&#39;
 synonyms:
 - Aspartylglucosaminidase deficiency
 - AGU
@@ -11728,7 +12924,7 @@ PMID:9930336; PMID:33186692).</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aspartylglucosaminuria", "mondoId": "MONDO:0008830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspartylglucosaminuria", "yamlRevision": "5f8e27b96c52"};
+        const OS_CONFIG = {"diseaseName": "Aspartylglucosaminuria", "mondoId": "MONDO:0008830", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aspartylglucosaminuria", "yamlRevision": "1e0583e63b88"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12147,5 +13343,73 @@ PMID:9930336; PMID:33186692).</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

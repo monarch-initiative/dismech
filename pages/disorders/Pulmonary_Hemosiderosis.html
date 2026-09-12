@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Pulmonary Hemosiderosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Pulmonary Hemosiderosis</h1>
             <div class="header-meta">
 
@@ -3897,7 +4044,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-idiopathic-pulmonary-hemosiderosis-definition">
                 <div class="item-name">Orphanet idiopathic pulmonary hemosiderosis definition</div>
 
                 <div class="item-desc">A respiratory disease, most often beginning in childhood, caused by repeated episodes of otherwise unexplained diffuse alveolar hemorrhage with anemia, cough, and chest-imaging infiltrates.
@@ -3942,7 +4089,9 @@
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3964,7 +4113,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4026,18 +4177,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar capillary endothelial cell, annotated with capillary endothelial cell (CL:0002144). CL:0002144 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar capillary endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl">CL:0002144</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002144" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002144</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar capillary endothelial cell, annotated with capillary endothelial cell (CL:0002144). CL:0002144 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4065,18 +4218,20 @@ This pathophysiological event involves alveolar capillary endothelial cell, anno
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated hemostasis (GO:0007599). GO:0007599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         hemostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007599" target="_blank" class="curie-chip curie-chip-go">GO:0007599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated hemostasis (GO:0007599). GO:0007599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4097,18 +4252,20 @@ This pathophysiological event involves dysregulated hemostasis (GO:0007599). GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated vascular permeability regulation, annotated with regulation of vascular permeability (GO:0043114). GO:0043114 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         vascular permeability regulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" class="curie-chip curie-chip-go">GO:0043114</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated vascular permeability regulation, annotated with regulation of vascular permeability (GO:0043114). GO:0043114 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4136,18 +4293,20 @@ This pathophysiological event involves dysregulated vascular permeability regula
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4207,7 +4366,9 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15293620" target="_blank">PMID:15293620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4229,7 +4390,9 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4270,18 +4433,20 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4337,7 +4502,9 @@ This pathophysiological event involves dysregulated immune response (GO:0006955)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4359,7 +4526,9 @@ This pathophysiological event involves dysregulated immune response (GO:0006955)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4393,18 +4562,20 @@ This pathophysiological event involves dysregulated immune response (GO:0006955)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4432,18 +4603,20 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4464,18 +4637,20 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased heme catabolic process (GO:0042167). GO:0042167 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         heme catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042167" target="_blank" class="curie-chip curie-chip-go">GO:0042167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased heme catabolic process (GO:0042167). GO:0042167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4496,18 +4671,20 @@ This pathophysiological event involves increased heme catabolic process (GO:0042
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated intracellular iron ion homeostasis (GO:0006879). GO:0006879 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intracellular iron ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" class="curie-chip curie-chip-go">GO:0006879</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated intracellular iron ion homeostasis (GO:0006879). GO:0006879 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4535,18 +4712,20 @@ This pathophysiological event involves dysregulated intracellular iron ion homeo
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4594,7 +4773,9 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15293620" target="_blank">PMID:15293620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4616,7 +4797,9 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4650,18 +4833,20 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pulmonary alveolar type 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4678,18 +4863,20 @@ This pathophysiological event involves pulmonary alveolar type 2 cell (CL:000206
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4717,18 +4904,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         wound healing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4749,18 +4938,20 @@ This pathophysiological event involves dysregulated wound healing (GO:0042060). 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4781,18 +4972,20 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4820,18 +5013,20 @@ This pathophysiological event involves increased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4879,7 +5074,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4901,7 +5098,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4936,7 +5135,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hemosiderin-laden-alveolar-macrophages-without-vasculitis">
                 <div class="item-name">
                     Hemosiderin-laden alveolar macrophages without vasculitis
 
@@ -4959,7 +5158,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15293620" target="_blank">PMID:15293620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4981,7 +5182,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15293620" target="_blank">PMID:15293620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5047,21 +5250,25 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(11)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(14)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5082,16 +5289,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001891</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.">
-                        Iron deficiency anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp">HP:0001891</a>
-
-
+This clinical feature is iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5112,7 +5323,9 @@ This clinical feature is iron deficiency anemia (HP:0001891). HP:0001891 is a ph
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5134,7 +5347,9 @@ This clinical feature is iron deficiency anemia (HP:0001891). HP:0001891 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5168,16 +5383,20 @@ This clinical feature is iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0025420</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is a phenotype from the Human Phenotype Ontology.">
-                        Diffuse alveolar hemorrhage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025420" target="_blank" class="curie-chip curie-chip-hp">HP:0025420</a>
-
-
+This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5198,7 +5417,9 @@ This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5220,7 +5441,9 @@ This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15293620" target="_blank">PMID:15293620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5252,7 +5475,7 @@ This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hepatosplenomegaly" data-dismech-node="Hepatosplenomegaly" data-dismech-type="phenotype">
@@ -5263,16 +5486,20 @@ This clinical feature is diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5293,7 +5520,9 @@ This clinical feature is hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5327,16 +5556,20 @@ This clinical feature is hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001640</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cardiomegaly (HP:0001640). HP:0001640 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001640" target="_blank" class="curie-chip curie-chip-hp">HP:0001640</a>
-
-
+This clinical feature is cardiomegaly (HP:0001640). HP:0001640 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5357,7 +5590,9 @@ This clinical feature is cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5368,6 +5603,76 @@ This clinical feature is cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
                 <div class="evidence-explanation">Orphanet records cardiomegaly as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-murmur" data-dismech-node="Heart murmur" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Heart murmur
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030148</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030148 | Heart murmur | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records heart murmur as occasional.</div>
 
 
 
@@ -5400,16 +5705,20 @@ This clinical feature is cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5430,7 +5739,9 @@ This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5461,932 +5772,9 @@ This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
+                    Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pallor" data-dismech-node="Pallor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pallor
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.">
-                        Pallor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp">HP:0000980</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000980 | Pallor | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records pallor as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fever
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001945 | Fever | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records fever as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hemoptysis" data-dismech-node="Hemoptysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hemoptysis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.">
-                        Hemoptysis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp">HP:0002105</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002105 | Hemoptysis | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hemoptysis as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hemoptysis (n = 61, 57%)"</div>
-
-
-                <div class="evidence-explanation">The pediatric cohort found hemoptysis in 61 of 107 patients at diagnosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-infiltrates" data-dismech-node="Pulmonary infiltrates" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary infiltrates
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary infiltrates
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp">HP:0002113</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002113 | Pulmonary infiltrates | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records pulmonary infiltrates as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cough
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
-                        Cough
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012735 | Cough | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records cough as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cough (n = 68, 63.55%)"</div>
-
-
-                <div class="evidence-explanation">The pediatric cohort found cough in 68 of 107 patients at diagnosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Restrictive ventilatory defect
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.">
-                        Restrictive ventilatory defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp">HP:0002091</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002091 | Restrictive ventilatory defect | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records restrictive ventilatory defect as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dyspnea
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002094 | Dyspnea | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records dyspnea as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"dyspnea (n = 17, 68%)"</div>
-
-
-                <div class="evidence-explanation">The French cohort recorded dyspnea at diagnosis in 17 of 25 children.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary fibrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary fibrosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary fibrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002206 | Pulmonary fibrosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records pulmonary fibrosis as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One patient developed severe pulmonary fibrosis"</div>
-
-
-                <div class="evidence-explanation">The French cohort documents pulmonary fibrosis as a severe complication.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory failure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp">HP:0002878</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002878 | Respiratory failure | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records respiratory failure as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"three died from massive pulmonary hemorrhage and respiratory failure"</div>
-
-
-                <div class="evidence-explanation">The pediatric cohort documents respiratory failure in fatal severe presentations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fatigue
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012378 | Fatigue | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records fatigue as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001508 | Failure to thrive | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records failure to thrive as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">14</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ground-glass-opacification-on-pulmonary-hrct" data-dismech-node="Ground-glass opacification on pulmonary HRCT" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ground-glass opacification on pulmonary HRCT
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is ground-glass opacification on pulmonary HRCT, annotated with Ground-glass opacification (HP:0025179). HP:0025179 is a phenotype from the Human Phenotype Ontology.">
-                        Ground-glass opacification
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025179" target="_blank" class="curie-chip curie-chip-hp">HP:0025179</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025179 | Ground-glass opacification on pulmonary HRCT | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records ground-glass opacification on pulmonary HRCT as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-glomerulonephritis" data-dismech-node="Glomerulonephritis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6396,16 +5784,20 @@ This clinical feature is ground-glass opacification on pulmonary HRCT, annotated
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.">
-                        Glomerulonephritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp">HP:0000099</a>
-
-
+This clinical feature is glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6426,7 +5818,9 @@ This clinical feature is glomerulonephritis (HP:0000099). HP:0000099 is a phenot
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6452,69 +5846,14 @@ This clinical feature is glomerulonephritis (HP:0000099). HP:0000099 is a phenot
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-down-syndrome" data-dismech-node="Down syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Down syndrome
+            </details>
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Mondo Disease Ontology (MONDO)
-Relation: this clinical feature is this phenotype
-This clinical feature is Down syndrome (MONDO:0008608). MONDO:0008608 is a phenotype from the Mondo Disease Ontology.">
-                        Down syndrome
-
-
-
-    <a href="http://purl.obolibrary.org/obo/MONDO_0008608" target="_blank" class="curie-chip curie-chip-mondo">MONDO:0008608</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified 25 reported cases of IPH in children from the database (20 females and 5 males). Among them, 5 presented with Down syndrome."</div>
-
-
-                <div class="evidence-explanation">The French pediatric cohort documents Down syndrome in 5 of 25 IPH cases, supporting an occasional comorbidity association.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">7</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-rheumatoid-factor-positive" data-dismech-node="Rheumatoid factor positive" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6524,16 +5863,20 @@ This clinical feature is Down syndrome (MONDO:0008608). MONDO:0008608 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002923</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is rheumatoid factor positive (HP:0002923). HP:0002923 is a phenotype from the Human Phenotype Ontology.">
-                        Rheumatoid factor positive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002923" target="_blank" class="curie-chip curie-chip-hp">HP:0002923</a>
-
-
+This clinical feature is rheumatoid factor positive (HP:0002923). HP:0002923 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6554,7 +5897,9 @@ This clinical feature is rheumatoid factor positive (HP:0002923). HP:0002923 is 
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6588,16 +5933,22 @@ This clinical feature is rheumatoid factor positive (HP:0002923). HP:0002923 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Anti-smooth muscle antibody positivity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003262</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is smooth muscle antibody positivity, annotated with Anti-smooth muscle antibody positivity (HP:0003262). HP:0003262 is a phenotype from the Human Phenotype Ontology.">
-                        Anti-smooth muscle antibody positivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003262" target="_blank" class="curie-chip curie-chip-hp">HP:0003262</a>
-
-
+This clinical feature is smooth muscle antibody positivity, annotated with Anti-smooth muscle antibody positivity (HP:0003262). HP:0003262 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6618,7 +5969,9 @@ This clinical feature is smooth muscle antibody positivity, annotated with Anti-
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6652,16 +6005,20 @@ This clinical feature is smooth muscle antibody positivity, annotated with Anti-
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003453</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is antineutrophil antibody positivity (HP:0003453). HP:0003453 is a phenotype from the Human Phenotype Ontology.">
-                        Antineutrophil antibody positivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003453" target="_blank" class="curie-chip curie-chip-hp">HP:0003453</a>
-
-
+This clinical feature is antineutrophil antibody positivity (HP:0003453). HP:0003453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6682,7 +6039,9 @@ This clinical feature is antineutrophil antibody positivity (HP:0003453). HP:000
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6716,16 +6075,20 @@ This clinical feature is antineutrophil antibody positivity (HP:0003453). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003493</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.">
-                        Antinuclear antibody positivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp">HP:0003493</a>
-
-
+This clinical feature is antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6746,7 +6109,9 @@ This clinical feature is antinuclear antibody positivity (HP:0003493). HP:000349
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6780,16 +6145,20 @@ This clinical feature is antinuclear antibody positivity (HP:0003493). HP:000349
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012393" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012393</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is allergy (HP:0012393). HP:0012393 is a phenotype from the Human Phenotype Ontology.">
-                        Allergy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012393" target="_blank" class="curie-chip curie-chip-hp">HP:0012393</a>
-
-
+This clinical feature is allergy (HP:0012393). HP:0012393 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6810,7 +6179,9 @@ This clinical feature is allergy (HP:0012393). HP:0012393 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6836,24 +6207,28 @@ This clinical feature is allergy (HP:0012393). HP:0012393 is a phenotype from th
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reticular-pattern-on-pulmonary-hrct" data-dismech-node="Reticular pattern on pulmonary HRCT" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-antibody-positivity" data-dismech-node="Autoimmune antibody positivity" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Reticular pattern on pulmonary HRCT
+                        Autoimmune antibody positivity
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is reticular pattern on pulmonary HRCT (HP:0025390). HP:0025390 is a phenotype from the Human Phenotype Ontology.">
-                        Reticular pattern on pulmonary HRCT
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025390" target="_blank" class="curie-chip curie-chip-hp">HP:0025390</a>
-
-
+This clinical feature is autoimmune antibody positivity (HP:0030057). HP:0030057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6874,7 +6249,996 @@ This clinical feature is reticular pattern on pulmonary HRCT (HP:0025390). HP:00
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030057 | Autoimmune antibody positivity | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records autoimmune antibody positivity as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cow-milk-allergy" data-dismech-node="Cow milk allergy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cow milk allergy
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100327</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cow milk allergy (HP:0100327). HP:0100327 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100327 | Cow milk allergy | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records cow milk allergy as very rare.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pallor" data-dismech-node="Pallor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pallor
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000980</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000980 | Pallor | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records pallor as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fever
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001945 | Fever | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records fever as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">11</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemoptysis" data-dismech-node="Hemoptysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hemoptysis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002105</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002105 | Hemoptysis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records hemoptysis as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hemoptysis (n = 61, 57%)"</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort found hemoptysis in 61 of 107 patients at diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-infiltrates" data-dismech-node="Pulmonary infiltrates" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary infiltrates
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002113</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002113 | Pulmonary infiltrates | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records pulmonary infiltrates as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cough
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012735 | Cough | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records cough as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cough (n = 68, 63.55%)"</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort found cough in 68 of 107 patients at diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ground-glass-opacification-on-pulmonary-hrct" data-dismech-node="Ground-glass opacification on pulmonary HRCT" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ground-glass opacification on pulmonary HRCT
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025179</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ground-glass opacification on pulmonary HRCT, annotated with Ground-glass opacification (HP:0025179). HP:0025179 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025179 | Ground-glass opacification on pulmonary HRCT | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records ground-glass opacification on pulmonary HRCT as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Restrictive ventilatory defect
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002091</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002091 | Restrictive ventilatory defect | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records restrictive ventilatory defect as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dyspnea
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002094 | Dyspnea | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records dyspnea as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dyspnea (n = 17, 68%)"</div>
+
+
+                <div class="evidence-explanation">The French cohort recorded dyspnea at diagnosis in 17 of 25 children.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary fibrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary fibrosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002206</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002206 | Pulmonary fibrosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records pulmonary fibrosis as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One patient developed severe pulmonary fibrosis"</div>
+
+
+                <div class="evidence-explanation">The French cohort documents pulmonary fibrosis as a severe complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory failure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002878 | Respiratory failure | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records respiratory failure as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three died from massive pulmonary hemorrhage and respiratory failure"</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort documents respiratory failure in fatal severe presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reticular-pattern-on-pulmonary-hrct" data-dismech-node="Reticular pattern on pulmonary HRCT" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reticular pattern on pulmonary HRCT
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025390" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0025390</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is reticular pattern on pulmonary HRCT (HP:0025390). HP:0025390 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6908,16 +7272,20 @@ This clinical feature is reticular pattern on pulmonary HRCT (HP:0025390). HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0025392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is nodular pattern on pulmonary HRCT (HP:0025392). HP:0025392 is a phenotype from the Human Phenotype Ontology.">
-                        Nodular pattern on pulmonary HRCT
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025392" target="_blank" class="curie-chip curie-chip-hp">HP:0025392</a>
-
-
+This clinical feature is nodular pattern on pulmonary HRCT (HP:0025392). HP:0025392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6938,7 +7306,9 @@ This clinical feature is nodular pattern on pulmonary HRCT (HP:0025392). HP:0025
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6964,134 +7334,6 @@ This clinical feature is nodular pattern on pulmonary HRCT (HP:0025392). HP:0025
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-antibody-positivity" data-dismech-node="Autoimmune antibody positivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autoimmune antibody positivity
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is autoimmune antibody positivity (HP:0030057). HP:0030057 is a phenotype from the Human Phenotype Ontology.">
-                        Autoimmune antibody positivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp">HP:0030057</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030057 | Autoimmune antibody positivity | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records autoimmune antibody positivity as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-murmur" data-dismech-node="Heart murmur" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Heart murmur
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is heart murmur (HP:0030148). HP:0030148 is a phenotype from the Human Phenotype Ontology.">
-                        Heart murmur
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030148" target="_blank" class="curie-chip curie-chip-hp">HP:0030148</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030148 | Heart murmur | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records heart murmur as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-crackles" data-dismech-node="Crackles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Crackles
@@ -7100,16 +7342,20 @@ This clinical feature is heart murmur (HP:0030148). HP:0030148 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0030830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from the Human Phenotype Ontology.">
-                        Crackles
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" class="curie-chip curie-chip-hp">HP:0030830</a>
-
-
+This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7130,7 +7376,9 @@ This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7156,24 +7404,37 @@ This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from t
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cow-milk-allergy" data-dismech-node="Cow milk allergy" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cow milk allergy
+                        Fatigue
 
-                        <span class="phenotype-freq">VERY_RARE</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cow milk allergy (HP:0100327). HP:0100327 is a phenotype from the Human Phenotype Ontology.">
-                        Cow milk allergy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100327" target="_blank" class="curie-chip curie-chip-hp">HP:0100327</a>
-
-
+This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7194,17 +7455,177 @@ This clinical feature is cow milk allergy (HP:0100327). HP:0100327 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0100327 | Cow milk allergy | Very rare (&lt;4-1%)"</div>
+                <div class="evidence-snippet">"HP:0012378 | Fatigue | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records cow milk allergy as very rare.</div>
+                <div class="evidence-explanation">Orphanet records fatigue as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001508 | Failure to thrive | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records failure to thrive as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-down-syndrome" data-dismech-node="Down syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Down syndrome
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/MONDO_0008608" target="_blank" class="curie-chip curie-chip-mondo" aria-describedby="pill-tip-46">MONDO:0008608</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Mondo Disease Ontology (MONDO)
+Relation: this clinical feature is this phenotype
+This clinical feature is Down syndrome (MONDO:0008608). MONDO:0008608 is a phenotype from the Mondo Disease Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified 25 reported cases of IPH in children from the database (20 females and 5 males). Among them, 5 presented with Down syndrome."</div>
+
+
+                <div class="evidence-explanation">The French pediatric cohort documents Down syndrome in 5 of 25 IPH cases, supporting an occasional comorbidity association.</div>
 
 
 
@@ -7256,6 +7677,84 @@ This clinical feature is cow milk allergy (HP:0100327). HP:0100327 is a phenotyp
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-idiopathic-pulmonary-hemosiderosis-record">
+
+
+    <div class="item-name">Orphanet idiopathic pulmonary hemosiderosis record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=99931" target="_blank" rel="noopener noreferrer" title="Open ORPHA:99931">ORPHA:99931</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:99931 structured record provides the disease definition, childhood age of onset, epidemiology, cross-references, and HPO phenotype rows used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:178550 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet records an exact OMIM cross-reference for idiopathic pulmonary hemosiderosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7272,18 +7771,18 @@ This clinical feature is cow milk allergy (HP:0100327). HP:0100327 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">corticosteroid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">corticosteroid agent therapy</span>
+This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -7308,36 +7807,48 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prednisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7361,7 +7872,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7383,7 +7896,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26289251" target="_blank">PMID:26289251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7405,7 +7920,9 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33184706" target="_blank">PMID:33184706</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7435,18 +7952,18 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">immune suppressant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">immune suppressant agent therapy</span>
+This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.">NCIT:C15261</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15261" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15261">NCIT:C15261</a>
 
 
 
@@ -7471,66 +7988,82 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:5801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:2948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7554,7 +8087,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33184706" target="_blank">PMID:33184706</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7576,7 +8111,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30806370" target="_blank">PMID:30806370</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7598,7 +8135,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30806370" target="_blank">PMID:30806370</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7630,18 +8169,18 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7659,6 +8198,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7684,7 +8231,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7714,6 +8263,639 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-chest-radiography-and-computed-tomography">
+                <div class="item-name">
+                    Chest radiography and computed tomography
+
+                </div>
+
+                <div class="item-desc">Chest radiographs or CT are used to identify infiltrates, ground-glass opacity, nodular changes, cardiomegaly, or reticular interstitial changes compatible with alveolar hemorrhage and chronic injury.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All of the patients showed abnormal chest X-rays or computed tomography scans."</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort supports chest imaging as a routine diagnostic component.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hemosiderin-laden-macrophage-testing">
+                <div class="item-name">
+                    Hemosiderin-laden macrophage testing
+
+                </div>
+
+                <div class="item-desc">Sputum, gastric lavage fluid, or bronchoalveolar lavage fluid can be tested for hemosiderin-laden macrophages; repeated gastric lavage or BAL can improve detection in children who cannot expectorate.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The positive rates of hemosiderin-laden macrophages in sputum, gastric lavage fluid, and bronchoalveolar lavage fluid were 91.66%, 98.21%, and 100%, respectively."</div>
+
+
+                <div class="evidence-explanation">The cohort supports cytologic testing for hemosiderin-laden macrophages across respiratory and gastric samples.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chest imaging combined with repeated examinations for hemosiderin-laden macrophages in sputum, gastric lavage fluid, or bronchoalveolar lavage fluid are helpful for diagnosing IPH."</div>
+
+
+                <div class="evidence-explanation">The cohort conclusion supports combined imaging and repeated siderophage testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exclusion-of-secondary-diffuse-alveolar-hemorrhage-causes">
+                <div class="item-name">
+                    Exclusion of secondary diffuse alveolar hemorrhage causes
+
+                </div>
+
+                <div class="item-desc">IPH is diagnosed only after excluding secondary causes such as infection, bronchiectasis, interstitial pneumonia, neoplasm, cardiovascular disease, coagulation disorders, connective-tissue disease, celiac disease, and systemic vasculitis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"exclusion of other diseases, which are associated with diffuse alveolar hemorrhage, such as bronchiectasis, interstitial pneumonia, neoplasms, cardiovascular disease, coagulation disorders, infections, connective tissue diseases, celiac disease, and systemic vasculitis."</div>
+
+
+                <div class="evidence-explanation">The cohort&#39;s case definition supports exclusion of secondary DAH causes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-onset">
+                <div class="item-name">Childhood onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Orphanet lists childhood as the age-of-onset category.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Childhood"</div>
+
+
+                <div class="evidence-explanation">Orphanet records childhood onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-relapsing-hemorrhage-and-diagnostic-delay">
+                <div class="item-name">Relapsing hemorrhage and diagnostic delay</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Pediatric IPH often presents variably rather than with the complete classic triad, leading to high misdiagnosis rates and recurrence during treatment taper or withdrawal.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The classic triad of pediatric IPH is not always present. The rates of misdiagnosis and recurrence of IPH are high."</div>
+
+
+                <div class="evidence-explanation">The cohort directly supports variable presentation, misdiagnosis, and recurrence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-chronic-pulmonary-morbidity">
+                <div class="item-name">Chronic pulmonary morbidity</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Repeated hemorrhage can cause recurrent respiratory insufficiency and, in a minority of patients, pulmonary fibrosis.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30278795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30278795" target="_blank">PMID:30278795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Death may quickly occur with acute, massive, pulmonary hemorrhage or may occur over longer periods as the result of continued respiratory insufficiency and heart failure."</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort review of prognosis links acute massive hemorrhage and chronic respiratory insufficiency to severe outcomes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24125570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24125570" target="_blank">PMID:24125570</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One patient developed severe pulmonary fibrosis, and another with Down syndrome died as a result of severe pulmonary hemorrhage."</div>
+
+
+                <div class="evidence-explanation">The French pediatric cohort documents severe fibrosis and fatal hemorrhage as uncommon but important complications.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records annual incidence below 1 per million in Europe.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Europe | Annual incidence | EXPERT"</div>
+
+
+                <div class="evidence-explanation">Orphanet records the expert-estimated European annual incidence band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe-2">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Unknown point prevalence</span>
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records European point prevalence as unknown.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:99931" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:99931" target="_blank">ORPHA:99931</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unknown | Europe | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet records unknown European point prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7748,7 +8930,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <pre class="yaml-preview">name: Pulmonary Hemosiderosis
 category: Respiratory Disease
 creation_date: &#34;2026-05-09T18:28:00Z&#34;
-updated_date: &#34;2026-05-09T20:47:29Z&#34;
 synonyms:
 - Idiopathic pulmonary hemosiderosis
 - IPH
@@ -7786,7 +8967,7 @@ external_assertions:
     rows used in this entry.
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:178550 | Exact&#34;
@@ -7800,7 +8981,7 @@ definitions:
     cough, and chest-imaging infiltrates.
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Idiopathic pulmonary hemosiderosis is a respiratory disease due to repeated episodes of diffuse alveolar hemorrhage without any underlying apparent cause&#34;
@@ -7820,7 +9001,7 @@ prevalence:
   notes: Orphanet records annual incidence below 1 per million in Europe.
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Europe | Annual incidence | EXPERT&#34;
@@ -7832,7 +9013,7 @@ prevalence:
   notes: Orphanet records European point prevalence as unknown.
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Unknown | Europe | Point prevalence | ORPHANET&#34;
@@ -7843,7 +9024,7 @@ progression:
   notes: Orphanet lists childhood as the age-of-onset category.
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Childhood&#34;
@@ -8105,7 +9286,7 @@ phenotypes:
       label: Iron deficiency anemia
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001891 | Iron deficiency anemia | Very frequent (99-80%)&#34;
@@ -8127,7 +9308,7 @@ phenotypes:
       label: Pallor
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000980 | Pallor | Frequent (79-30%)&#34;
@@ -8143,7 +9324,7 @@ phenotypes:
       label: Hepatosplenomegaly
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001433 | Hepatosplenomegaly | Frequent (79-30%)&#34;
@@ -8159,7 +9340,7 @@ phenotypes:
       label: Hemoptysis
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002105 | Hemoptysis | Frequent (79-30%)&#34;
@@ -8181,7 +9362,7 @@ phenotypes:
       label: Pulmonary infiltrates
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002113 | Pulmonary infiltrates | Frequent (79-30%)&#34;
@@ -8197,7 +9378,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012378 | Fatigue | Frequent (79-30%)&#34;
@@ -8213,7 +9394,7 @@ phenotypes:
       label: Cough
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012735 | Cough | Frequent (79-30%)&#34;
@@ -8235,7 +9416,7 @@ phenotypes:
       label: Ground-glass opacification
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0025179 | Ground-glass opacification on pulmonary HRCT | Frequent (79-30%)&#34;
@@ -8251,7 +9432,7 @@ phenotypes:
       label: Glomerulonephritis
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000099 | Glomerulonephritis | Very rare (&lt;4-1%)&#34;
@@ -8267,7 +9448,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Occasional (29-5%)&#34;
@@ -8283,7 +9464,7 @@ phenotypes:
       label: Cardiomegaly
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001640 | Cardiomegaly | Occasional (29-5%)&#34;
@@ -8299,7 +9480,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001945 | Fever | Occasional (29-5%)&#34;
@@ -8315,7 +9496,7 @@ phenotypes:
       label: Restrictive ventilatory defect
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002091 | Restrictive ventilatory defect | Occasional (29-5%)&#34;
@@ -8331,7 +9512,7 @@ phenotypes:
       label: Dyspnea
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002094 | Dyspnea | Occasional (29-5%)&#34;
@@ -8353,7 +9534,7 @@ phenotypes:
       label: Pulmonary fibrosis
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002206 | Pulmonary fibrosis | Occasional (29-5%)&#34;
@@ -8375,7 +9556,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002240 | Hepatomegaly | Occasional (29-5%)&#34;
@@ -8391,7 +9572,7 @@ phenotypes:
       label: Respiratory failure
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002878 | Respiratory failure | Occasional (29-5%)&#34;
@@ -8431,7 +9612,7 @@ phenotypes:
       label: Rheumatoid factor positive
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002923 | Rheumatoid factor positive | Occasional (29-5%)&#34;
@@ -8447,7 +9628,7 @@ phenotypes:
       label: Anti-smooth muscle antibody positivity
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003262 | Smooth muscle antibody positivity | Occasional (29-5%)&#34;
@@ -8463,7 +9644,7 @@ phenotypes:
       label: Antineutrophil antibody positivity
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003453 | Antineutrophil antibody positivity | Occasional (29-5%)&#34;
@@ -8479,7 +9660,7 @@ phenotypes:
       label: Antinuclear antibody positivity
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003493 | Antinuclear antibody positivity | Occasional (29-5%)&#34;
@@ -8495,7 +9676,7 @@ phenotypes:
       label: Allergy
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012393 | Allergy | Occasional (29-5%)&#34;
@@ -8511,7 +9692,7 @@ phenotypes:
       label: Reticular pattern on pulmonary HRCT
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0025390 | Reticular pattern on pulmonary HRCT | Occasional (29-5%)&#34;
@@ -8527,7 +9708,7 @@ phenotypes:
       label: Nodular pattern on pulmonary HRCT
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0025392 | Nodular pattern on pulmonary HRCT | Occasional (29-5%)&#34;
@@ -8543,7 +9724,7 @@ phenotypes:
       label: Diffuse alveolar hemorrhage
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0025420 | Diffuse alveolar hemorrhage | Occasional (29-5%)&#34;
@@ -8565,7 +9746,7 @@ phenotypes:
       label: Autoimmune antibody positivity
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030057 | Autoimmune antibody positivity | Occasional (29-5%)&#34;
@@ -8581,7 +9762,7 @@ phenotypes:
       label: Heart murmur
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030148 | Heart murmur | Occasional (29-5%)&#34;
@@ -8597,7 +9778,7 @@ phenotypes:
       label: Crackles
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030830 | Crackles | Occasional (29-5%)&#34;
@@ -8613,7 +9794,7 @@ phenotypes:
       label: Cow milk allergy
   evidence:
   - reference: ORPHA:99931
-    reference_title: Idiopathic pulmonary hemosiderosis (Orphanet structured-database record)
+    reference_title: &#34;Idiopathic pulmonary hemosiderosis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100327 | Cow milk allergy | Very rare (&lt;4-1%)&#34;
@@ -9085,7 +10266,7 @@ therapeutic-agent bindings alongside hydroxychloroquine and azathioprine.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pulmonary Hemosiderosis", "mondoId": "MONDO:0008346", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pulmonary_Hemosiderosis", "yamlRevision": "6a7f0e652f70"};
+        const OS_CONFIG = {"diseaseName": "Pulmonary Hemosiderosis", "mondoId": "MONDO:0008346", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pulmonary_Hemosiderosis", "yamlRevision": "15238c2363b7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9504,5 +10685,73 @@ therapeutic-agent bindings alongside hydroxychloroquine and azathioprine.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

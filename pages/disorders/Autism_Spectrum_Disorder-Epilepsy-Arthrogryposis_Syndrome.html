@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autism%20Spectrum%20Disorder-Epilepsy-Arthrogryposis%20Syndrome"
@@ -3829,7 +3976,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3838,7 +3985,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3907,7 +4054,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3952,7 +4099,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3995,7 +4144,7 @@ carried novel SLC35A3 compound heterozygous mutations."</div>
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="slc35a3_sole_transporter_model_mismatch">
@@ -4047,7 +4196,9 @@ carried novel SLC35A3 compound heterozygous mutations."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32938718" target="_blank">PMID:32938718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4072,7 +4223,9 @@ exist."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32938718" target="_blank">PMID:32938718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4170,6 +4323,12 @@ vesicles was not decreased."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4193,7 +4352,9 @@ vesicles was not decreased."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37053259" target="_blank">PMID:37053259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4288,6 +4449,12 @@ vesicles was not decreased."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4311,7 +4478,9 @@ vesicles was not decreased."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4324,6 +4493,117 @@ central nervous system"</div>
 
 
                 <div class="evidence-explanation">The mechanistic link to CNS-protein glycosylation is stated only as a possibility, leaving the specific target glycoproteins undefined.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="slc35a3_craniofacial_cardiac_ocular_mechanism_unknown">
+                <div class="item-name">By what mechanism does SLC35A3 deficiency produce the craniofacial (cleft palate, micrognathia, facial dysmorphism), cardiac (patent ductus arteriosus, patent foramen ovale), and ocular (posterior embryotoxon) anomalies reported in the skeletal-dysplasia presentation?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">slc35a3_craniofacial_cardiac_ocular_mechanism_unknown</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-micrognathia">phenotypes#Micrognathia</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-cleft-palate">phenotypes#Cleft palate</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-facial-dysmorphism">phenotypes#Facial dysmorphism</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-patent-ductus-arteriosus">phenotypes#Patent ductus arteriosus</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-patent-foramen-ovale">phenotypes#Patent foramen ovale</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#phenotype-posterior-embryotoxon">phenotypes#Posterior embryotoxon</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">These anomalies are documented in a single patient (the SLC35A3-related skeletal-dysplasia case) and no study has traced them to a specific glycosylation-dependent developmental pathway. Craniofacial anomalies could plausibly share the cartilage/skeletal glycosylation mechanism, and cardiac anomalies also occur in the bovine Complex Vertebral Malformation phenotype, but neither link has been demonstrated for the human disease, so these phenotypes are deliberately left without causal edges rather than wired to the skeletal or neurodevelopmental nodes on conjecture.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Congenital
+disorders of glycosylation, including SLC35A3-CDG, can present as a wide
+phenotypic spectrum, including skeletal dysplasia."</div>
+
+
+                <div class="evidence-explanation">The case report frames these findings as part of a wide phenotypic spectrum without proposing a mechanism for the craniofacial, cardiac, or ocular anomalies.</div>
 
 
 
@@ -4358,6 +4638,49 @@ central nervous system"</div>
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLC35A3
+
+
+    <a href="https://bioregistry.io/hgnc:11023" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11023</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC35A3 (hgnc:11023). hgnc:11023 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4366,18 +4689,20 @@ central nervous system"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased UDP-N-acetylglucosamine transmembrane transport (GO:1990569). GO:1990569 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         UDP-N-acetylglucosamine transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990569" target="_blank" class="curie-chip curie-chip-go">GO:1990569</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990569" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:1990569</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased UDP-N-acetylglucosamine transmembrane transport (GO:1990569). GO:1990569 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4403,18 +4728,20 @@ This pathophysiological event involves decreased UDP-N-acetylglucosamine transme
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased UDP-N-acetylglucosamine transmembrane transporter activity (GO:0005462). GO:0005462 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         UDP-N-acetylglucosamine transmembrane transporter activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005462" target="_blank" class="curie-chip curie-chip-go">GO:0005462</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005462" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005462</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased UDP-N-acetylglucosamine transmembrane transporter activity (GO:0005462). GO:0005462 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4440,18 +4767,20 @@ This pathophysiological event involves decreased UDP-N-acetylglucosamine transme
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Golgi membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000139" target="_blank" class="curie-chip curie-chip-go">GO:0000139</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000139" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000139</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4500,7 +4829,9 @@ This pathophysiological event involves Golgi membrane (GO:0000139). GO:0000139 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4525,7 +4856,9 @@ nucleotide sugar was significantly reduced"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23766508" target="_blank">PMID:23766508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4548,7 +4881,9 @@ mammals."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41554664" target="_blank">PMID:41554664</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4591,18 +4926,20 @@ plasma membrane transporters."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased N-glycan processing (GO:0006491). GO:0006491 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         N-glycan processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go">GO:0006491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased N-glycan processing (GO:0006491). GO:0006491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4658,7 +4995,9 @@ This pathophysiological event involves decreased N-glycan processing (GO:0006491
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4682,7 +5021,9 @@ sharp increase of lower branched glycoforms."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23766508" target="_blank">PMID:23766508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4719,18 +5060,20 @@ accumulated."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4762,6 +5105,93 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autism spectrum disorder</span>
+
+	                            <span class="crosslink-desc">Autism spectrum disorder is a defining manifestation of the CNS developmental impairment; the specific hypoglycosylated neuronal effectors are unknown (see knowledge gap).</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epilepsy</span>
+
+	                            <span class="crosslink-desc">Seizures/epilepsy are a core manifestation of the CNS dysfunction attributed to impaired glycosylation of neural proteins.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epileptic encephalopathy</span>
+
+	                            <span class="crosslink-desc">The severe end of the epilepsy spectrum manifests as early-onset epileptic encephalopathy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Infantile spasms</span>
+
+	                            <span class="crosslink-desc">Infantile spasms with focal and tonic seizures are the presenting seizure types of the epileptic-encephalopathy presentation.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Suppression-burst EEG pattern</span>
+
+	                            <span class="crosslink-desc">The suppression-burst EEG pattern is the electrographic signature of the early-onset epileptic encephalopathy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+
+	                            <span class="crosslink-desc">Intellectual disability is a core manifestation of the impaired CNS development.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+	                            <span class="crosslink-desc">Delayed psychomotor development is the early-childhood manifestation of the CNS developmental impairment.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acquired microcephaly</span>
+
+	                            <span class="crosslink-desc">Postnatal failure of head growth (acquired/secondary microcephaly) reflects the progressive CNS involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Quadriplegia</span>
+
+	                            <span class="crosslink-desc">Quadriplegia in the severely affected siblings reflects the severe central motor-system involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Muscle hypotonia</span>
+
+	                            <span class="crosslink-desc">Generalized muscle hypotonia is part of the early central neuromotor presentation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4776,7 +5206,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4800,7 +5232,9 @@ epilepsy."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4836,18 +5270,20 @@ central nervous system and skeletal apparatus."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Presomitic (Paraxial) Mesoderm Cell, annotated with paraxial cell (CL:0011007). CL:0011007 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Presomitic (Paraxial) Mesoderm Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011007" target="_blank" class="curie-chip curie-chip-cl">CL:0011007</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011007" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0011007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Presomitic (Paraxial) Mesoderm Cell, annotated with paraxial cell (CL:0011007). CL:0011007 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4875,18 +5311,20 @@ This pathophysiological event involves Presomitic (Paraxial) Mesoderm Cell, anno
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Segmentation (GO:0035282). GO:0035282 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Segmentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035282" target="_blank" class="curie-chip curie-chip-go">GO:0035282</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035282" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0035282</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Segmentation (GO:0035282). GO:0035282 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4907,18 +5345,20 @@ This pathophysiological event involves abnormal Segmentation (GO:0035282). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0001756 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         somitogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001756" target="_blank" class="curie-chip curie-chip-go">GO:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001756" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001756</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0001756 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4974,7 +5414,9 @@ This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37053259" target="_blank">PMID:37053259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5019,6 +5461,21 @@ This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vertebral anomalies</span>
+
+	                            <span class="crosslink-desc">The tissue-level malsegmentation manifests clinically as the observed butterfly and hemivertebrae throughout the spine.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5033,7 +5490,9 @@ This pathophysiological event involves abnormal somitogenesis (GO:0001756). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5075,18 +5534,20 @@ throughout the spine,"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycosaminoglycan biosynthetic process (GO:0006024). GO:0006024 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycosaminoglycan biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006024" target="_blank" class="curie-chip curie-chip-go">GO:0006024</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006024" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006024</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycosaminoglycan biosynthetic process (GO:0006024). GO:0006024 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5142,7 +5603,9 @@ This pathophysiological event involves decreased glycosaminoglycan biosynthetic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37053259" target="_blank">PMID:37053259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5176,18 +5639,20 @@ This pathophysiological event involves decreased glycosaminoglycan biosynthetic 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5246,7 +5711,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37053259" target="_blank">PMID:37053259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5291,6 +5758,69 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Distal arthrogryposis</span>
+
+	                            <span class="crosslink-desc">Congenital contractures predominant in the hands are the defining joint-level manifestation of the dysgenesis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Camptodactyly</span>
+
+	                            <span class="crosslink-desc">Fixed finger flexion contracture within the distal-limb deformity spectrum.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Swan neck-like finger deformities</span>
+
+	                            <span class="crosslink-desc">The distal arthrogryposis includes finger contractures with distal-phalangeal deviation and swan-neck deformity.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Talipes valgus</span>
+
+	                            <span class="crosslink-desc">Congenital foot deformity within the distal-limb involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rocker-bottom feet</span>
+
+	                            <span class="crosslink-desc">Congenital foot deformity within the distal-limb involvement.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short limbs</span>
+
+	                            <span class="crosslink-desc">Limb shortening reflects the chondrodysplasia arm of the skeletal dysgenesis (growth-plate cartilage ECM deficiency).</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Scoliosis</span>
+
+	                            <span class="crosslink-desc">Severe scoliosis accompanies the skeletal phenotype; whether it is primarily congenital-vertebral or secondary to the neuromuscular involvement is not resolved in the reported patients.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5305,7 +5835,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5329,7 +5861,9 @@ dorso-lumbar convex scoliosis in one."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5353,7 +5887,9 @@ skeletal defects known as Complex Vertebral Malformation syndrome."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37053259" target="_blank">PMID:37053259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5401,7 +5937,7 @@ skeletal defects known as Complex Vertebral Malformation syndrome."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Growth Plate Cartilage ECM Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased GAG/proteoglycan biosynthesis degrades the quality of the growth-plate cartilage extracellular matrix. In Slc35a3-null embryos the growth-plate extracellular space is drastically reduced and proliferative chondrocytes are reshaped, with proliferation, apoptosis, and differentiation unaffected \\u2014 indicating the chondrodysplasia arises from abnormal ECM quality rather than chondrocyte loss.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Impaired Glycosaminoglycan Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond N-glycan branching, SLC35A3 loss reduces the UDP-GlcNAc supply for glycosaminoglycan (GAG) chain synthesis. In Slc35a3-null mice the amounts of heparan sulfate, keratan sulfate, and chondroitin/dermatan sulfate are all significantly decreased, implicating impaired GAG (and therefore proteoglycan) biosynthesis as a distinct arm of the skeletal pathology.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan biosynthetic process\"]}}, {\"id\": \"Impaired Golgi UDP-GlcNAc Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in SLC35A3 reduce transport of UDP-N-acetylglucosamine (UDP-GlcNAc), the nucleotide-sugar donor for N-acetylglucosaminylation, from the cytosol into the lumen of the Golgi apparatus. SLC35A3 is regarded as the major Golgi UDP-GlcNAc transporter in mammals, so loss of its activity is the primary biochemical lesion; in Golgi vesicles from patient fibroblasts, transport of the nucleotide sugar is significantly reduced. Depletion of the lumenal UDP-GlcNAc pool is the shared upstream defect that feeds three parallel GlcNAc-dependent pathways: complex N-glycan antenna branching (via the MGAT GnTs), LFNG-mediated O-fucose elongation on Notch EGF repeats (segmentation clock), and glycosaminoglycan chain synthesis \\u2014 so those three consequences are siblings of one another, not sequential.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"UDP-N-acetylglucosamine transmembrane transport\"], \"molecular_functions\": [\"UDP-N-acetylglucosamine transmembrane transporter activity\"]}}, {\"id\": \"Impaired Somite Segmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC35A3 supplies UDP-GlcNAc to the Golgi GlcNAc-transferases \\u2014 notably LFNG (Lunatic fringe), a beta-1,3-N-acetylglucosaminyltransferase that elongates O-fucose glycans on the Notch receptor EGF repeats with GlcNAc (the O-fucose itself is added by POFUT1). Fringe-mediated GlcNAc elongation tunes Notch activity in the segmentation clock of the presomitic mesoderm, so a UDP-GlcNAc supply defect is proposed to impair this GlcNAc-transferring step and the sugar modification essential for somite formation. Slc35a3 mRNA is expressed in the presomitic mesoderm of wild-type mice, and Slc35a3-null mice develop CVM-like vertebral malsegmentation, which supports \\u2014 but does not yet directly prove \\u2014 the SLC35A3\\u2192LFNG substrate-supply model: the originating study frames it as a hypothesis still requiring test (see knowledge gap). This node conforms to the conserved axial-segmentation serial-homology module.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Presomitic (Paraxial) Mesoderm Cell\"], \"biological_processes\": [\"Segmentation\", \"somitogenesis\"]}}, {\"id\": \"Neurodevelopmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal N-glycosylation of neural glycoproteins is proposed to impair normal development and function of the central nervous system, manifesting as autism spectrum disorder, epilepsy (including early-onset epileptic encephalopathy with infantile spasms and a suppression-burst EEG pattern), intellectual disability, and acquired microcephaly. The neurodevelopmental triad of autism, epilepsy, and intellectual disability is the clinical hallmark of the syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Reduced N-Glycan Branching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced lumenal UDP-GlcNAc limits the N-acetylglucosaminyltransferases (e.g., MGAT4/MGAT5) that add the GlcNAc branch points of complex N-glycans, causing a massive decrease in highly branched tri- and tetraantennary N-glycans at the cell surface and a reciprocal accumulation of lower-branched (mono- and diantennary) glycoforms. Follow-up biochemical testing in patients confirms abnormal protein glycosylation consistent with a defective Golgi UDP-GlcNAc transporter. This altered branching signature has been associated with growth arrest and induction of differentiation. As a Golgi N-glycan maturation defect producing a type II CDG transferrin/glycoform signature, this node conforms to the conserved congenital-disorder-of-glycosylation module.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"N-glycan processing\"]}}, {\"id\": \"Skeletal and Joint Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cartilage extracellular matrix and impaired glycosylation of proteins required for normal skeletal and joint development produce distal arthrogryposis (congenital contractures predominant in the hands), scoliosis, camptodactyly, chondrodysplasia, and additional skeletal defects. The bovine SLC35A3 disorder Complex Vertebral Malformation syndrome recapitulates the same arthrogryposis-with-skeletal-defects phenotype, supporting a conserved glycosylation-dependent mechanism of skeletal patterning.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Vertebral Malsegmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mis-specification of the metameric somite template produces vertebral malsegmentation \\u2014 butterfly and hemivertebrae throughout the spine \\u2014 the axial-skeletal outcome of the segmentation defect, phenocopying the bovine Complex Vertebral Malformation syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Reduced N-Glycan Branching\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Impaired Somite Segmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Impaired Glycosaminoglycan Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced N-Glycan Branching\", \"target\": \"Neurodevelopmental Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somite Segmentation\", \"target\": \"Vertebral Malsegmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Glycosaminoglycan Biosynthesis\", \"target\": \"Growth Plate Cartilage ECM Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Cartilage ECM Deficiency\", \"target\": \"Skeletal and Joint Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquired microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired (postnatal) microcephaly is reported in affected individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005484\"}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syndromic autism spectrum disorder is a defining feature, with speech delay, impaired social interaction, and repetitive behavior.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000717\"}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Camptodactyly is reported among the distal limb/skeletal anomalies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012385\"}}, {\"id\": \"Distal arthrogryposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distal arthrogryposis (congenital joint contractures) predominant in the hands is one of the three defining features of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005684\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a core feature of the syndrome, ranging from seizures to severe early-onset epileptic encephalopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Some affected individuals manifest a severe early-onset epileptic encephalopathy with a suppression-burst EEG pattern and multifocal paroxysmal activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200134\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed psychomotor development is a core, definitional feature of the syndrome, evolving to mild-to-moderate intellectual disability with age.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth Plate Cartilage ECM Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decreased GAG/proteoglycan biosynthesis degrades the quality of the growth-plate cartilage extracellular matrix. In Slc35a3-null embryos the growth-plate extracellular space is drastically reduced and proliferative chondrocytes are reshaped, with proliferation, apoptosis, and differentiation unaffected \\u2014 indicating the chondrodysplasia arises from abnormal ECM quality rather than chondrocyte loss.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"]}}, {\"id\": \"Impaired Glycosaminoglycan Biosynthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond N-glycan branching, SLC35A3 loss reduces the UDP-GlcNAc supply for glycosaminoglycan (GAG) chain synthesis. In Slc35a3-null mice the amounts of heparan sulfate, keratan sulfate, and chondroitin/dermatan sulfate are all significantly decreased, implicating impaired GAG (and therefore proteoglycan) biosynthesis as a distinct arm of the skeletal pathology.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan biosynthetic process\"]}}, {\"id\": \"Impaired Golgi UDP-GlcNAc Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in SLC35A3 reduce transport of UDP-N-acetylglucosamine (UDP-GlcNAc), the nucleotide-sugar donor for N-acetylglucosaminylation, from the cytosol into the lumen of the Golgi apparatus. SLC35A3 is regarded as the major Golgi UDP-GlcNAc transporter in mammals, so loss of its activity is the primary biochemical lesion; in Golgi vesicles from patient fibroblasts, transport of the nucleotide sugar is significantly reduced. Depletion of the lumenal UDP-GlcNAc pool is the shared upstream defect that feeds three parallel GlcNAc-dependent pathways: complex N-glycan antenna branching (via the MGAT GnTs), LFNG-mediated O-fucose elongation on Notch EGF repeats (segmentation clock), and glycosaminoglycan chain synthesis \\u2014 so those three consequences are siblings of one another, not sequential.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"UDP-N-acetylglucosamine transmembrane transport\"], \"molecular_functions\": [\"UDP-N-acetylglucosamine transmembrane transporter activity\"], \"genes\": [\"SLC35A3\"], \"gene_terms\": [{\"label\": \"SLC35A3\", \"id\": \"hgnc:11023\"}]}}, {\"id\": \"Impaired Somite Segmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SLC35A3 supplies UDP-GlcNAc to the Golgi GlcNAc-transferases \\u2014 notably LFNG (Lunatic fringe), a beta-1,3-N-acetylglucosaminyltransferase that elongates O-fucose glycans on the Notch receptor EGF repeats with GlcNAc (the O-fucose itself is added by POFUT1). Fringe-mediated GlcNAc elongation tunes Notch activity in the segmentation clock of the presomitic mesoderm, so a UDP-GlcNAc supply defect is proposed to impair this GlcNAc-transferring step and the sugar modification essential for somite formation. Slc35a3 mRNA is expressed in the presomitic mesoderm of wild-type mice, and Slc35a3-null mice develop CVM-like vertebral malsegmentation, which supports \\u2014 but does not yet directly prove \\u2014 the SLC35A3\\u2192LFNG substrate-supply model: the originating study frames it as a hypothesis still requiring test (see knowledge gap). This node conforms to the conserved axial-segmentation serial-homology module.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Presomitic (Paraxial) Mesoderm Cell\"], \"biological_processes\": [\"Segmentation\", \"somitogenesis\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile (epileptic) spasms with focal and tonic vibratory seizures from early infancy are reported in the epileptic encephalopathy presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intellectual disability accompanies the neurodevelopmental phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Muscle hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized muscle hypotonia is a core clinical feature of the syndrome, contributing to the early neuromotor presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Neurodevelopmental Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal N-glycosylation of neural glycoproteins is proposed to impair normal development and function of the central nervous system, manifesting as autism spectrum disorder, epilepsy (including early-onset epileptic encephalopathy with infantile spasms and a suppression-burst EEG pattern), intellectual disability, and acquired microcephaly. The neurodevelopmental triad of autism, epilepsy, and intellectual disability is the clinical hallmark of the syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Quadriplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Quadriplegia (tetraplegia) was present in both affected siblings of the epileptic-encephalopathy family.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002445\"}}, {\"id\": \"Reduced N-Glycan Branching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced lumenal UDP-GlcNAc limits the N-acetylglucosaminyltransferases (e.g., MGAT4/MGAT5) that add the GlcNAc branch points of complex N-glycans, causing a massive decrease in highly branched tri- and tetraantennary N-glycans at the cell surface and a reciprocal accumulation of lower-branched (mono- and diantennary) glycoforms. Follow-up biochemical testing in patients confirms abnormal protein glycosylation consistent with a defective Golgi UDP-GlcNAc transporter. This altered branching signature has been associated with growth arrest and induction of differentiation. As a Golgi N-glycan maturation defect producing a type II CDG transferrin/glycoform signature, this node conforms to the conserved congenital-disorder-of-glycosylation module.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"N-glycan processing\"]}}, {\"id\": \"Rocker-bottom feet\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rocker-bottom feet are reported among the distal limb anomalies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001838\"}}, {\"id\": \"SLC35A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC35A3\"], \"gene_terms\": [{\"label\": \"SLC35A3\", \"id\": \"hgnc:11023\"}], \"association\": \"Loss of function mutation\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe scoliosis (dorso-lumbar convex) is reported as part of the skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Short limbs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short limbs are reported in the skeletal-dysplasia presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002983\"}}, {\"id\": \"Skeletal and Joint Dysgenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal cartilage extracellular matrix and impaired glycosylation of proteins required for normal skeletal and joint development produce distal arthrogryposis (congenital contractures predominant in the hands), scoliosis, camptodactyly, chondrodysplasia, and additional skeletal defects. The bovine SLC35A3 disorder Complex Vertebral Malformation syndrome recapitulates the same arthrogryposis-with-skeletal-defects phenotype, supporting a conserved glycosylation-dependent mechanism of skeletal patterning.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Suppression-burst EEG pattern\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"EEG in the epileptic-encephalopathy presentation shows a suppression-burst pattern with multifocal paroxysmal activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010851\"}}, {\"id\": \"Swan neck-like finger deformities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The distal arthrogryposis of SLC35A3-CDG includes mild flexion contractures of the fingers with deviation of the distal phalanges and swan-neck deformity, part of the defining Orphanet characterization of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006150\"}}, {\"id\": \"Talipes valgus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes valgus is reported among the distal limb anomalies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004684\"}}, {\"id\": \"Vertebral Malsegmentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mis-specification of the metameric somite template produces vertebral malsegmentation \\u2014 butterfly and hemivertebrae throughout the spine \\u2014 the axial-skeletal outcome of the segmentation defect, phenocopying the bovine Complex Vertebral Malformation syndrome.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vertebral anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral anomalies, including butterfly and hemivertebrae throughout the spine, are reported in the skeletal-dysplasia presentation and mirror the bovine Complex Vertebral Malformation phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003422\"}}], \"edges\": [{\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Reduced N-Glycan Branching\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Impaired Somite Segmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Golgi UDP-GlcNAc Transport\", \"target\": \"Impaired Glycosaminoglycan Biosynthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced N-Glycan Branching\", \"target\": \"Neurodevelopmental Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is a defining manifestation of the CNS developmental impairment; the specific hypoglycosylated neuronal effectors are unknown (see knowledge gap).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Seizures/epilepsy are a core manifestation of the CNS dysfunction attributed to impaired glycosylation of neural proteins.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe end of the epilepsy spectrum manifests as early-onset epileptic encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Infantile spasms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile spasms with focal and tonic seizures are the presenting seizure types of the epileptic-encephalopathy presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Suppression-burst EEG pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The suppression-burst EEG pattern is the electrographic signature of the early-onset epileptic encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is a core manifestation of the impaired CNS development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed psychomotor development is the early-childhood manifestation of the CNS developmental impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Acquired microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal failure of head growth (acquired/secondary microcephaly) reflects the progressive CNS involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Quadriplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Quadriplegia in the severely affected siblings reflects the severe central motor-system involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental Dysfunction\", \"target\": \"Muscle hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized muscle hypotonia is part of the early central neuromotor presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somite Segmentation\", \"target\": \"Vertebral Malsegmentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vertebral Malsegmentation\", \"target\": \"Vertebral anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tissue-level malsegmentation manifests clinically as the observed butterfly and hemivertebrae throughout the spine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Glycosaminoglycan Biosynthesis\", \"target\": \"Growth Plate Cartilage ECM Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Plate Cartilage ECM Deficiency\", \"target\": \"Skeletal and Joint Dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Distal arthrogryposis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital contractures predominant in the hands are the defining joint-level manifestation of the dysgenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed finger flexion contracture within the distal-limb deformity spectrum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Swan neck-like finger deformities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The distal arthrogryposis includes finger contractures with distal-phalangeal deviation and swan-neck deformity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Talipes valgus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital foot deformity within the distal-limb involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Rocker-bottom feet\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital foot deformity within the distal-limb involvement.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Short limbs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limb shortening reflects the chondrodysplasia arm of the skeletal dysgenesis (growth-plate cartilage ECM deficiency).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal and Joint Dysgenesis\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe scoliosis accompanies the skeletal phenotype; whether it is primarily congenital-vertebral or secondary to the neuromuscular involvement is not resolved in the reported patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SLC35A3\", \"target\": \"Impaired Golgi UDP-GlcNAc Transport\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5420,19 +5956,17 @@ skeletal defects known as Complex Vertebral Malformation syndrome."</div>
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5442,7 +5976,7 @@ skeletal defects known as Complex Vertebral Malformation syndrome."</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent ductus arteriosus" data-dismech-type="phenotype">
@@ -5451,16 +5985,20 @@ skeletal defects known as Complex Vertebral Malformation syndrome."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.">
-                        Patent ductus arteriosus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp">HP:0001643</a>
-
-
+This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5481,7 +6019,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5493,6 +6033,75 @@ ovale, patent ductus arteriosus, posterior embryotoxon, short limbs,"</div>
 
 
                 <div class="evidence-explanation">Documents patent ductus arteriosus in an affected patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent foramen ovale" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Patent foramen ovale
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"as well as cleft palate, micrognathia, patent foramen
+ovale,"</div>
+
+
+                <div class="evidence-explanation">Documents patent foramen ovale in an affected patient.</div>
 
 
 
@@ -5523,16 +6132,20 @@ ovale, patent ductus arteriosus, posterior embryotoxon, short limbs,"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phenotype from the Human Phenotype Ontology.">
-                        Posterior embryotoxon
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000627" target="_blank" class="curie-chip curie-chip-hp">HP:0000627</a>
-
-
+This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5553,7 +6166,9 @@ This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5594,16 +6209,22 @@ This clinical feature is Posterior embryotoxon (HP:0000627). HP:0000627 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Secondary microcephaly</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005484</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Acquired microcephaly, annotated with Secondary microcephaly (HP:0005484). HP:0005484 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5624,7 +6245,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5657,16 +6280,20 @@ microcephaly, and severe intellectual disability."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
-                        Micrognathia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
-
-
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5687,7 +6314,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5720,16 +6349,20 @@ ovale,"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000175</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
-                        Cleft palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
-
-
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5750,7 +6383,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5783,16 +6418,22 @@ ovale,"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5813,7 +6454,9 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5845,8 +6488,78 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-swan-neck-like-finger-deformities" data-dismech-node="Swan neck-like finger deformities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Swan neck-like finger deformities
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Swan neck-like deformities of the fingers</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006150</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Swan neck-like deformities of the fingers (HP:0006150). HP:0006150 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:370943" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:370943" target="_blank">ORPHA:370943</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"deviation of the distal phalanges, swan-neck deformity"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition of SLC35A3-CDG characterizes the distal arthrogryposis as including finger flexion contractures, distal-phalangeal deviation, and swan-neck deformity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-limbs" data-dismech-node="Short limbs" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5854,16 +6567,22 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Micromelia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002983</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short limbs, annotated with Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.">
-                        Limb undergrowth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp">HP:0009826</a>
-
-
+This clinical feature is Short limbs, annotated with Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5884,7 +6603,9 @@ This clinical feature is Short limbs, annotated with Limb undergrowth (HP:000982
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5911,13 +6632,151 @@ camptodactyly,"</div>
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes-valgus" data-dismech-node="Talipes valgus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Talipes valgus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004684</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes valgus (HP:0004684). HP:0004684 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"camptodactyly, talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
+
+
+                <div class="evidence-explanation">Documents talipes valgus in an affected patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rocker-bottom-feet" data-dismech-node="Rocker-bottom feet" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Rocker-bottom feet
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Rocker bottom foot</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001838</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rocker bottom feet, annotated with Rocker bottom foot (HP:0001838). HP:0001838 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
+
+
+                <div class="evidence-explanation">Documents rocker-bottom feet in an affected patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-hypotonia" data-dismech-node="Muscle hypotonia" data-dismech-type="phenotype">
@@ -5926,16 +6785,22 @@ camptodactyly,"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized hypotonia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle hypotonia, annotated with Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
-
-
+This clinical feature is Muscle hypotonia, annotated with Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,7 +6821,9 @@ This clinical feature is Muscle hypotonia, annotated with Generalized hypotonia 
                         <a href="https://bioregistry.io/ORPHA:370943" target="_blank">ORPHA:370943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5982,22 +6849,26 @@ This clinical feature is Muscle hypotonia, annotated with Generalized hypotonia 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-arthrogryposis" data-dismech-node="Distal arthrogryposis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Scoliosis
+                        Distal arthrogryposis
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005684</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Distal arthrogryposis (HP:0005684). HP:0005684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6018,7 +6889,78 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"General examination showed
+distal arthrogryposis predominant in the hands in both siblings"</div>
+
+
+                <div class="evidence-explanation">Documents distal arthrogryposis predominant in the hands.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6051,16 +6993,22 @@ dorso-lumbar convex scoliosis in one."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Vertebral segmentation defect</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003422" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003422</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype from the Human Phenotype Ontology.">
-                        Hemivertebrae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002937" target="_blank" class="curie-chip curie-chip-hp">HP:0002937</a>
-
-
+This clinical feature is Vertebral anomalies (butterfly and hemivertebrae), annotated with Vertebral segmentation defect (HP:0003422). HP:0003422 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6081,7 +7029,9 @@ This clinical feature is Hemivertebrae (HP:0002937). HP:0002937 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6114,16 +7064,20 @@ throughout the spine,"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012385</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.">
-                        Camptodactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp">HP:0012385</a>
-
-
+This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6144,7 +7098,9 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6177,7 +7133,7 @@ camptodactyly, talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-autism-spectrum-disorder" data-dismech-node="Autism spectrum disorder" data-dismech-type="phenotype">
@@ -6186,16 +7142,20 @@ camptodactyly, talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000717</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.">
-                        Autism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp">HP:0000717</a>
-
-
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6216,7 +7176,9 @@ This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6250,16 +7212,22 @@ epilepsy."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6280,7 +7248,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6307,22 +7277,26 @@ epilepsy."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-suppression-burst-eeg-pattern" data-dismech-node="Suppression-burst EEG pattern" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-encephalopathy" data-dismech-node="Epileptic encephalopathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Suppression-burst EEG pattern
+                        Epileptic encephalopathy
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0200134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is a phenotype from the Human Phenotype Ontology.">
-                        EEG with burst suppression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010851" target="_blank" class="curie-chip curie-chip-hp">HP:0010851</a>
-
-
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6343,7 +7317,149 @@ This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"manifesting a severe epileptic encephalopathy (EE) with skeletal abnormalities,"</div>
+
+
+                <div class="evidence-explanation">Documents severe early-onset epileptic encephalopathy in affected siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Infantile spasms
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both siblings exhibited
+infantile spasms, associated with focal, and tonic vibratory seizures from early
+infancy."</div>
+
+
+                <div class="evidence-explanation">Documents infantile spasms with focal and tonic seizures from early infancy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-suppression-burst-eeg-pattern" data-dismech-node="Suppression-burst EEG pattern" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Suppression-burst EEG pattern
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">EEG with burst suppression</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0010851</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6376,16 +7492,20 @@ paroxysmal activity in both."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,7 +7526,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6439,16 +7561,20 @@ microcephaly, and severe intellectual disability."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed psychomotor development, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Delayed psychomotor development, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6469,7 +7595,9 @@ This clinical feature is Delayed psychomotor development, annotated with Global 
                         <a href="https://bioregistry.io/ORPHA:370943" target="_blank">ORPHA:370943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6495,282 +7623,28 @@ This clinical feature is Delayed psychomotor development, annotated with Global 
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-encephalopathy" data-dismech-node="Epileptic encephalopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epileptic encephalopathy
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.">
-                        Epileptic encephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp">HP:0200134</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"manifesting a severe epileptic encephalopathy (EE) with skeletal abnormalities,"</div>
-
-
-                <div class="evidence-explanation">Documents severe early-onset epileptic encephalopathy in affected siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Infantile spasms
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.">
-                        Infantile spasms
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp">HP:0012469</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both siblings exhibited
-infantile spasms, associated with focal, and tonic vibratory seizures from early
-infancy."</div>
-
-
-                <div class="evidence-explanation">Documents infantile spasms with focal and tonic seizures from early infancy.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-arthrogryposis" data-dismech-node="Distal arthrogryposis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Distal arthrogryposis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Distal arthrogryposis (HP:0005684). HP:0005684 is a phenotype from the Human Phenotype Ontology.">
-                        Distal arthrogryposis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005684" target="_blank" class="curie-chip curie-chip-hp">HP:0005684</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"General examination showed
-distal arthrogryposis predominant in the hands in both siblings"</div>
-
-
-                <div class="evidence-explanation">Documents distal arthrogryposis predominant in the hands.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-swan-neck-like-finger-deformities" data-dismech-node="Swan neck-like finger deformities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Swan neck-like finger deformities
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Swan neck-like deformities of the fingers (HP:0006150). HP:0006150 is a phenotype from the Human Phenotype Ontology.">
-                        Swan neck-like deformities of the fingers
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006150" target="_blank" class="curie-chip curie-chip-hp">HP:0006150</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:370943" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:370943" target="_blank">ORPHA:370943</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"deviation of the distal phalanges, swan-neck deformity"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s definition of SLC35A3-CDG characterizes the distal arthrogryposis as including finger flexion contractures, distal-phalangeal deviation, and swan-neck deformity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-quadriplegia" data-dismech-node="Quadriplegia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Quadriplegia
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tetraplegia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002445</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tetraplegia (HP:0002445). HP:0002445 is a phenotype from the Human Phenotype Ontology.">
-                        Tetraplegia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002445" target="_blank" class="curie-chip curie-chip-hp">HP:0002445</a>
-
-
+This clinical feature is Tetraplegia (HP:0002445). HP:0002445 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6791,7 +7665,9 @@ This clinical feature is Tetraplegia (HP:0002445). HP:0002445 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6803,193 +7679,6 @@ microcephaly, and severe intellectual disability."</div>
 
 
                 <div class="evidence-explanation">Documents quadriplegia in both affected siblings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes" data-dismech-node="Talipes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Talipes
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Talipes valgus (HP:0004684). HP:0004684 is a phenotype from the Human Phenotype Ontology.">
-                        Talipes valgus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004684" target="_blank" class="curie-chip curie-chip-hp">HP:0004684</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"camptodactyly, talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
-
-
-                <div class="evidence-explanation">Documents talipes valgus in an affected patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent foramen ovale" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Patent foramen ovale
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.">
-                        Patent foramen ovale
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp">HP:0001655</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"as well as cleft palate, micrognathia, patent foramen
-ovale,"</div>
-
-
-                <div class="evidence-explanation">Documents patent foramen ovale in an affected patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-rocker-bottom-feet" data-dismech-node="Rocker-bottom feet" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Rocker-bottom feet
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Rocker bottom feet, annotated with Rocker bottom foot (HP:0001838). HP:0001838 is a phenotype from the Human Phenotype Ontology.">
-                        Rocker bottom foot
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001838" target="_blank" class="curie-chip curie-chip-hp">HP:0001838</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"talipes valgus, rocker bottom feet, and facial dysmorphism"</div>
-
-
-                <div class="evidence-explanation">Documents rocker-bottom feet in an affected patient.</div>
 
 
 
@@ -7057,15 +7746,17 @@ This clinical feature is Rocker bottom feet, annotated with Rocker bottom foot (
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SLC35A3 (hgnc:11023). hgnc:11023 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC35A3
 
 
-    <a href="https://bioregistry.io/hgnc:11023" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11023</a>
+    <a href="https://bioregistry.io/hgnc:11023" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11023</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC35A3 (hgnc:11023). hgnc:11023 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7089,7 +7780,9 @@ This disease-associated gene is SLC35A3 (hgnc:11023). hgnc:11023 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24031089" target="_blank">PMID:24031089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7113,7 +7806,9 @@ Golgi uridine diphosphate N-acetylglucosamine (UDP-GlcNAc) transporter."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7143,6 +7838,9 @@ Golgi uridine diphosphate N-acetylglucosamine (UDP-GlcNAc) transporter."</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7159,18 +7857,18 @@ Golgi uridine diphosphate N-acetylglucosamine (UDP-GlcNAc) transporter."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">anticonvulsant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant agent therapy</span>
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -7188,6 +7886,25 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7212,7 +7929,9 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7242,18 +7961,18 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -7271,6 +7990,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7295,7 +8033,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7327,18 +8067,18 @@ dorso-lumbar convex scoliosis in one."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7356,6 +8096,25 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7380,7 +8139,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7440,7 +8201,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7465,6 +8228,271 @@ defective Golgi UDP-GlcNAc transporter, validating the mutations."</div>
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-trio-exome-or-genome-sequencing">
+                <div class="item-name">
+                    Trio exome or genome sequencing
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis rests on genomic sequencing — trio whole-exome or whole-genome sequencing (or a CDG/arthrogryposis/epileptic-encephalopathy gene panel with deletion/duplication analysis) to identify biallelic SLC35A3 variants, confirmed by parental segregation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical exome
+sequencing revealed a novel missense homozygous mutation in SLC35A3."</div>
+
+
+                <div class="evidence-explanation">Clinical exome sequencing established the molecular diagnosis in an affected patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28328131" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28328131" target="_blank">PMID:28328131</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WGS of the siblings-parents quartet
+identified novel compound heterozygous mutations in SLC35A3 in both children."</div>
+
+
+                <div class="evidence-explanation">Quartet whole-genome sequencing with parental segregation identified the biallelic variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-functional-glycosylation-confirmation">
+                <div class="item-name">
+                    Functional glycosylation confirmation
+
+                </div>
+
+                <div class="item-desc">Biochemical/functional testing supports variant interpretation: patient fibroblasts can be assayed for reduced Golgi UDP-GlcNAc transport and loss of highly branched N-glycans. Because the lesion is in N-glycan branching rather than whole-transferrin galactosylation/sialylation, routine serum transferrin screening is frequently insensitive and a normal result does not exclude the diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28777481" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28777481" target="_blank">PMID:28777481</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biochemical analysis confirmed abnormal protein glycosylation, consistent with a
+defective Golgi UDP-GlcNAc transporter, validating the mutations."</div>
+
+
+                <div class="evidence-explanation">Follow-up biochemical glycosylation analysis functionally validated the SLC35A3 variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Ultra-rare; only a small number of families/patients have been reported since the 2013 description (a founding kindred of eight affected individuals plus subsequent sibling pairs and isolated cases). No population prevalence, incidence, or carrier-frequency estimate is available.</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7567,6 +8595,11 @@ pathophysiology:
     elongation on Notch EGF repeats (segmentation clock), and glycosaminoglycan
     chain synthesis — so those three consequences are siblings of one another,
     not sequential.
+  genes:
+  - preferred_term: SLC35A3
+    term:
+      id: hgnc:11023
+      label: SLC35A3
   biological_processes:
   - preferred_term: UDP-N-acetylglucosamine transmembrane transport
     term:
@@ -7673,6 +8706,58 @@ pathophysiology:
     term:
       id: CL:0000540
       label: neuron
+  downstream:
+  - target: Autism spectrum disorder
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Autism spectrum disorder is a defining manifestation of the CNS
+      developmental impairment; the specific hypoglycosylated neuronal effectors
+      are unknown (see knowledge gap).
+  - target: Epilepsy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Seizures/epilepsy are a core manifestation of the CNS dysfunction
+      attributed to impaired glycosylation of neural proteins.
+  - target: Epileptic encephalopathy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The severe end of the epilepsy spectrum manifests as early-onset epileptic
+      encephalopathy.
+  - target: Infantile spasms
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Infantile spasms with focal and tonic seizures are the presenting seizure
+      types of the epileptic-encephalopathy presentation.
+  - target: Suppression-burst EEG pattern
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The suppression-burst EEG pattern is the electrographic signature of the
+      early-onset epileptic encephalopathy.
+  - target: Intellectual disability
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Intellectual disability is a core manifestation of the impaired CNS
+      development.
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Delayed psychomotor development is the early-childhood manifestation of
+      the CNS developmental impairment.
+  - target: Acquired microcephaly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Postnatal failure of head growth (acquired/secondary microcephaly)
+      reflects the progressive CNS involvement.
+  - target: Quadriplegia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Quadriplegia in the severely affected siblings reflects the severe central
+      motor-system involvement.
+  - target: Muscle hypotonia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Generalized muscle hypotonia is part of the early central neuromotor
+      presentation.
   evidence:
   - reference: PMID:24031089
     reference_title: &#34;Mutations in SLC35A3 cause autism spectrum disorder, epilepsy and arthrogryposis.&#34;
@@ -7737,6 +8822,12 @@ pathophysiology:
     axial-skeletal outcome of the segmentation defect, phenocopying the bovine
     Complex Vertebral Malformation syndrome.
   conforms_to: &#34;axial_segmentation_serial_homology#Vertebral and Costal Malsegmentation&#34;
+  downstream:
+  - target: Vertebral anomalies
+    causal_link_type: DIRECT
+    description: &gt;-
+      The tissue-level malsegmentation manifests clinically as the observed
+      butterfly and hemivertebrae throughout the spine.
   evidence:
   - reference: PMID:28777481
     reference_title: &#34;A human case of SLC35A3-related skeletal dysplasia.&#34;
@@ -7802,6 +8893,39 @@ pathophysiology:
     SLC35A3 disorder Complex Vertebral Malformation syndrome recapitulates the
     same arthrogryposis-with-skeletal-defects phenotype, supporting a conserved
     glycosylation-dependent mechanism of skeletal patterning.
+  downstream:
+  - target: Distal arthrogryposis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Congenital contractures predominant in the hands are the defining
+      joint-level manifestation of the dysgenesis.
+  - target: Camptodactyly
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fixed finger flexion contracture within the distal-limb deformity
+      spectrum.
+  - target: Swan neck-like finger deformities
+    causal_link_type: DIRECT
+    description: &gt;-
+      The distal arthrogryposis includes finger contractures with
+      distal-phalangeal deviation and swan-neck deformity.
+  - target: Talipes valgus
+    causal_link_type: DIRECT
+    description: Congenital foot deformity within the distal-limb involvement.
+  - target: Rocker-bottom feet
+    causal_link_type: DIRECT
+    description: Congenital foot deformity within the distal-limb involvement.
+  - target: Short limbs
+    causal_link_type: DIRECT
+    description: &gt;-
+      Limb shortening reflects the chondrodysplasia arm of the skeletal
+      dysgenesis (growth-plate cartilage ECM deficiency).
+  - target: Scoliosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Severe scoliosis accompanies the skeletal phenotype; whether it is
+      primarily congenital-vertebral or secondary to the neuromuscular
+      involvement is not resolved in the reported patients.
   evidence:
   - reference: PMID:28328131
     reference_title: &#34;Recessive mutations in SLC35A3 cause early onset epileptic encephalopathy with skeletal defects.&#34;
@@ -7928,6 +9052,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: ORPHA:370943
+    reference_title: &#34;Autism spectrum disorder-epilepsy-arthrogryposis syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;general muscle hypotonia, delayed psychomotor development&#34;
@@ -7943,6 +9068,7 @@ phenotypes:
       label: Generalized hypotonia
   evidence:
   - reference: ORPHA:370943
+    reference_title: &#34;Autism spectrum disorder-epilepsy-arthrogryposis syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;general muscle hypotonia, delayed psychomotor development&#34;
@@ -7966,10 +9092,10 @@ phenotypes:
 - name: Acquired microcephaly
   description: Acquired (postnatal) microcephaly is reported in affected individuals.
   phenotype_term:
-    preferred_term: Microcephaly
+    preferred_term: Acquired microcephaly
     term:
-      id: HP:0000252
-      label: Microcephaly
+      id: HP:0005484
+      label: Secondary microcephaly
   evidence:
   - reference: PMID:28328131
     reference_title: &#34;Recessive mutations in SLC35A3 cause early onset epileptic encephalopathy with skeletal defects.&#34;
@@ -7997,10 +9123,10 @@ phenotypes:
     spine, are reported in the skeletal-dysplasia presentation and mirror the
     bovine Complex Vertebral Malformation phenotype.
   phenotype_term:
-    preferred_term: Hemivertebrae
+    preferred_term: Vertebral anomalies (butterfly and hemivertebrae)
     term:
-      id: HP:0002937
-      label: Hemivertebrae
+      id: HP:0003422
+      label: Vertebral segmentation defect
   evidence:
   - reference: PMID:28777481
     reference_title: &#34;A human case of SLC35A3-related skeletal dysplasia.&#34;
@@ -8034,6 +9160,7 @@ phenotypes:
       label: Swan neck-like deformities of the fingers
   evidence:
   - reference: ORPHA:370943
+    reference_title: &#34;Autism spectrum disorder-epilepsy-arthrogryposis syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;deviation of the distal phalanges, swan-neck deformity&#34;
@@ -8101,8 +9228,8 @@ phenotypes:
   phenotype_term:
     preferred_term: Short limbs
     term:
-      id: HP:0009826
-      label: Limb undergrowth
+      id: HP:0002983
+      label: Micromelia
   evidence:
   - reference: PMID:28777481
     reference_title: &#34;A human case of SLC35A3-related skeletal dysplasia.&#34;
@@ -8110,7 +9237,7 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;posterior embryotoxon, short limbs, \ncamptodactyly,&#34;
     explanation: Documents short limbs in an affected patient.
-- name: Talipes
+- name: Talipes valgus
   description: Talipes valgus is reported among the distal limb anomalies.
   phenotype_term:
     preferred_term: Talipes valgus
@@ -8444,6 +9571,37 @@ discussions:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Neurological symptoms and skeletal abnormalities might result from impaired \nglycosylation of proteins involved in normal development and function of the \ncentral nervous system&#34;
     explanation: The mechanistic link to CNS-protein glycosylation is stated only as a possibility, leaving the specific target glycoproteins undefined.
+- discussion_id: slc35a3_craniofacial_cardiac_ocular_mechanism_unknown
+  prompt: &gt;-
+    By what mechanism does SLC35A3 deficiency produce the craniofacial (cleft
+    palate, micrognathia, facial dysmorphism), cardiac (patent ductus
+    arteriosus, patent foramen ovale), and ocular (posterior embryotoxon)
+    anomalies reported in the skeletal-dysplasia presentation?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - phenotypes#Micrognathia
+  - phenotypes#Cleft palate
+  - phenotypes#Facial dysmorphism
+  - phenotypes#Patent ductus arteriosus
+  - phenotypes#Patent foramen ovale
+  - phenotypes#Posterior embryotoxon
+  rationale: &gt;-
+    These anomalies are documented in a single patient (the SLC35A3-related
+    skeletal-dysplasia case) and no study has traced them to a specific
+    glycosylation-dependent developmental pathway. Craniofacial anomalies could
+    plausibly share the cartilage/skeletal glycosylation mechanism, and cardiac
+    anomalies also occur in the bovine Complex Vertebral Malformation
+    phenotype, but neither link has been demonstrated for the human disease, so
+    these phenotypes are deliberately left without causal edges rather than
+    wired to the skeletal or neurodevelopmental nodes on conjecture.
+  evidence:
+  - reference: PMID:28777481
+    reference_title: &#34;A human case of SLC35A3-related skeletal dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Congenital \ndisorders of glycosylation, including SLC35A3-CDG, can present as a wide \nphenotypic spectrum, including skeletal dysplasia.&#34;
+    explanation: The case report frames these findings as part of a wide phenotypic spectrum without proposing a mechanism for the craniofacial, cardiac, or ocular anomalies.
 references:
 - reference: PMID:24031089
   title: &#34;Mutations in SLC35A3 cause autism spectrum disorder, epilepsy and arthrogryposis.&#34;
@@ -9474,7 +10632,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome", "mondoId": "MONDO:0014248", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome", "yamlRevision": "4bc71d851177"};
+        const OS_CONFIG = {"diseaseName": "Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome", "mondoId": "MONDO:0014248", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome", "yamlRevision": "6e96eaac9569"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9893,5 +11051,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

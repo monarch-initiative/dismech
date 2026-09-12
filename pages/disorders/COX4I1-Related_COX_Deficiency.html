@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>COX4I1-Related COX Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>COX4I1-Related COX Deficiency</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=COX4I1-Related%20COX%20Deficiency"
@@ -3823,7 +3970,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3909,6 +4056,49 @@
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COX4I1
+
+
+    <a href="https://bioregistry.io/hgnc:2265" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2265</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COX4I1 (hgnc:2265). hgnc:2265 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -3917,18 +4107,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial respiratory chain complex IV assembly (GO:0033617). GO:0033617 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial respiratory chain complex IV assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033617" target="_blank" class="curie-chip curie-chip-go">GO:0033617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0033617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial respiratory chain complex IV assembly (GO:0033617). GO:0033617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3994,7 +4186,9 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4016,7 +4210,9 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4050,18 +4246,20 @@ This pathophysiological event involves decreased mitochondrial respiratory chain
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4089,18 +4287,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased mitochondrial electron transport, cytochrome c to oxygen (GO:0006123). GO:0006123 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrial electron transport, cytochrome c to oxygen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go">GO:0006123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial electron transport, cytochrome c to oxygen (GO:0006123). GO:0006123 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4121,18 +4321,20 @@ This pathophysiological event involves decreased mitochondrial electron transpor
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased ATP synthesis coupled electron transport, annotated with mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ATP synthesis coupled electron transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ATP synthesis coupled electron transport, annotated with mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4198,7 +4400,9 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4220,7 +4424,9 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4261,18 +4467,20 @@ This pathophysiological event involves decreased ATP synthesis coupled electron 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         reactive oxygen species metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0072593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4330,7 +4538,9 @@ This pathophysiological event involves increased reactive oxygen species metabol
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4352,7 +4562,9 @@ This pathophysiological event involves increased reactive oxygen species metabol
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4393,18 +4605,20 @@ This pathophysiological event involves increased reactive oxygen species metabol
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased lactate biosynthetic process (GO:0019249). GO:0019249 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lactate biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019249" target="_blank" class="curie-chip curie-chip-go">GO:0019249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0019249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lactate biosynthetic process (GO:0019249). GO:0019249 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4462,7 +4676,9 @@ This pathophysiological event involves increased lactate biosynthetic process (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4496,18 +4712,20 @@ This pathophysiological event involves increased lactate biosynthetic process (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4535,18 +4753,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased aerobic respiration (GO:0009060). GO:0009060 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         aerobic respiration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009060" target="_blank" class="curie-chip curie-chip-go">GO:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased aerobic respiration (GO:0009060). GO:0009060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4604,7 +4824,9 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4652,7 +4874,7 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COX4I1 encodes the common (ubiquitous) isoform of cytochrome c oxidase subunit 4, a nuclear-encoded structural and regulatory subunit of Complex IV. Biallelic COX4I1 variants reduce or abolish COX4-1 expression; in the index case the COX4I1 mRNA was decreased and the COX4 protein undetectable. Loss of this core subunit destabilizes the holoenzyme and yields an isolated Complex IV biogenesis defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex IV assembly\"]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy, a core feature of the severe (P152T) sibling presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"High-Energy Tissue Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure is most damaging in high oxidative-demand tissues. In COX4I1-related disease the dominant tropism in the severe presentation is the central nervous system, producing encephalopathy, developmental regression, and Leigh-syndrome-like brain imaging; growth failure reflects systemic energy deficit.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient Complex IV blocks transfer of electrons from cytochrome c to molecular oxygen and the coupled proton pumping, reducing oxidative ATP synthesis. Patient fibroblasts showed decreased COX activity and impaired ATP production, both rescued by re-expression of wild-type COX4I1.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}, {\"id\": \"Increased chromosomal breakage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased chromosomal breaks simulating Fanconi anemia, the distinctive finding that delayed the genetic diagnosis in the index case.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040012\"}}, {\"id\": \"Lactic Acidosis and Metabolic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative phosphorylation impaired, pyruvate is shunted to lactate, elevating blood and CSF lactate; metabolic stress can precipitate decompensation in the encephalopathic (Leigh-like) presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lactate biosynthetic process\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood and CSF lactate from the bioenergetic block in cytochrome c oxidase, the clinical manifestation of the \\\"Lactic Acidosis and Metabolic Decompensation\\\" pathophysiology node and a defining biochemical feature of the Leigh-syndrome-spectrum presentation of COX4I1 deficiency.\\n\", \"meta\": {\"term_id\": \"HP:0003128\"}}, {\"id\": \"Oxidative Stress and Chromosomal Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive feature of COX4-1 deficiency is elevated reactive oxygen species production accompanying the respiratory-chain defect. In the index case this was associated with increased chromosomal breakage that clinically simulated Fanconi anemia, illustrating how a primary Complex IV subunit defect can mimic a nuclear DNA-repair disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"reactive oxygen species metabolic process\"]}}], \"edges\": [{\"source\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the COX4-1 subunit yields a catalytically deficient holoenzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"target\": \"Oxidative Stress and Chromosomal Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A dysfunctional Complex IV leaks reactive oxygen species, driving oxidative stress and genomic instability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Lactic Acidosis and Metabolic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of oxidative ATP synthesis forces anaerobic glycolysis and lactate accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"High-Energy Tissue Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bioenergetic deficit is most damaging in high oxidative-demand tissues, notably the brain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Stress and Chromosomal Instability\", \"target\": \"Increased chromosomal breakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress is associated with increased chromosomal breaks that simulate Fanconi anemia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactic Acidosis and Metabolic Decompensation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lactate overproduction manifests clinically as lactic acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Energy Tissue Dysfunction\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in the brain produces encephalopathy and developmental regression.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COX4I1 encodes the common (ubiquitous) isoform of cytochrome c oxidase subunit 4, a nuclear-encoded structural and regulatory subunit of Complex IV. Biallelic COX4I1 variants reduce or abolish COX4-1 expression; in the index case the COX4I1 mRNA was decreased and the COX4 protein undetectable. Loss of this core subunit destabilizes the holoenzyme and yields an isolated Complex IV biogenesis defect.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial respiratory chain complex IV assembly\"], \"genes\": [\"COX4I1\"], \"gene_terms\": [{\"label\": \"COX4I1\", \"id\": \"hgnc:2265\"}]}}, {\"id\": \"COX4I1 pathogenic variants causing MC4DN16\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COX4I1\"], \"gene_terms\": [{\"label\": \"COX4I1\", \"id\": \"hgnc:2265\"}]}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Encephalopathy, a core feature of the severe (P152T) sibling presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"High-Energy Tissue Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy failure is most damaging in high oxidative-demand tissues. In COX4I1-related disease the dominant tropism in the severe presentation is the central nervous system, producing encephalopathy, developmental regression, and Leigh-syndrome-like brain imaging; growth failure reflects systemic energy deficit.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient Complex IV blocks transfer of electrons from cytochrome c to molecular oxygen and the coupled proton pumping, reducing oxidative ATP synthesis. Patient fibroblasts showed decreased COX activity and impaired ATP production, both rescued by re-expression of wild-type COX4I1.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrial electron transport, cytochrome c to oxygen\", \"ATP synthesis coupled electron transport\"]}}, {\"id\": \"Increased chromosomal breakage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased chromosomal breaks simulating Fanconi anemia, the distinctive finding that delayed the genetic diagnosis in the index case.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040012\"}}, {\"id\": \"Lactic Acidosis and Metabolic Decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With oxidative phosphorylation impaired, pyruvate is shunted to lactate, elevating blood and CSF lactate; metabolic stress can precipitate decompensation in the encephalopathic (Leigh-like) presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lactate biosynthetic process\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated blood and CSF lactate from the bioenergetic block in cytochrome c oxidase, the clinical manifestation of the \\\"Lactic Acidosis and Metabolic Decompensation\\\" pathophysiology node and a defining biochemical feature of the Leigh-syndrome-spectrum presentation of COX4I1 deficiency.\\n\", \"meta\": {\"term_id\": \"HP:0003128\"}}, {\"id\": \"Oxidative Stress and Chromosomal Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive feature of COX4-1 deficiency is elevated reactive oxygen species production accompanying the respiratory-chain defect. In the index case this was associated with increased chromosomal breakage that clinically simulated Fanconi anemia, illustrating how a primary Complex IV subunit defect can mimic a nuclear DNA-repair disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"reactive oxygen species metabolic process\"]}}], \"edges\": [{\"source\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"target\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the COX4-1 subunit yields a catalytically deficient holoenzyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"target\": \"Oxidative Stress and Chromosomal Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A dysfunctional Complex IV leaks reactive oxygen species, driving oxidative stress and genomic instability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"Lactic Acidosis and Metabolic Decompensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of oxidative ATP synthesis forces anaerobic glycolysis and lactate accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Terminal Electron Transfer and ATP Synthesis\", \"target\": \"High-Energy Tissue Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bioenergetic deficit is most damaging in high oxidative-demand tissues, notably the brain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oxidative Stress and Chromosomal Instability\", \"target\": \"Increased chromosomal breakage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress is associated with increased chromosomal breaks that simulate Fanconi anemia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lactic Acidosis and Metabolic Decompensation\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lactate overproduction manifests clinically as lactic acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"High-Energy Tissue Dysfunction\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bioenergetic failure in the brain produces encephalopathy and developmental regression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"COX4I1 pathogenic variants causing MC4DN16\", \"target\": \"COX4-1 Subunit Loss and Failed Complex IV Assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4677,11 +4899,11 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Cellular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4700,16 +4922,20 @@ This pathophysiological event involves decreased aerobic respiration (GO:0009060
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4730,7 +4956,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4771,16 +4999,20 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003128</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.">
-                        Lactic acidosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" class="curie-chip curie-chip-hp">HP:0003128</a>
-
-
+This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4813,16 +5045,20 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4843,7 +5079,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4875,7 +5113,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-encephalopathy" data-dismech-node="Encephalopathy" data-dismech-type="phenotype">
@@ -4884,16 +5122,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001298</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.">
-                        Encephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp">HP:0001298</a>
-
-
+This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4914,7 +5156,9 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4946,16 +5190,20 @@ This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.">
-                        Developmental regression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp">HP:0002376</a>
-
-
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4976,7 +5224,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5008,16 +5258,20 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5038,7 +5292,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5070,16 +5326,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5100,7 +5360,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5126,31 +5388,105 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-basal-ganglia-lesions" data-dismech-node="Bilateral basal ganglia lesions" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bilateral basal ganglia lesions
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007146" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007146</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:0007146 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31290619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pathognomonic brain imaging findings resembling Leigh-syndrome"</div>
+
+
+                <div class="evidence-explanation">The Leigh-like neuroimaging (basal ganglia/brainstem lesions) is documented in the COX4I1 siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
+                    Cellular
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-chromosomal-breakage" data-dismech-node="Increased chromosomal breakage" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Short stature
+                        Increased chromosomal breakage
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chromosome breakage</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0040012</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5171,7 +5507,86 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutation in the COX4I1 gene is associated with short stature, poor weight gain and increased chromosomal breaks, simulating Fanconi anemia."</div>
+
+
+                <div class="evidence-explanation">Increased chromosomal breakage simulating Fanconi anemia is a distinctive feature of COX4I1 deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28766551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5203,16 +5618,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5233,7 +5652,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5244,139 +5665,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Poor weight gain (failure to thrive) is documented in the first reported COX4I1 patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-chromosomal-breakage" data-dismech-node="Increased chromosomal breakage" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased chromosomal breakage
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a phenotype from the Human Phenotype Ontology.">
-                        Chromosome breakage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040012" target="_blank" class="curie-chip curie-chip-hp">HP:0040012</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28766551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Mutation in the COX4I1 gene is associated with short stature, poor weight gain and increased chromosomal breaks, simulating Fanconi anemia."</div>
-
-
-                <div class="evidence-explanation">Increased chromosomal breakage simulating Fanconi anemia is a distinctive feature of COX4I1 deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bilateral-basal-ganglia-lesions" data-dismech-node="Bilateral basal ganglia lesions" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bilateral basal ganglia lesions
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:0007146 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral basal ganglia lesions
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007146" target="_blank" class="curie-chip curie-chip-hp">HP:0007146</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31290619" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31290619" target="_blank">PMID:31290619</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pathognomonic brain imaging findings resembling Leigh-syndrome"</div>
-
-
-                <div class="evidence-explanation">The Leigh-like neuroimaging (basal ganglia/brainstem lesions) is documented in the COX4I1 siblings.</div>
 
 
 
@@ -5442,15 +5730,17 @@ This clinical feature is Bilateral basal ganglia lesions (HP:0007146). HP:000714
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COX4I1
 
 
-    <a href="https://bioregistry.io/hgnc:2265" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2265</a>
+    <a href="https://bioregistry.io/hgnc:2265" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:2265</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5478,7 +5768,9 @@ This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5500,7 +5792,9 @@ This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28766551" target="_blank">PMID:28766551</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,6 +5824,9 @@ This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5546,18 +5843,18 @@ This disease-associated gene is COX4I1 (hgnc:2265). hgnc:2265 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5575,6 +5872,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5600,7 +5905,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26425749" target="_blank">PMID:26425749</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5630,6 +5937,33 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5745,6 +6079,11 @@ pathophysiology:
     index case the COX4I1 mRNA was decreased and the COX4 protein undetectable.
     Loss of this core subunit destabilizes the holoenzyme and yields an isolated
     Complex IV biogenesis defect.
+  genes:
+  - preferred_term: COX4I1
+    term:
+      id: hgnc:2265
+      label: COX4I1
   biological_processes:
   - preferred_term: mitochondrial respiratory chain complex IV assembly
     term:
@@ -6194,7 +6533,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COX4I1-Related COX Deficiency", "mondoId": "MONDO:0033651", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COX4I1-Related_COX_Deficiency", "yamlRevision": "4fdc2ce7f1b4"};
+        const OS_CONFIG = {"diseaseName": "COX4I1-Related COX Deficiency", "mondoId": "MONDO:0033651", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COX4I1-Related_COX_Deficiency", "yamlRevision": "f165593d3296"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6613,5 +6952,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

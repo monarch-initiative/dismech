@@ -124,10 +124,7 @@ class TestEvidenceItemToLine:
         ("supports", "expected"),
         [
             ("SUPPORT", "SUPPORT"),
-            ("PARTIAL", "PARTIAL"),
             ("REFUTE", "REFUTE"),
-            ("WRONG_STATEMENT", "REFUTE"),
-            ("NO_EVIDENCE", "NEUTRAL"),
         ],
     )
     def test_supports_maps_to_direction(self, supports, expected):
@@ -137,17 +134,49 @@ class TestEvidenceItemToLine:
         )
         assert line.direction_of_evidence_provided == expected
 
-    def test_raw_supports_survives_the_lossy_direction_mapping(self):
-        """WRONG_STATEMENT and REFUTE share a direction, so the raw value round-trips."""
-        wrong = evidence_item_to_line(
-            {"reference": "PMID:1", "snippet": "t", "supports": "WRONG_STATEMENT"}, "s", 0
+    def test_no_evidence_is_not_given_a_sepio_direction(self):
+        """NO_EVIDENCE has no SEPIO counterpart and must not be emitted as NEUTRAL.
+
+        SEPIO's `neutral` means the evidence bears on the claim without favouring
+        either side. NO_EVIDENCE means the cited reference does not bear on the
+        claim at all. Mapping one onto the other (which this exporter used to do)
+        asserts something the curator did not, so the direction is left unset and
+        the value survives on the dismech-only field.
+        """
+        line = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "NO_EVIDENCE"}, "s", 0
         )
+        assert line.direction_of_evidence_provided is None
+        assert line.dismech_supports == "NO_EVIDENCE"
+
+    def test_raw_supports_round_trips(self):
+        """The raw enum value is carried through alongside the SEPIO direction."""
         refute = evidence_item_to_line(
             {"reference": "PMID:1", "snippet": "t", "supports": "REFUTE"}, "s", 0
         )
-        assert wrong.direction_of_evidence_provided == refute.direction_of_evidence_provided
-        assert wrong.dismech_supports == "WRONG_STATEMENT"
+        assert refute.direction_of_evidence_provided == "REFUTE"
         assert refute.dismech_supports == "REFUTE"
+
+    def test_directness_is_carried_as_a_dismech_extension(self):
+        """SEPIO has no directness slot, so it rides on the dismech-only field."""
+        line = evidence_item_to_line(
+            {
+                "reference": "PMID:1",
+                "snippet": "t",
+                "supports": "SUPPORT",
+                "directness": "INDIRECT",
+            },
+            "s",
+            0,
+        )
+        assert line.dismech_directness == "INDIRECT"
+
+    def test_directness_absent_when_unset(self):
+        """Most of the KB has no directness assessment; that must stay absent."""
+        line = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "SUPPORT"}, "s", 0
+        )
+        assert line.dismech_directness is None
 
     def test_raw_supports_absent_when_unset(self):
         """An item with no `supports` gets neither a direction nor a raw value."""
@@ -207,11 +236,14 @@ class FakeAssociation:
     """Minimal stand-in for a Biolink Association (biolink-model is an optional dep)."""
 
     def __init__(self, id="urn:uuid:edge-1", subject="MONDO:0009061",
-                 predicate="biolink:has_phenotype", object="HP:0030828"):
+                 predicate="biolink:has_phenotype", object="HP:0030828",
+                 qualifiers=None):
         self.id = id
         self.subject = subject
         self.predicate = predicate
         self.object = object
+        if qualifiers is not None:
+            self.qualifiers = qualifiers
 
 
 class TestStatementFromAssociation:
@@ -248,6 +280,34 @@ class TestStatementFromAssociation:
         )
         assert statement.evidence_inherited_from == parent_id
 
+    def test_qualifiers_are_carried_across(self):
+        """A dropped qualifier leaves the sidecar restating the bare triple (#8468).
+
+        For a deficiency exposure the bare triple is the opposite of the curated
+        claim, so this is the difference between a correct and an inverted
+        statement, not a cosmetic loss.
+        """
+        association = FakeAssociation(
+            subject="ECTO:9000123",
+            predicate="biolink:contributes_to",
+            object="MONDO:0000819",
+            qualifiers=["PATO:0002301"],
+        )
+        statement = statement_from_association(
+            association, CFTR_EVIDENCE, disease_name="Anencephaly", section="environmental"
+        )
+        assert statement.qualifiers == ["PATO:0002301"]
+
+    def test_absent_qualifiers_stay_unset(self):
+        """An association with no qualifiers must not gain an empty list."""
+        assert statement_from_association(FakeAssociation(), CFTR_EVIDENCE).qualifiers is None
+        assert (
+            statement_from_association(
+                FakeAssociation(qualifiers=[]), CFTR_EVIDENCE
+            ).qualifiers
+            is None
+        )
+
 
 class TestPathophysiologyStatements:
     """Tests for the assertions that have no KGX counterpart."""
@@ -266,7 +326,7 @@ class TestPathophysiologyStatements:
         assert causal.subject == node.object
         assert causal.predicate == "dismech:causally_upstream_of"
         assert causal.object == "dismech:Cystic_Fibrosis#Airway_Surface_Liquid_Depletion"
-        assert causal.qualifiers == ["DIRECT"]
+        assert causal.qualifiers == ["dismech:CausalLinkTypeEnum#DIRECT"]
         assert len(causal.has_evidence_lines) == 1
 
     def test_node_statement_id_is_deterministic(self):

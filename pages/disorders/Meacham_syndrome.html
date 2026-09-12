@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Meacham syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Meacham syndrome</h1>
             <div class="header-meta">
 
@@ -3972,7 +4119,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4017,7 +4164,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4074,18 +4223,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mesothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4113,18 +4264,20 @@ This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal mesenchymal to epithelial transition (GO:0060231). GO:0060231 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mesenchymal to epithelial transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060231" target="_blank" class="curie-chip curie-chip-go">GO:0060231</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060231" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060231</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mesenchymal to epithelial transition (GO:0060231). GO:0060231 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4145,18 +4298,20 @@ This pathophysiological event involves abnormal mesenchymal to epithelial transi
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal gonad development (GO:0008406). GO:0008406 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         gonad development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="curie-chip curie-chip-go">GO:0008406</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal gonad development (GO:0008406). GO:0008406 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4222,7 +4377,9 @@ This pathophysiological event involves abnormal gonad development (GO:0008406). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4238,13 +4395,15 @@ This pathophysiological event involves abnormal gonad development (GO:0008406). 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21959952" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21959952" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21959952" target="_blank">PMID:21959952</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4277,18 +4436,20 @@ This pathophysiological event involves abnormal gonad development (GO:0008406). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mesothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4316,18 +4477,20 @@ This pathophysiological event involves mesothelial cell (CL:0000077). CL:0000077
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal diaphragm development (GO:0060539). GO:0060539 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         diaphragm development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060539" target="_blank" class="curie-chip curie-chip-go">GO:0060539</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060539" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0060539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal diaphragm development (GO:0060539). GO:0060539 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4348,18 +4511,20 @@ This pathophysiological event involves abnormal diaphragm development (GO:006053
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal heart development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         heart development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go">GO:0007507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4387,33 +4552,37 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in diaphragm (UBERON:0001103). UBERON:0001103 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         diaphragm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001103</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001103</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in diaphragm (UBERON:0001103). UBERON:0001103 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4436,7 +4605,9 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4458,7 +4629,9 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4498,18 +4671,20 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal gonad development (GO:0008406). GO:0008406 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         gonad development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="curie-chip curie-chip-go">GO:0008406</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008406" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal gonad development (GO:0008406). GO:0008406 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4537,18 +4712,20 @@ This pathophysiological event involves abnormal gonad development (GO:0008406). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         gonad
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000991" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000991</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000991" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000991</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4565,13 +4742,15 @@ This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1844355" target="_blank">PMID:1844355</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4593,7 +4772,9 @@ This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4662,11 +4843,11 @@ This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4685,16 +4866,20 @@ This pathophysiological event occurs in gonad (UBERON:0000991). UBERON:0000991 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is complex congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
-
-
+This clinical feature is complex congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4715,7 +4900,9 @@ This clinical feature is complex congenital heart defect, annotated with Abnorma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4747,148 +4934,6 @@ This clinical feature is complex congenital heart defect, annotated with Abnorma
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-kidney" data-dismech-node="Abnormality of the kidney" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of the kidney
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the kidney
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp">HP:0000077</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Less common findings are congenital anomalies of the kidney and urinary tract (CAKUT), gonadoblastoma, and 46,XX gonadal dysgenesis."</div>
-
-
-                <div class="evidence-explanation">GeneReviews supports renal and urinary tract anomalies as a WT1 disorder spectrum feature, while the description scopes them as non-defining for Meacham syndrome itself.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary hypoplasia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary hypoplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp">HP:0002089</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1844355" target="_blank">PMID:1844355</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Both infants had complex cyanotic congenital heart defects, hypoplastic right lungs, anomalous pulmonary venous return, and abnormalities of the diaphragm."</div>
-
-
-                <div class="evidence-explanation">The original Meacham report directly documents hypoplastic right lungs in both affected infants.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
                     <span class="cat-count">4</span>
                 </summary>
 
@@ -4898,16 +4943,20 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000037</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is male pseudohermaphroditism (HP:0000037). HP:0000037 is a phenotype from the Human Phenotype Ontology.">
-                        Male pseudohermaphroditism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000037" target="_blank" class="curie-chip curie-chip-hp">HP:0000037</a>
-
-
+This clinical feature is male pseudohermaphroditism (HP:0000037). HP:0000037 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4928,7 +4977,9 @@ This clinical feature is male pseudohermaphroditism (HP:0000037). HP:0000037 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4960,16 +5011,20 @@ This clinical feature is male pseudohermaphroditism (HP:0000037). HP:0000037 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0008723</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is gonadal dysgenesis with female appearance, male (HP:0008723). HP:0008723 is a phenotype from the Human Phenotype Ontology.">
-                        Gonadal dysgenesis with female appearance, male
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008723" target="_blank" class="curie-chip curie-chip-hp">HP:0008723</a>
-
-
+This clinical feature is gonadal dysgenesis with female appearance, male (HP:0008723). HP:0008723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4990,7 +5045,9 @@ This clinical feature is gonadal dysgenesis with female appearance, male (HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11822701" target="_blank">PMID:11822701</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5022,16 +5079,22 @@ This clinical feature is gonadal dysgenesis with female appearance, male (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal morphology of female internal genitalia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000008</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is persistent Müllerian structures, annotated with Abnormal morphology of female internal genitalia (HP:0000008). HP:0000008 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal morphology of female internal genitalia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000008" target="_blank" class="curie-chip curie-chip-hp">HP:0000008</a>
-
-
+This clinical feature is persistent Müllerian structures, annotated with Abnormal morphology of female internal genitalia (HP:0000008). HP:0000008 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5052,7 +5115,9 @@ This clinical feature is persistent Müllerian structures, annotated with Abnorm
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5078,22 +5143,103 @@ This clinical feature is persistent Müllerian structures, annotated with Abnorm
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-kidney" data-dismech-node="Abnormality of the kidney" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the kidney
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000077</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less common findings are congenital anomalies of the kidney and urinary tract (CAKUT), gonadoblastoma, and 46,XX gonadal dysgenesis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports renal and urinary tract anomalies as a WT1 disorder spectrum feature, while the description scopes them as non-defining for Meacham syndrome itself.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-diaphragmatic-hernia" data-dismech-node="Congenital diaphragmatic hernia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital diaphragmatic hernia
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000776</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.">
-                        Congenital diaphragmatic hernia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp">HP:0000776</a>
-
-
+This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5114,7 +5260,9 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11822701" target="_blank">PMID:11822701</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5125,6 +5273,83 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
 
 
                 <div class="evidence-explanation">This Meacham syndrome case report directly supports congenital diaphragmatic hernia as a major phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-hypoplasia" data-dismech-node="Pulmonary hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002089</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1844355" target="_blank">PMID:1844355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both infants had complex cyanotic congenital heart defects, hypoplastic right lungs, anomalous pulmonary venous return, and abnormalities of the diaphragm."</div>
+
+
+                <div class="evidence-explanation">The original Meacham report directly documents hypoplastic right lungs in both affected infants.</div>
 
 
 
@@ -5187,6 +5412,28 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: WT1
+
+
+    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:12796</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5202,7 +5449,9 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17853480" target="_blank">PMID:17853480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5218,13 +5467,15 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38326647" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38326647" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38326647" target="_blank">PMID:38326647</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5254,6 +5505,9 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5270,18 +5524,18 @@ This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:000077
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5304,6 +5558,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Surgical repair of congenital diaphragmatic defects is a core management intervention for affected individuals with Meacham syndrome.</div>
 
 
@@ -5317,13 +5590,15 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5353,18 +5628,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">gonadectomy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">gonadectomy</span>
+This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5387,6 +5662,14 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">In WT1-related disorders with testicular developmental abnormalities, prophylactic gonadectomy is used to reduce gonadoblastoma risk and may be relevant to Meacham syndrome patients with marked gonadal dysgenesis.</div>
 
 
@@ -5400,13 +5683,15 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5436,18 +5721,18 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5470,6 +5755,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of WT1-related disorders with gonadal and genital anomalies requires coordinated care involving genetics, endocrinology, urology, and psychological support.</div>
 
 
@@ -5483,13 +5776,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5519,18 +5814,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5553,6 +5848,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">WT1-confirmed Meacham survivors should receive WT1-disorder tumor surveillance, including Wilms tumor screening every three months until age seven years, while recognizing that Wilms tumor is not a defining feature of the classic early-lethal Meacham presentation.</div>
 
 
@@ -5566,13 +5869,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5602,18 +5907,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5636,6 +5941,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">WT1-confirmed survivors should be monitored for renal disease with proteinuria surveillance every six months until age ten years and yearly thereafter, because nephropathy belongs to the WT1 disorder spectrum even when it is not a core Meacham-defining feature.</div>
 
 
@@ -5649,13 +5962,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5685,18 +6000,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5719,6 +6034,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Endocrinology follow-up should address early gonadal insufficiency after puberty and hormone replacement when clinically indicated after gonadectomy or severe gonadal dysgenesis.</div>
 
 
@@ -5732,13 +6055,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5768,18 +6093,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5802,6 +6127,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Affected infants with structural heart disease require cardiology-led assessment, supportive management, and congenital cardiac intervention when anatomically appropriate.</div>
 
 
@@ -5815,13 +6148,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1844355" target="_blank">PMID:1844355</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5851,17 +6186,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5879,6 +6214,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5903,7 +6246,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5935,6 +6280,571 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-karyotype-and-dsd-evaluation">
+                <div class="item-name">
+                    Karyotype and DSD evaluation
+
+                </div>
+
+                <div class="item-desc">Cytogenetic testing and disorder-of-sex-development evaluation establish the 46,XY chromosomal sex in phenotypically female or undervirilized infants with duplicated vagina, retained Müllerian structures, or abnormal gonads.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        karyotyping
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16768" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C16768</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A 46,XY karyotype with undervirilization and Müllerian structures supports the Meacham diagnostic pattern.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11822701" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11822701" target="_blank">PMID:11822701</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Conventional G band karyotyping of skin samples revealed a normal male karyotype."</div>
+
+
+                <div class="evidence-explanation">This case report documents karyotyping as part of confirming the 46,XY sex-reversal presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-wt1-molecular-genetic-testing">
+                <div class="item-name">
+                    WT1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">WT1 sequencing or broader molecular testing is used to confirm the WT1 disorder spectrum diagnosis in a proband with Meacham-compatible DSD, diaphragmatic, cardiopulmonary, and gonadal findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of a heterozygous pathogenic WT1 variant supports WT1-related Meacham syndrome.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of WT1 disorder is established in a proband with suggestive clinical findings and a heterozygous pathogenic variant in WT1 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines molecular confirmation for the WT1 disorder continuum that includes Meacham syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-renal-and-wilms-tumor-risk-assessment">
+                <div class="item-name">
+                    Renal and Wilms tumor risk assessment
+
+                </div>
+
+                <div class="item-desc">WT1-confirmed survivors should receive renal assessment, including proteinuria monitoring and renal or abdominal imaging for Wilms tumor surveillance, because nephropathy and tumor risk belong to the broader WT1 disorder spectrum even when they are not defining Meacham features.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Proteinuria, renal anomalies, or renal masses redirect management toward WT1-disorder renal and tumor surveillance.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32352694" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32352694" target="_blank">PMID:32352694</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Surveillance: Monitor for first appearance of the following: proteinuria every six months until age ten years, yearly thereafter; Wilms tumor every three months until age seven years; early gonadal insufficiency yearly after puberty."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports renal, Wilms tumor, and gonadal-insufficiency surveillance for individuals with WT1 disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-gonadal-imaging-and-pathology-review">
+                <div class="item-name">
+                    Gonadal imaging and pathology review
+
+                </div>
+
+                <div class="item-desc">Gonadal imaging, surgical evaluation, and pathology review document dysgenetic gonadal tissue, guide gonadoblastoma-risk management, and distinguish Meacham syndrome from other 46,XY DSD diagnoses.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Abnormal male gonads or dysgenetic gonadal tissue support the WT1-related DSD diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11822701" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11822701" target="_blank">PMID:11822701</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A true double vagina, absent uterus and abnormal male gonads were found in the presence of normal external female genitalia."</div>
+
+
+                <div class="evidence-explanation">The case report documents abnormal gonads and internal genital anatomy as key diagnostic findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiac-pulmonary-and-diaphragm-imaging">
+                <div class="item-name">
+                    Cardiac, pulmonary, and diaphragm imaging
+
+                </div>
+
+                <div class="item-desc">Fetal or neonatal cardiopulmonary evaluation should include echocardiography for complex congenital heart disease and imaging of the lungs and diaphragm for hypoplastic lungs, pulmonary venous anomalies, and diaphragmatic defects.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic imaging
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Complex heart disease with pulmonary and diaphragmatic malformations supports the Meacham syndrome pattern.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1844355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1844355" target="_blank">PMID:1844355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The unusual occurrence of a true double vagina should lead to careful pulmonary and cardiac evaluation."</div>
+
+
+                <div class="evidence-explanation">The original report specifically recommends pulmonary and cardiac evaluation when the distinctive genital anomaly is seen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-differential-diagnosis-integration">
+                <div class="item-name">
+                    Differential diagnosis integration
+
+                </div>
+
+                <div class="item-desc">Diagnosis should distinguish Meacham syndrome from Denys-Drash syndrome, Frasier syndrome, WAGR and related WT1 presentations, isolated congenital diaphragmatic hernia, and other 46,XY DSD disorders by integrating WT1 molecular testing, karyotype, renal/tumor findings, and the combination of genital, diaphragm, pulmonary, and cardiac malformations.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> The full malformation pattern supports Meacham syndrome; prominent nephropathy or tumor predisposition may favor other WT1-spectrum diagnoses.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38326647" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38326647" target="_blank">PMID:38326647</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Historically, specific mutations in WT1 gene have been associated with distinct syndromes based on phenotypic characteristics, including Denys-Drash syndrome (DDS), Frasier syndrome (FS), Meacham syndrome, and WAGR syndrome."</div>
+
+
+                <div class="evidence-explanation">This review supports a WT1-spectrum differential diagnosis that includes Meacham syndrome, DDS, FS, and WAGR.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5949,15 +6859,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-denys-drash-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Denys-Drash syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Denys-Drash_Syndrome.html">Denys-Drash syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0008682" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0008682" target="_blank">
                             MONDO:0008682
                         </a>
                     </span>
@@ -5997,7 +6906,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38326647" target="_blank">PMID:38326647</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6022,15 +6933,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-frasier-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Frasier syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Frasier_Syndrome.html">Frasier syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0007635" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007635" target="_blank">
                             MONDO:0007635
                         </a>
                     </span>
@@ -6070,7 +6980,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40426774" target="_blank">PMID:40426774</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6095,7 +7007,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-wagr-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="WAGR_Syndrome.html">WAGR syndrome</a>
@@ -6142,7 +7054,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38326647" target="_blank">PMID:38326647</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6167,14 +7081,15 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-complete-androgen-insensitivity-syndrome">
                 <div class="item-name">
 
-                    <a class="item-name-link" href="Complete_androgen_insensitivity_syndrome.html">Complete androgen insensitivity syndrome</a>
+                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Complete androgen insensitivity syndrome</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0021023" target="_blank">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0021023" target="_blank" class="missing-ontology-link">
                             MONDO:0021023
                         </a>
                     </span>
@@ -6194,7 +7109,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fryns-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Fryns syndrome</span>
@@ -6251,7 +7166,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Meacham syndrome
 creation_date: &#39;2026-04-11T16:20:34Z&#39;
-updated_date: &#39;2026-04-11T18:41:00Z&#39;
 description: &gt;-
   Meacham syndrome is a very rare WT1-related multiple malformation syndrome
   characterized by 46,XY disorder of sex development with male
@@ -6334,7 +7248,7 @@ pathophysiology:
       heterozygous WT1 zinc finger missense variants.
   - reference: PMID:21959952
     reference_title: &#34;WT1 in disease: shifting the epithelial-mesenchymal balance.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;WT1 is a versatile gene that controls transitions between the mesenchymal and epithelial state of cells in a tissue-context dependent manner.&#34;
     explanation: &gt;-
@@ -6361,7 +7275,7 @@ pathophysiology:
     evidence:
     - reference: PMID:1844355
       reference_title: &#34;Double vagina, cardiac, pulmonary, and other genital malformations with 46,XY karyotype.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The retention of Müllerian structures and undervirilization of male genitalia in these cases could be the result of failure in production of adequate amounts of testosterone and Müllerian inhibitory factor at appropriate times in gestation.&#34;
       explanation: &gt;-
@@ -6435,7 +7349,7 @@ pathophysiology:
   evidence:
   - reference: PMID:1844355
     reference_title: &#34;Double vagina, cardiac, pulmonary, and other genital malformations with 46,XY karyotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The retention of Müllerian structures and undervirilization of male genitalia in these cases could be the result of failure in production of adequate amounts of testosterone and Müllerian inhibitory factor at appropriate times in gestation.&#34;
     explanation: &gt;-
@@ -6592,7 +7506,7 @@ phenotypes:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Less common findings are congenital anomalies of the kidney and urinary tract (CAKUT), gonadoblastoma, and 46,XX gonadal dysgenesis.&#34;
     explanation: &gt;-
@@ -6601,6 +7515,11 @@ phenotypes:
       Meacham syndrome itself.
 genetic:
 - name: WT1
+  gene_term:
+    preferred_term: WT1
+    term:
+      id: hgnc:12796
+      label: WT1
   association: Causal heterozygous missense mutation
   notes: &gt;-
     Meacham syndrome is caused by heterozygous WT1 missense variants, especially
@@ -6618,7 +7537,7 @@ genetic:
       variants cause Meacham syndrome in at least a subset of cases.
   - reference: PMID:38326647
     reference_title: &#34;WT1-related disorders: more than Denys-Drash syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Historically, specific mutations in WT1 gene have been associated with distinct syndromes based on phenotypic characteristics, including Denys-Drash syndrome (DDS), Frasier syndrome (FS), Meacham syndrome, and WAGR syndrome.&#34;
     explanation: &gt;-
@@ -6680,7 +7599,7 @@ diagnosis:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Surveillance: Monitor for first appearance of the following: proteinuria every six months until age ten years, yearly thereafter; Wilms tumor every three months until age seven years; early gonadal insufficiency yearly after puberty.&#34;
     explanation: &gt;-
@@ -6760,7 +7679,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Diaphragmatic hernia repair prior to the start of peritoneal dialysis.&#34;
     explanation: &gt;-
@@ -6780,7 +7699,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Prevent whenever possible gonadoblastoma by prophylactic gonadectomy in those with a disorder of testicular development.&#34;
     explanation: &gt;-
@@ -6800,7 +7719,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Disorders of testicular development and 46,XX gonadal dysgenesis: management is often by a multidisciplinary team (clinical geneticist, endocrinologist, urologist, and psychologist).&#34;
     explanation: &gt;-
@@ -6821,7 +7740,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Surveillance: Monitor for first appearance of the following: proteinuria every six months until age ten years, yearly thereafter; Wilms tumor every three months until age seven years; early gonadal insufficiency yearly after puberty.&#34;
     explanation: &gt;-
@@ -6841,7 +7760,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Surveillance: Monitor for first appearance of the following: proteinuria every six months until age ten years, yearly thereafter; Wilms tumor every three months until age seven years; early gonadal insufficiency yearly after puberty.&#34;
     explanation: &gt;-
@@ -6860,7 +7779,7 @@ treatments:
   evidence:
   - reference: PMID:32352694
     reference_title: &#34;WT1 Disorder.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;In adulthood, most individuals are affected by early gonadal insufficiency of variable severity with potential impact on puberty and fertility.&#34;
     explanation: &gt;-
@@ -6879,7 +7798,7 @@ treatments:
   evidence:
   - reference: PMID:1844355
     reference_title: &#34;Double vagina, cardiac, pulmonary, and other genital malformations with 46,XY karyotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Both infants had complex cyanotic congenital heart defects, hypoplastic right lungs, anomalous pulmonary venous return, and abnormalities of the diaphragm.&#34;
     explanation: &gt;-
@@ -7598,7 +8517,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meacham syndrome", "mondoId": "MONDO:0012164", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meacham_syndrome", "yamlRevision": "c97b8210fceb"};
+        const OS_CONFIG = {"diseaseName": "Meacham syndrome", "mondoId": "MONDO:0012164", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meacham_syndrome", "yamlRevision": "5b91534777e5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8017,5 +8936,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

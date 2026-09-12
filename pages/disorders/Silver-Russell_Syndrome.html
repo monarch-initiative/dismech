@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Silver-Russell Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Silver-Russell Syndrome</h1>
             <div class="header-meta">
 
@@ -3920,7 +4067,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-international-consensus-definition">
                 <div class="item-name">International consensus definition</div>
 
                 <div class="item-desc">The 2017 international consensus statement defines Silver-Russell syndrome as an imprinting disorder causing prenatal and postnatal growth retardation, with diagnosis primarily based on clinical criteria and molecular testing used to confirm and subtype the disorder.</div>
@@ -3964,7 +4111,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3986,7 +4135,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4022,7 +4173,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-usually-sporadic-with-parent-of-origin-mechanisms">
                 <div class="item-name">
                     Usually sporadic with parent-of-origin mechanisms
 
@@ -4051,7 +4202,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39741906" target="_blank">PMID:39741906</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4112,7 +4265,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-11p15-ic1-lom">
 
                     <div class="item-name">
                         11p15 imprinting center region 1 loss of methylation
@@ -4148,7 +4301,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4174,7 +4329,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-maternal-upd7">
 
                     <div class="item-name">
                         Maternal uniparental disomy of chromosome 7
@@ -4210,7 +4365,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4236,7 +4393,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-14q32-2-imprinting-disruption">
 
                     <div class="item-name">
                         14q32.2 imprinted-region disruption with SRS overlap
@@ -4270,7 +4427,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29659920" target="_blank">PMID:29659920</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4296,7 +4455,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-rare-monogenic-or-copy-number-etiology">
 
                     <div class="item-name">
                         Rare Monogenic or Copy-Number Etiology
@@ -4330,7 +4489,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41430624" target="_blank">PMID:41430624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4352,7 +4513,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39741906" target="_blank">PMID:39741906</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4414,17 +4577,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         IGF2
 
 
-    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5466</a>
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:5466</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4449,17 +4616,21 @@ This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN1C (hgnc:1786). hgnc:1786 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN1C
 
 
-    <a href="https://bioregistry.io/hgnc:1786" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1786</a>
+    <a href="https://bioregistry.io/hgnc:1786" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1786</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN1C (hgnc:1786). hgnc:1786 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4488,18 +4659,20 @@ This pathophysiological event involves CDKN1C (hgnc:1786). hgnc:1786 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves genomic imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         genomic imprinting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go">GO:0071514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0071514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves genomic imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4516,18 +4689,20 @@ This pathophysiological event involves genomic imprinting (GO:0071514). GO:00715
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0010468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4581,7 +4756,9 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4603,7 +4780,9 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31466347" target="_blank">PMID:31466347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4643,17 +4822,21 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         IGF2
 
 
-    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5466</a>
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5466</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4682,18 +4865,20 @@ This pathophysiological event involves IGF2 (hgnc:5466). hgnc:5466 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0010468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4747,7 +4932,9 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4769,7 +4956,9 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31466347" target="_blank">PMID:31466347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4809,18 +4998,20 @@ This pathophysiological event involves regulation of gene expression (GO:0010468
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves genomic imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         genomic imprinting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go">GO:0071514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0071514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves genomic imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4874,7 +5065,9 @@ This pathophysiological event involves genomic imprinting (GO:0071514). GO:00715
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662731" target="_blank">PMID:36662731</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4914,18 +5107,20 @@ This pathophysiological event involves genomic imprinting (GO:0071514). GO:00715
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves regulation of cell growth (GO:0001558). GO:0001558 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of cell growth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001558" target="_blank" class="curie-chip curie-chip-go">GO:0001558</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001558" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001558</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of cell growth (GO:0001558). GO:0001558 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4964,7 +5159,9 @@ This pathophysiological event involves regulation of cell growth (GO:0001558). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5060,16 +5257,20 @@ This pathophysiological event involves regulation of cell growth (GO:0001558). G
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0008872</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties in infancy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp">HP:0008872</a>
-
-
+This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5090,7 +5291,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5122,16 +5325,20 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
-                        Gastroesophageal reflux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
-
-
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5146,13 +5353,15 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27585961" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27585961" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5193,16 +5402,22 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Relative macrocephaly</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Relative macrocephaly at birth, annotated with Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.">
-                        Relative macrocephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" class="curie-chip curie-chip-hp">HP:0004482</a>
-
-
+This clinical feature is Relative macrocephaly at birth, annotated with Relative macrocephaly (HP:0004482). HP:0004482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5223,7 +5438,9 @@ This clinical feature is Relative macrocephaly at birth, annotated with Relative
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5255,16 +5472,20 @@ This clinical feature is Relative macrocephaly at birth, annotated with Relative
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011220</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.">
-                        Prominent forehead
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp">HP:0011220</a>
-
-
+This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5285,7 +5506,9 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5326,16 +5549,20 @@ This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001943</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoglycemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp">HP:0001943</a>
-
-
+This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5356,7 +5583,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5397,16 +5626,20 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5427,7 +5660,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5468,16 +5703,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor and speech delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Motor and speech delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5498,7 +5737,9 @@ This clinical feature is Motor and speech delay, annotated with Global developme
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,16 +5771,20 @@ This clinical feature is Motor and speech delay, annotated with Global developme
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Attention-deficit/hyperactivity disorder risk, annotated with Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.">
-                        Attention deficit hyperactivity disorder
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp">HP:0007018</a>
-
-
+This clinical feature is Attention-deficit/hyperactivity disorder risk, annotated with Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5554,13 +5799,15 @@ This clinical feature is Attention-deficit/hyperactivity disorder risk, annotate
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36662731" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36662731" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662731" target="_blank">PMID:36662731</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5601,16 +5848,20 @@ This clinical feature is Attention-deficit/hyperactivity disorder risk, annotate
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.">
-                        Small for gestational age
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp">HP:0001518</a>
-
-
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5631,7 +5882,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5663,16 +5916,20 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008897</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 is a phenotype from the Human Phenotype Ontology.">
-                        Postnatal growth retardation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" class="curie-chip curie-chip-hp">HP:0008897</a>
-
-
+This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5693,7 +5950,9 @@ This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5725,16 +5984,20 @@ This clinical feature is Postnatal growth retardation (HP:0008897). HP:0008897 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100555</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Body asymmetry, annotated with Asymmetric growth (HP:0100555). HP:0100555 is a phenotype from the Human Phenotype Ontology.">
-                        Asymmetric growth
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100555" target="_blank" class="curie-chip curie-chip-hp">HP:0100555</a>
-
-
+This clinical feature is Body asymmetry, annotated with Asymmetric growth (HP:0100555). HP:0100555 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5755,7 +6018,9 @@ This clinical feature is Body asymmetry, annotated with Asymmetric growth (HP:01
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5833,15 +6098,17 @@ This clinical feature is Body asymmetry, annotated with Asymmetric growth (HP:01
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IGF2
 
 
-    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5466</a>
+    <a href="https://bioregistry.io/hgnc:5466" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:5466</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5863,7 +6130,9 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31466347" target="_blank">PMID:31466347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5885,7 +6154,9 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41430624" target="_blank">PMID:41430624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5922,15 +6193,17 @@ This disease-associated gene is IGF2 (hgnc:5466). hgnc:5466 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN1C (hgnc:1786). hgnc:1786 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN1C
 
 
-    <a href="https://bioregistry.io/hgnc:1786" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1786</a>
+    <a href="https://bioregistry.io/hgnc:1786" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1786</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN1C (hgnc:1786). hgnc:1786 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5952,7 +6225,9 @@ This disease-associated gene is CDKN1C (hgnc:1786). hgnc:1786 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41430624" target="_blank">PMID:41430624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5989,15 +6264,17 @@ This disease-associated gene is CDKN1C (hgnc:1786). hgnc:1786 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HMGA2
 
 
-    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5009</a>
+    <a href="https://bioregistry.io/hgnc:5009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:5009</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6019,7 +6296,9 @@ This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41430624" target="_blank">PMID:41430624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,15 +6335,17 @@ This disease-associated gene is HMGA2 (hgnc:5009). hgnc:5009 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PLAG1 (hgnc:9045). hgnc:9045 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PLAG1
 
 
-    <a href="https://bioregistry.io/hgnc:9045" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9045</a>
+    <a href="https://bioregistry.io/hgnc:9045" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9045</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLAG1 (hgnc:9045). hgnc:9045 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6086,7 +6367,9 @@ This disease-associated gene is PLAG1 (hgnc:9045). hgnc:9045 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41430624" target="_blank">PMID:41430624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6116,6 +6399,9 @@ This disease-associated gene is PLAG1 (hgnc:9045). hgnc:9045 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6132,17 +6418,17 @@ This disease-associated gene is PLAG1 (hgnc:9045). hgnc:9045 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">Nutritional Support</span>
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -6165,6 +6451,14 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management requires coordinated endocrine, nutrition, gastroenterology, genetics, developmental, orthopedic, and psychosocial care, with early focus on nutritional status while avoiding excessive rapid catch-up weight gain.</div>
 
 
@@ -6173,33 +6467,37 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties in infancy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp">HP:0008872</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0008872</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6219,7 +6517,9 @@ This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6241,7 +6541,9 @@ This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6271,18 +6573,18 @@ This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">human growth hormone replacement therapy</span>
+This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">NCIT:C15599</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15599">NCIT:C15599</a>
 
 
 
@@ -6305,6 +6607,14 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recombinant human growth hormone therapy can improve height and other outcomes such as body composition, motor development, appetite, and hypoglycemia risk in SRS.</div>
 
 
@@ -6313,33 +6623,37 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoglycemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001943</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6359,7 +6673,9 @@ This treatment targets Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6389,17 +6705,17 @@ This treatment targets Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6424,21 +6740,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Gonadotropin-releasing Hormone Analog (NCIT:C1910). NCIT:C1910 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Gonadotropin-releasing Hormone Analog
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1910" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1910</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1910" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C1910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Gonadotropin-releasing Hormone Analog (NCIT:C1910). NCIT:C1910 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6450,18 +6776,20 @@ This treatment uses Gonadotropin-releasing Hormone Analog (NCIT:C1910). NCIT:C19
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6481,7 +6809,9 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6511,17 +6841,17 @@ This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6544,6 +6874,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should address the specific molecular mechanism, parent-of-origin effects, recurrence implications, and the possibility that somatic epimutations may not behave like sequence variants in transmission.</div>
 
 
@@ -6557,13 +6895,15 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02859688" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02859688" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02859688" target="_blank">clinicaltrials:NCT02859688</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6595,6 +6935,239 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-netchine-harbison-clinical-scoring-system-with-molecular-confirmation">
+                <div class="item-name">
+                    Netchine-Harbison clinical scoring system with molecular confirmation
+
+                </div>
+
+                <div class="item-desc">SRS is diagnosed clinically using SGA plus growth, craniofacial, asymmetry, and feeding criteria, with molecular testing used to confirm and identify subtypes. A negative molecular test does not exclude the clinical diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504900" target="_blank">PMID:17504900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical diagnosis of RSS was established when the criterion of being SGA was associated with at least three of five criteria: postnatal growth retardation, relative macrocephaly, prominent forehead, body asymmetry, and feeding difficulties."</div>
+
+
+                <div class="evidence-explanation">Defines the core clinical scoring features used in the Netchine-Harbison framework.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27585961" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SRS is primarily a clinical diagnosis; however, molecular testing enables confirmation of the clinical diagnosis and defines the subtype."</div>
+
+
+                <div class="evidence-explanation">Supports clinical diagnosis plus molecular confirmation/subtyping.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-11p15-and-chromosome-7-molecular-testing">
+                <div class="item-name">
+                    11p15 and chromosome 7 molecular testing
+
+                </div>
+
+                <div class="item-desc">First-line molecular evaluation typically targets 11p15 methylation defects and maternal UPD7, with broader methylation, copy-number, and sequencing approaches considered when clinical suspicion remains.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36662731" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36662731" target="_blank">PMID:36662731</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The two principal causes of SRS are loss of methylation on chromosome 11p15 (11p15 LOM) and maternal uniparental disomy of chromosome 7 (UPD(7)mat)."</div>
+
+
+                <div class="evidence-explanation">Supports first-line testing for the two principal molecular causes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">1.0&ndash;3.3 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">The consensus report cites rare-disease incidence estimates around 1 in 30,000 to 1 in 100,000 births; exact population prevalence varies with diagnostic ascertainment and molecular confirmation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27585961" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585961" target="_blank">PMID:27585961</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This Consensus Statement summarizes recommendations for clinical diagnosis, investigation and management of patients with Silver-Russell syndrome (SRS), an imprinting disorder that causes prenatal and postnatal growth retardation."</div>
+
+
+                <div class="evidence-explanation">The abstract supports SRS as a rare consensus-managed disorder, while the numeric incidence estimate comes from the consensus body summarized in the Falcon report rather than this PubMed abstract snippet.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -6610,7 +7183,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06878716">
                 <div class="item-name">
                     NCT06878716
 
@@ -6638,7 +7211,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT06878716" target="_blank">clinicaltrials:NCT06878716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6661,7 +7236,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05214742">
                 <div class="item-name">
                     NCT05214742
 
@@ -6689,7 +7264,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT05214742" target="_blank">clinicaltrials:NCT05214742</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6712,7 +7289,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01842659">
                 <div class="item-name">
                     NCT01842659
 
@@ -6740,7 +7317,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT01842659" target="_blank">clinicaltrials:NCT01842659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6762,7 +7341,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT01842659" target="_blank">clinicaltrials:NCT01842659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6785,7 +7366,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02859688">
                 <div class="item-name">
                     NCT02859688
 
@@ -6813,7 +7394,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT02859688" target="_blank">clinicaltrials:NCT02859688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6861,7 +7444,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Silver-Russell Syndrome
 creation_date: &#34;2026-05-07T12:55:59Z&#34;
-updated_date: &#34;2026-05-07T12:55:59Z&#34;
 category: Mendelian
 description: &gt;-
   Silver-Russell syndrome is a rare imprinting and congenital growth disorder
@@ -6998,7 +7580,7 @@ prevalence:
   evidence:
   - reference: PMID:27585961
     reference_title: &#34;Diagnosis and management of Silver-Russell syndrome: first international consensus statement.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This Consensus Statement summarizes recommendations for clinical diagnosis, investigation and management of patients with Silver-Russell syndrome (SRS), an imprinting disorder that causes prenatal and postnatal growth retardation.&#34;
     explanation: The abstract supports SRS as a rare consensus-managed disorder, while the numeric incidence estimate comes from the consensus body summarized in the Falcon report rather than this PubMed abstract snippet.
@@ -7230,7 +7812,7 @@ phenotypes:
   evidence:
   - reference: PMID:27585961
     reference_title: &#34;Diagnosis and management of Silver-Russell syndrome: first international consensus statement.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Specific issues include growth failure, severe feeding difficulties, gastrointestinal problems, hypoglycaemia, body asymmetry, scoliosis, motor and speech delay and psychosocial challenges.&#34;
     explanation: The abstract supports gastrointestinal problems broadly; the reflux-specific framing is drawn from the Falcon report&#39;s consensus summary.
@@ -7258,7 +7840,7 @@ phenotypes:
   evidence:
   - reference: PMID:36662731
     reference_title: Executive functioning in adolescents and adults with Silver-Russell syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thus, the cognitive phenotype of SRS did not appear to be characterized by executive dysfunction, but individuals with SRS could be at high risk of developing executive dysfunction or attention-deficit/hyperactivity disorder.&#34;
     explanation: The study supports increased risk in some individuals but does not establish ADHD as universal, so support is partial.
@@ -7472,7 +8054,7 @@ treatments:
   evidence:
   - reference: clinicaltrials:NCT02859688
     reference_title: &#34;Can Epimutations be Inherited? How to Manage Patients With Imprinting-related Diseases Who Wish to Become Parents&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We provide here for the first time evidence for efficient reversion of a constitutive epimutation in the spermatozoa of an SRS patient, which has important implication for genetic counseling.&#34;
     explanation: Supports counseling relevance for reproductive transmission questions in imprinting-related SRS.
@@ -7486,7 +8068,7 @@ clinical_trials:
     children followed for SRS.
   evidence:
   - reference: clinicaltrials:NCT06878716
-    reference_title: Silver Russell Syndrome, Parental Fertility and Assisted Reproductive Technology
+    reference_title: &#34;Official Title : Silver Russell Syndrome, Parental Fertility and Assisted Reproductive Technology 600 caractères Maximum&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our main objective is to estimate ART conceptions prevalence in children followed for a SRS.&#34;
@@ -8248,7 +8830,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Silver-Russell Syndrome", "mondoId": "MONDO:0008394", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silver-Russell_Syndrome", "yamlRevision": "a9fe7ba66f49"};
+        const OS_CONFIG = {"diseaseName": "Silver-Russell Syndrome", "mondoId": "MONDO:0008394", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silver-Russell_Syndrome", "yamlRevision": "330cd6252658"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8667,5 +9249,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Geleophysic Dysplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Geleophysic Dysplasia</h1>
             <div class="header-meta">
 
@@ -3907,6 +4054,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3916,9 +4133,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 15 &#34;Acromelic dysplasias&#34;; listed as &#34;Geleophysic dysplasia&#34;.">acromelic dysplasias</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3936,7 +4169,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3982,7 +4215,9 @@
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4004,7 +4239,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4026,7 +4263,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4049,7 +4288,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4095,7 +4334,9 @@
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4117,7 +4358,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4174,7 +4417,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gd1">
 
                     <div class="item-name">
                         Geleophysic dysplasia 1 (ADAMTSL2-related)
@@ -4211,7 +4454,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4233,7 +4478,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300707" target="_blank">PMID:38300707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4259,7 +4506,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gd2">
 
                     <div class="item-name">
                         Geleophysic dysplasia 2 (FBN1-related)
@@ -4296,7 +4543,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4318,7 +4567,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4344,7 +4595,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gd3">
 
                     <div class="item-name">
                         Geleophysic dysplasia 3 (LTBP3-related)
@@ -4381,7 +4632,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27068007" target="_blank">PMID:27068007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4403,7 +4656,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39705488" target="_blank">PMID:39705488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4465,17 +4720,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ADAMTSL2
 
 
-    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14631</a>
+    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:14631</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4504,18 +4763,20 @@ This pathophysiological event involves ADAMTSL2 (hgnc:14631). hgnc:14631 is a ge
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein O-linked glycosylation via fucose (GO:0036066). GO:0036066 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein O-linked glycosylation via fucose
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036066" target="_blank" class="curie-chip curie-chip-go">GO:0036066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0036066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein O-linked glycosylation via fucose (GO:0036066). GO:0036066 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4573,7 +4834,9 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4606,18 +4869,20 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4645,18 +4910,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein folding in endoplasmic reticulum (GO:0034975). GO:0034975 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein folding in endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go">GO:0034975</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0034975</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding in endoplasmic reticulum (GO:0034975). GO:0034975 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4677,18 +4944,20 @@ This pathophysiological event involves abnormal protein folding in endoplasmic r
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go">GO:0009306</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0009306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4715,18 +4984,20 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4773,7 +5044,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4795,7 +5068,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913123" target="_blank">PMID:32913123</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4829,18 +5104,20 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4868,18 +5145,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal intracellular protein transport (GO:0006886). GO:0006886 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intracellular protein transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006886" target="_blank" class="curie-chip curie-chip-go">GO:0006886</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006886" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006886</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intracellular protein transport (GO:0006886). GO:0006886 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4945,7 +5224,9 @@ This pathophysiological event involves abnormal intracellular protein transport 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4967,7 +5248,9 @@ This pathophysiological event involves abnormal intracellular protein transport 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38300707" target="_blank">PMID:38300707</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5001,18 +5284,20 @@ This pathophysiological event involves abnormal intracellular protein transport 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves connective tissue cell (CL:0002320). CL:0002320 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         connective tissue cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002320" target="_blank" class="curie-chip curie-chip-cl">CL:0002320</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002320" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002320</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves connective tissue cell (CL:0002320). CL:0002320 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5040,18 +5325,20 @@ This pathophysiological event involves connective tissue cell (CL:0002320). CL:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5197,7 +5484,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32880985" target="_blank">PMID:32880985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5219,7 +5508,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5260,18 +5551,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5375,7 +5668,9 @@ This pathophysiological event involves dysregulated transforming growth factor b
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5397,7 +5692,9 @@ This pathophysiological event involves dysregulated transforming growth factor b
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31350823" target="_blank">PMID:31350823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5419,7 +5716,9 @@ This pathophysiological event involves dysregulated transforming growth factor b
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39705488" target="_blank">PMID:39705488</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5453,18 +5752,20 @@ This pathophysiological event involves dysregulated transforming growth factor b
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell of tracheobronchial tree (CL:0002202). CL:0002202 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell of tracheobronchial tree
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl">CL:0002202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of tracheobronchial tree (CL:0002202). CL:0002202 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5492,18 +5793,20 @@ This pathophysiological event involves epithelial cell of tracheobronchial tree 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5524,18 +5827,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5599,7 +5904,9 @@ This pathophysiological event involves increased transforming growth factor beta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5621,7 +5928,9 @@ This pathophysiological event involves increased transforming growth factor beta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5643,7 +5952,9 @@ This pathophysiological event involves increased transforming growth factor beta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5677,18 +5988,20 @@ This pathophysiological event involves increased transforming growth factor beta
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5716,18 +6029,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5748,18 +6063,20 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5831,7 +6148,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40481143" target="_blank">PMID:40481143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5853,7 +6172,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40481143" target="_blank">PMID:40481143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5888,7 +6209,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-lysosomal-like-intracellular-inclusions-in-fibroblasts-and-airway-epithelium">
                 <div class="item-name">
                     Lysosomal-like intracellular inclusions in fibroblasts and airway epithelium
 
@@ -5911,7 +6232,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5933,7 +6256,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31350823" target="_blank">PMID:31350823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5997,23 +6322,25 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Prenatal and Birth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6023,27 +6350,31 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-pulmonary-artery-pressure" data-dismech-node="Elevated pulmonary artery pressure" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-size-of-nasopharyngeal-adenoids" data-dismech-node="Increased size of nasopharyngeal adenoids" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Elevated pulmonary artery pressure
+                        Increased size of nasopharyngeal adenoids
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040261" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0040261</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:0004890 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated pulmonary artery pressure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp">HP:0004890</a>
-
-
+This clinical feature is Increased size of nasopharyngeal adenoids (HP:0040261). HP:0040261 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6064,7 +6395,79 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0040261 | Increased size of nasopharyngeal adenoids | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports enlarged nasopharyngeal adenoids as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-pulmonary-artery-pressure" data-dismech-node="Elevated pulmonary artery pressure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated pulmonary artery pressure
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004890</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:0004890 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6075,6 +6478,76 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
 
                 <div class="evidence-explanation">Orphanet reports elevated pulmonary artery pressure as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-valvular-pulmonary-stenosis" data-dismech-node="Valvular pulmonary stenosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Valvular pulmonary stenosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0034350</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0034350 | Valvular pulmonary stenosis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports valvular pulmonary stenosis as frequent.</div>
 
 
 
@@ -6107,16 +6580,20 @@ This clinical feature is Elevated pulmonary artery pressure (HP:0004890). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000405</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
-                        Conductive hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
-
-
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6137,7 +6614,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6169,27 +6648,31 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-long-philtrum" data-dismech-node="Long philtrum" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-upper-lip-vermilion" data-dismech-node="Thin upper lip vermilion" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Long philtrum
+                        Thin upper lip vermilion
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000219</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.">
-                        Long philtrum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp">HP:0000343</a>
-
-
+This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6210,7 +6693,149 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000219 | Thin upper lip vermilion | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports thin upper lip vermilion as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Round face
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000311</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000311 | Round face | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports round face as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-long-philtrum" data-dismech-node="Long philtrum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Long philtrum
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000343</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6244,16 +6869,20 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000463</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.">
-                        Anteverted nares
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp">HP:0000463</a>
-
-
+This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6274,7 +6903,9 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6308,16 +6939,20 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003196</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.">
-                        Short nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp">HP:0003196</a>
-
-
+This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6338,7 +6973,9 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6369,28 +7006,32 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
+                    Immune
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-skin" data-dismech-node="Thickened skin" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-ear-infections" data-dismech-node="Recurrent ear infections" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thickened skin
+                        Recurrent ear infections
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0410018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.">
-                        Thickened skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp">HP:0001072</a>
-
-
+This clinical feature is Recurrent ear infections (HP:0410018). HP:0410018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6411,7 +7052,158 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0410018 | Recurrent ear infections | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports recurrent ear infections as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Asthma
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002099 | Asthma | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports asthma as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thickened-skin" data-dismech-node="Thickened skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thickened skin
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6439,11 +7231,11 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
@@ -6454,16 +7246,20 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001156</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.">
-                        Brachydactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp">HP:0001156</a>
-
-
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6484,7 +7280,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6518,16 +7316,20 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001773</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.">
-                        Short foot
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" class="curie-chip curie-chip-hp">HP:0001773</a>
-
-
+This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6548,7 +7350,9 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6574,33 +7378,28 @@ This clinical feature is Short foot (HP:0001773). HP:0001773 is a phenotype from
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-joint-mobility" data-dismech-node="Limitation of joint mobility" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-palm" data-dismech-node="Short palm" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Limitation of joint mobility
+                        Short palm
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of joint mobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
-
-
+This clinical feature is Short palm (HP:0004279). HP:0004279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6621,7 +7420,88 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0004279 | Short palm | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports short palms as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-joint-mobility" data-dismech-node="Limitation of joint mobility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limitation of joint mobility
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6655,16 +7535,20 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0034392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint contracture (HP:0034392), qualified as course progressive. HP:0034392 is a phenotype from the Human Phenotype Ontology.">
-                        Joint contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp">HP:0034392</a>
-
-
+This clinical feature is Joint contracture (HP:0034392), qualified as course progressive. HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6703,7 +7587,9 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6725,7 +7611,9 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6751,289 +7639,6 @@ This clinical feature is Joint contracture (HP:0034392), qualified as course pro
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-skeletal-maturation" data-dismech-node="Delayed skeletal maturation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed skeletal maturation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed skeletal maturation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp">HP:0002750</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002750 | Delayed skeletal maturation | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports delayed skeletal maturation as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Prenatal and Birth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Polyhydramnios
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
-                        Polyhydramnios
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001561 | Polyhydramnios | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports polyhydramnios as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0004322 | Short stature | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports short stature as very frequent in geleophysic dysplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-retardation" data-dismech-node="Intrauterine growth retardation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intrauterine growth retardation
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.">
-                        Intrauterine growth retardation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp">HP:0001511</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001511 | Intrauterine growth retardation | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports intrauterine growth retardation as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">11</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-fetal-femur-length" data-dismech-node="Short fetal femur length" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short fetal femur length
@@ -7042,16 +7647,20 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011428" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011428</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short fetal femur length (HP:0011428). HP:0011428 is a phenotype from the Human Phenotype Ontology.">
-                        Short fetal femur length
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011428" target="_blank" class="curie-chip curie-chip-hp">HP:0011428</a>
-
-
+This clinical feature is Short fetal femur length (HP:0011428). HP:0011428 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7072,7 +7681,9 @@ This clinical feature is Short fetal femur length (HP:0011428). HP:0011428 is a 
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7106,16 +7717,20 @@ This clinical feature is Short fetal femur length (HP:0011428). HP:0011428 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003026</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype from the Human Phenotype Ontology.">
-                        Short long bone
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003026" target="_blank" class="curie-chip curie-chip-hp">HP:0003026</a>
-
-
+This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7136,7 +7751,9 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7162,24 +7779,28 @@ This clinical feature is Short long bone (HP:0003026). HP:0003026 is a phenotype
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-palm" data-dismech-node="Short palm" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-skeletal-maturation" data-dismech-node="Delayed skeletal maturation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Short palm
+                        Delayed skeletal maturation
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short palm (HP:0004279). HP:0004279 is a phenotype from the Human Phenotype Ontology.">
-                        Short palm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004279" target="_blank" class="curie-chip curie-chip-hp">HP:0004279</a>
-
-
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7200,17 +7821,19 @@ This clinical feature is Short palm (HP:0004279). HP:0004279 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0004279 | Short palm | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0002750 | Delayed skeletal maturation | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports short palms as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports delayed skeletal maturation as frequent.</div>
 
 
 
@@ -7234,16 +7857,20 @@ This clinical feature is Short palm (HP:0004279). HP:0004279 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0034281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:0034281 is a phenotype from the Human Phenotype Ontology.">
-                        Phalangeal cone-shaped epiphyses
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp">HP:0034281</a>
-
-
+This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:0034281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7264,7 +7891,9 @@ This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:00342
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7290,24 +7919,37 @@ This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:00342
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-upper-lip-vermilion" data-dismech-node="Thin upper lip vermilion" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Prenatal and Birth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Thin upper lip vermilion
+                        Polyhydramnios
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.">
-                        Thin upper lip vermilion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp">HP:0000219</a>
-
-
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7328,17 +7970,19 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0000219 | Thin upper lip vermilion | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0001561 | Polyhydramnios | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports thin upper lip vermilion as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports polyhydramnios as frequent.</div>
 
 
 
@@ -7354,197 +7998,14 @@ This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-round-face" data-dismech-node="Round face" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Round face
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Round face (HP:0000311). HP:0000311 is a phenotype from the Human Phenotype Ontology.">
-                        Round face
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000311" target="_blank" class="curie-chip curie-chip-hp">HP:0000311</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000311 | Round face | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports round face as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-ear-infections" data-dismech-node="Recurrent ear infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent ear infections
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent ear infections (HP:0410018). HP:0410018 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent ear infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410018" target="_blank" class="curie-chip curie-chip-hp">HP:0410018</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0410018 | Recurrent ear infections | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports recurrent ear infections as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-size-of-nasopharyngeal-adenoids" data-dismech-node="Increased size of nasopharyngeal adenoids" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased size of nasopharyngeal adenoids
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased size of nasopharyngeal adenoids (HP:0040261). HP:0040261 is a phenotype from the Human Phenotype Ontology.">
-                        Increased size of nasopharyngeal adenoids
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040261" target="_blank" class="curie-chip curie-chip-hp">HP:0040261</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2623" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0040261 | Increased size of nasopharyngeal adenoids | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports enlarged nasopharyngeal adenoids as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-airway-obstruction" data-dismech-node="Airway obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7554,16 +8015,20 @@ This clinical feature is Increased size of nasopharyngeal adenoids (HP:0040261).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0006536</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.">
-                        Airway obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp">HP:0006536</a>
-
-
+This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7584,7 +8049,9 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7610,24 +8077,37 @@ This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenot
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Asthma
+                        Short stature
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.">
-                        Asthma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp">HP:0002099</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7648,17 +8128,19 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0002099 | Asthma | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0004322 | Short stature | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports asthma as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports short stature as very frequent in geleophysic dysplasia.</div>
 
 
 
@@ -7674,24 +8156,28 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-valvular-pulmonary-stenosis" data-dismech-node="Valvular pulmonary stenosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intrauterine-growth-retardation" data-dismech-node="Intrauterine growth retardation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Valvular pulmonary stenosis
+                        Intrauterine growth retardation
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001511</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.">
-                        Valvular pulmonary stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp">HP:0034350</a>
-
-
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7712,17 +8198,19 @@ This clinical feature is Valvular pulmonary stenosis (HP:0034350). HP:0034350 is
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0034350 | Valvular pulmonary stenosis | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0001511 | Intrauterine growth retardation | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet reports valvular pulmonary stenosis as frequent.</div>
+                <div class="evidence-explanation">Orphanet reports intrauterine growth retardation as frequent.</div>
 
 
 
@@ -7790,15 +8278,17 @@ This clinical feature is Valvular pulmonary stenosis (HP:0034350). HP:0034350 is
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ADAMTSL2
 
 
-    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14631</a>
+    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:14631</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7828,7 +8318,9 @@ This disease-associated gene is ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7850,7 +8342,9 @@ This disease-associated gene is ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31516831" target="_blank">PMID:31516831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7887,15 +8381,17 @@ This disease-associated gene is ADAMTSL2 (hgnc:14631). hgnc:14631 is a gene from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FBN1
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:3603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7925,7 +8421,9 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7947,7 +8445,9 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31350823" target="_blank">PMID:31350823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7984,15 +8484,17 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LTBP3
 
 
-    <a href="https://bioregistry.io/hgnc:6716" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6716</a>
+    <a href="https://bioregistry.io/hgnc:6716" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:6716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8022,7 +8524,9 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
                         <a href="https://bioregistry.io/ORPHA:2623" target="_blank">ORPHA:2623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8044,7 +8548,9 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27068007" target="_blank">PMID:27068007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8074,6 +8580,9 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8090,18 +8599,18 @@ This disease-associated gene is LTBP3 (hgnc:6716). hgnc:6716 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8124,6 +8633,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Ongoing physiotherapy is recommended to help prevent or reduce progression of joint limitation and contractures.
 </div>
 
@@ -8133,33 +8661,37 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limitation of joint mobility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001376</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Joint contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0034392</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8179,7 +8711,9 @@ This treatment targets Joint contracture (HP:0034392). HP:0034392 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8209,18 +8743,18 @@ This treatment targets Joint contracture (HP:0034392). HP:0034392 is a phenotype
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">cardiac valve replacement<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cardiac valve replacement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">cardiac valve replacement</span>
+This treatment is cardiac valve replacement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cardiac valve replacement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8243,6 +8777,25 @@ This treatment is cardiac valve replacement, annotated with Surgical Procedure (
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Severe valvular stenosis or insufficiency may require cardiac valve replacement as a manifestation-directed surgical intervention.
 </div>
 
@@ -8252,18 +8805,20 @@ This treatment is cardiac valve replacement, annotated with Surgical Procedure (
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Valvular pulmonary stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp">HP:0034350</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0034350</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8283,7 +8838,9 @@ This treatment targets Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8313,18 +8870,18 @@ This treatment targets Valvular pulmonary stenosis (HP:0034350). HP:0034350 is a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">tracheostomy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervention from the NCI Thesaurus.">tracheostomy</span>
+This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Tracheotomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15341" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervention from the NCI Thesaurus.">NCIT:C15341</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15341" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15341">NCIT:C15341</a>
 
 
 
@@ -8347,6 +8904,14 @@ This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tracheostomy is used when severe tracheal stenosis creates critical airway obstruction.
 </div>
 
@@ -8356,18 +8921,20 @@ This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Airway obstruction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp">HP:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0006536</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8387,7 +8954,9 @@ This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8417,18 +8986,18 @@ This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotyp
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">supportive respiratory care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive respiratory care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive respiratory care</span>
+This treatment is supportive respiratory care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive respiratory care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8451,6 +9020,14 @@ This treatment is supportive respiratory care, annotated with Supportive Care (N
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Restrictive lung disease, obstructive sleep apnea, asthma, and respiratory compromise are managed by pulmonology-directed supportive care.
 </div>
 
@@ -8460,33 +9037,37 @@ This treatment is supportive respiratory care, annotated with Supportive Care (N
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Airway obstruction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp">HP:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0006536</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Asthma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8506,7 +9087,9 @@ This treatment targets Asthma (HP:0002099). HP:0002099 is a phenotype from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8536,17 +9119,17 @@ This treatment targets Asthma (HP:0002099). HP:0002099 is a phenotype from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8571,21 +9154,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         losartan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6541</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:6541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8621,13 +9214,15 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31350823" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31350823" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31350823" target="_blank">PMID:31350823</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8657,6 +9252,273 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-radiographic-diagnosis">
+                <div class="item-name">
+                    Clinical and radiographic diagnosis
+
+                </div>
+
+                <div class="item-desc">Diagnosis can be established clinically when the characteristic clinical and radiographic phenotype is present, especially short stature, short hands and feet, progressive joint limitation, skin thickening, and cardiac or airway involvement.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical diagnosis of geleophysic dysplasia can be established in a proband with characteristic clinical and radiographic findings"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports clinical/radiographic diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation requires biallelic ADAMTSL2 pathogenic variants or a heterozygous pathogenic variant in FBN1 or LTBP3.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the molecular diagnosis of geleophysic dysplasia is established in a proband with characteristic clinical and radiographic findings and one of the following on molecular genetic testing: biallelic pathogenic variants in ADAMTSL2 or a heterozygous pathogenic variant in either FBN1 or LTBP3."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies the gene and zygosity patterns for molecular diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-echocardiography-for-cardiac-surveillance">
+                <div class="item-name">
+                    Echocardiography for cardiac surveillance
+
+                </div>
+
+                <div class="item-desc">Echocardiography is part of the recommended surveillance strategy because progressive cardiac valve disease and other cardiac complications can be life-threatening.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        echocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C16525</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301776" target="_blank">PMID:20301776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evaluation with cardiologist (including EKG and echocardiogram), pulmonologist, ENT specialist, and audiologist annually from birth until age three years, then at specific intervals."</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends echocardiography-containing cardiac surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8727,17 +9589,21 @@ This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns Adamtsl2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         Adamtsl2
 
 
-    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:14631</a>
+    <a href="https://bioregistry.io/hgnc:14631" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:14631</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns Adamtsl2 (hgnc:14631). hgnc:14631 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8782,7 +9648,9 @@ This experimental model concerns Adamtsl2 (hgnc:14631). hgnc:14631 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25762570" target="_blank">PMID:25762570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8824,7 +9692,6 @@ This experimental model concerns Adamtsl2 (hgnc:14631). hgnc:14631 is a gene fro
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Geleophysic Dysplasia
 creation_date: &#34;2026-05-10T04:22:24Z&#34;
-updated_date: &#34;2026-05-10T04:22:24Z&#34;
 category: Mendelian
 description: &gt;-
   Geleophysic dysplasia is a rare acromelic skeletal dysplasia with severe
@@ -8933,7 +9800,7 @@ inheritance:
     pathogenic variants.
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal dominant&#34;
@@ -8961,7 +9828,7 @@ inheritance:
     from biallelic pathogenic variants.
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9378,7 +10245,7 @@ genetic:
     extracellular matrix glycoprotein.
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ADAMTSL2 | ADAMTS like 2 | hgnc:14631 | Disease-causing germline mutation(s) in&#34;
@@ -9405,7 +10272,7 @@ genetic:
     microfibril deposition and TGF-beta-linked extracellular matrix biology.
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;FBN1 | fibrillin 1 | hgnc:3603 | Disease-causing germline mutation(s) in&#34;
@@ -9432,7 +10299,7 @@ genetic:
     microfibrillar-network component in the acromelic dysplasia spectrum.
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;LTBP3 | latent transforming growth factor beta binding protein 3 | hgnc:6716 | Disease-causing germline mutation(s) in&#34;
@@ -9455,7 +10322,7 @@ phenotypes:
       label: Short stature
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0004322 | Short stature | Very frequent (99-80%)&#34;
@@ -9471,7 +10338,7 @@ phenotypes:
       label: Brachydactyly
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001156 | Brachydactyly | Frequent (79-30%)&#34;
@@ -9487,7 +10354,7 @@ phenotypes:
       label: Limitation of joint mobility
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001376 | Limitation of joint mobility | Frequent (79-30%)&#34;
@@ -9503,7 +10370,7 @@ phenotypes:
     clinical_course: PROGRESSIVE
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0034392 | Joint contracture | Frequent (79-30%)&#34;
@@ -9524,7 +10391,7 @@ phenotypes:
       label: Thickened skin
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001072 | Thickened skin | Frequent (79-30%)&#34;
@@ -9539,7 +10406,7 @@ phenotypes:
       label: Intrauterine growth retardation
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001511 | Intrauterine growth retardation | Frequent (79-30%)&#34;
@@ -9554,7 +10421,7 @@ phenotypes:
       label: Polyhydramnios
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001561 | Polyhydramnios | Frequent (79-30%)&#34;
@@ -9569,7 +10436,7 @@ phenotypes:
       label: Short fetal femur length
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0011428 | Short fetal femur length | Frequent (79-30%)&#34;
@@ -9584,7 +10451,7 @@ phenotypes:
       label: Short long bone
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003026 | Short long bone | Frequent (79-30%)&#34;
@@ -9599,7 +10466,7 @@ phenotypes:
       label: Short foot
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001773 | Short foot | Frequent (79-30%)&#34;
@@ -9614,7 +10481,7 @@ phenotypes:
       label: Short palm
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0004279 | Short palm | Frequent (79-30%)&#34;
@@ -9629,7 +10496,7 @@ phenotypes:
       label: Delayed skeletal maturation
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002750 | Delayed skeletal maturation | Frequent (79-30%)&#34;
@@ -9644,7 +10511,7 @@ phenotypes:
       label: Phalangeal cone-shaped epiphyses
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0034281 | Phalangeal cone-shaped epiphyses | Frequent (79-30%)&#34;
@@ -9659,7 +10526,7 @@ phenotypes:
       label: Thin upper lip vermilion
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000219 | Thin upper lip vermilion | Frequent (79-30%)&#34;
@@ -9674,7 +10541,7 @@ phenotypes:
       label: Round face
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000311 | Round face | Frequent (79-30%)&#34;
@@ -9689,7 +10556,7 @@ phenotypes:
       label: Long philtrum
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000343 | Long philtrum | Frequent (79-30%)&#34;
@@ -9704,7 +10571,7 @@ phenotypes:
       label: Anteverted nares
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000463 | Anteverted nares | Frequent (79-30%)&#34;
@@ -9719,7 +10586,7 @@ phenotypes:
       label: Short nose
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003196 | Short nose | Frequent (79-30%)&#34;
@@ -9734,7 +10601,7 @@ phenotypes:
       label: Conductive hearing impairment
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000405 | Conductive hearing impairment | Frequent (79-30%)&#34;
@@ -9749,7 +10616,7 @@ phenotypes:
       label: Recurrent ear infections
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0410018 | Recurrent ear infections | Frequent (79-30%)&#34;
@@ -9764,7 +10631,7 @@ phenotypes:
       label: Increased size of nasopharyngeal adenoids
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0040261 | Increased size of nasopharyngeal adenoids | Frequent (79-30%)&#34;
@@ -9780,7 +10647,7 @@ phenotypes:
       label: Airway obstruction
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006536 | Airway obstruction | Frequent (79-30%)&#34;
@@ -9795,7 +10662,7 @@ phenotypes:
       label: Asthma
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002099 | Asthma | Frequent (79-30%)&#34;
@@ -9810,7 +10677,7 @@ phenotypes:
       label: Elevated pulmonary artery pressure
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0004890 | Elevated pulmonary artery pressure | Frequent (79-30%)&#34;
@@ -9825,7 +10692,7 @@ phenotypes:
       label: Valvular pulmonary stenosis
   evidence:
   - reference: ORPHA:2623
-    reference_title: &#34;Geleophysic dysplasia (Orphanet structured-database record)&#34;
+    reference_title: &#34;Geleophysic dysplasia&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0034350 | Valvular pulmonary stenosis | Frequent (79-30%)&#34;
@@ -9996,7 +10863,7 @@ treatments:
   evidence:
   - reference: PMID:31350823
     reference_title: &#34;Skin fibroblasts of patients with geleophysic dysplasia due to FBN1 mutations have lysosomal inclusions and losartan improves their microfibril deposition defect.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Treatment of GPHYSD fibroblasts carrying FBN1 mutations with the angiotensin II receptor type 1 inhibitor losartan that inhibits TGF-β signaling did not reduce the storage but improved the extracellular deposition of fibrillin-1 microfibrils.&#34;
     explanation: This supports losartan as a candidate mechanism-directed therapy in fibroblasts but not as proven patient treatment.
@@ -10657,7 +11524,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Geleophysic Dysplasia", "mondoId": "MONDO:0000127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Geleophysic_Dysplasia", "yamlRevision": "fbc36ba88c9c"};
+        const OS_CONFIG = {"diseaseName": "Geleophysic Dysplasia", "mondoId": "MONDO:0000127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Geleophysic_Dysplasia", "yamlRevision": "b3ec524441af"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11076,5 +11943,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

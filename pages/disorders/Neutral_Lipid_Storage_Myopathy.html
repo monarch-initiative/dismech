@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Neutral Lipid Storage Myopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Neutral Lipid Storage Myopathy</h1>
             <div class="header-meta">
 
@@ -3902,6 +4049,125 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An inborn error of intracellular triacylglycerol lipolysis: PNPLA2 encodes adipose triglyceride lipase (ATGL), which catalyses the first step of neutral-lipid breakdown.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="Presents as a progressive lipid-storage myopathy with cardiomyopathy, so the neuromuscular Part is the primary clinical home.">NEUROLOGIC</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glycerolipid metabolism&#34; under category &#34;Disorders of lipid metabolism&#34;. ATGL deficiency blocks hydrolysis of triacylglycerol (a glycerolipid). Despite the &#34;storage&#34; name this is a cytoplasmic lipid-droplet disorder, not a lysosomal hydrolase deficiency, so no lysosomal_storage_category is assigned. It is also distinct from the ICIMD &#34;Disorders of mitochondrial fatty acid oxidation&#34; group: the lesion is in mobilizing stored triacylglycerol, upstream of beta-oxidation itself.">glycerolipid metabolism</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -3970,7 +4236,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4013,7 +4279,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4076,17 +4344,21 @@ seven families were carrying compound heterozygous mutations"</div>
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PNPLA2 (hgnc:30802). hgnc:30802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PNPLA2
 
 
-    <a href="https://bioregistry.io/hgnc:30802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30802</a>
+    <a href="https://bioregistry.io/hgnc:30802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:30802</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PNPLA2 (hgnc:30802). hgnc:30802 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4115,18 +4387,20 @@ This pathophysiological event involves PNPLA2 (hgnc:30802). hgnc:30802 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased triglyceride catabolic process (GO:0019433). GO:0019433 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         triglyceride catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go">GO:0019433</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019433</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased triglyceride catabolic process (GO:0019433). GO:0019433 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4148,6 +4422,44 @@ This pathophysiological event involves decreased triglyceride catabolic process 
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        adipose triglyceride lipase (ATGL) activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004806" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004806</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased adipose triglyceride lipase (ATGL) activity, annotated with triacylglycerol lipase activity (GO:0004806). GO:0004806 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4184,7 +4496,9 @@ This pathophysiological event involves decreased triglyceride catabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4219,18 +4533,20 @@ phospholipase domain-containing 2 (PNPLA2) gene"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4258,18 +4574,20 @@ This pathophysiological event involves skeletal muscle fiber, annotated with cel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid storage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4367,7 +4685,9 @@ This pathophysiological event involves increased lipid storage (GO:0019915). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4416,7 +4736,7 @@ myopathy, cardiomyopathy and the multiple organs dysfunction"</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac muscle involvement; pure or combined cardiomyopathy occurs in many patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Easy fatigability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to fatigue is a frequent motor manifestation of NLSDM.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003388\"}}, {\"id\": \"Generalized limb muscle atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb muscle wasting accompanies the progressive lipid-storage myopathy in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009055\"}}, {\"id\": \"Muscle Triacylglycerol Droplet Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded triacylglycerol accumulates as cytoplasmic lipid droplets in skeletal and cardiac muscle fibers (and leukocytes, producing Jordans\u0027 anomaly), driving myopathy and cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"lipid storage\"]}}, {\"id\": \"Muscle fatty infiltration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Selective fatty infiltration of muscle (posterior compartment of the legs) is a characteristic muscle-imaging finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012548\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lipid-storage skeletal myopathy; right upper-limb weakness is often the early and prominent feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003198\"}}, {\"id\": \"PNPLA2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA2\"], \"gene_terms\": [{\"label\": \"PNPLA2\", \"id\": \"hgnc:30802\"}], \"association\": \"Causative\"}}, {\"id\": \"PNPLA2/ATGL Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PNPLA2 variants reduce adipose triglyceride lipase (ATGL), the rate-limiting enzyme for intracellular triacylglycerol hydrolysis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"genes\": [\"PNPLA2\"], \"gene_terms\": [{\"label\": \"PNPLA2\", \"id\": \"hgnc:30802\"}]}}, {\"id\": \"Upper limb muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asymmetric, often right-predominant upper-limb weakness as an early prominent feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003484\"}}], \"edges\": [{\"source\": \"PNPLA2/ATGL Deficiency\", \"target\": \"Muscle Triacylglycerol Droplet Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired triacylglycerol hydrolysis causes lipid-droplet accumulation in muscle.\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal muscle lipid-droplet storage produces the progressive lipid-storage myopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Upper limb muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal muscle lipid storage causes the early prominent upper-limb weakness pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle lipid storage contributes to cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Muscle fatty infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intramuscular lipid storage corresponds to fatty replacement on muscle imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Generalized limb muscle atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive muscle lipid storage and myopathy can lead to limb muscle wasting.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Easy fatigability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive muscle lipid storage impairs motor endurance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PNPLA2 pathogenic variants\", \"target\": \"PNPLA2/ATGL Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac muscle involvement; pure or combined cardiomyopathy occurs in many patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001638\"}}, {\"id\": \"Easy fatigability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased susceptibility to fatigue is a frequent motor manifestation of NLSDM.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003388\"}}, {\"id\": \"Generalized limb muscle atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb muscle wasting accompanies the progressive lipid-storage myopathy in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009055\"}}, {\"id\": \"Muscle Triacylglycerol Droplet Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded triacylglycerol accumulates as cytoplasmic lipid droplets in skeletal and cardiac muscle fibers (and leukocytes, producing Jordans\u0027 anomaly), driving myopathy and cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"lipid storage\"]}}, {\"id\": \"Muscle fatty infiltration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Selective fatty infiltration of muscle (posterior compartment of the legs) is a characteristic muscle-imaging finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012548\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lipid-storage skeletal myopathy; right upper-limb weakness is often the early and prominent feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003198\"}}, {\"id\": \"PNPLA2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA2\"], \"gene_terms\": [{\"label\": \"PNPLA2\", \"id\": \"hgnc:30802\"}], \"association\": \"Causative\"}}, {\"id\": \"PNPLA2/ATGL Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic PNPLA2 variants reduce adipose triglyceride lipase (ATGL), the rate-limiting enzyme for intracellular triacylglycerol hydrolysis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"molecular_functions\": [\"adipose triglyceride lipase (ATGL) activity\"], \"genes\": [\"PNPLA2\"], \"gene_terms\": [{\"label\": \"PNPLA2\", \"id\": \"hgnc:30802\"}]}}, {\"id\": \"Upper limb muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asymmetric, often right-predominant upper-limb weakness as an early prominent feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003484\"}}], \"edges\": [{\"source\": \"PNPLA2/ATGL Deficiency\", \"target\": \"Muscle Triacylglycerol Droplet Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired triacylglycerol hydrolysis causes lipid-droplet accumulation in muscle.\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal muscle lipid-droplet storage produces the progressive lipid-storage myopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Upper limb muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal muscle lipid storage causes the early prominent upper-limb weakness pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac muscle lipid storage contributes to cardiomyopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Muscle fatty infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intramuscular lipid storage corresponds to fatty replacement on muscle imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Generalized limb muscle atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive muscle lipid storage and myopathy can lead to limb muscle wasting.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Muscle Triacylglycerol Droplet Accumulation\", \"target\": \"Easy fatigability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive muscle lipid storage impairs motor endurance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PNPLA2 pathogenic variants\", \"target\": \"PNPLA2/ATGL Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4437,9 +4757,9 @@ myopathy, cardiomyopathy and the multiple organs dysfunction"</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4458,16 +4778,20 @@ myopathy, cardiomyopathy and the multiple organs dysfunction"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001638</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
-
-
+This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4488,7 +4812,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4510,7 +4836,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4542,8 +4870,86 @@ implanted with a cardioverter defibrillator for severe arrhythmias"</div>
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Limbs
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-limb-muscle-weakness" data-dismech-node="Upper limb muscle weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Upper limb muscle weakness
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003484</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31655616" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Right upper limb weakness was the early and
+prominent feature in 61.5% of patients"</div>
+
+
+                <div class="evidence-explanation">Right upper-limb weakness is a distinctive early feature of NLSDM.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myopathy" data-dismech-node="Myopathy" data-dismech-type="phenotype">
@@ -4552,16 +4958,20 @@ implanted with a cardioverter defibrillator for severe arrhythmias"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0003198</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myopathy (HP:0003198), qualified as course progressive. HP:0003198 is a phenotype from the Human Phenotype Ontology.">
-                        Myopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp">HP:0003198</a>
-
-
+This clinical feature is Myopathy (HP:0003198), qualified as course progressive. HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4600,7 +5010,9 @@ This clinical feature is Myopathy (HP:0003198), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4627,94 +5039,28 @@ myopathy, cardiomyopathy and the multiple organs dysfunction"</div>
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-limb-muscle-weakness" data-dismech-node="Upper limb muscle weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Upper limb muscle weakness
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.">
-                        Upper limb muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp">HP:0003484</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31655616" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Right upper limb weakness was the early and
-prominent feature in 61.5% of patients"</div>
-
-
-                <div class="evidence-explanation">Right upper-limb weakness is a distinctive early feature of NLSDM.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-fatty-infiltration" data-dismech-node="Muscle fatty infiltration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle fatty infiltration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Fatty replacement of skeletal muscle</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0012548</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatty replacement of skeletal muscle (HP:0012548). HP:0012548 is a phenotype from the Human Phenotype Ontology.">
-                        Fatty replacement of skeletal muscle
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012548" target="_blank" class="curie-chip curie-chip-hp">HP:0012548</a>
-
-
+This clinical feature is Fatty replacement of skeletal muscle (HP:0012548). HP:0012548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4735,7 +5081,9 @@ This clinical feature is Fatty replacement of skeletal muscle (HP:0012548). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4768,16 +5116,20 @@ legs"</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0009055</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized limb muscle atrophy (HP:0009055). HP:0009055 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized limb muscle atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009055" target="_blank" class="curie-chip curie-chip-hp">HP:0009055</a>
-
-
+This clinical feature is Generalized limb muscle atrophy (HP:0009055). HP:0009055 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4798,7 +5150,9 @@ This clinical feature is Generalized limb muscle atrophy (HP:0009055). HP:000905
                         <a href="https://bioregistry.io/ORPHA:98908" target="_blank">ORPHA:98908</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4830,16 +5184,20 @@ This clinical feature is Generalized limb muscle atrophy (HP:0009055). HP:000905
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003388</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Easy fatigability (HP:0003388). HP:0003388 is a phenotype from the Human Phenotype Ontology.">
-                        Easy fatigability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003388" target="_blank" class="curie-chip curie-chip-hp">HP:0003388</a>
-
-
+This clinical feature is Easy fatigability (HP:0003388). HP:0003388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4860,7 +5218,9 @@ This clinical feature is Easy fatigability (HP:0003388). HP:0003388 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:98908" target="_blank">ORPHA:98908</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4938,15 +5298,17 @@ This clinical feature is Easy fatigability (HP:0003388). HP:0003388 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PNPLA2 (hgnc:30802). hgnc:30802 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PNPLA2
 
 
-    <a href="https://bioregistry.io/hgnc:30802" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30802</a>
+    <a href="https://bioregistry.io/hgnc:30802" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:30802</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PNPLA2 (hgnc:30802). hgnc:30802 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4968,7 +5330,9 @@ This disease-associated gene is PNPLA2 (hgnc:30802). hgnc:30802 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5000,6 +5364,9 @@ deletions"</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5016,17 +5383,17 @@ deletions"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5044,6 +5411,14 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5100,7 +5475,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5126,6 +5503,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5140,7 +5544,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-triglyceride-storage-disease-type-2-nlsd-type-m">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Triglyceride_Storage_Disease_Type_2.html">Triglyceride storage disease type 2 (NLSD type M)</a>
@@ -5174,7 +5578,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31655616" target="_blank">PMID:31655616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5258,6 +5664,28 @@ mappings:
     mapping_source: MONDO
 parents:
 - Neutral Lipid Storage Disease
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      An inborn error of intracellular triacylglycerol lipolysis: PNPLA2
+      encodes adipose triglyceride lipase (ATGL), which catalyses the first
+      step of neutral-lipid breakdown.
+  - classification_value: NEUROLOGIC
+    notes: &gt;-
+      Presents as a progressive lipid-storage myopathy with cardiomyopathy, so
+      the neuromuscular Part is the primary clinical home.
+  icimd_category:
+  - classification_value: glycerolipid_metabolism
+    notes: &gt;-
+      ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of
+      glycerolipid metabolism&#34; under category &#34;Disorders of lipid metabolism&#34;.
+      ATGL deficiency blocks hydrolysis of triacylglycerol (a glycerolipid).
+      Despite the &#34;storage&#34; name this is a cytoplasmic lipid-droplet disorder,
+      not a lysosomal hydrolase deficiency, so no lysosomal_storage_category is
+      assigned. It is also distinct from the ICIMD &#34;Disorders of mitochondrial
+      fatty acid oxidation&#34; group: the lesion is in mobilizing stored
+      triacylglycerol, upstream of beta-oxidation itself.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -5282,6 +5710,12 @@ pathophysiology:
     term:
       id: hgnc:30802
       label: PNPLA2
+  molecular_functions:
+  - preferred_term: adipose triglyceride lipase (ATGL) activity
+    term:
+      id: GO:0004806
+      label: triacylglycerol lipase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: triglyceride catabolic process
     term:
@@ -5387,6 +5821,7 @@ phenotypes:
     snippet: &#34;the combination of skeletal myopathy and cardiomyopathy (21/45)&#34;
     explanation: Cardiomyopathy, alone or combined with skeletal myopathy, is common in NLSDM.
   - reference: PMID:28499397
+    reference_title: &#34;Neutral Lipid Storage Diseases: clinical/genetic features and natural history in a large cohort of Italian patients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;one patient with NLSD-M was\nimplanted with a cardioverter defibrillator for severe arrhythmias&#34;
@@ -5418,6 +5853,7 @@ phenotypes:
       label: Generalized limb muscle atrophy
   evidence:
   - reference: ORPHA:98908
+    reference_title: &#34;Neutral lipid storage disease with myopathy&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0009055 | Generalized limb muscle atrophy | Occasional (29-5%)&#34;
@@ -5432,12 +5868,18 @@ phenotypes:
       label: Easy fatigability
   evidence:
   - reference: ORPHA:98908
+    reference_title: &#34;Neutral lipid storage disease with myopathy&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0003388 | Easy fatigability | Frequent (79-30%)&#34;
     explanation: Orphanet reports easy fatigability as a frequent NLSDM phenotype.
 biochemical:
 - name: HyperCKemia
+  biomarker_term:
+    preferred_term: Creatine Kinase
+    term:
+      id: NCIT:C113245
+      label: Creatine Kinase
   presence: INCREASED
   context: &gt;-
     Elevated serum creatine kinase (hyperCKemia) is a common biochemical finding, sometimes
@@ -6079,7 +6521,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neutral Lipid Storage Myopathy", "mondoId": "MONDO:0012545", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutral_Lipid_Storage_Myopathy", "yamlRevision": "871532992940"};
+        const OS_CONFIG = {"diseaseName": "Neutral Lipid Storage Myopathy", "mondoId": "MONDO:0012545", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neutral_Lipid_Storage_Myopathy", "yamlRevision": "d4c093ad28ac"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6498,5 +6940,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
