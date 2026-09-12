@@ -1,6 +1,6 @@
-# Donate Your Instance to Curation (`/schedule`)
+# Donate Your Instance to Curation (`/donate-curation`)
 
-This is a plain-language guide to `/schedule` — a way to lend your Claude Code
+This is a plain-language guide to `/donate-curation` — a way to lend your Claude Code
 instance to dismech disease curation during hours you choose (for example, every
 evening while you're away from your desk). You say *when*; it does the curating.
 
@@ -57,10 +57,10 @@ Type these in Claude Code while you're in the dismech project.
 
 | You type | What happens |
 |---|---|
-| `/schedule` | Runs **once, right now.** Good for trying it out. |
-| `/schedule 8pm-12am every weekday` | Sets up a **recurring** evening shift. |
-| `/schedule status` | Shows what's scheduled and what it's working on. |
-| `/schedule stop` | Ends the recurring shift. |
+| `/donate-curation` | Runs **once, right now.** Good for trying it out. |
+| `/donate-curation 8pm-12am every weekday` | Sets up a **recurring** evening shift. |
+| `/donate-curation status` | Shows what's scheduled and what it's working on. |
+| `/donate-curation stop` | Ends the recurring shift. |
 
 ### Saying *when* (the recurring form)
 
@@ -74,10 +74,15 @@ and (optionally) when to **stop**:
 
 Examples you can type as-is:
 
-- `/schedule 8pm-12am every weekday`
-- `/schedule 9am-11am every day for 2 weeks`
-- `/schedule 8pm-11pm weekends until 2026-12-31`
-- `/schedule 8pm-9pm once` (just tonight)
+- `/donate-curation 8pm-12am every weekday`
+- `/donate-curation 9am-11am every day for 2 weeks`
+- `/donate-curation 8pm-11pm weekends until 2026-12-31`
+- `/donate-curation 8pm-9pm once` (just tonight — see below)
+
+"Once" (or "tonight") does **not** mean a single wake-up at 8pm. It means the
+instance takes its shift **tonight only** — waking each hour across the window
+just like a recurring shift, then switching itself off the next day. It's the
+right choice for a one-evening trial.
 
 Claude will read back the schedule it understood — including the exact clock
 times, adjusted for daylight-saving — and ask you to confirm before setting
@@ -103,7 +108,7 @@ its place. The next evening it simply picks up where it left off.
 ## Checking in on it
 
 ```
-/schedule status
+/donate-curation status
 ```
 
 This tells you the schedule (window, how often, stop date) and the one thing
@@ -114,11 +119,11 @@ or waiting to be merged.
 
 ## Changing or stopping it
 
-- **To change the hours or frequency:** just type a new `/schedule <window> ...`
+- **To change the hours or frequency:** just type a new `/donate-curation <window> ...`
   — it replaces the old shift.
-- **To stop entirely:** type `/schedule stop`. In-progress work is allowed to
+- **To stop entirely:** type `/donate-curation stop`. In-progress work is allowed to
   finish saving; nothing is thrown away.
-- **To remove it completely** (an extra, optional step): `/schedule stop` turns
+- **To remove it completely** (an extra, optional step): `/donate-curation stop` turns
   the shift *off*; to delete it from your account outright, open
   <https://claude.ai/code/routines> in a browser and remove it there. Claude
   will print that link for you.
@@ -147,7 +152,7 @@ improvement, not something this version does.
 
 ## Status of this feature
 
-The everyday commands above — the one-off `/schedule`, `status`, and `stop`, and
+The everyday commands above — the one-off `/donate-curation`, `status`, and `stop`, and
 the GitHub check-in logic — work today. The **recurring cloud shift** has one
 remaining setup step: a single test run in the cloud to confirm the curation
 tools are all present there and that one disease fits in a session. Until that
@@ -157,5 +162,6 @@ schedule running.
 
 For the technical details behind all of this — the exact scheduling API, the PR
 classification rules, and the frozen instructions each cloud run follows — see
-the `schedule` skill definition (`.claude/skills/schedule/SKILL.md`) and issue
+the `donate-curation` skill definition
+(`.claude/skills/donate-curation/SKILL.md`) and issue
 [#11657](https://github.com/monarch-initiative/dismech/issues/11657).
