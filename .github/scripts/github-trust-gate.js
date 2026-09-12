@@ -1,8 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const { handleAlternation } = require("./agent-mention.js");
 
 const TRUSTED_PERMISSIONS = new Set(["admin", "maintain", "write", "triage"]);
 const DEFAULT_BOT_LOGINS = new Set([
+  "ai4c-agent",
   "app/claude",
   "claude",
   "dragon-ai-agent",
@@ -30,7 +32,12 @@ const RISKY_COMMENT_PATTERNS = [
   },
   {
     reason: "agent_trigger",
-    pattern: /(?:^|\s)(?:@claude\b|@dragon-ai-agent\s+please\b|\/review\b)/i,
+    // The summon handles come from agent-mention.js so this gate and the
+    // dispatch workflow can never disagree about what counts as a summon.
+    pattern: new RegExp(
+      `(?:^|\\s)(?:@claude\\b|@(?:${handleAlternation()})(?:\\[bot\\])?\\s+please\\b|\\/review\\b)`,
+      "i",
+    ),
   },
 ];
 

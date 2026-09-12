@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pelger-Huet Anomaly · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pelger-Huet Anomaly</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pelger-Huet Anomaly</h1>
+                
+                <p class="report-subtitle">Pelger-Huët Anomaly (MONDO:0008214): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-10</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008214" target="_blank" rel="noopener noreferrer">MONDO:0008214</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pelger-Huët Anomaly (<a href="http://purl.obolibrary.org/obo/MONDO_0008214" target="_blank" rel="noopener noreferrer">MONDO:0008214</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Pelger-Huët anomaly (PHA)</strong> is a benign, autosomal-dominant disorder of neutrophil nuclear morphology (incidence ≈ 1 in 6,000) caused by heterozygous loss-of-function variants in <strong>LBR</strong> (lamin B receptor), an inner nuclear membrane protein on chromosome <strong>1q42.12</strong>. In the heterozygous state, PHA produces the pathognomonic hypolobulated "pince-nez" (bilobed/dumbbell) neutrophil nucleus with dense, coarsely clumped chromatin, but neutrophil innate immune function is essentially preserved and affected individuals are clinically well. The principal clinical hazard is <strong>diagnostic</strong>: PHA mimics a "left shift" (increased band forms) and can trigger unnecessary infection work-ups, while an acquired, morphologically identical "pseudo-PHA" signals myelodysplastic syndrome/leukemia, certain drugs, or radiation.</p>
+<p>The disease is best understood as a <strong>gene-dosage / dual-function allelic series</strong>. LBR is a chimeric protein with two independent activities: (1) a <strong>structural</strong> N-terminal domain that tethers peripheral heterochromatin and lamin B to the nuclear envelope — this is required for the reciprocal LBR↑/lamin-A/C↓ remodeling that sculpts the lobulated granulocyte nucleus under transcriptional control of <strong>C/EBPε</strong>; and (2) a <strong>C-terminal sterol Δ14-reductase</strong> enzymatic domain that participates in cholesterol biosynthesis. Heterozygous variants perturb only nuclear shape → benign PHA. Biallelic variants that also abolish the sterol-reductase function produce a graded spectrum of <strong>skeletal dysplasia</strong> (PHA with skeletal anomalies, PHASK; LBR-related spondylometaphyseal dysplasia) culminating in perinatal-lethal <strong>Greenberg dysplasia</strong>. Crucially, an enzymatically redundant paralog, <strong>DHCR14/TM7SF2</strong>, compensates for LBR's sterol-reductase activity, which explains why heterozygous PHA carriers have no cholesterol/skeletal phenotype.</p>
+<p>This report consolidates 9 confirmed findings across 44 reviewed papers into a mechanistic and clinical account spanning etiology, phenotype, molecular genetics, pathophysiology (as an ordered causal chain), affected anatomy, temporal course, epidemiology/inheritance, diagnostics, prognosis, treatment, prevention, comparative/veterinary biology, and model organisms. The overarching conclusion: <strong>inherited PHA is a benign trait requiring recognition rather than treatment, but it is the mildest expression of an LBR allelic series whose severe biallelic end is lethal, and it must be distinguished from acquired pseudo-PHA and from LBR-independent genetic causes (NBAS/SOPH, TMEM147, LMBR1L).</strong></p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — PHA is caused by LBR mutations, and allelic dosage determines phenotype severity</h3>
+<p>Pelger-Huët anomaly is caused by variants in the <strong>LBR</strong> gene (lamin B receptor, chromosome 1q42.12). The zygosity of the LBR lesion determines where a patient falls on a phenotypic spectrum. Heterozygous LBR variants cause benign PHA (<strong>OMIM #169400</strong>); homozygous or compound heterozygous variants cause rhizomelic skeletal dysplasia, with or without PHA (<strong>OMIM #618019</strong>), or perinatal-lethal <strong>Greenberg dysplasia</strong> (<strong>OMIM #215140</strong>). This allelic series is grounded in LBR's biology: the protein has a <strong>structural</strong> function (nuclear segmentation of neutrophils) and an <strong>enzymatic</strong> function (sterol Δ14-reductase in cholesterol biosynthesis).</p>
+<blockquote>
+<p>"Heterozygous variants in the LBR gene have been associated with Pelger-Huët anomaly (PHA, OMIM #169400), while homozygous or compound heterozygous mutations have been associated with rhizomelic skeletal dysplasia, with or without PHA (OMIM #618019) and Greenberg dysplasia (OMIM #215140)." — <a href="https://pubmed.ncbi.nlm.nih.gov/41059452/">PMID: 41059452</a></p>
+<p>"The lamin B receptor (LBR) is an inner nuclear membrane protein with a structural function affecting nuclear segmentation in neutrophils and an enzymatic function as a sterol reductase." — <a href="https://pubmed.ncbi.nlm.nih.gov/42622427/">PMID: 42622427</a></p>
+</blockquote>
+<h3>Finding 2 — Heterozygous PHA is a benign autosomal-dominant trait that mimics a left shift</h3>
+<p>PHA is a rare benign autosomal-dominant anomaly with an incidence of approximately <strong>1 in 6,000</strong>. It does <strong>not</strong> cause neutrophilia, but it can produce a <strong>false increase in band forms</strong> (a pseudo-left-shift), risking misdiagnosis of infection. Neutrophil function is preserved, so carriers are clinically healthy; the anomaly is typically an incidental finding on a blood smear or automated differential.</p>
+<blockquote>
+<p>"Pelger-Huët anomaly (PHA) is a rare benign autosomal-dominant anomaly with an incidence of ∼1 in 6000. It does not cause neutrophilia, but it can cause a false increase in band forms." — <a href="https://pubmed.ncbi.nlm.nih.gov/26634137/">PMID: 26634137</a></p>
+</blockquote>
+<h3>Finding 3 — Neutrophil nuclear shape follows an LBR gene-dosage effect; acquired pseudo-PHA arises in MDS, drugs, and radiation</h3>
+<p>Quantitative image analysis in 26 subjects carrying 0–3 wild-type LBR alleles showed that <strong>~65% of the variance in neutrophil nuclear segmentation</strong> was explained by the number of wild-type LBR alleles, with a <strong>non-additive, hysteresis-like</strong> dose–response (lower and upper plateaus). This confirms LBR gene dosage as the primary quantitative determinant of nuclear lobulation.</p>
+<p>An <strong>acquired ("pseudo") PHA</strong> with identical morphology occurs in three well-documented settings: (1) myeloid malignancy — myelodysplastic syndrome and AML, frequently with chromosome 17p abnormalities such as t(5;17) and t(7;17)/monosomy 17; (2) drugs — mycophenolate mofetil, tacrolimus, colchicine, and other immunosuppressants; and (3) ionizing radiation, in a dose-dependent manner (high-dose 2.98–4.61 Gy-Eq group: 13.0 ± 0.85% PH cells vs lower-dose/controls, p = 0.002).</p>
+<blockquote>
+<p>"Approximately 65% of the observed phenotypic variance was explainable by the number of LBR wild type alleles. The gene-dosage effect followed a non-additive, hysteresis-like characteristic with lower and upper plateaus." — <a href="https://pubmed.ncbi.nlm.nih.gov/27684937/">PMID: 27684937</a></p>
+<p>"eight patients had a pseudo-Pelger-Huët anomaly, which correlated significantly with total monosomy 17" — <a href="https://pubmed.ncbi.nlm.nih.gov/2340488/">PMID: 2340488</a></p>
+<p>"The high-dose group (n = 5, 2.98-4.61 Gy-Eq) exhibited 13.0 ± 0.85% PH cells (mean ± SEM) in the neutrophil population compared to 6.8 ± 1.6% in the low-dose group" — <a href="https://pubmed.ncbi.nlm.nih.gov/25627941/">PMID: 25627941</a></p>
+</blockquote>
+<h3>Finding 4 — Mechanism: LBR tethers peripheral heterochromatin and is upregulated via C/EBPε during granulopoiesis to sculpt the lobulated nucleus</h3>
+<p>LBR, together with lamins and LAP2, tethers heterochromatin to the nuclear envelope. During neutrophil differentiation, LBR expression <strong>increases</strong> under the transcriptional control of <strong>C/EBPε</strong> (which binds sites in the Lbr promoter). Loss of LBR blocks morphological nuclear lobulation (producing hyposegmentation) but, in human heterozygous PHA, granulocyte innate function is <strong>preserved</strong>. In complete-null mouse models (Lbr-GT/GT and EML-ic/ic), morphological maturation fails while bacterial killing (e.g., of <em>S. aureus</em>) can remain intact — though with total LBR loss, promyelocyte proliferation and the respiratory burst can also be deficient.</p>
+<blockquote>
+<p>"One tether is constituted by the lamin B receptor (LBR) in mammals" — <a href="https://pubmed.ncbi.nlm.nih.gov/41735607/">PMID: 41735607</a></p>
+<p>"Lbr is transcriptionally regulated by C/EBPepsilon. Our findings indicate that the Lbr(GT/GT) mice are a model for Pelger-Huët anomaly and that Lbr, under transcriptional regulation of C/EBPepsilon, is necessary for morphological but not necessarily functional granulocyte maturation." — <a href="https://pubmed.ncbi.nlm.nih.gov/18621876/">PMID: 18621876</a></p>
+</blockquote>
+<h3>Finding 5 — Model organisms: the mouse ichthyosis (ic) locus IS Lbr; naturally occurring PHA exists in cats, rabbits, and dogs</h3>
+<p>The mouse <strong>ichthyosis (ic)</strong> alleles (ic, icJ, ic4J) carry nonsense/frameshift Lbr mutations (815ins, 1088insCC, 1884insGGAA); icJ homozygotes show complete loss of LBR protein. Homozygous ic mice recapitulate the PHA-like heterochromatin clumping plus alopecia, variable syndactyly, and hydrocephalus, making them a <strong>single-gene model</strong> of PHA. Naturally occurring autosomal-dominant PHA with granulocyte hyposegmentation is documented in <strong>cats</strong> (and classically in <strong>rabbits</strong> and <strong>dogs</strong>), transmitted as an autosomal-dominant trait.</p>
+<blockquote>
+<p>"we identified one nonsense (815ins) and two frameshift mutations (1088insCC and 1884insGGAA) within the Lbr gene of mice homozygous for either of three independent mutations (ic, ic(J) and ic(4J), respectively) at the ichthyosis locus" — <a href="https://pubmed.ncbi.nlm.nih.gov/12490533/">PMID: 12490533</a></p>
+<p>"Autosomal dominant transmission of this anomaly is suspected based on these findings." — <a href="https://pubmed.ncbi.nlm.nih.gov/4035941/">PMID: 4035941</a> (cats)</p>
+</blockquote>
+<h3>Finding 6 — Biallelic LBR produces a graded spectrum from PHA-with-skeletal-anomalies to lethal Greenberg dysplasia; the peripheral smear aids prenatal diagnosis</h3>
+<p>Because LBR is bifunctional, its variants generate a graded allelic spectrum: heterozygous benign PHA → <strong>PHA with mild skeletal anomalies (PHASK, MIM #618019)</strong> → <strong>LBR-related regressive spondylometaphyseal dysplasia (LBR-R-SMD)</strong> (e.g., homozygous c.1534C&gt;T, p.Arg512Trp) → biallelic loss causing <strong>perinatal-lethal Greenberg dysplasia (MIM #215140)</strong> with massive skeletal malformation and fetal hydrops. Greenberg dysplasia, dappled diaphyseal dysplasia, and Astley-Kendall dysplasia are proposed <strong>allelic</strong> disorders. Practically, examining <strong>parental peripheral blood smears</strong> for PHA can guide prenatal genetic counseling in pregnancies with short/bowed tubular bones and a narrow thorax.</p>
+<blockquote>
+<p>"LBR pathogenic variants cause distinct phenotypes due to the dual function of LBR, including Pelger-Huët anomaly (PHA), PHA with mild skeletal anomalies (PHASK; MIM# 618019), LBR-related regressive type of spondylometaphyseal dysplasia (LBR-R-SMD), Greenberg dysplasia (MIM# 215140)." — <a href="https://pubmed.ncbi.nlm.nih.gov/34467646/">PMID: 34467646</a></p>
+<p>"Greenberg dysplasia is a rare, autosomal recessive, prenatal lethal bone dysplasia caused by biallelic pathogenic variants in the lamin B receptor (LBR) gene." — <a href="https://pubmed.ncbi.nlm.nih.gov/32304187/">PMID: 32304187</a></p>
+</blockquote>
+<h3>Finding 7 — Genetic heterogeneity: NBAS (SOPH), TMEM147, and LMBR1L cause LBR-independent PHA phenotypes</h3>
+<p>PHA-type neutrophil hyposegmentation is not exclusive to LBR. It is a defining feature of autosomal-recessive <strong>SOPH syndrome</strong> (Short stature, Optic atrophy, Pelger-Huët anomaly; <strong>OMIM #614800</strong>), caused by the <strong>NBAS</strong> founder mutation c.5741G&gt;A (p.Arg1914His) in Yakuts, with an estimated mutation age of ~804 ± 140 years and a heterozygous carrier frequency of ~13 per 1,000. Syndromic <strong>pseudo-PHA</strong> also arises from biallelic <strong>TMEM147</strong> loss-of-function (TMEM147 anchors LBR to the inner nuclear membrane; ~20% of neutrophils affected, plus intellectual disability). An LBR-independent autosomal-recessive hyposegmentation in Australian Shepherd Dogs is caused by an <strong>LMBR1L</strong> splice variant (c.191+1G&gt;A).</p>
+<blockquote>
+<p>"SOPH syndrome (Short stature with Optic nerve atrophy and Pelger–Huët anomaly syndrome, OMIM#614800) is an autosomal recessive hereditary disease" — <a href="https://pubmed.ncbi.nlm.nih.gov/29369590/">PMID: 29369590</a></p>
+<p>"The frequency of heterozygous carriers of mutation G5741→A (R1914H) in gene NBAS was found, which averaged 13 per 1000 healthy Yakuts." — <a href="https://pubmed.ncbi.nlm.nih.gov/29369590/">PMID: 29369590</a></p>
+<p>"Abnormal nuclear segmentation and chromatin compaction were also observed in approximately 20% of neutrophils, indicating the presence of a pseudo-Pelger-Huët anomaly." — <a href="https://pubmed.ncbi.nlm.nih.gov/36044892/">PMID: 36044892</a></p>
+</blockquote>
+<h3>Finding 8 — LBR is a chimeric protein: N-terminal Tudor/chromatin domain + C-terminal sterol Δ14-reductase; DHCR14 redundancy explains the absent sterol phenotype in heterozygotes</h3>
+<p>LBR (<strong>UniProt Q14739</strong>) is an integral inner-nuclear-membrane protein with a hydrophilic N-terminal nucleoplasmic domain (a <strong>Tudor-like fold</strong> that binds chromatin, HP1, and lamin B) and a multi-transmembrane C-terminal <strong>sterol Δ14-reductase (C14SR)</strong> domain that uses NADPH in cholesterol biosynthesis. The crystal structure of the bacterial homolog <strong>MaSR1</strong> (10 transmembrane segments, NADPH-bound catalytic domain) provides molecular insight into disease mutations in LBR and the related <strong>DHCR7</strong>. Critically, LBR shares its Δ14-reductase activity with <strong>DHCR14/TM7SF2</strong> — "twin" enzymes with high sequence/structural homology but divergent regulation — which explains why heterozygous PHA carriers show <strong>no sterol/cholesterol phenotype</strong>. <strong>TMEM147</strong> interacts with LBR to regulate its localization/levels and cholesterol homeostasis.</p>
+<blockquote>
+<p>"Lamin B receptor (LBR), an integral inner nuclear membrane protein, also contains a functional C14SR domain." — <a href="https://pubmed.ncbi.nlm.nih.gov/25307054/">PMID: 25307054</a></p>
+<p>"DHCR14 and LBR uniquely share the same Δ-14 reductase activity in cholesterol biosynthesis" — <a href="https://pubmed.ncbi.nlm.nih.gov/31911440/">PMID: 31911440</a></p>
+<p>"TMEM147 interacts with lamin B receptor, regulates its localization and levels, and affects cholesterol homeostasis" — <a href="https://pubmed.ncbi.nlm.nih.gov/32694168/">PMID: 32694168</a></p>
+</blockquote>
+<h3>Finding 9 — The lobulated nucleus (high LBR/low lamin A/C) enables deformability for migration; HL-60 LBR-knockdown is an in-vitro PHA model</h3>
+<p>Neutrophil nuclear lobulation is produced by <strong>elevated LBR together with decreased lamin A/C</strong>; the resulting deformable nucleus facilitates rapid egress from blood vessels and migration through tight tissue spaces to sites of infection, where the nucleus is a <strong>rate-limiting factor</strong> for migration. A single dominant LBR mutation yields hypolobulated nuclei (PHA), while homozygosity produces fully ovoid granulocyte nuclei. A stable <strong>LBR-knockdown HL-60 subline</strong> recapitulates PHA in vitro: on retinoic-acid-induced granulopoiesis the knockdown cells retain an ovoid nucleus with reduced lamin A/C, whereas parental cells develop highly lobulated nuclei; phorbol-ester-induced macrophage differentiation is unaffected.</p>
+<blockquote>
+<p>"A single dominant mutation in humans leads to neutrophils with hypolobulated nuclei (Pelger-Huet anomaly); homozygosity leads to ovoid granulocyte nuclei." — <a href="https://pubmed.ncbi.nlm.nih.gov/17245605/">PMID: 17245605</a></p>
+<p>"a stable LBR knockdown subline of HL-60 cells was established" — <a href="https://pubmed.ncbi.nlm.nih.gov/21327094/">PMID: 21327094</a></p>
+<p>"As a rate-limiting factor for cell migration, nuclear morphology and biomechanics are particularly important in the context of neutrophil migration during immune responses." — <a href="https://pubmed.ncbi.nlm.nih.gov/30564248/">PMID: 30564248</a></p>
+</blockquote>
+<hr />
+<h2>Comprehensive Disease Characteristics</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Pelger-Huët anomaly is an inherited disorder of granulocyte (chiefly neutrophil) nuclear morphology, first described by Pelger (1928) and Huët (1931). Neutrophils fail to develop the normal multilobed (3–5 lobe) nucleus and instead present with <strong>hypolobulated</strong> shapes — round (single lobe), bilobed "pince-nez"/"spectacle," or dumbbell/peanut forms — accompanied by unusually <strong>coarse, dense chromatin clumping</strong>. The heterozygous anomaly is benign; homozygous LBR loss and biallelic LBR sterol-reductase loss cause skeletal dysplasia up to perinatal-lethal disease.</p>
+<p><strong>Key identifiers.</strong>
+| Resource | Identifier |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0008214" target="_blank" rel="noopener noreferrer">MONDO:0008214</a> |
+| OMIM (benign PHA) | #169400 |
+| OMIM (PHA + skeletal anomalies / PHASK) | #618019 |
+| OMIM (Greenberg dysplasia, biallelic) | #215140 |
+| OMIM (SOPH, NBAS) | #614800 |
+| Gene | LBR (<a href="https://bioregistry.io/HGNC:6518" target="_blank" rel="noopener noreferrer">HGNC:6518</a>), 1q42.12; UniProt Q14739 |
+| ICD-10 | D72.0 (Genetic anomalies of leukocytes) |
+| MeSH | Pelger-Huet Anomaly (D010381) |</p>
+<p><strong>Synonyms / alternative names.</strong> Pelger-Huët anomaly; Pelger-Huet nuclear anomaly; Pelger's nuclear anomaly; congenital hyposegmentation of granulocytes; "pince-nez" neutrophils. Homozygous forms overlap with HEM/Greenberg skeletal dysplasia.</p>
+<p><strong>Information source.</strong> Predominantly <strong>aggregated disease-level resources</strong> (OMIM, Orphanet) supplemented by individual case reports and pedigrees (e.g., an eight-generation Icelandic pedigree, <a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">PMID: 35650273</a>), plus population GWAS of band-neutrophil fraction.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> The primary cause is <strong>genetic</strong> — heterozygous loss-of-function variants in <strong>LBR</strong> for classic benign PHA (Finding 1). There is a clean <strong>genotype→severity</strong> relationship: one defective allele = benign hypolobulation; two = ovoid nuclei plus (when the sterol-reductase function is lost) skeletal dysplasia/Greenberg dysplasia.</p>
+<p><strong>Genetic risk factors.</strong> LBR pathogenic variants are the causal genetic factor. GWAS of band-neutrophil fraction in 88,101 Icelanders identified <strong>five variants at the LBR locus</strong> and cosegregation of a rare LBR stop-gain with PHA, plus additional inner-nuclear-membrane loci (<a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">PMID: 35650273</a>). Additional causal genes for PHA-like phenotypes: <strong>NBAS</strong> (SOPH), <strong>TMEM147</strong>, and (canine) <strong>LMBR1L</strong> (Finding 7).</p>
+<p><strong>Environmental risk factors (for acquired pseudo-PHA).</strong> Not risk factors for inherited PHA, but for the <em>acquired</em> phenocopy: myeloid malignancy (MDS/AML, esp. 17p abnormalities), drugs (mycophenolate mofetil, tacrolimus, colchicine, immunosuppressants), and ionizing radiation (Finding 3; <a href="https://pubmed.ncbi.nlm.nih.gov/16390246/">PMID: 16390246</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25627941/">PMID: 25627941</a>).</p>
+<p><strong>Protective factors.</strong> The enzymatic <strong>redundancy of DHCR14/TM7SF2</strong> is effectively a molecular "protective" buffer that prevents a sterol/skeletal phenotype in LBR heterozygotes (Finding 8). No dietary/lifestyle protective factors are defined.</p>
+<p><strong>Gene–environment interactions.</strong> Not a feature of inherited PHA. The relevant interaction is between drug/radiation exposure and clonal myeloid state producing acquired pseudo-PHA.</p>
+<h3>3. Phenotypes</h3>
+<p>The defining phenotype is a <strong>laboratory/morphologic abnormality</strong> of the neutrophil, not a symptom. Affected individuals are generally asymptomatic.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity / progression</th>
+<th>Frequency</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bilobed/hypolobulated neutrophil nucleus ("pince-nez")</td>
+<td>Laboratory / morphologic</td>
+<td>Congenital</td>
+<td>Stable, non-progressive</td>
+<td>~100% of neutrophils in heterozygotes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0034236" target="_blank" rel="noopener noreferrer">HP:0034236</a> (abnormal neutrophil morphology); abnormal granulocyte nuclear segmentation</td>
+</tr>
+<tr>
+<td>Coarse chromatin clumping</td>
+<td>Laboratory / morphologic</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td>Characteristic</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Pseudo–left shift (apparent ↑ band forms)</td>
+<td>Laboratory artifact</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td>Common on automated differential</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Ovoid (round) granulocyte nuclei (homozygous)</td>
+<td>Laboratory / morphologic</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td>Homozygotes</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Skeletal dysplasia — rhizomelic limb shortening, bowing, narrow thorax (biallelic/PHASK/Greenberg)</td>
+<td>Physical / radiographic</td>
+<td>Prenatal–neonatal</td>
+<td>Severe → lethal (Greenberg)</td>
+<td>Biallelic only</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" rel="noopener noreferrer">HP:0008905</a> (rhizomelia); <a href="http://purl.obolibrary.org/obo/HP_0000772" target="_blank" rel="noopener noreferrer">HP:0000772</a> (abnormal rib morphology); <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" rel="noopener noreferrer">HP:0001789</a> (hydrops fetalis)</td>
+</tr>
+<tr>
+<td>Developmental features (alopecia, syndactyly, hydrocephalus)</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Model/syndrome-dependent</td>
+<td>Model organisms / syndromic</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> For heterozygous PHA: <strong>negligible</strong> — no functional impairment; the main "impact" is iatrogenic risk from misdiagnosis. For biallelic skeletal dysplasia/Greenberg dysplasia: profound (perinatal lethality).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene.</strong> <strong>LBR</strong> (lamin B receptor), <a href="https://bioregistry.io/HGNC:6518" target="_blank" rel="noopener noreferrer">HGNC:6518</a>, chr 1q42.12, UniProt <strong>Q14739</strong>. Encodes a bifunctional integral inner-nuclear-membrane protein (Finding 8).</p>
+<p><strong>Pathogenic variants.</strong> Variant classes reported include nonsense, frameshift, missense, splice-site, and whole-gene deletion. Illustrative examples from the reviewed literature:
+- Novel missense c.561C&gt;G (<a href="https://pubmed.ncbi.nlm.nih.gov/40980134/">PMID: 40980134</a>).
+- Missense c.1011T&gt;G (p.Cys337Trp) and a Chr1q42.12 LBR gene deletion, both associated with impaired sterol reductase function and skeletal dysplasia (<a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a>).
+- Homozygous c.1534C&gt;T (p.Arg512Trp) → LBR-related regressive spondylometaphyseal dysplasia (<a href="https://pubmed.ncbi.nlm.nih.gov/34467646/">PMID: 34467646</a>).
+- Rare stop-gain LBR variant cosegregating with PHA in a large Icelandic pedigree (<a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">PMID: 35650273</a>).</p>
+<p><strong>Classification &amp; consequence.</strong> LBR variants act by <strong>loss of function</strong> (haploinsufficiency for the structural nuclear-shape phenotype). Heterozygous LOF → benign PHA; biallelic LOF affecting the sterol-reductase domain → skeletal dysplasia/Greenberg. Variant origin is <strong>germline</strong>. Somatic/acquired pseudo-PHA is not caused by LBR mutation but by clonal myeloid disease (esp. 17p abnormalities) or exposures.</p>
+<p><strong>Modifier genes.</strong> <strong>DHCR14/TM7SF2</strong> (enzymatic redundancy buffering the sterol phenotype) and <strong>TMEM147</strong> (regulates LBR localization/levels) function as molecular modifiers (Finding 8). LBR is also a substrate of the <strong>GSK3β/FBW7</strong> proteasomal pathway; the C337W mutant is preferentially degraded, linking to Wnt signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a>).</p>
+<p><strong>Epigenetic information.</strong> LBR's core function is <strong>chromatin architectural</strong> — tethering peripheral heterochromatin at the nuclear lamina and organizing HP1-associated silenced chromatin (<a href="https://pubmed.ncbi.nlm.nih.gov/41735607/">PMID: 41735607</a>). No disease-specific DNA-methylation signature is defined for PHA.</p>
+<p><strong>Chromosomal abnormalities.</strong> Not a cause of inherited PHA. <strong>Acquired</strong> pseudo-PHA correlates with chromosome <strong>17p deletions/monosomy 17</strong> in MDS/AML (<a href="https://pubmed.ncbi.nlm.nih.gov/2340488/">PMID: 2340488</a>).</p>
+<h3>5. Environmental Information</h3>
+<p>Environmental factors are irrelevant to <strong>inherited</strong> PHA. For the <strong>acquired phenocopy</strong>: toxins/drugs (mycophenolate, tacrolimus, colchicine, chemotherapy/alkylating agents), <strong>ionizing radiation</strong> (dose-dependent, <a href="https://pubmed.ncbi.nlm.nih.gov/25627941/">PMID: 25627941</a>), and infections have been reported as triggers (<a href="https://pubmed.ncbi.nlm.nih.gov/20691170/">PMID: 20691170</a>). No specific infectious agent causes PHA.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (heterozygous, benign PHA — structural axis):</strong></p>
+<ol>
+<li>A <strong>heterozygous loss-of-function LBR variant</strong> <em>reduces</em> functional LBR protein at the inner nuclear membrane (haploinsufficiency). <em>[Demonstrated: gene-dosage effect, <a href="https://pubmed.ncbi.nlm.nih.gov/27684937/">PMID: 27684937</a>].</em></li>
+<li>Reduced LBR <em>impairs</em> tethering of peripheral heterochromatin and lamin B to the nuclear envelope. <em>[Demonstrated in tether biology, <a href="https://pubmed.ncbi.nlm.nih.gov/41735607/">PMID: 41735607</a>].</em></li>
+<li>During C/EBPε-driven granulopoiesis, the normal <strong>reciprocal remodeling (LBR↑ / lamin-A/C↓)</strong> <em>fails to complete</em>, so the nucleus does not acquire multiple lobes. <em>[Demonstrated: C/EBPε control, <a href="https://pubmed.ncbi.nlm.nih.gov/18621876/">PMID: 18621876</a>; LBR/lamin A-C balance, <a href="https://pubmed.ncbi.nlm.nih.gov/17245605/">PMID: 17245605</a>].</em></li>
+<li>This <em>results in</em> <strong>hypolobulated ("pince-nez"), coarsely clumped neutrophil nuclei</strong> — the diagnostic PHA morphology.</li>
+<li>Because innate effector programs are largely independent of nuclear shape, neutrophil <strong>function is preserved</strong> in human heterozygotes → <strong>benign phenotype</strong>. <em>[Demonstrated: morphological-not-functional maturation, <a href="https://pubmed.ncbi.nlm.nih.gov/18621876/">PMID: 18621876</a>].</em></li>
+</ol>
+<p><strong>Branch A — homozygous LBR loss (severe structural):</strong> two null alleles → <strong>ovoid</strong> granulocyte nuclei (<a href="https://pubmed.ncbi.nlm.nih.gov/17245605/">PMID: 17245605</a>); in complete-null models, additional deficits in promyelocyte proliferation and respiratory burst can appear (<a href="https://pubmed.ncbi.nlm.nih.gov/18550262/">PMID: 18550262</a>).</p>
+<p><strong>Branch B — biallelic loss of the sterol Δ14-reductase (enzymatic/skeletal axis):</strong></p>
+<p>6b. Biallelic variants that <em>abolish</em> LBR's C-terminal sterol Δ14-reductase activity <em>reduce</em> LBR-dependent cholesterol synthesis in cells where DHCR14 cannot fully compensate (e.g., osteogenic lineage). <em>[Demonstrated: <a href="https://pubmed.ncbi.nlm.nih.gov/31911440/">PMID: 31911440</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a>].</em>
+7b. Impaired cholesterol synthesis <em>disrupts</em> <strong>Wnt (WNT3A) pathway</strong> activation and osteogenic differentiation (rescuable by adding cholesterol in MC3T3-E1 cells). <em>[Demonstrated in vitro, <a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a>].</em>
+8b. This <em>leads to</em> <strong>skeletal dysplasia</strong> graded from PHASK/LBR-R-SMD to perinatal-lethal <strong>Greenberg dysplasia</strong> with fetal hydrops. <em>[Demonstrated clinically, <a href="https://pubmed.ncbi.nlm.nih.gov/32304187/">PMID: 32304187</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34467646/">PMID: 34467646</a>].</em></p>
+<p><em>Note:</em> The redundancy of <strong>DHCR14</strong> means that in heterozygotes (and in tissues where DHCR14 is active) no sterol/skeletal phenotype emerges — a key inferred protective mechanism supported by mouse digenic studies (<a href="https://pubmed.ncbi.nlm.nih.gov/17403717/">PMID: 17403717</a>).</p>
+<p><strong>Functional significance of lobulation (inferred/supported):</strong> the lobulated, deformable nucleus (high LBR/low lamin A/C) is thought to lower nuclear stiffness — the rate-limiting factor — for neutrophil egress and migration through confined tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/30564248/">PMID: 30564248</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17245605/">PMID: 17245605</a>). In human PHA this appears clinically inconsequential, though mouse ic/ic neutrophils show abnormal chemotaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/18550262/">PMID: 18550262</a>).</p>
+<p><strong>Pathways / processes / ontology suggestions:</strong>
+- Molecular pathways: cholesterol biosynthesis (KEGG hsa00100), canonical Wnt signaling, GSK3β/FBW7 proteasomal degradation.
+- GO biological process: heterochromatin organization (<a href="http://purl.obolibrary.org/obo/GO_0070828" target="_blank" rel="noopener noreferrer">GO:0070828</a>), nuclear envelope organization (<a href="http://purl.obolibrary.org/obo/GO_0006998" target="_blank" rel="noopener noreferrer">GO:0006998</a>), neutrophil differentiation (<a href="http://purl.obolibrary.org/obo/GO_0030223" target="_blank" rel="noopener noreferrer">GO:0030223</a>), sterol biosynthetic process (<a href="http://purl.obolibrary.org/obo/GO_0016126" target="_blank" rel="noopener noreferrer">GO:0016126</a>), cholesterol biosynthetic process (<a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a>).
+- GO molecular function: delta14-sterol reductase activity (<a href="http://purl.obolibrary.org/obo/GO_0050614" target="_blank" rel="noopener noreferrer">GO:0050614</a>).
+- GO cellular component: nuclear inner membrane (<a href="http://purl.obolibrary.org/obo/GO_0005637" target="_blank" rel="noopener noreferrer">GO:0005637</a>), nuclear envelope (<a href="http://purl.obolibrary.org/obo/GO_0005635" target="_blank" rel="noopener noreferrer">GO:0005635</a>), nuclear lamina (<a href="http://purl.obolibrary.org/obo/GO_0005652" target="_blank" rel="noopener noreferrer">GO:0005652</a>).
+- CL cell types: neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), band form neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000094" target="_blank" rel="noopener noreferrer">CL:0000094</a>), promyelocyte (<a href="http://purl.obolibrary.org/obo/CL_0000836" target="_blank" rel="noopener noreferrer">CL:0000836</a>), osteoblast (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>, skeletal branch).
+- CHEBI: cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>), NADPH (<a href="http://purl.obolibrary.org/obo/CHEBI_16474" target="_blank" rel="noopener noreferrer">CHEBI:16474</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ / system level (benign PHA):</strong> the <strong>hematopoietic/immune system</strong> — specifically bone marrow granulopoiesis and circulating neutrophils. UBERON: blood (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>).</li>
+<li><strong>Biallelic disease:</strong> the <strong>skeletal system</strong> — long bones (rhizomelic shortening/bowing), ribs/thorax, vertebrae/metaphyses; plus fetal soft-tissue hydrops in Greenberg dysplasia. UBERON: skeletal system (<a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" rel="noopener noreferrer">UBERON:0001434</a>), long bone (<a href="http://purl.obolibrary.org/obo/UBERON_0002495" target="_blank" rel="noopener noreferrer">UBERON:0002495</a>), rib (<a href="http://purl.obolibrary.org/obo/UBERON_0002228" target="_blank" rel="noopener noreferrer">UBERON:0002228</a>).</li>
+<li><strong>Tissue/cell level:</strong> granulocytic lineage cells (neutrophils, band forms, promyelocytes); in skeletal disease, osteogenic mesenchyme/osteoblasts. <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000836" target="_blank" rel="noopener noreferrer">CL:0000836</a> (promyelocyte).</li>
+<li><strong>Subcellular level:</strong> the <strong>nuclear inner membrane / nuclear envelope / nuclear lamina</strong> and associated <strong>peripheral heterochromatin</strong> are the primary compartments. <a href="http://purl.obolibrary.org/obo/GO_0005637" target="_blank" rel="noopener noreferrer">GO:0005637</a> (nuclear inner membrane), <a href="http://purl.obolibrary.org/obo/GO_0005635" target="_blank" rel="noopener noreferrer">GO:0005635</a> (nuclear envelope), <a href="http://purl.obolibrary.org/obo/GO_0005652" target="_blank" rel="noopener noreferrer">GO:0005652</a> (nuclear lamina).</li>
+<li><strong>Localization / lateralization:</strong> systemic (all neutrophils affected); skeletal involvement is bilateral/symmetric.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> <strong>congenital</strong> — the morphologic anomaly is present from birth and lifelong. Skeletal dysplasia forms present prenatally/neonatally.</li>
+<li><strong>Progression:</strong> benign PHA is <strong>stable and non-progressive</strong>; it neither worsens nor resolves. Biallelic Greenberg dysplasia is prenatal-lethal.</li>
+<li><strong>Course / duration:</strong> benign PHA is a <strong>chronic lifelong</strong> morphologic trait with no clinical evolution. No remission (nor need for it).</li>
+<li><strong>Critical periods:</strong> the mechanistically relevant window is <strong>terminal granulopoiesis</strong> (C/EBPε-driven LBR upregulation); for skeletal disease, <strong>fetal skeletal development</strong>. For acquired pseudo-PHA, morphology tracks the underlying disease/exposure and can be <strong>reversible</strong> (e.g., after dose reduction of mycophenolate, <a href="https://pubmed.ncbi.nlm.nih.gov/16390246/">PMID: 16390246</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> incidence of heterozygous PHA ≈ <strong>1 in 6,000</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26634137/">PMID: 26634137</a>). Prevalence varies by population and reporting; homozygous/biallelic disease is very rare.</li>
+<li><strong>Inheritance pattern:</strong> <strong>autosomal dominant</strong> (benign PHA); <strong>autosomal recessive</strong> for biallelic skeletal dysplasia/Greenberg dysplasia and for SOPH (NBAS) and TMEM147 forms.</li>
+<li><strong>Penetrance/expressivity:</strong> high penetrance for the morphologic trait in heterozygotes; <strong>variable expressivity</strong> at the biallelic/skeletal end (PHASK → Greenberg).</li>
+<li><strong>Founder effects:</strong> the <strong>NBAS c.5741G&gt;A (R1914H)</strong> SOPH founder mutation in <strong>Yakuts</strong> (Sakha), carrier frequency ~13/1,000, mutation age ~804 ± 140 years (<a href="https://pubmed.ncbi.nlm.nih.gov/29369590/">PMID: 29369590</a>). A large <strong>Icelandic</strong> PHA pedigree traces the trait across eight generations (<a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">PMID: 35650273</a>).</li>
+<li><strong>Consanguinity:</strong> relevant to biallelic (recessive) skeletal-dysplasia and SOPH cases.</li>
+<li><strong>Sex ratio / age distribution:</strong> benign PHA affects sexes equally and is present at all ages (congenital).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Primary test:</strong> <strong>peripheral blood smear</strong> with morphologic review — recognition of hypolobulated ("pince-nez"/dumbbell), coarsely clumped neutrophil nuclei in a <strong>majority</strong> of neutrophils. Automated hematology analyzers may flag a spurious "left shift" (<a href="https://pubmed.ncbi.nlm.nih.gov/19021122/">PMID: 19021122</a>).</li>
+<li><strong>Quantitative morphology:</strong> image analysis of nuclear segmentation reliably discriminates genotypes and can quantify LBR allele dosage (<a href="https://pubmed.ncbi.nlm.nih.gov/27684937/">PMID: 27684937</a>).</li>
+<li><strong>Genetic testing:</strong> <strong>LBR single-gene sequencing</strong> confirms diagnosis; <strong>gene panels / WES / WGS</strong> are useful when syndromic features suggest NBAS (SOPH), TMEM147, or skeletal-dysplasia differential. <strong>Karyotype/FISH/CMA</strong> are used chiefly to <em>exclude</em> clonal myeloid disease (17p) in suspected acquired pseudo-PHA.</li>
+<li><strong>Key differential:</strong> <strong>acquired ("pseudo") PHA</strong> — distinguished by clinical context, additional dysplastic features (hypogranular neutrophils, other-lineage dysplasia), abnormal cytogenetics, and reversibility. Family history and a normal parental smear help (<a href="https://pubmed.ncbi.nlm.nih.gov/20691170/">PMID: 20691170</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19021122/">PMID: 19021122</a>). Other differentials: true left shift of infection, MDS/AML, drug effect, radiation.</li>
+<li><strong>Prenatal:</strong> for pregnancies with short/bowed bones and narrow thorax, examine <strong>parental blood smears</strong> for PHA to inform LBR-related dysplasia counseling (<a href="https://pubmed.ncbi.nlm.nih.gov/34467646/">PMID: 34467646</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36712868/">PMID: 36712868</a>).</li>
+<li><strong>Screening:</strong> no population newborn screening; recognition is opportunistic on routine CBC/differential.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Benign PHA:</strong> <strong>normal life expectancy</strong>, normal survival, and <strong>no excess morbidity or mortality</strong>. Neutrophil function is preserved; carriers are not immunodeficient. The main adverse outcome is iatrogenic (misdiagnosis → unnecessary work-up/treatment).</li>
+<li><strong>Biallelic / Greenberg dysplasia:</strong> <strong>perinatal lethal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32304187/">PMID: 32304187</a>); intermediate PHASK/LBR-R-SMD has variable skeletal morbidity.</li>
+<li><strong>Prognostic factors:</strong> the single dominant determinant is <strong>LBR zygosity + whether the sterol-reductase function is retained</strong>. Acquired pseudo-PHA carries the prognosis of its underlying cause (e.g., MDS/AML).</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Inherited PHA requires no treatment.</strong> Management is <strong>recognition and reassurance</strong>, plus documentation to prevent repeated infection work-ups and to avoid misclassification as MDS. No pharmacotherapy, gene therapy, or surgery is indicated for the benign trait.</li>
+<li><strong>Genetic counseling</strong> is the principal intervention (autosomal-dominant transmission; discuss the rare risk of biallelic skeletal dysplasia if both partners carry LBR variants). NCIT: genetic counseling (NCIT:C15254).</li>
+<li><strong>Biallelic skeletal dysplasia / Greenberg dysplasia:</strong> no disease-modifying therapy; management is supportive/palliative and reproductive counseling. In-vitro data suggest cholesterol supplementation rescues osteogenic defects in cell models (<a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a>), but this is <strong>experimental</strong> and not a clinical therapy.</li>
+<li><strong>Acquired pseudo-PHA:</strong> treat the <strong>underlying cause</strong> (manage MDS/AML; reduce/withdraw the offending drug — reversibility documented for mycophenolate, <a href="https://pubmed.ncbi.nlm.nih.gov/16390246/">PMID: 16390246</a>).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not applicable to a congenital dominant trait; the relevant "prevention" is <strong>genetic counseling</strong> and, for couples both carrying LBR variants, discussion of reproductive options (prenatal testing, PGD) to avoid biallelic lethal disease.</li>
+<li><strong>Secondary prevention:</strong> ensure PHA is <strong>flagged in the medical record</strong> so a benign smear finding does not precipitate invasive work-up; distinguish from acquired pseudo-PHA to catch underlying myeloid disease early.</li>
+<li><strong>Tertiary prevention:</strong> not applicable (no complications in benign PHA).</li>
+<li><strong>Immunization / behavioral / public-health measures:</strong> none applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy:</strong> naturally occurring, autosomal-dominant PHA is documented in <strong>domestic cat</strong> (<em>Felis catus</em>, NCBI:txid9685; <a href="https://pubmed.ncbi.nlm.nih.gov/4035941/">PMID: 4035941</a>), <strong>domestic rabbit</strong> (<em>Oryctolagus cuniculus</em>, NCBI:txid9986; <a href="https://pubmed.ncbi.nlm.nih.gov/407754/">PMID: 407754</a>), and <strong>dog</strong> (<em>Canis lupus familiaris</em>, NCBI:txid9615). The laboratory <strong>mouse</strong> (<em>Mus musculus</em>, NCBI:txid10090) carries the orthologous <strong>ichthyosis (ic)</strong> locus (Finding 5).</li>
+<li><strong>Breed:</strong> an LBR-<strong>independent</strong> autosomal-recessive granulocyte hyposegmentation is common in <strong>Australian Shepherd Dogs</strong> (39/300 genotyped, 13%), caused by an <strong>LMBR1L</strong> splice variant, and is prenatally lethal in homozygous puppies (<a href="https://pubmed.ncbi.nlm.nih.gov/37347778/">PMID: 37347778</a>).</li>
+<li><strong>Orthologous genes:</strong> mouse <em>Lbr</em> (the ic locus), and canine <em>LMBR1L</em> (distinct gene, distinct mechanism).</li>
+<li><strong>Comparative pathology / evolutionary conservation:</strong> LBR's dual chromatin-tethering + sterol-reductase function is conserved from a bacterial homolog (MaSR1) through mice to humans (<a href="https://pubmed.ncbi.nlm.nih.gov/25307054/">PMID: 25307054</a>); the neutrophil hyposegmentation phenotype is broadly conserved across mammals, though not always via LBR (canine LMBR1L). <strong>No zoonotic potential</strong> (non-infectious genetic trait).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Lesion</th>
+<th>Recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse <strong>ichthyosis (ic, icJ, ic4J)</strong></td>
+<td>Mammalian, natural mutant</td>
+<td>Nonsense/frameshift <em>Lbr</em> (815ins, 1088insCC, 1884insGGAA)</td>
+<td>PHA-like heterochromatin clumping + alopecia, variable syndactyly, hydrocephalus</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12490533/">PMID: 12490533</a></td>
+</tr>
+<tr>
+<td><strong>Lbr-GT/GT</strong> gene-trap mouse</td>
+<td>Mammalian knockout</td>
+<td>Lbr null</td>
+<td>PHA model; morphological (not functional) granulocyte maturation defect; C/EBPε-regulated</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18621876/">PMID: 18621876</a></td>
+</tr>
+<tr>
+<td><strong>EML-ic/ic</strong> progenitor line</td>
+<td>In-vitro myeloid model</td>
+<td>Lbr-deficient</td>
+<td>Nuclear hypolobulation, abnormal chemotaxis, ↓proliferation, deficient respiratory burst; rescued by full-length or C-terminal Lbr</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18550262/">PMID: 18550262</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22140257/">PMID: 22140257</a></td>
+</tr>
+<tr>
+<td><strong>HL-60 LBR-knockdown</strong> subline</td>
+<td>Human cell line, in vitro</td>
+<td>Stable LBR shRNA knockdown</td>
+<td>On RA-induced granulopoiesis, retains ovoid nucleus + ↓lamin A/C (vs lobulated parent); macrophage differentiation unaffected</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21327094/">PMID: 21327094</a></td>
+</tr>
+<tr>
+<td><strong>HL-60/S4</strong> (ELCS)</td>
+<td>Human cell line</td>
+<td>RA differentiation</td>
+<td>RA↑LBR drives multilobed nuclei with envelope-limited chromatin sheets; TPA→macrophage lacks lobulation/↓LBR</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42124592/">PMID: 42124592</a></td>
+</tr>
+<tr>
+<td><strong>MC3T3-E1</strong> osteoblast</td>
+<td>Cell line</td>
+<td>Lbr knockdown / cholesterol removal</td>
+<td>Reduced Wnt-dependent mineralization, rescued by cholesterol — models skeletal branch</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">PMID: 40355051</a></td>
+</tr>
+<tr>
+<td>Digenic <strong>Lbr/Dhcr14</strong> mouse</td>
+<td>Mammalian</td>
+<td>Combined LOF</td>
+<td>Demonstrates DHCR14/LBR sterol-reductase redundancy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17403717/">PMID: 17403717</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model strengths/limitations:</strong> the ic mouse and HL-60 knockdown faithfully reproduce the <strong>nuclear-shape</strong> phenotype and the LBR/lamin-A/C molecular logic; complete-null models overstate functional deficits relative to human heterozygous PHA (where function is preserved). Resource databases: <strong>MGI</strong> (mouse <em>Lbr</em>/ic), <strong>Cellosaurus/ATCC</strong> (HL-60).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>      LBR gene (1q42.12) — chimeric bifunctional protein
+      ┌───────────────────────────┬───────────────────────────┐
+      │ N-terminal (structural)   │ C-terminal (enzymatic)    │
+      │ Tudor fold; binds         │ sterol Δ14-reductase      │
+      │ heterochromatin, HP1,     │ (C14SR), NADPH-dependent  │
+      │ lamin B                   │ cholesterol biosynthesis  │
+      └────────────┬──────────────┴──────────────┬────────────┘
+                   │                             │
+      C/EBPε ↑ LBR during  │                             │  DHCR14/TM7SF2 = redundant
+      granulopoiesis;      │                             │  Δ14-reductase (buffers heterozygotes)
+      LBR↑ / lamin-A/C↓    │                             │
+                   ▼                             ▼
+   ── STRUCTURAL AXIS ──────────────         ── ENZYMATIC AXIS ─────────────────
+   HET LOF → hypolobulated                   BIALLELIC LOF of C14SR →
+   &quot;pince-nez&quot; neutrophils                   ↓cholesterol → Wnt disruption →
+   (BENIGN PHA, function intact)             osteogenesis failure
+   HOM LOF → ovoid nuclei                    → PHASK → LBR-R-SMD → GREENBERG
+   (± proliferation/burst deficits)            dysplasia (perinatal lethal)
+
+   PHENOCOPIES (not LBR mutation):
+   • Acquired pseudo-PHA: MDS/AML (17p), drugs (MMF, tacrolimus, colchicine), radiation
+   • LBR-independent genetic: NBAS (SOPH), TMEM147, canine LMBR1L
+</code></pre>
+<p>The unifying insight is <strong>one gene, two functions, two disease axes, graded by allele dosage</strong>. The structural axis explains the neutrophil morphology and its benign nature in heterozygotes; the enzymatic axis — unmasked only when biallelic loss overwhelms DHCR14 redundancy — explains the skeletal dysplasia spectrum. Acquired pseudo-PHA and LBR-independent genetic causes converge on the same morphologic endpoint through different routes, which is why context and genetics, not morphology alone, drive diagnosis and prognosis.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41059452/">41059452</a></td>
+<td>Allelic series + OMIM IDs (heterozygous PHA vs biallelic dysplasia/Greenberg)</td>
+<td>F1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42622427/">42622427</a></td>
+<td>LBR dual structural + sterol-reductase function; homozygous PHA without dysplasia</td>
+<td>F1, F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26634137/">26634137</a></td>
+<td>Incidence ~1/6000; benign AD; band-form pitfall</td>
+<td>F2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27684937/">27684937</a></td>
+<td>65% variance from LBR allele count; hysteresis dose-response</td>
+<td>F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2340488/">2340488</a></td>
+<td>Pseudo-PHA ↔ monosomy 17 in MDS/AML</td>
+<td>F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25627941/">25627941</a></td>
+<td>Radiation dose-dependent pseudo-PHA</td>
+<td>F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41735607/">41735607</a></td>
+<td>LBR (+LAP2) as heterochromatin tether</td>
+<td>F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18621876/">18621876</a></td>
+<td>C/EBPε → Lbr; morphological not functional maturation; Lbr-GT/GT PHA model</td>
+<td>F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12490533/">12490533</a></td>
+<td>Mouse ic locus = Lbr mutations</td>
+<td>F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/4035941/">4035941</a></td>
+<td>Autosomal-dominant PHA in cats</td>
+<td>F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34467646/">34467646</a></td>
+<td>Graded LBR phenotype spectrum (PHA→PHASK→LBR-R-SMD→Greenberg)</td>
+<td>F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32304187/">32304187</a></td>
+<td>Biallelic LBR → lethal Greenberg dysplasia; allelic disorders</td>
+<td>F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29369590/">29369590</a></td>
+<td>NBAS/SOPH; Yakut founder carrier frequency</td>
+<td>F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36044892/">36044892</a></td>
+<td>TMEM147 LOF → syndromic pseudo-PHA (~20% neutrophils)</td>
+<td>F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37347778/">37347778</a></td>
+<td>Canine LMBR1L LBR-independent hyposegmentation</td>
+<td>F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25307054/">25307054</a></td>
+<td>MaSR1 structure; LBR C14SR domain</td>
+<td>F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31911440/">31911440</a></td>
+<td>DHCR14/LBR twin-enzyme redundancy</td>
+<td>F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32694168/">32694168</a></td>
+<td>TMEM147 regulates LBR + cholesterol</td>
+<td>F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17245605/">17245605</a></td>
+<td>Dominant→hypolobulated / homozygous→ovoid; LBR/lamin A-C</td>
+<td>F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21327094/">21327094</a></td>
+<td>HL-60 LBR-knockdown in-vitro PHA model</td>
+<td>F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30564248/">30564248</a></td>
+<td>Nucleus as rate-limiting for neutrophil migration</td>
+<td>F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40355051/">40355051</a></td>
+<td>LBR→cholesterol→Wnt in skeletal dysplasia; FBW7 degradation</td>
+<td>F6, mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17403717/">17403717</a></td>
+<td>Digenic Lbr/Dhcr14 mouse; laminopathy vs sterol error</td>
+<td>F8, models</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22140257/">22140257</a></td>
+<td>Sterol-reductase domain supports myeloid growth/maturation</td>
+<td>F4, models</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">35650273</a></td>
+<td>GWAS: LBR locus + INM loci; Icelandic PHA pedigree</td>
+<td>F1, epidemiology</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Purely literature-based synthesis.</strong> No primary patient-level dataset was analyzed; findings rest on published reports, case series, GWAS, and model-organism studies. Effect sizes are available for a few metrics (LBR allele-dose variance ~65%; radiation PH-cell %) but most claims are qualitative.</li>
+<li><strong>Quantitative epidemiology is sparse.</strong> The commonly cited ~1/6,000 incidence lacks robust modern, multi-ethnic prevalence/incidence estimates; geographic and sex-specific data are limited.</li>
+<li><strong>Function-vs-morphology uncertainty.</strong> Human heterozygous PHA neutrophils are functionally normal, yet complete-null mouse/EML models show chemotaxis, proliferation, and respiratory-burst deficits. The threshold at which nuclear-shape loss becomes functionally significant in humans is not defined.</li>
+<li><strong>DHCR14 redundancy is tissue-dependent</strong> and incompletely mapped; why skeletal (osteogenic) tissue is selectively vulnerable to biallelic LBR sterol-reductase loss while blood is not is inferred, not fully demonstrated in humans.</li>
+<li><strong>Acquired pseudo-PHA mechanism</strong> remains unclear at the molecular level (<a href="https://pubmed.ncbi.nlm.nih.gov/20691170/">PMID: 20691170</a>); the link to 17p is correlative.</li>
+<li><strong>Genotype–phenotype granularity</strong> across the PHASK/LBR-R-SMD/Greenberg continuum is limited by small case numbers.</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Modern epidemiology:</strong> leverage large biobanks (e.g., deCODE/UK Biobank-scale CBC + morphology + sequencing) to refine PHA prevalence, penetrance, and LBR variant spectrum across ancestries — building on <a href="https://pubmed.ncbi.nlm.nih.gov/35650273/">PMID: 35650273</a>.</li>
+<li><strong>Tissue-resolved DHCR14/LBR redundancy map:</strong> quantify DHCR14 vs LBR sterol-Δ14-reductase contribution across osteoblasts, chondrocytes, and myeloid cells (isoform-specific KO + sterol profiling) to explain skeletal selectivity.</li>
+<li><strong>Functional deep-phenotyping of human heterozygous PHA neutrophils:</strong> confined-migration/microfluidic assays and infection-response readouts to definitively test whether reduced nuclear deformability has any subclinical cost.</li>
+<li><strong>Structure-guided variant classification:</strong> use the MaSR1 structure (<a href="https://pubmed.ncbi.nlm.nih.gov/25307054/">PMID: 25307054</a>) and AlphaFold models of LBR to predict which missense variants abolish sterol-reductase activity (skeletal risk) vs only structural function (benign) — improving prenatal counseling.</li>
+<li><strong>Standardized diagnostic algorithm</strong> distinguishing inherited PHA from acquired pseudo-PHA (automated image analysis + reflex cytogenetics/LBR sequencing) to reduce misdiagnosis, formalizing <a href="https://pubmed.ncbi.nlm.nih.gov/27684937/">PMID: 27684937</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/19021122/">PMID: 19021122</a>.</li>
+<li><strong>Mechanistic dissection of acquired pseudo-PHA:</strong> test whether 17p-associated genes, drug exposures, or radiation converge on LBR expression/localization (e.g., via TMEM147 or C/EBPε) to phenocopy inherited PHA.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 9 confirmed findings across 44 reviewed papers. Evidence sources span human clinical/genetic studies, population GWAS, model organisms (mouse ic/Lbr, EML, HL-60), in-vitro cell work, and structural biology.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Pelger-Huet_Anomaly-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Pelger-Huet_Anomaly-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0008214</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Pelger-Huet anomaly</strong></li>
+<li><code>HP:0034236</code> (1 mention) - the report calls it "abnormal neutrophil morphology"; HP calls it <strong>Apnea of prematurity</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0070828</code> (1 mention) - the report calls it "GO biological process: heterochromatin organization"; GO calls it <strong>heterochromatin organization</strong></li>
+<li><code>GO:0050614</code> (1 mention) - the report calls it "GO molecular function: delta14-sterol reductase activity"; GO calls it <strong>Delta24-sterol reductase activity</strong></li>
+<li><code>GO:0005637</code> (2 mentions) - the report calls it "GO cellular component: nuclear inner membrane", "nuclear inner membrane"; GO calls it <strong>nuclear inner membrane</strong></li>
+<li><code>CL:0000775</code> (2 mentions) - the report calls it "CL cell types: neutrophil", "neutrophil"; CL calls it <strong>neutrophil</strong></li>
+<li><code>CHEBI:16113</code> (1 mention) - the report calls it "CHEBI: cholesterol"; CHEBI calls it <strong>cholesterol</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0005637</code> - called "GO cellular component: nuclear inner membrane", "nuclear inner membrane"</li>
+<li><code>CL:0000775</code> - called "CL cell types: neutrophil", "neutrophil"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Peeling_Skin_Syndrome-falcon.html">← Peeling Skin Syndrome (Falcon)</a>
+                
+                
+                <a href="Pelizaeus_Merzbacher_Disease-falcon.html">Pelizaeus-Merzbacher Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pelger-Huet_Anomaly.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pelger-Huet_Anomaly-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
