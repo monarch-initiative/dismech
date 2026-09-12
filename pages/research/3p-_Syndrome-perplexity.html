@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3p- Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>3p- Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>3p- Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013424" target="_blank" rel="noopener noreferrer">MONDO:0013424</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-pro</span>
+                    
+                    
+                    <span class="meta-chip">41 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>Definition and overview</h3>
+<p>“Distal monosomy 3p” or <strong>3p deletion syndrome / 3p‑ syndrome</strong> is a chromosomal anomaly caused by deletion of a variable segment at the terminal portion of 3p, typically spanning <strong>3p25–pter</strong>.[1][2][5][32][34][38][41]  </p>
+<ul>
+<li>Orphanet defines distal monosomy 3p as “a rare chromosomal anomaly syndrome, resulting from a partial deletion of the short arm of chromosome 3, with a highly variable phenotype typically characterized by pre‑ and post‑natal growth retardation, intellectual disability, developmental delay and craniofacial dysmorphism (microcephaly, trigonocephaly, downslanting palpebral fissures, telecanthus, ptosis, micrognathia).”[2]  </li>
+<li>MedlinePlus describes it as a condition “that results from a chromosomal change in which a small piece of chromosome 3 is deleted in each cell… at the end of the short (p) arm,” leading to intellectual disability, developmental delay, and abnormal physical features.[6][18][21]</li>
+</ul>
+<p>The disorder is rare, with fewer than ~60 well‑documented distal 3p deletions reported worldwide in recent reviews and case compilations.[4][11][17][31][37][42]</p>
+<h3>Key identifiers and classification</h3>
+<ul>
+<li><strong>OMIM:</strong> #613792 – “CHROMOSOME 3pter‑p25 DELETION” (distal 3p‑ syndrome).[1][23][44]  </li>
+<li><strong>Orphanet:</strong> Distal deletion 3p syndrome (<a href="https://bioregistry.io/ORPHA:1620" target="_blank" rel="noopener noreferrer">ORPHA:1620</a>, also catalogued as partial deletion of short arm of chromosome 3, <a href="https://bioregistry.io/ORPHA:261875" target="_blank" rel="noopener noreferrer">ORPHA:261875</a>).[2][10]  </li>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0013424" target="_blank" rel="noopener noreferrer">MONDO:0013424</a> – 3p‑ syndrome (ClinVar entry cross‑references <a href="http://purl.obolibrary.org/obo/MONDO_0013424" target="_blank" rel="noopener noreferrer">MONDO:0013424</a>).[3]  </li>
+<li><strong>MedGen:</strong> C4706503 – 3p‑ syndrome.[3][7]  </li>
+<li><strong>MeSH / ICD‑10/ICD‑11:</strong> No specific MeSH term; usually coded under “Other specified chromosome abnormalities” (e.g., ICD‑10 Q92.8, Q93.* for deletions of autosomes). This is typically inferred from chromosomal deletion coding practices, not from a dedicated 3p‑ code.  </li>
+<li><strong>Category:</strong> Genetic / chromosomal, autosomal dominant (contiguous gene syndrome).[1][23][44]</li>
+</ul>
+<h3>Synonyms and alternative names</h3>
+<p>Common synonyms:[1][2][5][8][10][14][34][38][41][44]</p>
+<ul>
+<li><strong>3p‑ syndrome</strong> (three‑p minus syndrome)  </li>
+<li><strong>3p deletion syndrome</strong>  </li>
+<li><strong>Distal monosomy 3p</strong>  </li>
+<li><strong>Chromosome 3pter‑p25 deletion syndrome</strong>  </li>
+<li><strong>Partial deletion of the short arm of chromosome 3 syndrome</strong>  </li>
+<li><strong>Deletion 3p syndrome</strong>  </li>
+<li>Sometimes specified by band: <strong>3p25 deletion</strong>, <strong>3p26.3 deletion</strong>, etc.</li>
+</ul>
+<h3>Data type</h3>
+<p>Most information derives from <strong>aggregated disease‑level resources</strong> (OMIM, Orphanet, MedGen, MedlinePlus, RareChromosome support documents) summarizing multiple case reports and small series, supported by individual patient reports and microarray‑based cytogenetic studies.[1][2][5][7][16][18][23][31][32][34][37][38][41][42][43][44]  </p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factor</h3>
+<p>3p‑ syndrome is caused by <strong>heterozygous deletion</strong> (partial monosomy) of distal <strong>chromosome 3p</strong> (typically 3p25–pter; deletion sizes ~200 kb to &gt;10 Mb).[5][32][34][37][38][41][43]  </p>
+<ul>
+<li>Phipps et al. (Am J Hum Genet 2004, often cited in OMIM/Orphanet) and subsequent microarray studies show deletions from <strong>3p25.3–p26.3 to 3pter</strong>, with variable breakpoints and sizes, defining a contiguous gene syndrome.[27][32][34][43][45]  </li>
+<li>A genotype–phenotype review notes that “3p‑ syndrome is a rare contiguous gene syndrome which is caused by 200 kb to 12.5 Mb deletions in 3pter‑p25 region with a wide clinical spectrum.”[41]  </li>
+</ul>
+<p>Most deletions are <strong>de novo</strong>, but familial cases with inherited terminal deletions or interstitial deletions have been reported, sometimes with variable expressivity or non‑penetrance.[5][37][38][40][41][43]</p>
+<h3>Genetic risk factors</h3>
+<h4>Causal loci and candidate genes</h4>
+<p>Multiple genes in distal 3p likely contribute to the phenotype; high‑impact candidates include:[5][9][20][31][32][34][37][43][45]</p>
+<ul>
+<li><strong>SRGAP3</strong> (SLIT‑ROBO Rho GTPase‑activating protein 3):<br />
+  “We suggest that current evidence suggests that SRGAP3 is the major determinant of mental retardation in distal 3p deletions.”[32] (microarray‑based analysis of 3p25‑p26 deletions)  </li>
+<li><strong>CHL1</strong> (close homolog of L1): implicated in neurodevelopment; terminal 3p26.3 deletions containing only CHL1 were associated with developmental delay and mental retardation in some familial cases.[5][34]  </li>
+<li><strong>CNTN4, CNTN6</strong> (contactins): involved in neuronal connectivity; recurrently deleted in distal 3p deletions and associated with neurodevelopmental phenotypes.[9][31]  </li>
+<li><strong>CRBN</strong> (cereblon): suggested to contribute to cognitive impairment and developmental delay.[5][9]  </li>
+<li><strong>OXTR</strong> (oxytocin receptor), <strong>CAV3</strong>, <strong>SRGAP3</strong>: discussed as genes affecting autistic behavior, congenital heart defect, and mental retardation in a patient with interstitial 3p25.3–p26.1 deletion.[20]  </li>
+</ul>
+<p>Karyotype–phenotype studies identified <strong>band 3p25.3</strong> as critical for the classic 3p‑ phenotype:[43]</p>
+<blockquote>
+<p>“Karyotype‑phenotype comparisons… suggest that deficiency of the 3p25.3 band is critical to produce the main clinical manifestations of the del(3p) syndrome.”[43]</p>
+</blockquote>
+<h4>Variant classification and type</h4>
+<ul>
+<li>The pathogenic lesion is usually a <strong>constitutional (germline) structural variant</strong>: terminal (or occasionally interstitial) <strong>deletion</strong> of 3p.[34][37][38][40][41][45]  </li>
+<li>Classified as <strong>pathogenic</strong> structural variants in ClinVar and OMIM, based on segregation, de novo occurrence, and concordant phenotype.[3][28][31][34]  </li>
+<li>Variants are <strong>copy‑number losses</strong> (CNVs), not point mutations; types include terminal deletions, interstitial deletions, sometimes combined with inverted duplications of proximal 3p.[29][34][41]</li>
+</ul>
+<p>Allele frequencies in population databases (gnomAD, ExAC) are extremely low or absent, consistent with a rare, often severe developmental disorder; this is inferred from general CNV intolerance and not directly quantified for this specific syndrome.</p>
+<h3>Environmental risk factors</h3>
+<p>No specific environmental, lifestyle, or toxic exposures have been shown to <em>cause</em> 3p‑ syndrome; the deletion is typically a <strong>sporadic chromosomal event</strong> during gametogenesis or early embryogenesis.[5][34][37][38][40][41]<br />
+Standard obstetric risk factors (advanced maternal age) may modestly increase risk of chromosomal anomalies in general, but specific data for distal 3p deletions are lacking.</p>
+<h3>Protective factors and gene–environment interactions</h3>
+<ul>
+<li>Familial reports with <strong>terminal 3p26.3 deletions and normal phenotype</strong> indicate that small deletions restricted to <strong>CHL1</strong> (or to very distal 3p) may lack penetrance or cause only subtle deficits.[5][34][37][40]  <blockquote>
+<p>“A terminal 3p26.3 deletion is not associated with dysmorphic features and intellectual disability in a four‑generation family.”[40]  </p>
+</blockquote>
+</li>
+<li>Other studies describe <strong>chromosomal non‑penetrance</strong> or modifier genes in terminal 3p deletions.[37]  </li>
+</ul>
+<p>No robust gene–environment interaction data (e.g., exposure modifying severity) have been reported. Protective “modifier” alleles are speculative.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core clinical phenotype</h3>
+<p>OMIM and MedGen summarize the <strong>characteristic features</strong> of distal 3p‑ syndrome:[7][23][44]</p>
+<blockquote>
+<p>“Characteristic features of the distal 3p‑ syndrome include low birth weight, microcephaly, trigonocephaly, hypotonia, psychomotor and growth retardation, ptosis, telecanthus, downslanting palpebral fissures, and micrognathia. Postaxial polydactyly, renal anomalies, cleft palate, congenital heart defects (especially atrioventricular septal defects), preauricular pits, sacral dimple, and gastrointestinal anomalies are variable features.”[23][44]</p>
+</blockquote>
+<p>MedlinePlus similarly lists:[18][21]</p>
+<blockquote>
+<p>“slow growth, an abnormally small head (microcephaly), a small jaw (micrognathia), droopy eyelids (ptosis), malformed ears or nose, and widely spaced eyes (hypertelorism)… extra fingers or toes (polydactyly)… cleft palate… seizures, weak muscle tone (hypotonia), intestinal abnormalities, or congenital heart defects.”  </p>
+</blockquote>
+<p>The 2021 case report and literature review provides an updated aggregated phenotype list:[16][31]</p>
+<blockquote>
+<p>“After more than 40 years of studies, the main clinical phenotypes… have been identified as follows: delayed growth and development, intellectual disability, hypotonia, micrognathia, ptosis, wide nose bridge, long philtrum, low ear position, deformed ears, polydactyly deformity, hearing abnormalities, CHD, renal abnormalities, syndactylism, gastrointestinal abnormalities, and scoliosis.”[31]</p>
+</blockquote>
+<h3>Quantitative frequencies (Phipps et al., 2004 cohort)</h3>
+<p>A key quantitative summary (Am J Hum Genet, ~2004), often reproduced in reviews, reports phenotype frequencies across compiled cases:[27]</p>
+<blockquote>
+<p>Developmental delay 86%; postnatal growth retardation 86%; ptosis 77%; low birth weight 73%; malformed ears 68%; long philtrum 68%; broad nasal bridge 64%; hypotonia 50%; microcephaly 50%; micrognathia 50%; epicanthal folds 41%; postaxial polydactyly 40%; hypertelorism 36%; feeding problems 29%; clinodactyly 27%; trigonocephaly 23%; downturned corners of mouth 24%; synophrys 18%; low frontal hairline 14.[27]</p>
+</blockquote>
+<p>These are <strong>aggregated disease‑level frequencies</strong> derived from case series.</p>
+<h3>Age of onset, severity, progression</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital – most features (growth restriction, craniofacial dysmorphism, cardiac defects) are present prenatally or at birth.[2][16][18][23][34][35][38][41][42]<br />
+  Prenatal intrauterine growth restriction and cardiac defects have been described.[29]  </li>
+<li><strong>Severity:</strong> Intellectual disability typically <strong>severe to profound</strong>; language remains severely limited.[18][21]  <blockquote>
+<p>“Individuals with 3p deletion syndrome typically have severe to profound intellectual disability… language ability usually remains limited.”[21]  </p>
+</blockquote>
+</li>
+<li><strong>Progression:</strong> Developmental delay is persistent; growth retardation continues postnatally.[2][16][18][21][23][31][34][41]<br />
+  Neurological manifestations (hypotonia, seizures) may stabilize but cognitive deficits usually remain lifelong. Severity is <strong>highly variable</strong>, ranging from normal phenotype to severe multi‑system involvement.[5][34][37][38][40]</li>
+</ul>
+<h3>Representative phenotype categories and suggested HPO terms</h3>
+<p>Below is a structured mapping (non‑exhaustive):</p>
+<ol>
+<li><strong>Growth and development</strong>  </li>
+<li>Pre‑ and post‑natal growth retardation (HPO: <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> – growth delay; <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" rel="noopener noreferrer">HP:0008897</a> – intrauterine growth restriction).[2][23][27][31][34][41]  </li>
+<li>Psychomotor retardation / developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> – developmental delay; <a href="http://purl.obolibrary.org/obo/HP_0001305" target="_blank" rel="noopener noreferrer">HP:0001305</a> – psychomotor delay).[2][7][16][18][23][27][31][34]  </li>
+<li>
+<p>Severe intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" rel="noopener noreferrer">HP:0002342</a>).[16][18][21][23][31][34]  </p>
+</li>
+<li>
+<p><strong>Craniofacial dysmorphism</strong>  </p>
+</li>
+<li>Microcephaly (<a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a>).[2][18][21][23][27][31][34][35][39][41][42]  </li>
+<li>Trigonocephaly / brachy‑trigonocephaly (<a href="http://purl.obolibrary.org/obo/HP_0000263" target="_blank" rel="noopener noreferrer">HP:0000263</a>).[23][27][30][36][39]  </li>
+<li>Telecanthus (<a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" rel="noopener noreferrer">HP:0000506</a>).[2][23][36][41][42][44]  </li>
+<li>Hypertelorism (<a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a>).[18][21][23][27][35]  </li>
+<li>Ptosis (<a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a>).[2][7][18][21][23][27][31][34][35][39]  </li>
+<li>Downslanting palpebral fissures (<a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a>).[23][41][44]  </li>
+<li>Epicanthal folds (<a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" rel="noopener noreferrer">HP:0000286</a>).[18][21][27][39]  </li>
+<li>Long philtrum (<a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a>).[27][31][35][36][41][43]  </li>
+<li>Broad nasal bridge (<a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" rel="noopener noreferrer">HP:0000431</a>).[27][31][35][39]  </li>
+<li>Micrognathia (<a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a>).[2][18][21][23][27][31][35][39][41][42][44]  </li>
+<li>
+<p>Low set/malformed ears (<a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a>, <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" rel="noopener noreferrer">HP:0000377</a>).[16][18][21][23][27][31][35][41][43]  </p>
+</li>
+<li>
+<p><strong>Limb and skeletal anomalies</strong>  </p>
+</li>
+<li>Postaxial polydactyly (<a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" rel="noopener noreferrer">HP:0001162</a>).[23][27][31][39][44]  </li>
+<li>Clinodactyly (<a href="http://purl.obolibrary.org/obo/HP_0030084" target="_blank" rel="noopener noreferrer">HP:0030084</a>).[27]  </li>
+<li>Syndactyly (<a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" rel="noopener noreferrer">HP:0001159</a>).[31]  </li>
+<li>Scoliosis (<a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a>).[31]  </li>
+<li>
+<p>Feeding difficulties (<a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>).[27][31]  </p>
+</li>
+<li>
+<p><strong>Neurological and behavioral</strong>  </p>
+</li>
+<li>Hypotonia (<a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a>).[2][16][18][21][23][27][31][35][36][41][42][44]  </li>
+<li>Seizures (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>).[18][21][31]  </li>
+<li>Autism spectrum disorder features (<a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a> – autistic behavior).[18][20][21][26]  </li>
+<li>Obsessive–compulsive disorder behaviors (<a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" rel="noopener noreferrer">HP:0000722</a> – obsessive‑compulsive behavior).[18][21]  </li>
+<li>
+<p>Hearing abnormalities / deafness (<a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a>).[31][43]  </p>
+</li>
+<li>
+<p><strong>Cardiac, renal, GI and other system involvement</strong>  </p>
+</li>
+<li>Congenital heart defects, especially <strong>atrioventricular septal defects</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" rel="noopener noreferrer">HP:0001671</a> – atrioventricular septal defect).[23][31][41][42][45]<br />
+     &gt; “Congenital heart defects (especially atrioventricular septal defects)” are noted as variable features.[23][44]<br />
+     First report of hypoplastic left heart syndrome in 3p‑ syndrome has been described.[4][11][42]  </li>
+<li>Renal anomalies / polycystic renal dysplasia (<a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" rel="noopener noreferrer">HP:0000107</a>).[9][23][31][42][44]  </li>
+<li>Gastrointestinal abnormalities (e.g., hiatal hernia, intestinal malformations, umbilical hernia)[9][23][29][31][44]  </li>
+<li>Cleft palate (<a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a>).[18][21][23][44]  </li>
+<li>Preauricular pits (<a href="http://purl.obolibrary.org/obo/HP_0004467" target="_blank" rel="noopener noreferrer">HP:0004467</a>).[23][44]  </li>
+<li>Sacral dimple (<a href="http://purl.obolibrary.org/obo/HP_0000960" target="_blank" rel="noopener noreferrer">HP:0000960</a>).[23][44]  </li>
+</ol>
+<h3>Quality‑of‑life impact</h3>
+<p>Severe intellectual disability, persistent developmental delay, hypotonia, and multi‑system malformations substantially impair <strong>daily functioning, autonomy, and communication</strong>.[16][18][21][31]  </p>
+<p>MedlinePlus states that language ability “usually remains limited,” and affected individuals often have significant motor delays, seizures, and behavioral issues, affecting quality of life and caregiver burden.[18][21] No formal EQ‑5D or SF‑36 studies specific to 3p‑ syndrome were identified; extrapolation from severe developmental disorders suggests marked impairment across mobility, self‑care, usual activities, and cognition.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal genes and candidate “critical regions”</h3>
+<p>Multiple studies attempt to define “critical regions” and genes within 3p25–pter responsible for specific aspects of the phenotype:[5][9][20][31][32][34][37][38][43][45]</p>
+<ul>
+<li><strong>SRGAP3</strong> (3p25.3):<br />
+  Microarray‑based analysis of multiple 3p25‑p26 deletions concluded:  <blockquote>
+<p>“We suggest that current evidence suggests that SRGAP3 is the major determinant of mental retardation in distal 3p deletions.”[32]  </p>
+</blockquote>
+</li>
+<li><strong>CHL1 (3p26.3)</strong>:<br />
+  Terminal 3p26.3 deletions containing only CHL1 caused developmental delay and mental retardation in some families, implicating CHL1 in cognitive development, though non‑penetrant cases exist.[5][34][40]  </li>
+<li><strong>CNTN4 / CNTN6</strong>:<br />
+  These contactin genes are repeatedly deleted in patients with 3p deletion syndrome and are catalogued as associated with developmental delay, intellectual disability, microcephaly, and dysmorphisms.[9][31]  </li>
+<li><strong>CRBN</strong>:<br />
+  Mentioned as potentially sufficient to cause some typical features when deleted.[5][9]  </li>
+<li><strong>CAV3, OXTR, SRGAP3</strong>:<br />
+  A 3p25.3–p26.1 interstitial deletion case discussed these genes as candidates for congenital heart defect (CAV3), autistic behavior (OXTR), and mental retardation (SRGAP3).[20]</li>
+</ul>
+<h3>Variant types and ACMG classification</h3>
+<ul>
+<li><strong>Type:</strong> Germline <strong>structural deletions</strong> (CNVs), either terminal (3pter) or interstitial (3p25–p26, 3p13–p14).[24][26][34][37][38][40][45]  </li>
+<li><strong>Classification:</strong> Most are <strong>pathogenic</strong> or <strong>likely pathogenic</strong> based on ACMG CNV criteria (large deletion encompassing dosage‑sensitive genes, de novo occurrence, consistent phenotype).[3][28][31][34]  </li>
+<li><strong>Somatic vs. germline:</strong> All reported classic 3p‑ syndrome cases involve <strong>constitutional germline deletions</strong>; somatic 3p loss is a separate oncologic context (renal cell carcinoma, etc.). A recent GEMM modeling extensive 3p deletion in kidney cancer patients underscores the role of 3p loss in tumorigenesis but is not a model of 3p‑ developmental syndrome.[33]</li>
+</ul>
+<h3>Modifier genes and epigenetics</h3>
+<ul>
+<li>Phenotypic variability and non‑penetrance suggest potential <strong>modifier genes</strong> and/or epigenetic influences, but specific modifiers have not been conclusively identified.[34][37][38][40][41]  </li>
+<li>A study entitled “Terminal 3p deletions: phenotypic variability, chromosomal non‑penetrance, or gene modification?” explicitly raises this question but does not identify specific modifiers.[37]  </li>
+<li>No disease‑specific DNA methylation or chromatin changes have been described; epigenetic information for 3p‑ syndrome remains largely unexplored.</li>
+</ul>
+<h3>Chromosomal abnormalities</h3>
+<ul>
+<li>Classic lesions: <strong>terminal deletions</strong> of 3p25–pter (del(3)(p25‑pter), del(3)(p26.3‑pter)).[30][34][37][38][41][43]  </li>
+<li>Interstitial deletions (e.g., 3p25.3–p26.2; 3p25.3–p26.1; 3p13–p14) produce overlapping but sometimes milder phenotypes.[20][24][26][45]  </li>
+<li>Complex rearrangements: inverted duplication of 3p with adjacent terminal 3p deletion.[29]</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No specific non‑genetic factors are established as causal. Published reports emphasize <strong>chromosomal deletion</strong> as the primary etiology.[5][34][37][38][40][41][43][45]  </p>
+<ul>
+<li>Environmental or lifestyle factors may influence severity of certain complications (e.g., cardiac outcomes) but <strong>do not determine syndrome occurrence</strong>.  </li>
+<li>Infectious agents have not been implicated.</li>
+</ul>
+<p>Accordingly, the disease is best classified as a <strong>primary genetic/chromosomal syndrome</strong> with minimal documented environmental contribution.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (inferred from human CNV studies)</h3>
+<ol>
+<li><strong>Heterozygous terminal/interstitial deletion of distal 3p (3p25–pter) leads to hemizygous loss of multiple neurodevelopmental and organ‑development genes (e.g., SRGAP3, CHL1, CNTN4, CNTN6, CRBN), causing disturbed neuronal connectivity and organ morphogenesis.</strong>[5][9][20][31][32][34][37][38][43][45]  </li>
+<li><strong>Gene dosage reduction in SRGAP3 and CHL1 results in impaired axon guidance, synaptic development, and neurodevelopment, leading to intellectual disability, developmental delay, hypotonia, and behavioral abnormalities (autism/OCD); this is inferred from gene function and genotype–phenotype correlation.</strong>[5][20][32][34][40][43]  </li>
+<li><strong>Deletion of cardiac developmental genes (e.g., CAV3, possibly others in 3p25.3–p26) leads to congenital heart defects, particularly atrioventricular septal defects and, rarely, hypoplastic left heart syndrome; this is suggested by individual cases and positional candidate gene analyses.</strong>[4][11][20][23][41][42][45]  </li>
+<li><strong>Loss of genes involved in craniofacial and skeletal development results in craniofacial dysmorphism (microcephaly, trigonocephaly, telecanthus, ptosis, micrognathia) and limb anomalies (polydactyly, clinodactyly, syndactyly, scoliosis).</strong>[2][23][27][30][31][35][36][39][41][44]  </li>
+<li><strong>Deletion of genes involved in renal and gastrointestinal development contributes to structural renal anomalies, intestinal malformations, and hiatal hernia, which in turn lead to feeding difficulties, failure to thrive, and morbidity.</strong>[2][9][23][29][31][44]  </li>
+<li><strong>Global developmental impairment and congenital malformations result in chronic functional disability, reduced quality of life, and increased mortality from cardiac, respiratory, and infectious complications; this is inferred from general patterns in severe multisystem CNV syndromes.</strong>[16][18][21][23][31][42]</li>
+</ol>
+<h3>Molecular pathways and cellular processes (inferred)</h3>
+<p>Direct pathway studies specific to 3p‑ syndrome are limited; we extrapolate from known functions of candidate genes:</p>
+<ul>
+<li><strong>SRGAP3:</strong> Involved in <strong>SLIT‑ROBO signaling</strong>, Rho GTPase regulation, and neuronal migration; its haploinsufficiency disrupts <strong>axon guidance and synaptic development</strong> (<a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" rel="noopener noreferrer">GO:0007411</a> – axon guidance; <a href="http://purl.obolibrary.org/obo/GO_0048856" target="_blank" rel="noopener noreferrer">GO:0048856</a> – anatomical structure development).[32]  </li>
+<li><strong>CHL1:</strong> Member of the L1 cell adhesion molecule family, implicated in neurite outgrowth and synaptic plasticity.[5][34]  </li>
+<li><strong>CNTN4/CNTN6:</strong> GPI‑anchored neuronal adhesion molecules influencing <strong>axon extension, synapse formation and organization of neural circuits</strong> (<a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" rel="noopener noreferrer">GO:0007155</a> – cell adhesion).[9][31]  </li>
+<li><strong>OXTR:</strong> Oxytocin receptor; deletion may contribute to <strong>social behavior deficits and autistic features</strong> via disrupted neuropeptide signaling.[20][26]</li>
+</ul>
+<p>Suggested GO biological process terms (upstream):</p>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a> – nervous system development  </li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" rel="noopener noreferrer">GO:0007411</a> – axon guidance  </li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> – synaptic transmission  </li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" rel="noopener noreferrer">GO:0007507</a> – heart development  </li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0001655" target="_blank" rel="noopener noreferrer">GO:0001655</a> – urogenital system development  </li>
+</ul>
+<p>Suggested CL (Cell Ontology) terms:</p>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> – neuron  </li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> – cardiac muscle cell  </li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000731" target="_blank" rel="noopener noreferrer">CL:0000731</a> – renal epithelial cell  </li>
+</ul>
+<p>No specific metabolomic or proteomic signatures have been published for 3p‑ syndrome; multi‑omics work has focused more on somatic 3p loss in cancer (e.g., clear cell renal cell carcinoma GEMM).[33]</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ‑level</h3>
+<p>Primary involvement:[2][7][9][16][18][21][23][27][31][35][41][42][44]</p>
+<ul>
+<li><strong>Central nervous system</strong> – intellectual disability, hypotonia, seizures, autism/OCD (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> – brain).  </li>
+<li><strong>Craniofacial structures</strong> – skull (microcephaly, trigonocephaly), face, jaw, eyes, ears (<a href="http://purl.obolibrary.org/obo/UBERON_0008897" target="_blank" rel="noopener noreferrer">UBERON:0008897</a> – skull; <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> – face; <a href="http://purl.obolibrary.org/obo/UBERON_0001684" target="_blank" rel="noopener noreferrer">UBERON:0001684</a> – mandible; <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> – eye; <a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a> – ear).  </li>
+<li><strong>Cardiovascular system</strong> – congenital heart defects, especially atrioventricular septal defects and rare hypoplastic left heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> – heart).[23][41][42][45]  </li>
+<li><strong>Renal/urinary system</strong> – renal anomalies, polycystic renal dysplasia (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> – kidney).[9][23][31][44]  </li>
+<li><strong>Gastrointestinal tract</strong> – intestinal malformations, hiatal hernia, umbilical hernia, feeding difficulties (<a href="http://purl.obolibrary.org/obo/UBERON_0001007" target="_blank" rel="noopener noreferrer">UBERON:0001007</a> – intestine).[9][23][27][29][31][44]  </li>
+<li><strong>Musculoskeletal system</strong> – limb anomalies (polydactyly, clinodactyly, syndactyly, scoliosis) (<a href="http://purl.obolibrary.org/obo/UBERON_0001444" target="_blank" rel="noopener noreferrer">UBERON:0001444</a> – hand; <a href="http://purl.obolibrary.org/obo/UBERON_0002429" target="_blank" rel="noopener noreferrer">UBERON:0002429</a> – vertebral column).[27][31][39]</li>
+</ul>
+<p>Secondary involvement includes <strong>respiratory</strong> complications (from cardiac defects or hypotonia) and <strong>endocrine</strong> abnormalities like congenital hypothyroidism in some cases.[31]</p>
+<h3>Tissue, cell and subcellular levels</h3>
+<ul>
+<li>Predominant impact on <strong>neural tissue</strong> (cortical and subcortical neurons, glia), <strong>cardiac muscle</strong>, <strong>renal epithelium</strong>, and <strong>craniofacial mesenchyme</strong>.  </li>
+<li>Suggested cell types (CL):  </li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" rel="noopener noreferrer">CL:0000700</a> – cortical neuron  </li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> – cardiac muscle cell  </li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000731" target="_blank" rel="noopener noreferrer">CL:0000731</a> – renal epithelial cell  </li>
+<li>Subcellular: Genes implicated function in <strong>cytoplasm and plasma membrane</strong>, modulating cytoskeleton and signaling (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> – plasma membrane; <a href="http://purl.obolibrary.org/obo/GO_0005856" target="_blank" rel="noopener noreferrer">GO:0005856</a> – cytoskeleton).</li>
+</ul>
+<p>Localization patterns are <strong>systemic</strong> rather than localized; lateralization is not a major feature except in specific organ anomalies (e.g., unilateral renal defects).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Congenital/pediatric</strong>: Most features are apparent in the neonatal period – low birth weight, craniofacial features, hypotonia, cardiac defects.[2][16][18][21][23][27][31][35][41][42][44]  </li>
+<li>Prenatal detection via ultrasound (growth restriction, cardiac defects) and chromosomal testing is increasingly reported.[29][31]</li>
+</ul>
+<h3>Progression and disease course</h3>
+<ul>
+<li><strong>Developmental course</strong>: Chronic, lifelong developmental disability; language and motor skills remain substantially delayed.[16][18][21][31]  </li>
+<li><strong>Growth</strong>: Slow, with persistent short stature and microcephaly in many patients.[2][23][27][31][34][35][41]  </li>
+<li><strong>Course pattern</strong>: Generally <strong>non‑relapsing but progressive in functional impact</strong> (as developmental expectations increase) rather than in structural anomalies.  </li>
+<li>No formal staging or remission patterns are described; natural history is derived from case reports and small series.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Inheritance pattern</h3>
+<ul>
+<li>OMIM lists <strong>autosomal dominant</strong> inheritance for 3p‑ syndrome, reflecting that a single copy‑number loss (heterozygous deletion) is sufficient to cause disease.[1][23]  </li>
+<li>Most cases are <strong>de novo</strong>; some are familial with <strong>dominant transmission</strong> and variable expressivity or non‑penetrance.[5][37][38][40][41][43]  </li>
+</ul>
+<h3>Penetrance and expressivity</h3>
+<ul>
+<li><strong>Penetrance:</strong> Incomplete – families with terminal 3p26.3 deletions containing only CHL1 have normal or minimally affected individuals.[5][34][37][40]  <blockquote>
+<p>“Terminal deletions of the distal part of the short arm of chromosome 3 cause a wide range of phenotypes from normal to dysmorphic including microcephaly, developmental delay and intellectual disability.”[40]  </p>
+</blockquote>
+</li>
+<li><strong>Expressivity:</strong> Highly variable; phenotype ranges from normal to severe multi‑system involvement.[34][37][38][40][41]  </li>
+</ul>
+<p>No evidence for genetic anticipation, germline mosaicism, or founder effects specific to 3p‑ syndrome has been clearly documented.</p>
+<h3>Epidemiology</h3>
+<ul>
+<li>Distal 3p‑ syndrome is classified by Orphanet as a <strong>rare disease</strong>; worldwide prevalence is extremely low (exact prevalence estimates are not provided but &lt;1/1,000,000 is plausible given &lt;60 reported cases).[2][4][11][37][42]  </li>
+<li>Sex ratio appears roughly equal based on case series; no strong sex predilection is reported.[27][31][35][37][38]  </li>
+<li>Cases have been reported across diverse ethnicities and geographies (Europe, Asia including Korea, Brazil, etc.), with no obvious geographic clustering.[16][17][22][35][42]</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical and laboratory evaluation</h3>
+<p>Diagnosis integrates <strong>clinical dysmorphology</strong> with <strong>cytogenetic and molecular testing</strong>.</p>
+<h4>Clinical features used for suspicion</h4>
+<ul>
+<li>Neonatal low birth weight, hypotonia, craniofacial dysmorphia (microcephaly, trigonocephaly, telecanthus, ptosis, micrognathia), polydactyly, and congenital heart defects raise suspicion of distal 3p deletion.[2][23][27][30][31][35][36][39][41][42][44]  </li>
+<li>MedlinePlus emphasizes severe intellectual disability and characteristic craniofacial features.[18][21]</li>
+</ul>
+<p>Routine laboratory tests (e.g., electrolyte panels, thyroid function) are supportive, not diagnostic; congenital hypothyroidism has been reported in individual cases.[31]</p>
+<h3>Genetic testing</h3>
+<p>Standard diagnostic approach:[5][16][31][34][37][38][40][41][43][45]</p>
+<ol>
+<li><strong>Chromosomal microarray (CMA)</strong>  </li>
+<li>Detects terminal or interstitial deletions of distal 3p.  </li>
+<li>
+<p>Microarray studies have been critical in defining deletion size, gene content, and genotype–phenotype correlations.[5][31][32][34][37][38]  </p>
+</li>
+<li>
+<p><strong>Karyotyping</strong>  </p>
+</li>
+<li>Can identify visible deletions or complex rearrangements (e.g., inverted duplication with adjacent deletion).[29][30][37][38][45]  </li>
+<li>
+<p>Early cases (1970s–1990s) relied on conventional karyotyping.[19][30][39][43][45]</p>
+</li>
+<li>
+<p><strong>Targeted FISH / MLPA</strong>  </p>
+</li>
+<li>
+<p>Used historically to confirm 3p deletions and refine breakpoints, especially before high‑resolution arrays.[43][45]  </p>
+</li>
+<li>
+<p><strong>Whole exome/genome sequencing</strong>  </p>
+</li>
+<li>WES/WGS can detect CNVs but CMA remains first‑line for suspected chromosomal deletion syndromes.  </li>
+<li>In atypical cases with normal CMA and strong suspicion, WGS may reveal cryptic structural variants.</li>
+</ol>
+<p>ClinVar entries note that “clinical presentation may be dependent on the size and location of the deletion,” underscoring the need for precise structural characterization.[28]</p>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p>No formal consensus diagnostic criteria beyond “heterozygous terminal 3p25–pter or overlapping CNV plus consistent phenotype.” Differential diagnoses include other syndromic growth‑retardation and craniofacial dysmorphism disorders:</p>
+<ul>
+<li><strong>Distal duplication 3p syndrome</strong> (3p trisomy), which presents with overlapping but distinct craniofacial and developmental features.[12]  </li>
+<li>Other microdeletion syndromes (e.g., 1p36 deletion, 22q11.2 deletion, 4p Wolf–Hirschhorn), distinguished by specific facial gestalt, cardiac defect patterns, and different chromosomal loci.</li>
+</ul>
+<h3>Screening</h3>
+<p>Because of rarity and variable expressivity, there are <strong>no population screening programs</strong>. Prenatal CMA or WGS may detect 3p deletions incidentally or in fetuses with anomalies.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival and mortality</h3>
+<p>Published reports suggest that many patients survive into childhood and adolescence, but overall <strong>prognosis depends on severity of cardiac, renal, and neurologic involvement</strong>.[16][17][22][29][31][35][41][42]  </p>
+<ul>
+<li>Hypoplastic left heart and severe atrioventricular septal defects may carry high neonatal mortality.[4][11][42]  </li>
+<li>No systematic 5‑year or 10‑year survival statistics specific to 3p‑ syndrome were found; prognostic data are extrapolated from case series.</li>
+</ul>
+<h3>Morbidity, disability, and quality of life</h3>
+<ul>
+<li>Severe intellectual disability, language impairment, hypotonia, and congenital anomalies result in <strong>high morbidity and long‑term disability</strong>.[16][18][21][31]  </li>
+<li>Many patients require ongoing multidisciplinary care (cardiology, neurology, nephrology, developmental pediatrics, physical/speech therapy).  </li>
+<li>Behavioral problems (autism, OCD) and seizures further impact daily functioning.[18][20][21][26][31]</li>
+</ul>
+<p>Prognostic factors (inferred):</p>
+<ul>
+<li><strong>Deletion size and gene content</strong> (e.g., inclusion of SRGAP3, CHL1, CAV3, OXTR).[20][32][43][45]  </li>
+<li><strong>Presence and severity of cardiac defects</strong>.[4][11][23][41][42]  </li>
+<li><strong>Renal and GI anomalies</strong> and feeding issues.  </li>
+<li><strong>Family history and non‑penetrant carriers</strong> may indicate milder spectrum.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Overall strategy</h3>
+<p>There is <strong>no cure or disease‑specific pharmacologic therapy</strong>; management is <strong>supportive and symptom‑based</strong>.[10][16][18][21][31]  </p>
+<blockquote>
+<p>“There is no cure for 3p deletion syndrome, and management is supportive and symptom-based.”[10]</p>
+</blockquote>
+<h3>Pharmacotherapy and medical management</h3>
+<ul>
+<li><strong>Cardiac management:</strong> Standard pediatric cardiology protocols for atrioventricular septal defects and hypoplastic left heart syndrome (NCIT: C34736 – cardiac surgery; C25746 – congenital heart disease).  </li>
+<li><strong>Seizure control:</strong> Conventional antiepileptic drugs as indicated (NCIT: C15388 – antiepileptic agent).[18][21][31]  </li>
+<li><strong>Endocrine management:</strong> Treatment of congenital hypothyroidism when present (e.g., levothyroxine).  </li>
+<li><strong>Symptom‑directed therapies:</strong> Gastroesophageal reflux management, constipation, infections.</li>
+</ul>
+<p>No pharmacogenomic data specific to drug</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>59</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>14</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001305</code> (1 mention) - the report calls it "psychomotor delay"; HP calls it <strong>Dandy-Walker malformation</strong></li>
+<li><code>HP:0000263</code> (1 mention) - the report calls it "Trigonocephaly / brachy‑trigonocephaly"; HP calls it <strong>Oxycephaly</strong></li>
+<li><code>HP:0000107</code> (1 mention) - the report calls it "Renal anomalies / polycystic renal dysplasia"; HP calls it <strong>Renal cyst</strong></li>
+<li><code>CL:0000127</code> (1 mention) - the report calls it "neuron"; CL calls it <strong>astrocyte</strong></li>
+<li><code>CL:0000182</code> (2 mentions) - the report calls it "cardiac muscle cell"; CL calls it <strong>hepatocyte</strong></li>
+<li><code>UBERON:0008897</code> (1 mention) - the report calls it "skull"; UBERON calls it <strong>fin</strong></li>
+<li><code>UBERON:0001444</code> (1 mention) - the report calls it "hand"; UBERON calls it <strong>subdivision of head</strong></li>
+<li><code>UBERON:0002429</code> (1 mention) - the report calls it "vertebral column"; UBERON calls it <strong>cervical lymph node</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001511</code> (1 mention) - the report calls it "growth delay"; HP calls it <strong>Intrauterine growth retardation</strong>, and lists "Prenatal growth deficiency" among its other names</li>
+<li><code>HP:0008897</code> (1 mention) - the report calls it "intrauterine growth restriction"; HP calls it <strong>Postnatal growth retardation</strong></li>
+<li><code>HP:0001263</code> (1 mention) - the report calls it "developmental delay"; HP calls it <strong>Global developmental delay</strong>, and lists "Developmental delay" among its other names</li>
+<li><code>HP:0002342</code> (1 mention) - the report calls it "Severe intellectual disability"; HP calls it <strong>Moderate intellectual disability</strong></li>
+<li><code>HP:0000286</code> (1 mention) - the report calls it "Epicanthal folds"; HP calls it <strong>Epicanthus</strong>, and lists "Epicanthal fold" among its other names</li>
+<li><code>HP:0001162</code> (1 mention) - the report calls it "Postaxial polydactyly"; HP calls it <strong>Postaxial hand polydactyly</strong></li>
+<li><code>HP:0001290</code> (1 mention) - the report calls it "Hypotonia"; HP calls it <strong>Generalized hypotonia</strong></li>
+<li><code>HP:0000365</code> (1 mention) - the report calls it "Hearing abnormalities / deafness"; HP calls it <strong>Hearing impairment</strong>, and lists "Hearing defect" among its other names</li>
+<li><code>HP:0001671</code> (1 mention) - the report calls it "atrioventricular septal defect"; HP calls it <strong>Abnormal cardiac septum morphology</strong>, and lists "Heart septal defect" among its other names</li>
+<li><code>HP:0004467</code> (1 mention) - the report calls it "Preauricular pits"; HP calls it <strong>Preauricular pit</strong>, and lists "Preauricular pits" among its other names</li>
+<li><code>GO:0007268</code> (1 mention) - the report calls it "synaptic transmission"; GO calls it <strong>chemical synaptic transmission</strong>, and lists "synaptic transmission" among its other names</li>
+<li><code>CL:0000731</code> (2 mentions) - the report calls it "renal epithelial cell"; CL calls it <strong>urothelial cell</strong></li>
+<li><code>UBERON:0001007</code> (1 mention) - the report calls it "intestine"; UBERON calls it <strong>digestive system</strong>, and lists "gastrointestinal system" among its other names</li>
+<li><code>CL:0000700</code> (1 mention) - the report calls it "cortical neuron"; CL calls it <strong>dopaminergic neuron</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="3MC_Syndrome-openscientist.html">← 3MC Syndrome (OpenScientist)</a>
+                
+                
+                <a href="45_X_46_XY_Mixed_Gonadal_Dysgenesis-claude_code.html">45,X/46,XY Mixed Gonadal Dysgenesis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/3p-_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/3p-_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -136,7 +136,7 @@ This is an evergreen project: beyond the initial phases, "Other" expansion categ
 
 1. Research disease pathophysiology using primary literature
 2. Create YAML file in `kb/disorders/`
-3. Validate with `just validate` and `just validate-references`
+3. Validate with `just validate` and `just validate-kb-references`
 4. Run `just qc` before committing
 
 ---

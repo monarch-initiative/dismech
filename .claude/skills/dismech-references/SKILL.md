@@ -143,7 +143,7 @@ just validate-disorders \
 
 This batched command mirrors CI's schema, term, and reference checks and uses
 `--no-full-text`. It is the authoritative evidence gate for disorder files.
-Use `just validate-references <file>` only when a non-disorder target or a
+Use `just validate-kb-references <file>` only when a non-disorder target or a
 full-text-permitting diagnostic requires it.
 
 Never report a validation command as passing unless it finished and you read
@@ -169,7 +169,20 @@ it does not mean no evidence was examined. Use the wrapper's affirmative
 
 Reference prefixes in `skip_prefixes` within
 `conf/reference_validator_config.yaml`, including `DOI:`, are not
-snippet-checked. Treat a skipped reference as unverified by these commands.
+snippet-checked by default, and the `(N skipped by prefix)` tail of the summary
+line says how many were passed over.
+
+Skipped is not the same as uncheckable. Where the body is cached, as a `DOI:`
+reference's nearly always is, `--unskip-prefix` verifies it on demand:
+
+```bash
+just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
+```
+
+The flag is repeatable. Use it before committing a `DOI:`-keyed snippet, since
+the gating validator will not check that quote for you. Treat a reference as
+genuinely unverified only when it is skipped *and* nothing cached backs it —
+a dataset accession, for instance.
 
 ## Titles and brackets
 
@@ -198,7 +211,7 @@ snippet without replaying validation across the KB.
 them. The failure mode that exposed is specific: **correct PMID, verified
 snippet, invented title.** Each gate reads a different field — `linkml-validate`
 confirms the slot is a string, `count-verified-snippets` and
-`validate-references` check the *snippet*, `validate-terms` checks ontology
+`validate-kb-references` check the *snippet*, `validate-terms` checks ontology
 terms, and `check_title_snippets` (despite the name) asks whether a snippet
 quotes a title. None of them reads the title.
 
@@ -232,6 +245,61 @@ A phenotype `frequency:` value is a separate quantitative claim from the
 disease-phenotype association. Give it evidence that supports the frequency
 band or omit it. Follow `docs/frequency-evidence-guidelines.md` for acceptable
 quantitative, derived, qualitative, and clinical-estimate evidence.
+
+## Finding a cache file
+
+A cache filename is the reference id with `:`, `/`, `?` and `=` replaced by `_`,
+plus `.md`. **The prefix keeps the identifier's own casing — it is not
+uppercased.** `PMID:29167994` caches as `PMID_29167994.md`, but
+`clinicaltrials:NCT05813288` caches as `clinicaltrials_NCT05813288.md`, so a
+glob for `CLINICALTRIALS_*` finds nothing. Searching `pmid_*` on a
+case-sensitive filesystem is the mirror of the same mistake.
+
+Do not hand-derive the path when a tool will do it. `resolve_cache_path` in
+`src/dismech/reference_snippet_audit.py` is the authority, and it also resolves
+a bare identifier (`NCT06087757`) back to its prefixed file. Prefer the recipes
+that take a reference id or a KB file:
+
+```bash
+just fetch-reference PMID:29167994     # fetch or regenerate the cache entry
+just count-verified-snippets kb/disorders/Asthma.yaml
+```
+
+When you do need to glob, match case-insensitively and on the tail rather than
+guessing a prefix:
+
+```bash
+ls references_cache/ | grep -i "_29167994"
+```
+
+The prefixes in use, with the count of cached records at the time of writing —
+mixed case is normal and none of it is a typo:
+
+| Prefix | Cached | What it is |
+|---|---:|---|
+| `PMID` | 35586 | PubMed |
+| `DOI` | 6056 | DOI-only literature |
+| `clinicaltrials` | 1082 | ClinicalTrials.gov (NCT) |
+| `NCIT` | 796 | NCI Thesaurus predicate edges |
+| `ICEES` | 505 | ICEES KG comorbidity pairs |
+| `CGGV` | 502 | ClinGen gene-disease validity |
+| `ORPHA` | 347 | Orphanet |
+| `GEO` | 176 | Gene Expression Omnibus |
+| `url` | 116 | Web page |
+| `MYGENESET` | 100 | MyGeneset |
+| `STRCHIVE` | 73 | STRchive |
+| `PPR` | 25 | Europe PMC preprint |
+| `CIVIC` | 15 | CIViC assertions and evidence |
+| `ICTRP` | 7 | WHO ICTRP (non-NCT trial registries) |
+| `file` | 5 | Local document |
+| `CGDS` | 3 | ClinGen dosage sensitivity |
+| `METABOLIGHTS` | 2 | MetaboLights |
+| `MGNIFY` | 1 | MGnify |
+
+The list is a snapshot for orientation, not a closed set — a new structured
+source adds a prefix. Regenerate it with
+`ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
+trusting these counts.
 
 ## Reference-cache integrity
 
