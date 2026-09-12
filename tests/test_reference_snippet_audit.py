@@ -646,3 +646,210 @@ def test_ligature_folding_is_symmetric() -> None:
     assert fold("amyloid ﬁbrils") == "amyloid fibrils"
     assert fold("aﬂatoxin") == "aflatoxin"
     assert fold("amyloid fibrils") == "amyloid fibrils"
+
+
+# --- Bracketed abbreviations in the shipped config (issue #8597) -------------
+#
+# The fix for #8597 is a data change -- two `literal_bracket_patterns` entries in
+# conf/reference_validator_config.yaml -- so the tests that matter exercise the
+# committed config rather than a synthetic one. That config is read by the real
+# `linkml-reference-validator` behind `just validate-disorders` as well as by
+# this audit, so what these assert holds for the gating check too.
+
+REPO_CONFIG = ROOT / "conf" / "reference_validator_config.yaml"
+
+
+def _repo_index(cache_dir: Path) -> CachedReferenceIndex:
+    from dismech.reference_snippet_audit import load_literal_bracket_patterns
+
+    return CachedReferenceIndex(
+        cache_dir, literal_bracket_patterns=load_literal_bracket_patterns(REPO_CONFIG)
+    )
+
+
+def test_inline_abbreviation_definitions_survive_normalization(
+    tmp_path: Path,
+) -> None:
+    """A verbatim quote spanning `[APTT]` verifies -- the #8597 regression.
+
+    Structured abstracts define abbreviations in square brackets on first use,
+    and that is exactly where the substantive clause tends to sit. Stripping the
+    bracket from the query but not from the cached text left `time -adjusted`,
+    which failed as "not found as substring" and read as a paraphrase.
+    """
+    _write_cache(
+        tmp_path / "references_cache",
+        "PMID_37959386.md",
+        "aHIT patients are at risk for treatment failure with (activated "
+        "partial thromboplastin time [APTT]-adjusted) direct thrombin "
+        "inhibitor (DTI) therapy.",
+    )
+
+    report = _audit(
+        tmp_path,
+        [
+            (
+                "PMID:37959386",
+                (
+                    "at risk for treatment failure with (activated partial "
+                    "thromboplastin time [APTT]-adjusted) direct thrombin "
+                    "inhibitor (DTI) therapy"
+                ),
+            )
+        ],
+        config_path=REPO_CONFIG,
+    )
+
+    assert (report.total, report.verified) == (1, 1)
+
+
+def test_bracketed_percentages_survive_normalization(tmp_path: Path) -> None:
+    """`[28, 62%]` is a reported figure, not a citation marker."""
+    _write_cache(
+        tmp_path / "references_cache",
+        "PMID_7490992.md",
+        "followed by neurological complications (cerebellar ataxia, myoclonus "
+        "[28, 62%]) in the fourth decade.",
+    )
+
+    report = _audit(
+        tmp_path,
+        [
+            (
+                "PMID:7490992",
+                (
+                    "neurological complications (cerebellar ataxia, myoclonus "
+                    "[28, 62%]) in the fourth decade"
+                ),
+            )
+        ],
+        config_path=REPO_CONFIG,
+    )
+
+    assert (report.total, report.verified) == (1, 1)
+
+
+def test_citation_markers_and_editorial_glosses_are_still_stripped(
+    tmp_path: Path,
+) -> None:
+    """The narrowing must not cost the feature bracket stripping exists for.
+
+    Inline numeric citation markers and curator glosses are absent from the
+    source text by definition, so both have to keep being dropped. The gloss
+    examples are the ones actually curated in kb/ today.
+    """
+    index = _repo_index(tmp_path / "references_cache")
+    for citation_marker in ("12", "3,4", "111 - 113", "9-11"):
+        assert not index.is_literal_bracket(citation_marker)
+    for gloss in ("IL-6", "sic, correct designation is R501X", "of dimethyltryptamine"):
+        assert not index.is_literal_bracket(gloss)
+    for source_text in ("APTT", "GERD", "RR", "CI", "DTI", "28, 62%", "95% CI 1.2-2.3"):
+        assert index.is_literal_bracket(source_text)
+
+    _write_cache(
+        tmp_path / "references_cache",
+        "PMID_123.md",
+        "Filaggrin variants predispose to atopic dermatitis.",
+    )
+    report = _audit(
+        tmp_path,
+        [("PMID:123", "Filaggrin variants [FLG, previously reported] predispose")],
+        config_path=REPO_CONFIG,
+    )
+
+    assert (report.total, report.verified) == (1, 1)
+
+
+def test_a_stripped_bracket_names_itself_as_the_cause_of_a_mismatch(
+    tmp_path: Path,
+) -> None:
+    """Do not report "not found as substring" when stripping is the reason.
+
+    That message means "the curator paraphrased", which is the one diagnosis
+    this failure is not. When the quote matches the cache with its brackets
+    kept, say which span was dropped and where the knob lives.
+    """
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir, "PMID_123.md", "the recurrence rate (relative risk [xRRx], 2.80)"
+    )
+    index = CachedReferenceIndex(cache_dir)  # no literal patterns configured
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet="the recurrence rate (relative risk [xRRx], 2.80)",
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert outcome.outcome is not PairOutcome.ABSTRACT_ONLY
+    assert "[xRRx]" in outcome.reason
+    assert "literal_bracket_patterns" in outcome.reason
+
+
+def test_a_genuine_misquote_is_not_blamed_on_brackets(tmp_path: Path) -> None:
+    """The hint fires only when keeping the brackets would actually match."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(cache_dir, "PMID_123.md", ABSTRACT)
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet="Vici syndrome is caused by [dominant] mutations in EPG5",
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert "literal_bracket_patterns" not in outcome.reason
+
+
+def test_the_hint_names_the_culprit_when_a_gloss_shares_the_snippet(
+    tmp_path: Path,
+) -> None:
+    """A gloss and a source-text bracket can sit in one snippet.
+
+    Requiring every stripped span to be restorable would go silent here, which
+    is the case a curator most needs named: one bracket is correctly stripped
+    (the curator wrote it) and the other is source text the config does not yet
+    keep. Only the second is the culprit, and only it should be reported.
+    """
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir,
+        "PMID_123.md",
+        "The recurrence rate (relative risk [xRRx], 2.80) was higher.",
+    )
+    index = CachedReferenceIndex(cache_dir)  # no literal patterns configured
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet=(
+            "The recurrence rate [after curettage] (relative risk [xRRx], 2.80) "
+            "was higher."
+        ),
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert "[xRRx]" in outcome.reason
+    assert "[after curettage]" not in outcome.reason
+
+
+def test_the_hint_reads_as_a_sentence_with_two_culprits(tmp_path: Path) -> None:
+    """Two dropped spans should read '[A] and [B] are kept', not '[A], [B] is'."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(cache_dir, "PMID_123.md", "the rate [xAx] rose and [xBx] fell.")
+    index = CachedReferenceIndex(cache_dir)  # no literal patterns configured
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet="the rate [xAx] rose and [xBx] fell.",
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert "[xAx] and [xBx] are kept" in outcome.reason

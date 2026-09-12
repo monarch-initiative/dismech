@@ -66,14 +66,11 @@ def test_grouping_count_matches_grouping_files(metrics):
 def test_homepage_stat_spans_are_wired_to_search_metrics():
     """Every stat span in index.html must have a matching setStat() JS hook."""
     html = (REPO_ROOT / "index.html").read_text()
-    # stat-groupings is intentionally absent: total_groupings is emitted in
-    # searchMetrics for completeness, but the homepage has no groupings card
-    # (groupings have their own page). If a groupings card is ever added, add
-    # "stat-groupings" here so a missing setStat wiring is caught.
     for stat_class in (
         "stat-research-reports",
         "stat-classifications",
         "stat-comorbidities",
+        "stat-groupings",
     ):
         assert f'class="{stat_class}"' in html, f"missing span for {stat_class}"
         assert f"setStat('.{stat_class}'" in html, f"missing setStat for {stat_class}"
