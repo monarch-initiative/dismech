@@ -35,6 +35,11 @@ unrefreshed; their probability scores still predate the correction. See the
 ADan amyloidosis, CANVAS, and cblE ties to namespace non-equivalence assumptions,
 then compare source definitions, merge history, and primary evidence.
 
+[Residual low-confidence triage](remaining-low-confidence/README.md) identifies
+11 current ties and two 0.7 results. Gorlin syndrome, PRAAS, and TPMT deficiency
+are the clearest family/subtype mapping corrections to review; complete
+alternative assignments and source context are recorded for all thirteen.
+
 ## Layout
 
 ```
