@@ -619,6 +619,114 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
     return QueueState(True, frozenset(numbers), truncated=truncated)
 
 
+# A PR that fails the queue twice running, with no push in between, has had
+# the same build repeated on the same content. One failure is not evidence of
+# guilt (see EjectionMemory); two, unchanged, is enough to stop retrying.
+EJECTION_STRIKE_LIMIT = 2
+
+
+@dataclass(frozen=True)
+class EjectionMemory:
+    """Whether prior queue ejections should stop this PR re-entering now.
+
+    The merge queue ejects a PR when the group containing it fails, but that
+    ejection is invisible to eligibility: the PR stays open and approved, so
+    the next sweep re-enqueues it, it fails again, and the cycle repeats. PR
+    #9852 did exactly that three times in fifteen hours, and because the queue
+    builds speculatively each cycle also failed every stack behind it -- about
+    three hours of queue throughput and a dozen builds (#10988).
+
+    An ejection does NOT imply the PR is at fault, so this deliberately does
+    not judge a single one. Three causes were observed in one 24-hour window:
+    the PR's own content failing (#9852), a PR *ahead* of it poisoning the
+    speculative stack (#9996 and five others behind #10142), and a third-party
+    outage (#10677/#10700/#10727, EBI read timeouts the validator itself calls
+    "not a data error"). Blocking on one ejection would mostly block innocents.
+
+    What distinguishes them is repetition against unchanged content. Collateral
+    and infrastructure failures do not reproduce once the queue has moved on;
+    a defect in the PR itself does. So the rule counts ``failed_checks``
+    ejections that happened *after* the head commit was last written: reaching
+    ``strike_limit`` holds the PR back. The count is keyed on the head
+    commit's ``committedDate``: rewriting the head (a push, amend, rebase or
+    a merge of the base branch) moves that date past the earlier removals and
+    resets the count to zero, because the content under test has changed.
+
+    Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
+    -- it is the queue's own temporary merge commit, and compares as diverged
+    from ``main`` -- so it cannot be used to detect base movement. Verified
+    against the #9852 events on 2026-09-04.
+    """
+
+    blocked: bool
+    strikes: int = 0
+    reason: str = ""
+
+
+def ejection_memory(
+    repo: str, number: int, strike_limit: int = EJECTION_STRIKE_LIMIT
+) -> EjectionMemory:
+    """Count unchanged-content queue failures for one PR."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$number){"
+        "commits(last:1){nodes{commit{committedDate}}} "
+        "timelineItems(last:20,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT])"
+        "{nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-F", f"number={number}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except subprocess.CalledProcessError as exc:
+        # Fail open: a lookup failure must not hold back a ready PR.
+        print(f"WARN  #{number}: could not read ejection history: "
+              f"{_gh_error(exc)}", file=sys.stderr)
+        return EjectionMemory(False)
+    except (OSError, ValueError) as exc:
+        print(f"WARN  #{number}: could not read ejection history: {exc}",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    if not isinstance(data, dict):
+        return EjectionMemory(False)
+    pr = ((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
+    commits = ((pr.get("commits") or {}).get("nodes")) or []
+    head_written = ""
+    if commits and isinstance(commits[0], dict):
+        head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+    if not head_written:
+        # Without the head's write time a strike cannot be attributed to the
+        # current content, so fail open rather than hold on a guess.
+        print(f"WARN  #{number}: no head commit date; not applying an "
+              "ejection hold", file=sys.stderr)
+        return EjectionMemory(False)
+    nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
+    strikes = 0
+    latest = ""
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("reason") != "failed_checks":
+            continue
+        when = str(node.get("createdAt") or "")
+        # ISO-8601 UTC strings from GitHub compare correctly as text.
+        if when <= head_written:
+            continue  # predates the current content; a push has since reset it
+        strikes += 1
+        latest = max(latest, when)
+    if strike_limit <= 0 or strikes < strike_limit:
+        return EjectionMemory(False, strikes)
+    return EjectionMemory(
+        True,
+        strikes,
+        f"failed the merge queue {strikes} times since its head commit was "
+        f"last written (most recently {latest}); push a fix to retry",
+    )
+
+
 def merge_pr(
     repo: str,
     number: int,
@@ -819,6 +927,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--ejection-strike-limit",
+        type=non_negative_int,
+        default=EJECTION_STRIKE_LIMIT,
+        help=(
+            "hold a PR after this many merge-queue failures with no push in "
+            "between (0 disables the hold)"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="report what would be merged without merging or commenting",
@@ -964,6 +1081,18 @@ def main(argv: list[str] | None = None) -> int:
         if not decision.eligible:
             print(f"SKIP  #{number}: {decision.reason}")
             skipped.append({"number": number, "reason": decision.reason})
+            continue
+
+        # Before the draft transition, not after: a held PR that is a draft
+        # would otherwise be marked ready, skipped, and re-drafted on every
+        # run for as long as the hold lasts -- and a failing re-draft would
+        # turn the run red over a PR the sweep never intended to touch.
+        # Checked here rather than per candidate, so it costs one extra read
+        # per run.
+        memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
+        if memory.blocked:
+            print(f"SKIP  #{number}: {memory.reason}")
+            skipped.append({"number": number, "reason": memory.reason})
             continue
 
         was_draft = bool(fresh.get("isDraft"))
