@@ -1,46 +1,51 @@
 
  ## dismech-Familial_Hyperaldosteronism
- * 1159 combinations
- * 1152 satisfiable combinations
- * 1.0 proportion of combinations explored
- * 0.03125 confidence
- * 0.00600691763 prior probability
- * 0.000144522556 posterior probability
+ * 303 combinations
+ * 298 satisfiable combinations
+ * 0.625000000136 proportion of combinations explored
+ * 0.9 confidence
+ * 0.074881634481 prior probability
+ * 0.288878542607 posterior probability
+ * Search timed out (exceeded time limit)
 Grounding:
- * True dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) ≡ MONDO:0016525 (familial hyperaldosteronism) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) ⊆ MONDO:0016525 (familial hyperaldosteronism) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0016525 (familial hyperaldosteronism) ⊆ dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0016525 (familial hyperaldosteronism) ≡ DOID:0061247 :: prior: 0.95 posterior: 0.95
- * True MONDO:0016525 (familial hyperaldosteronism) ≡ MESH:C580087 :: prior: 0.95 posterior: 0.95
- * True MONDO:0016525 (familial hyperaldosteronism) ≡ NCIT:C127160 :: prior: 0.95 posterior: 0.95
- * True MONDO:0016525 (familial hyperaldosteronism) ≡ ORDO:235936 :: prior: 0.95 posterior: 0.487179487179
- * False MONDO:0016525 (familial hyperaldosteronism) ≡ ORDO:371861 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0016525 (familial hyperaldosteronism) ≡ icd11f:1586992015 :: prior: 0.95 posterior: 0.95
- * True dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) ≡ MONDO:0007080 (glucocorticoid-remediable aldosteronism) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) ⊆ MONDO:0007080 (glucocorticoid-remediable aldosteronism) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0007080 (glucocorticoid-remediable aldosteronism) ⊆ dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ DOID:14080 :: prior: 0.95 posterior: 0.95
- * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ ICD10CM:E26.02 :: prior: 0.95 posterior: 0.95
- * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ MESH:C563177 :: prior: 0.95 posterior: 0.95
- * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ OMIM:103900 :: prior: 0.95 posterior: 0.95
- * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ ORDO:403 :: prior: 0.95 posterior: 0.95
- * True dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) ≡ MONDO:0011576 (familial hyperaldosteronism type II) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) ⊆ MONDO:0011576 (familial hyperaldosteronism type II) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0011576 (familial hyperaldosteronism type II) ⊆ dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ DOID:0061249 :: prior: 0.95 posterior: 0.95
- * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ MESH:C565312 :: prior: 0.95 posterior: 0.95
- * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ NCIT:C127162 :: prior: 0.95 posterior: 0.95
- * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ OMIM:605635 :: prior: 0.95 posterior: 0.95
- * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ ORDO:404 :: prior: 0.95 posterior: 0.95
- * True dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) ≡ MONDO:0013359 (familial hyperaldosteronism type III) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) ⊆ MONDO:0013359 (familial hyperaldosteronism type III) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0013359 (familial hyperaldosteronism type III) ⊆ dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ DOID:0061248 :: prior: 0.95 posterior: 0.95
- * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ OMIM:613677 :: prior: 0.95 posterior: 0.95
- * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ ORDO:251274 :: prior: 0.95 posterior: 0.95
- * True dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) ≡ MONDO:0014875 (hyperaldosteronism, familial, type IV) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) ⊆ MONDO:0014875 (hyperaldosteronism, familial, type IV) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0014875 (hyperaldosteronism, familial, type IV) ⊆ dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ DOID:0061250 :: prior: 0.95 posterior: 0.95
- * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ OMIM:617027 :: prior: 0.95 posterior: 0.95
- * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ ORDO:642671 :: prior: 0.95 posterior: 0.95
+ * True dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) ≡ MONDO:0016525 (familial hyperaldosteronism) :: prior: 0.9 posterior: 0.992862389923
+ * False dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) ⊂ MONDO:0016525 (familial hyperaldosteronism) :: prior: 0.07 posterior: 0.00241594958
+ * False MONDO:0016525 (familial hyperaldosteronism) ⊂ dismech:Familial_Hyperaldosteronism (familial hyperaldosteronism (dismech entry)) :: prior: 0.03 posterior: 0.001155258736
+ * True dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) ≡ MONDO:0007080 (glucocorticoid-remediable aldosteronism) :: prior: 0.9 posterior: 0.964383423721
+ * False dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) ⊂ MONDO:0007080 (glucocorticoid-remediable aldosteronism) :: prior: 0.07 posterior: 0.00241594958
+ * False MONDO:0007080 (glucocorticoid-remediable aldosteronism) ⊂ dismech:Familial_Hyperaldosteronism#Type I (familial hyperaldosteronism / Type I (dismech subtype)) :: prior: 0.03 posterior: 0.001103010854
+ * True dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) ≡ MONDO:0011576 (familial hyperaldosteronism type II) :: prior: 0.9 posterior: 0.964383423721
+ * False dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) ⊂ MONDO:0011576 (familial hyperaldosteronism type II) :: prior: 0.07 posterior: 0.00241594958
+ * False MONDO:0011576 (familial hyperaldosteronism type II) ⊂ dismech:Familial_Hyperaldosteronism#Type II (familial hyperaldosteronism / Type II (dismech subtype)) :: prior: 0.03 posterior: 0.001103010854
+ * True dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) ≡ MONDO:0013359 (familial hyperaldosteronism type III) :: prior: 0.9 posterior: 0.964383423721
+ * False dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) ⊂ MONDO:0013359 (familial hyperaldosteronism type III) :: prior: 0.07 posterior: 0.00241594958
+ * False MONDO:0013359 (familial hyperaldosteronism type III) ⊂ dismech:Familial_Hyperaldosteronism#Type III (familial hyperaldosteronism / Type III (dismech subtype)) :: prior: 0.03 posterior: 0.001103010854
+ * True dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) ≡ MONDO:0014875 (hyperaldosteronism, familial, type IV) :: prior: 0.9 posterior: 0.964383423721
+ * False dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) ⊂ MONDO:0014875 (hyperaldosteronism, familial, type IV) :: prior: 0.07 posterior: 0.00241594958
+ * False MONDO:0014875 (hyperaldosteronism, familial, type IV) ⊂ dismech:Familial_Hyperaldosteronism#Type IV (familial hyperaldosteronism / Type IV (dismech subtype)) :: prior: 0.03 posterior: 0.001103010854
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ DOID:0061247 :: prior: 0.95 posterior: 0.97797113226
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ MESH:C580087 (Familial Hyperaldosteronism) :: prior: 0.95 posterior: 0.958923033283
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ NCIT:C127160 (Familial Hyperaldosteronism) :: prior: 0.95 posterior: 0.958889899912
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ ORDO:235936 (Familial hyperaldosteronism) :: prior: 0.95 posterior: 0.965998394969
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ ORDO:371861 (Genetic hyperaldosteronism) :: prior: 0.95 posterior: 0.978365075589
+ * True MONDO:0016525 (familial hyperaldosteronism) ≡ icd11f:1586992015 (Familial hyperaldosteronism) :: prior: 0.95 posterior: 0.978453625689
+ * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ DOID:14080 (glucocorticoid-remediable aldosteronism) :: prior: 0.95 posterior: 0.978320625539
+ * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ ICD10CM:E26.02 (Glucocorticoid-remediable aldosteronism) :: prior: 0.95 posterior: 0.97746720791
+ * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ MESH:C563177 (Glucocorticoid-Remediable Aldosteronism) :: prior: 0.95 posterior: 0.979739643807
+ * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ OMIM:103900 (hyperaldosteronism, familial,  iia 1) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0007080 (glucocorticoid-remediable aldosteronism) ≡ ORDO:403 (Familial hyperaldosteronism type I) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ DOID:0061249 :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ MESH:C565312 (Hyperaldosteronism, Familial, Type II) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ NCIT:C127162 (Familial Hyperaldosteronism Type 2) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ OMIM:605635 (hyperaldosteronism, familial,  iia 2) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0011576 (familial hyperaldosteronism type II) ≡ ORDO:404 (Familial hyperaldosteronism type II) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ DOID:0061248 :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ OMIM:613677 (hyperaldosteronism, familial,  iia 3) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0013359 (familial hyperaldosteronism type III) ≡ ORDO:251274 (Familial hyperaldosteronism type III) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ DOID:0061250 :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ OMIM:617027 (hyperaldosteronism, familial,  iia 4) :: prior: 0.95 posterior: 0.980581978091
+ * True MONDO:0014875 (hyperaldosteronism, familial, type IV) ≡ ORDO:642671 (Familial hyperaldosteronism type IV) :: prior: 0.95 posterior: 0.979646051109
+ * True ORDO:251274 (Familial hyperaldosteronism type III) ⊂ ICD10:E26.0 (Primary hyperaldosteronism) :: prior: 0.9 posterior: 0.958902406305
+ * True ORDO:403 (Familial hyperaldosteronism type I) ⊂ ICD10:E26.0 (Primary hyperaldosteronism) :: prior: 0.9 posterior: 0.956926560454
+ * True ORDO:404 (Familial hyperaldosteronism type II) ⊂ ICD10:E26.0 (Primary hyperaldosteronism) :: prior: 0.9 posterior: 0.956926560454
+ * True ORDO:642671 (Familial hyperaldosteronism type IV) ⊂ ICD10:E26.0 (Primary hyperaldosteronism) :: prior: 0.9 posterior: 0.956562760383
