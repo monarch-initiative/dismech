@@ -90224,6 +90224,89 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Deoxyhypusine Synthase Deficiency",
+    "disease_id": "MONDO:0032775",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of polyamine metabolism",
+      "Mendelian neurodevelopmental disorder",
+      "Autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-11T11:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Deoxyhypusine synthase deficiency is an ultra-rare autosomal recessive neurodevelopmental disorder caused by biallelic hypomorphic DHPS variants. It presents as a static encephalopathy with global developmental delay, intellectual disability and seizures, with variable hypotonia, microcephaly, short stature and mild facial dysmorphism.\nWhat makes it mechanistically unusual is the narrowness of the enzyme's job. DHPS catalyses the first committed step in making hypusine, an amino acid that exists in exactly one cellular protein: eukaryotic translation initiation factor 5A. Hypusination is what activates eIF5A, and eIF5A - despite its name - works mainly in translation elongation, stabilising peptidyl-tRNA on the ribosome so that stalling motifs such as polyproline runs can be read through. So a single missing post-translational modification on a single protein produces a disease of the developing brain.\nEvery reported patient carries a hypomorphic combination, and that is a structural feature rather than ascertainment bias: Dhps-null mice are embryonic lethal, so complete loss of function cannot produce a living patient. All five individuals in the founding cohort shared the same recurrent missense allele, p.Asn173Ser, which retains roughly a fifth of normal activity, in trans with a near-null second allele.\nThe disorder sits in a small family of conditions that converge on the same molecule: biallelic DOHH variants disable the second hypusination step, and heterozygous EIF5A variants disable the substrate itself, both producing a similar neurodevelopmental phenotype. It is also one of the polyaminopathies, which is how it relates to Bachmann-Bupp syndrome - an ODC1 gain-of-function disorder dismech already carries, upstream in polyamine metabolism but phenotypically distinct.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic DHPS Variants",
+      "Reduced Deoxyhypusine Synthase Activity",
+      "Reduced Hypusination of eIF5A",
+      "Impaired eIF5A-Dependent Translation Elongation",
+      "Altered Expression of Proteins Required for Neuronal Development",
+      "Impaired Neurite Outgrowth and Neuronal Survival",
+      "Reduced GABAergic Interneuron Arborization"
+    ],
+    "cell_types": [
+      "neuron",
+      "GABAergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000617"
+    ],
+    "biological_processes": [
+      "peptidyl-hypusine biosynthetic process",
+      "translational elongation"
+    ],
+    "phenotypes": [
+      "Hypotonia",
+      "Global developmental delay",
+      "Seizure",
+      "Intellectual disability",
+      "Abnormal facial shape",
+      "Microcephaly",
+      "Short stature"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0000252",
+      "HP:0004322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DHPS"
+    ],
+    "treatments": [
+      "AAV9-delivered DHPS gene replacement (preclinical)",
+      "Anti-seizure medication",
+      "Developmental and rehabilitative therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Deoxyhypusine_Synthase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Deoxyhypusine_Synthase_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Dermatofibrosarcoma Protuberans",
     "disease_id": "MONDO:0011934",
     "category": "",
@@ -110917,18 +111000,23 @@ window.searchData = [
       "FHM2",
       "FHM3"
     ],
-    "description": "Familial hemiplegic migraine (FHM) is a rare autosomal dominant subtype of migraine with aura in which the aura obligatorily includes fully reversible motor weakness (hemiparesis) alongside visual, sensory, or language symptoms, in a proband with at least one affected first- or second-degree relative. Three genes encoding ion-transport proteins define the classical molecular subtypes - CACNA1A (Cav2.1, FHM1), ATP1A2 (astrocytic Na+/K+-ATPase alpha2, FHM2) and SCN1A (Nav1.1, FHM3) - and PRRT2 is now recognized as a fourth hemiplegic-migraine gene. The unifying mechanistic claim is that these ion transport defects lower the threshold for cortical spreading depression, the propagating wave of neuronal and glial depolarization that produces the hemiparetic aura. FHM has served as a Mendelian model for migraine aura biology more generally.",
+    "description": "Familial hemiplegic migraine (FHM) is a rare autosomal dominant subtype of migraine with aura in which the aura obligatorily includes fully reversible motor weakness (hemiparesis) alongside visual, sensory, or language symptoms, in a proband with at least one affected first- or second-degree relative. Three genes encoding ion-transport proteins define the classical molecular subtypes - CACNA1A (Cav2.1, FHM1), ATP1A2 (astrocytic Na+/K+-ATPase alpha2, FHM2) and SCN1A (Nav1.1, FHM3) - and PRRT2 is now recognized as a fourth hemiplegic-migraine gene. Experimental models of the three classical ion-transport subtypes show facilitated cortical spreading depolarization, the leading physiological explanation for aura. The intervening route from PRRT2 loss to FHM attacks remains less resolved. FHM has served as a Mendelian model for migraine aura biology more generally.",
     "pathophysiology": [
       "Cav2.1 Calcium Channel Gain of Function",
       "Astrocytic Na+/K+-ATPase Alpha2 Loss of Function",
       "Nav1.1 Sodium Channel Gain of Function",
       "Increased Cortical Glutamatergic Excitability",
       "Impaired Astrocytic Glutamate and Potassium Clearance",
-      "GABAergic Interneuron Hyperactivity and Extracellular Potassium Accumulation",
-      "Reduced Cortical Spreading Depression Threshold",
-      "Reversible Hemiparetic Aura",
-      "Migraine Headache Phase",
-      "Prolonged Attacks with Cerebral Edema and Impaired Consciousness"
+      "Cortical Interneuron Hyperactivity",
+      "Facilitated Cortical Spreading Depolarization",
+      "Extracellular Potassium Accumulation",
+      "Meningeal Nociceptor Sensitization",
+      "Subcortical Spreading Depolarization",
+      "Purkinje Cell Firing Dysregulation",
+      "Cerebellar Neuronal Degeneration",
+      "Blood-Brain Barrier Disruption",
+      "Attack-Associated Neuronal Injury",
+      "Proposed Cytokine-Mediated Neuroinflammation"
     ],
     "cell_types": [
       "neuron",
@@ -110946,35 +111034,59 @@ window.searchData = [
       "glutamatergic synaptic transmission",
       "L-glutamate import across plasma membrane",
       "potassium ion transmembrane transport",
-      "GABAergic synaptic transmission",
       "cortical spreading depolarization"
     ],
     "phenotypes": [
       "Reversible Hemiparesis During Aura",
       "Migraine with Aura",
       "Headache",
-      "Visual Aura",
-      "Sensory Aura",
-      "Language Aura",
-      "Brainstem (Basilar-Type) Aura Symptoms",
+      "Paresthesia During Aura",
+      "Aphasia During Aura",
       "Vertigo During Aura",
       "Tinnitus During Aura",
       "Dysarthria",
       "Cerebellar Ataxia",
       "Nystagmus",
       "Seizures",
-      "Impaired Consciousness and Coma",
+      "Coma",
       "Cerebral Edema",
       "Fever During Severe Attacks",
-      "Intellectual Disability"
+      "Intellectual Disability",
+      "Scotoma During Aura",
+      "Photopsia During Aura",
+      "Diplopia During Aura",
+      "Hypoesthesia During Aura",
+      "Hyperacusis During Aura",
+      "Ataxia During Aura",
+      "Drowsiness During Attacks",
+      "Confusion During Attacks",
+      "Cerebellar Atrophy",
+      "Memory Impairment",
+      "Learning Disability",
+      "Attack-Associated Psychosis",
+      "Attack-Associated Anxiety",
+      "Visual Hallucinations",
+      "Nausea",
+      "Vomiting",
+      "Photophobia",
+      "Phonophobia",
+      "Dysdiadochokinesis",
+      "Lower Limb Dysmetria",
+      "Positive Romberg Sign",
+      "Progressive Cognitive Deterioration",
+      "Increased Serum Interleukin 6",
+      "Increased Serum Interleukin 18"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Constitutional"
+      "Constitutional",
+      "Laboratory"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Ear",
       "Eye",
+      "Immune",
       "Metabolism",
       "Nervous System"
     ],
@@ -110982,23 +111094,45 @@ window.searchData = [
       "HP:0001269",
       "HP:0002077",
       "HP:0002315",
-      "HP:0000504",
       "HP:0003401",
       "HP:0002381",
       "HP:0002321",
       "HP:0000360",
       "HP:0001260",
-      "HP:0001251",
+      "HP:0002073",
       "HP:0000639",
       "HP:0001250",
       "HP:0001259",
       "HP:0002181",
       "HP:0001945",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0000575",
+      "HP:0030786",
+      "HP:0000651",
+      "HP:0033748",
+      "HP:0010780",
+      "HP:0001251",
+      "HP:0002329",
+      "HP:0001289",
+      "HP:0001272",
+      "HP:0002354",
+      "HP:0001328",
+      "HP:0000709",
+      "HP:0000739",
+      "HP:0002367",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0000613",
+      "HP:0002183",
+      "HP:0002075",
+      "HP:0020035",
+      "HP:0002403",
+      "HP:0001268",
+      "HP:0030783",
+      "HP:0034447"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "CACNA1A",
@@ -111026,11 +111160,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Familial_Hemiplegic_Migraine.yaml",
     "page_url": "../pages/disorders/Familial_Hemiplegic_Migraine.html",
-    "num_phenotypes": 17,
-    "num_pathophysiology": 10,
+    "num_phenotypes": 39,
+    "num_pathophysiology": 15,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "52",
     "causal_graph_longest_path": "6"
   },
   {
@@ -118439,6 +118573,97 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "GALNT2-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0030043",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-09-11T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A recessive congenital disorder of glycosylation caused by loss of function of GALNT2, which encodes GalNAc-T2, one of twenty isoenzymes that initiate mucin-type O-linked glycosylation in the Golgi. Patients have global developmental delay, intellectual disability with a disproportionate language deficit, autistic features, epilepsy, chronic insomnia, white matter change on MRI, dysmorphic features, short stature, and strikingly low HDL cholesterol.\nTwo features make this disease unusual among the CDGs and shaped this entry.\nThe first is that the twenty GalNAc-T isoenzymes overlap heavily in substrate range, so losing one of them should in principle be buffered. What makes GALNT2-CDG a disease is the small set of substrates for which GalNAc-T2 is *not* redundant. Apolipoprotein C-III is the best characterised of those, and its complete loss of O-glycosylation in every reported patient is what turns an enzyme deficiency into a measurable biochemical phenotype. The entry is built around that non-redundancy rather than around a general loss of O-glycosylation, because the general loss does not occur.\nThe second is that apoC-III is a biomarker of the enzyme defect, not the cause of the neurological disease. The low HDL is downstream of apoC-III hypoglycosylation; the developmental phenotype is not. Which brain substrate carries the neurological phenotype is unknown, and the entry records that as a knowledge gap rather than implying that the lipid arm explains the disease. Keeping those two arms separate is the main curation decision here.\nA third point is worth stating because it affects how the evidence should be read. The GALNT2 locus is one of the best-replicated common-variant HDL loci in human genetics, so there is a large literature associating GALNT2 with lipid traits in the general population. That literature is about common regulatory variation with small effects, not about this disease. It is cited here only where it establishes the same enzyme-substrate relationship, and is labelled as population-genetic evidence.",
+    "pathophysiology": [
+      "Biallelic GALNT2 Loss-of-Function",
+      "Loss of GalNAc-T2 Initiation of Mucin-Type O-Glycosylation",
+      "Loss of O-Glycosylation at Non-Redundant GalNAc-T2 Sites",
+      "ApoC-III Hypoglycosylation and Altered Lipoprotein Metabolism",
+      "Insulin Receptor Hypoglycosylation and Altered Energy Homeostasis",
+      "Neurodevelopmental Dysfunction",
+      "Decreased HDL Cholesterol"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "initiation of mucin-type O-glycosylation"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability with Language Deficit",
+      "Delayed Speech and Language Development",
+      "Autistic Features",
+      "Epilepsy",
+      "Chronic Insomnia",
+      "White Matter Changes on Brain MRI",
+      "Short Stature",
+      "Dysmorphic Features",
+      "Decreased HDL Cholesterol"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Craniofacial",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0100785",
+      "HP:0002500",
+      "HP:0004322",
+      "HP:0001999",
+      "HP:0003233"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GALNT2"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Developmental and Educational Support",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GALNT2-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/GALNT2-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "GATA2 Deficiency",
@@ -152678,6 +152903,120 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Immunodeficiency 82 With Systemic Inflammation",
+    "disease_id": "MONDO:0030308",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of immunity",
+      "Monogenic autoinflammatory disease"
+    ],
+    "creation_date": "2026-09-12T13:35:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A monoallelic gain-of-function disorder of SYK, the spleen tyrosine kinase, presenting in the first weeks of life with colitis, arthritis, dermatitis and systemic inflammation alongside an immune deficiency, and carrying a risk of diffuse large B cell lymphoma.\nTwo things make this entry unusual and both are worth stating up front.\nFirst, the direction of the lesion is counter-intuitive. SYK sits immediately downstream of ITAM-bearing immunoreceptors in mononuclear phagocytes and B cells, and one would expect a hyperactive kinase to produce inflammation alone. It produces inflammation and immunodeficiency together, with reduced memory B cells and low immunoglobulins. The entry curates that as two branches from one node rather than picking the half that fits the intuition.\nSecond, this is the mirror image of the ZAP70 disease already in the knowledge base. ZAP70 and SYK are the two tandem-SH2 kinases recruited to phosphorylated ITAMs; ZAP70 acts in T and NK cells, SYK in mononuclear phagocytes and B cells. Biallelic loss of ZAP70 gives a selective T cell defect. Monoallelic gain of SYK gives this. The pairing is a genuine structural fact about the pathway and is recorded in the genetic notes.\nThe evidence base is narrow and this entry does not disguise that. The disease was defined by a single 2021 report of six patients across several families, which also built the knock-in mouse. Almost every mechanistic claim here traces to that one paper. Where a claim rests on the mouse rather than on patients, the evidence item says so through evidence_source: MODEL_ORGANISM, and the treatments section is explicit that SYK inhibition and bone marrow transplantation were shown in mice and not in a human trial.\nThe gain-of-function is recorded in two places because they are two different claims, per the CLAUDE.md rule: functional_impact_category: GAIN_OF_FUNCTION on the variant's genetic_context, and modifier: GAIN_OF_FUNCTION on the kinase activity descriptor. The latter is the qualitative choice rather than INCREASED, because the variants remove the kinase from its normal autoinhibitory constraint rather than merely raising its level.\nNo pathophysiology node declares conforms_to. kb/modules/ was searched; no module covers ITAM-proximal kinase hyperactivation.",
+    "pathophysiology": [
+      "Monoallelic SYK Gain-of-Function Variants",
+      "Constitutive SYK Kinase Hyperactivation",
+      "Multi-Organ Inflammatory Disease",
+      "Impaired Humoral Immunity",
+      "B Cell Lymphomagenesis"
+    ],
+    "cell_types": [
+      "mononuclear phagocyte",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000113",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "immune response-regulating cell surface receptor signaling pathway",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Colitis",
+      "Arthritis",
+      "Skin rash",
+      "Vasculitis",
+      "Diarrhea",
+      "Fever",
+      "Anal fistula",
+      "Failure to thrive",
+      "Elevated circulating C-reactive protein concentration",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgM concentration",
+      "Recurrent infections",
+      "B-cell lymphoma",
+      "Pulmonary inflammation",
+      "Neuroinflammation",
+      "Hepatic granulomatosis"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Vascular",
+      "Constitutional",
+      "Laboratory",
+      "Immunologic",
+      "Neoplasm",
+      "Respiratory",
+      "Neurologic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002583",
+      "HP:0001369",
+      "HP:0000988",
+      "HP:0002633",
+      "HP:0002014",
+      "HP:0001945",
+      "HP:0010447",
+      "HP:0001508",
+      "HP:0011227",
+      "HP:0004315",
+      "HP:0002850",
+      "HP:0002719",
+      "HP:0012191",
+      "HP:0033429",
+      "HP:0011955"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SYK"
+    ],
+    "treatments": [
+      "SYK kinase inhibition",
+      "Allogeneic hematopoietic cell transplantation",
+      "Haematological malignancy surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_82_With_Systemic_Inflammation.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_82_With_Systemic_Inflammation.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Immunodeficiency 85 and Autoimmunity",
@@ -302519,17 +302858,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2915,
+  "total_disorder_pages": 2918,
   "total_subtypes": 3728,
-  "total_disorders_and_subtypes": 6643,
-  "total_unique_evidence_sources": 41027,
-  "total_unique_publications": 38668,
+  "total_disorders_and_subtypes": 6646,
+  "total_unique_evidence_sources": 41050,
+  "total_unique_publications": 38690,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2910,
-  "total_unique_pathological_events": 17568,
+  "total_pathographs": 2913,
+  "total_unique_pathological_events": 17589,
   "total_modules": 174,
-  "total_research_reports": 3039,
+  "total_research_reports": 3042,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
