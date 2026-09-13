@@ -21,6 +21,7 @@ correct everywhere and merely slower.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any
 
@@ -31,7 +32,13 @@ try:  # pragma: no cover - exercised implicitly wherever YAML is loaded
 except ImportError:  # pragma: no cover - only when libyaml is not built
     from yaml import SafeLoader  # type: ignore[assignment]
 
-__all__ = ["HAVE_LIBYAML", "SafeLoader", "safe_load", "safe_load_path"]
+__all__ = [
+    "HAVE_LIBYAML",
+    "SafeLoader",
+    "find_duplicate_keys",
+    "safe_load",
+    "safe_load_path",
+]
 
 #: Whether the fast libyaml-backed loader is in use. Informational only — callers
 #: get correct results either way.
@@ -51,3 +58,42 @@ def safe_load_path(path: str | Path, encoding: str = "utf-8") -> Any:
     default the way a bare ``read_text()`` does.
     """
     return safe_load(Path(path).read_text(encoding=encoding))
+
+
+def _walk_nodes(node: Any, path: str) -> Iterator[tuple[str, str, int]]:
+    """Yield ``(path, key, line)`` for every duplicated key at or below ``node``."""
+    if isinstance(node, yaml.MappingNode):
+        seen: set[str] = set()
+        for key_node, value_node in node.value:
+            raw = getattr(key_node, "value", None)
+            # A scalar key composes to a str. A YAML *complex* key (``? [a, b]``)
+            # composes to a sequence/mapping node whose value is a list, which is
+            # unhashable — fall back to its repr so an exotic document cannot
+            # crash a check that runs over the whole corpus on every build.
+            key = raw if isinstance(raw, str) else repr(raw)
+            if key in seen:
+                yield (path or "<document root>", key, key_node.start_mark.line + 1)
+            seen.add(key)
+            yield from _walk_nodes(value_node, f"{path}.{key}" if path else key)
+    elif isinstance(node, yaml.SequenceNode):
+        for index, child in enumerate(node.value):
+            yield from _walk_nodes(child, f"{path}[{index}]")
+
+
+def find_duplicate_keys(text: str) -> list[tuple[str, str, int]]:
+    """Return every duplicated mapping key in ``text`` as ``(path, key, line)``.
+
+    PyYAML's safe loaders — the ones the rest of this codebase uses — accept a
+    duplicated mapping key silently and keep the *last* value. That makes a
+    duplicate invisible to every test and renderer here, while the ruamel-backed
+    ``linkml-reference-validator`` rejects the same file outright.
+
+    The gap has teeth because duplicates arrive by *merge*, not by authoring: two
+    concurrent PRs each adding a ``classifications:`` block at a different point in
+    one file merge without a git conflict and produce a document no strict parser
+    will read. Both PRs pass their own CI; main goes red afterwards (issue #8623).
+
+    This composes the node tree rather than constructing objects, so it stays cheap
+    enough to run over the whole corpus.
+    """
+    return list(_walk_nodes(yaml.compose(text, Loader=SafeLoader), ""))

@@ -1,0 +1,47 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Heart_Failure
+  path: kb/disorders/Heart_Failure.yaml
+session:
+  id: 2026-08-22T144317Z-claude-code-c2a380
+  timestamp: '2026-08-22T14:43:17Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9244
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  summary: 'Review response: remove the rotting GO count from the node notes; correct
+    the prior record''s claim about kb/ content (PR #9244)'
+  details: |
+    Response to the fourth review on PR #9244, which requested changes on one blocking item. The reviewer is right, and this is the THIRD instance of the same error class in this PR - which is the part worth recording.
+
+    THE FINDING. The prior history record (2026-08-22T143316Z-claude-code-b521d7.yaml) states: "The YAML notes on the node do not state a count at all, so nothing in kb/ needed changing for this." THAT IS FALSE. kb/disorders/Heart_Failure.yaml line 228 contained the sentence "whereas search l~mineralocorticoid returns nine live GO terms" - the same wrong figure the record was written to correct - in the one location that is NOT append-only and therefore actually fixable. So the branch was shipping the erroneous count in curated content while the correction sat in a provenance record nobody is obliged to read. I wrote that sentence into the YAML one commit earlier and then, in the very next commit, asserted it did not exist, without grepping the file.
+
+    FIXED, and fixed the reviewer's way rather than by patching the number. The count is removed entirely rather than changed from nine to eleven. A count is a snapshot of one GO release and will rot; the lesson will not. The note now says the label-substring form returns the whole mineralocorticoid label family, GO:0031959 among them, and states explicitly that no count is given deliberately and why. Verified afterwards by grep that no stale count remains anywhere in kb/.
+
+    THE PATTERN, stated plainly because three instances in one PR is no longer a coincidence. Every one of these was a claim about a source made without looking at the whole source:
+
+      1. "No live GO term exists for the mineralocorticoid receptor." Drawn from a bare runoak search, which returns only exact matches. Produced a wrong ontology binding - GO:0003707 adopted as a workaround for a term that was there all along.
+      2. "The search returns nine live GO terms." Drawn from output that head -12 had truncated; the true figure is eleven. Produced a wrong number in a provenance record.
+      3. "The YAML notes state no count." Drawn from memory of what I had written rather than from the file. Left a known-false statement in curated content and asserted, in an append-only record, that it was not there.
+
+    The common shape is asserting completeness about something only partially inspected - an ontology queried with the wrong operator, a command output cut off by a pager, a file recalled instead of read. None of the three is visible to any validator in this repo, because validators check what IS present and correctly formed, not whether a prose claim about the world happens to be true. All three were caught by a reviewer. That is the control that worked; there is no automated one.
+
+    Records are append-only, so 2026-08-22T143316Z stands as written and this record carries the correction to it.
+
+    NOTED, NO ACTION. The reviewer also observed that the narrowed preferred_term "mineralocorticoid receptor signalling" is on firmer ground than the previous commit message claimed: GO registers "mineralocorticoid receptor signaling pathway" as a BROAD-scoped synonym of GO:0031959 itself, with "intracellular mineralocorticoid receptor signaling pathway" as the EXACT synonym. So the display string is one GO attaches to this term rather than a curator paraphrase. No change wanted, and none made.
+
+    PROCESS NOTE. The first attempt at writing this record was itself corrupted: the details were passed inline in a double-quoted shell string containing backticks, which the shell executed as command substitution and stripped, leaving gaps mid-sentence. Caught by reading the command output and grepping the generated file. That record was deleted before commit and regenerated from a quoted heredoc, which does not substitute. Recorded because it is the same lesson at the tooling level - check what the command actually produced rather than assuming it did what was intended.
+
+    Validation re-run after the edit: just validate (passed); just count-verified-snippets (45/45 verified, unchanged - this commit changes one prose paragraph and nothing else in kb/); grep confirms no "nine live GO terms" string remains anywhere in kb/. No cache changes: no term binding was touched.

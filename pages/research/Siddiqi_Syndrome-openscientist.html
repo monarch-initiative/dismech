@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siddiqi Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Siddiqi Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Siddiqi Syndrome</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0032842" target="_blank" rel="noopener noreferrer">MONDO:0032842</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">12 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Siddiqi syndrome is an autosomal recessive deafness–dystonia disorder caused by biallelic loss-of-function <em>FITM2</em> variants</h3>
+<p>The founding description (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>, Zazo Seco et al., 2017) identified a homozygous nonsense mutation <strong>c.4G&gt;T (p.Glu2*)</strong> in <em>FITM2</em> in a consanguineous Pakistani family using genetic linkage plus whole-exome sequencing. The authors noted that <em>"a homozygous nonsense mutation, c.4G&gt;T (p.Glu2*), in FITM2 was identified. FITM2 and its paralog FITM1 constitute an evolutionary conserved protein family involved in partitioning of triglycerides into cellular lipid droplets."</em> Independent replication reports subsequently confirmed that biallelic loss-of-function variants cause the syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/30288795/">PMID: 30288795</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30214770/">PMID: 30214770</a>).</p>
+<p>A 2026 review reaffirmed the nosology and rarity: <em>"Siddiqi syndrome is a rare autosomal recessive deafness-dystonia disorder caused by pathogenic variants in the FITM2 gene. To date, only 5 unrelated families have been reported in the literature carrying loss-of-function variants"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">PMID: 41758270</a>). <em>FITM2</em> maps to 20q13.12 and encodes an ER-resident six-transmembrane protein.</p>
+<h3>Finding 2 — <em>FITM2</em> encodes an ER acyl-CoA diphosphatase whose loss disrupts ER homeostasis</h3>
+<p>The molecular function of the FITM2 protein was resolved by Becuwe et al., 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/32915949/">PMID: 32915949</a>), who defined <em>"the molecular function of the evolutionarily conserved ER protein FIT2 as a fatty acyl-coenzyme A (CoA) diphosphatase that hydrolyzes fatty acyl-CoA to yield acyl 4'-phosphopantetheine. This activity of FIT2, which is predicted to be active in the ER lumen, is required in yeast and mammalian cells for maintaining ER structure, protecting against ER stress."</em></p>
+<p>In vivo confirmation came from Bond et al., 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/36805337/">PMID: 36805337</a>): <em>"hepatocyte-specific Fitm2 knockout (FIT2-LKO) mice fed a chow diet exhibited elevated acyl-CoA levels, ER stress, and signs of liver injury."</em> Earlier biochemical work established that FITM2 partitions triglyceride into lipid droplets by directly binding triglyceride but does <strong>not</strong> synthesize triacylglycerol (<a href="https://pubmed.ncbi.nlm.nih.gov/22106267/">PMID: 22106267</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20520733/">PMID: 20520733</a>). This dual role — enzymatic acyl-CoA turnover and physical lipid-droplet biogenesis — places FITM2 at the heart of ER lipid homeostasis.</p>
+<h3>Finding 3 — Disease identifiers and nosology</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (disease)</td>
+<td>#618635 (SIDDIQI SYNDROME; SIDDIS)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0032842" target="_blank" rel="noopener noreferrer">MONDO:0032842</a></td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0081273" target="_blank" rel="noopener noreferrer">DOID:0081273</a></td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td><em>FITM2</em> (<a href="https://bioregistry.io/HGNC:14929" target="_blank" rel="noopener noreferrer">HGNC:14929</a>; OMIM *612029; NCBI Gene 128486; UniProt Q8N6M3)</td>
+</tr>
+<tr>
+<td>Cytogenetic location</td>
+<td>20q13.12</td>
+</tr>
+<tr>
+<td>Synonym</td>
+<td>FITM2-related deafness–dystonia syndrome</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>No dedicated ORPHA code identified</td>
+</tr>
+<tr>
+<td>GTR condition</td>
+<td>C5231435</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The disease is <strong>ultra-rare</strong> — approximately 10 patients from 5 families in the original tallies, expanding to ~10–15 patients across ~7 families by 2026 (Pakistan, USA, Germany, China, Russia, plus Iranian and Spanish cases in 2025–2026). All information is <strong>aggregated from individual case reports</strong>, not derived from EHR-based cohorts or disease registries.</p>
+<h3>Finding 4 — Core phenotype: deafness–dystonia–developmental regression with growth failure and ichthyosis</h3>
+<p>The core, near-constant features (present in essentially all reported patients) are:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Progressive sensorineural hearing loss</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+<td>~100%</td>
+<td>Often the first sign; early-onset</td>
+</tr>
+<tr>
+<td>Global developmental delay / intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> / <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>~100%</td>
+<td></td>
+</tr>
+<tr>
+<td>Regression of motor skills</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" rel="noopener noreferrer">HP:0002376</a></td>
+<td>~100%</td>
+<td>e.g., loss of head control, sitting, walking</td>
+</tr>
+<tr>
+<td>Dystonia (generalized/truncal/limb)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a></td>
+<td>~100%</td>
+<td></td>
+</tr>
+<tr>
+<td>Poor growth / low BMI, weight/height/OFC &lt;3rd centile</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> / <a href="http://purl.obolibrary.org/obo/HP_0045082" target="_blank" rel="noopener noreferrer">HP:0045082</a></td>
+<td>~100%</td>
+<td>Growth failure</td>
+</tr>
+<tr>
+<td>Ichthyosis-like skin (esp. lower limbs)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a></td>
+<td>Variable</td>
+<td>Part of recognizable triad</td>
+</tr>
+<tr>
+<td>Sensory neuropathy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" rel="noopener noreferrer">HP:0000763</a></td>
+<td>Variable</td>
+<td></td>
+</tr>
+<tr>
+<td>Contractures / pes cavus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" rel="noopener noreferrer">HP:0001761</a></td>
+<td>Variable</td>
+<td></td>
+</tr>
+<tr>
+<td>Spastic paraplegia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" rel="noopener noreferrer">HP:0001258</a></td>
+<td>Variable</td>
+<td>Phenotype expansion</td>
+</tr>
+<tr>
+<td>Seizures; chronic diarrhea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Rare</td>
+<td>Only oldest Pakistani sibling</td>
+</tr>
+<tr>
+<td>Thalamic / red-nucleus MRI signal changes</td>
+<td>—</td>
+<td>Recent expansion</td>
+<td>T2-hyperintense/T1-hypointense</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The original description documented <em>"progressive locomotor impairment, hearing loss and disturbed sensory functions"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>). The Iranian sibling report emphasized the recurrent constellation of <em>"early-onset sensorineural hearing loss, severe generalized dystonia, growth failure, and ichthyosis of the lower limbs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41113320/">PMID: 41113320</a>). The 2026 neuroradiological report added spastic paraplegia and novel MRI findings, describing a patient with <em>"deafness, intellectual disability, regression of motor skills and poor overall growth. Additionally, she presents with spastic paraplegia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">PMID: 41758270</a>). A <strong>recognizable clinical triad is deafness + dystonia + ichthyosis</strong>. In the index Pakistani family, motor regression began around 6 years of age with loss of head control, sitting, and walking by ~10 years.</p>
+<h3>Finding 5 — <em>FITM2</em> variant catalog: predominantly biallelic truncating, with some missense</h3>
+<p>Reported biallelic <em>FITM2</em> variants (reference transcript NM_001080472.1):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Family / origin</th>
+<th>Variant(s)</th>
+<th>Zygosity</th>
+<th>Type</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pakistani</td>
+<td>c.4G&gt;T, p.Glu2*</td>
+<td>Homozygous</td>
+<td>Nonsense</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a></td>
+</tr>
+<tr>
+<td>US</td>
+<td>c.39dupC p.Thr14Aspfs<em>138 / c.652C&gt;T p.Gln218</em></td>
+<td>Compound het</td>
+<td>Frameshift + nonsense</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30214770/">PMID: 30214770</a></td>
+</tr>
+<tr>
+<td>German</td>
+<td>c.694G&gt;A, p.Gly232Arg</td>
+<td>Homozygous</td>
+<td>Missense (TM domain)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30288795/">PMID: 30288795</a></td>
+</tr>
+<tr>
+<td>Russian (Lezgin)</td>
+<td>c.452A&gt;G, p.Asp151Gly</td>
+<td>Homozygous</td>
+<td>Missense</td>
+<td>Rudenskaya et al.</td>
+</tr>
+<tr>
+<td>Chinese</td>
+<td>c.611_612dupTG, p.Met205*</td>
+<td>Homozygous</td>
+<td>Frameshift/truncating</td>
+<td>Lin et al., 2022</td>
+</tr>
+<tr>
+<td>Iranian</td>
+<td>Novel homozygous truncating</td>
+<td>Homozygous</td>
+<td>Truncating</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41113320/">PMID: 41113320</a></td>
+</tr>
+<tr>
+<td>Spanish</td>
+<td>c.158_161delinsTCAT p.(Arg53_Asn54delinsLeuIle) / c.567del p.(Thr190Profs*9)</td>
+<td>Compound het</td>
+<td>Delins + frameshift</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">PMID: 41758270</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The Spanish case reported <em>"compound heterozygous novel variants identified by trio-based exome sequencing. She carries the paternally inherited delins variant c.158_161delinsTCAT, p.(Arg53_Asn54delinsLeuIle) and the maternally inherited frameshift variant c.567del, p.(Thr190ProfsTer9)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">PMID: 41758270</a>).</p>
+<p>All variants are <strong>germline</strong> and inherited in an <strong>autosomal recessive</strong> pattern; the functional consequence is <strong>loss of function</strong>. Population allele frequencies are extremely low or absent in gnomAD (private/family-specific alleles). A <strong>tentative genotype–phenotype gradient</strong> suggests truncating variants trend toward more severe disease (early dystonia, profound developmental delay, growth failure), whereas missense variants may be milder — but the data remain limited by small numbers.</p>
+<h3>Finding 6 — Model organisms recapitulate disease and reveal an essential ER lipid-homeostasis function</h3>
+<ul>
+<li><strong><em>Drosophila melanogaster</em></strong>: RNAi knockdown of the single <em>Fitm</em> ortholog <strong>CG10671</strong> recapitulated core Siddiqi features. The authors reported that <em>"downregulation of the single Fitm ortholog, CG10671, in Drosophila melanogaster was pursued using RNA interference. Characteristics of the syndrome, including progressive locomotor impairment, hearing loss and disturbed sensory functions, were recapitulated in Drosophila"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>) — direct genetic support for causality.</li>
+<li><strong>Mouse (constitutive)</strong>: Whole-body <em>Fitm2</em> knockout is <strong>embryonic lethal</strong>; the gene is essential in mouse and <em>C. elegans</em>.</li>
+<li><strong>Mouse (inducible whole-body)</strong>: Tamoxifen-inducible knockout causes <strong>lethal enteropathy</strong> with villus blunting, crypt death, failed enterocyte lipid-droplet formation (TAG accumulates in the ER), bile-acid transporter dysregulation, weight loss, and death within ~2 weeks — <em>"Postnatal Deletion of Fat Storage-inducing Transmembrane Protein 2 (FIT2/FITM2) Causes Lethal Enteropathy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26304121/">PMID: 26304121</a>).</li>
+<li><strong>Mouse (hepatocyte-specific)</strong>: Elevated acyl-CoA, ER stress, liver injury, steatosis (<a href="https://pubmed.ncbi.nlm.nih.gov/36805337/">PMID: 36805337</a>).</li>
+<li><strong>Mouse (adipose-specific)</strong>: Lipodystrophy, insulin resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/30020828/">PMID: 30020828</a>).</li>
+</ul>
+<p>Notably, <strong>no dedicated neuronal or cochlear conditional mouse model reproducing the deafness–dystonia phenotype has yet been reported</strong> — a significant gap for mechanistic and preclinical work.</p>
+<h3>Finding 7 — Allelic dosage series: null alleles cause Siddiqi syndrome, hypomorphic alleles cause milder HSP</h3>
+<p>A <strong>FIT2 activity/dosage spectrum</strong> links genotype to phenotype:</p>
+<pre><code>FITM2 residual function              Phenotype
+──────────────────────────────────────────────────────────
+0%  (biallelic null, mouse)      →   Embryonic lethality
+0%  (biallelic null/truncating,  →   Siddiqi syndrome
+     human)                            (deafness–dystonia–regression)
+~20% (hypomorphic missense        →   Hereditary spastic paraplegia
+      G100R / null, human)             (milder, later)
+100% (wild type)                 →   Normal
+</code></pre>
+<p>A 2025 report established that <em>"Partial loss of FITM2 function causes hereditary spastic paraplegia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39974099/">PMID: 39974099</a>). The hypomorphic <strong>G100R</strong> allele reduces protein to ~20% of wild-type with proportionately decreased diphosphatase activity; in trans with a null allele it produces HSP in two families. Consistent with a continuum, some Siddiqi patients carrying missense alleles (p.Asp151Gly, p.Gly232Arg) show milder/atypical presentations, and spastic paraparesis without dystonia was seen in the Russian family — blurring the boundary between Siddiqi syndrome and <em>FITM2</em>-related HSP.</p>
+<h3>Finding 8 — Diagnosis, prognosis, and management</h3>
+<p><strong>Diagnosis</strong> is molecular. No specific biomarker or enzyme assay exists; diagnosis is made by <strong>whole-exome / trio-exome sequencing</strong> confirmed by Sanger sequencing (GTR condition C5231435). Because the phenotype is nonspecific, the disease was historically reached via linkage plus WES (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>) and molecular confirmation of biallelic loss-of-function variants (<a href="https://pubmed.ncbi.nlm.nih.gov/30214770/">PMID: 30214770</a>). Supportive investigations include <strong>audiometry/BAER</strong> (profound bilateral SNHL), <strong>brain MRI</strong> (often normal early; may show thalamic/red-nucleus T2 signal changes — <em>"These neuroimaging findings may provide new insights into the neurological manifestations of Siddiqi syndrome"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">PMID: 41758270</a>), and <strong>nerve conduction/EMG</strong> for sensory neuropathy.</p>
+<p><strong>Differential diagnosis</strong> includes: neurodegeneration with brain iron accumulation (NBIA; excluded by absence of basal-ganglia iron), Mohr-Tranebjaerg / DDON syndrome (X-linked <em>TIMM8A</em> deafness–dystonia), other syndromic deafness, cerebral palsy, inborn errors of metabolism, and Russell-Silver syndrome (excluded via normal H19 methylation / chromosome 7 UPD).</p>
+<p><strong>Prognosis</strong> is serious: progressive, chronic, and lifelong, with severe motor disability from dystonia, contractures, and immobility; profound deafness; and growth failure. No cure and no formal survival statistics exist, though some patients have survived into their late 20s–30s.</p>
+<p><strong>Management</strong> is entirely symptomatic, supportive, and multidisciplinary: cochlear implantation / hearing aids (NCIT: Cochlear Implant), pharmacologic plus physiotherapy for dystonia, nutritional rehabilitation for growth failure, dermatologic care for ichthyosis (emollients), and genetic counseling. No pharmacogenomics, gene therapy, or clinical trials currently exist.</p>
+<h3>Finding 9 — Pathophysiological causal chain and affected anatomy</h3>
+<p>The proposed causal chain, upstream to downstream:</p>
+<pre><code>Biallelic FITM2 loss of function
+│
+▼
+Loss of ER-luminal fatty acyl-CoA diphosphatase activity (GO:0016787 hydrolase)
+│
+▼
+(a) Accumulation of unbuffered fatty acyl-CoA (CHEBI:37554)
+(b) Impaired triglyceride partitioning into lipid droplets
+    (GO:0034389 lipid droplet organization; GO:0140042 lipid droplet formation)
+│
+▼
+ER membrane lipid dyshomeostasis, altered ER morphology,
+ER stress / unfolded protein response (GO:0034976 response to ER stress)
+│
+▼
+Cellular dysfunction/degeneration in highly metabolically active,
+post-mitotic cells (neurons, cochlear hair cells, keratinocytes)
+│
+▼
+Clinical manifestations: SNHL, dystonia, spasticity, sensory neuropathy,
+ichthyosis, growth failure
+</code></pre>
+<p>The upstream biochemical defect is defined by <em>"the molecular function of the evolutionarily conserved ER protein FIT2 as a fatty acyl-coenzyme A (CoA) diphosphatase"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32915949/">PMID: 32915949</a>), and the lipid-droplet arm by the observation that <em>"FITM2 and its paralog FITM1 constitute an evolutionary conserved protein family involved in partitioning of triglycerides into cellular lipid droplets"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>).</p>
+<p><strong>Affected organs/systems and ontology tags:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure</th>
+<th>Ontology term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ/system</td>
+<td>Brain</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Basal ganglion (→ dystonia)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Cochlea (→ SNHL)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Peripheral nerve (→ sensory neuropathy)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001780" target="_blank" rel="noopener noreferrer">UBERON:0001780</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Skin / epidermis (→ ichthyosis)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a></td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td>Cochlear hair cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000855" target="_blank" rel="noopener noreferrer">CL:0000855</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Neuron</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Keratinocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a></td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Endoplasmic reticulum</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a></td>
+</tr>
+<tr>
+<td></td>
+<td>Lipid droplet</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005811" target="_blank" rel="noopener noreferrer">GO:0005811</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>FITM2 is ubiquitously ER-expressed, but the skin barrier and neurosensory tissues appear most vulnerable in humans. <strong>No immune, infectious, or environmental component is implicated — the disease is purely genetic.</strong></p>
+<h3>Finding 10 — Inheritance and epidemiology</h3>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive (OMIM #618635).</li>
+<li><strong>Penetrance:</strong> appears complete in biallelic-variant carriers.</li>
+<li><strong>Expressivity:</strong> variable (severity and presence of ichthyosis/neuropathy/seizures/spasticity differ across families).</li>
+<li><strong>Anticipation:</strong> none (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> none reported.</li>
+<li><strong>Consanguinity:</strong> a major factor — most families (Pakistani, German, Russian Lezgin, Iranian) are consanguineous with homozygous variants; the US and Spanish cases were compound heterozygous. The index report documented <em>"A consanguineous family from Pakistan was ascertained to have a novel deafness-dystonia syndrome"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">PMID: 28067622</a>).</li>
+<li><strong>Founder effects:</strong> none established; alleles are largely private/family-specific.</li>
+<li><strong>Carrier frequency:</strong> not established; expected very low (variants essentially absent in gnomAD).</li>
+<li><strong>Epidemiology:</strong> ultra-rare; ~10–15 patients across ~7 families worldwide as of 2026; no population prevalence/incidence estimates; no dedicated Orphanet prevalence class.</li>
+<li><strong>Sex ratio:</strong> ~equal (both sexes affected, consistent with AR).</li>
+<li><strong>Age distribution:</strong> infancy (onset ~6 months) to adults in late 20s–30s.</li>
+</ul>
+<h3>Finding 11 — Final synthesis</h3>
+<p>Comprehensive review across ~7 reported families (~10–15 patients) and mechanistic studies establishes Siddiqi syndrome as a <strong>FITM2 loss-of-function ER lipid-homeostasis disorder</strong> with: (1) causation by biallelic <em>FITM2</em> LoF; (2) a core phenotype of progressive SNHL + generalized dystonia + developmental delay/motor regression + growth failure, with variable ichthyosis, sensory neuropathy, and spasticity; (3) a mechanism of acyl-CoA accumulation and ER stress in post-mitotic neurosensory/epidermal cells; (4) AR inheritance with complete penetrance, variable expressivity, and consanguinity enrichment; (5) an allelic dosage continuum in which hypomorphic alleles cause milder HSP (<a href="https://pubmed.ncbi.nlm.nih.gov/39974099/">PMID: 39974099</a>); (6) diagnosis by exome sequencing; and (7) supportive-only management with no cure or trials.</p>
+<hr />
+<h2>Section-by-Section Report Content</h2>
+<h3>1. Disease Information</h3>
+<p>Siddiqi syndrome is an autosomal recessive deafness–dystonia disorder caused by biallelic <em>FITM2</em> variants. Identifiers: OMIM #618635, <a href="http://purl.obolibrary.org/obo/MONDO_0032842" target="_blank" rel="noopener noreferrer">MONDO:0032842</a>, <a href="http://purl.obolibrary.org/obo/DOID_0081273" target="_blank" rel="noopener noreferrer">DOID:0081273</a>; no dedicated Orphanet code; MeSH has no specific descriptor. Synonyms: SIDDIS; FITM2-related deafness–dystonia syndrome. Information is derived from <strong>individual case reports</strong>, not disease-level EHR resources.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> purely genetic — biallelic loss-of-function variants in <em>FITM2</em>. <strong>Genetic risk factor:</strong> homozygous or compound-heterozygous LoF <em>FITM2</em> alleles; <strong>consanguinity</strong> is the dominant risk context. <strong>Environmental/protective factors, gene–environment interactions:</strong> none identified — the disorder is fully monogenic with no known modifiers.</p>
+<h3>3. Phenotypes</h3>
+<p>See Finding 4 table. Onset is neonatal-to-early-childhood (hearing loss often the first sign; motor regression from ~6 years in the index family). Severity is moderate-to-severe and progressive. Quality-of-life impact is profound — combined deafness, motor disability, and growth failure severely limit daily functioning; no formal QoL instrument has been applied.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> <em>FITM2</em> (<a href="https://bioregistry.io/HGNC:14929" target="_blank" rel="noopener noreferrer">HGNC:14929</a>). <strong>Variant classes:</strong> nonsense, frameshift, missense, delins (see Finding 5). <strong>Classification:</strong> pathogenic/likely pathogenic per ACMG (truncating LoF); some missense are VUS pending functional data. <strong>Allele frequency:</strong> private/absent in gnomAD. <strong>Origin:</strong> germline. <strong>Consequence:</strong> loss of function. <strong>Modifier genes/epigenetics/chromosomal abnormalities:</strong> none reported.</p>
+<h3>5. Environmental Information</h3>
+<p>Not applicable — no environmental, lifestyle, or infectious contributors.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See Finding 9 causal chain. <strong>Pathway:</strong> ER lipid metabolism / lipid-droplet biogenesis (not a classical signaling cascade). <strong>Cellular processes:</strong> ER stress / unfolded protein response, lipid-droplet formation. <strong>Protein dysfunction:</strong> loss of acyl-CoA diphosphatase activity and TAG-partitioning function. <strong>Metabolic change:</strong> fatty acyl-CoA accumulation. <strong>Subcellular compartments:</strong> ER (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>), lipid droplet (<a href="http://purl.obolibrary.org/obo/GO_0005811" target="_blank" rel="noopener noreferrer">GO:0005811</a>). No immune involvement.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p>Primary: cochlea, basal ganglia/brain, peripheral sensory nerves, skin/epidermis. Secondary: corticospinal tracts (spasticity), whole-body growth. See UBERON/CL table in Finding 9. Lateralization: bilateral/symmetric.</p>
+<h3>8. Temporal Development</h3>
+<p>Onset congenital-to-early-childhood, insidious. Course: chronic, progressive with motor regression; lifelong. No remission. Critical window for hearing intervention (cochlear implantation) is early.</p>
+<h3>9. Inheritance and Population</h3>
+<p>See Finding 10. Autosomal recessive, complete penetrance, variable expressivity, consanguinity-driven, ultra-rare.</p>
+<h3>10. Diagnostics</h3>
+<p>Molecular diagnosis by WES/trio-WES + Sanger (see Finding 8). Supportive: audiometry/BAER, brain MRI, NCS/EMG. Differential: NBIA, DDON/Mohr-Tranebjaerg, other syndromic deafness, cerebral palsy, Russell-Silver syndrome. Screening: cascade carrier testing in families; no newborn screening.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p>Serious, progressive, lifelong. Severe motor disability, profound deafness, growth failure. No survival statistics; some survive to late 20s–30s. Complications: contractures, immobility, feeding/nutrition issues.</p>
+<h3>12. Treatment</h3>
+<p>Supportive only: cochlear implantation/hearing aids (NCIT: Cochlear Implant), dystonia pharmacotherapy + physiotherapy, nutritional rehabilitation, emollients for ichthyosis, genetic counseling. No pharmacotherapy targeting the primary defect, gene therapy, or trials.</p>
+<h3>13. Prevention</h3>
+<p>Genetic counseling, cascade carrier screening, and prenatal/preimplantation genetic testing in known families (primary prevention). No population screening or public-health measures apply.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>No naturally occurring animal disease reported. Orthologs: mouse <em>Fitm2</em> (NCBI Gene 84041), <em>Drosophila</em> CG10671. No zoonotic potential. FITM2 is evolutionarily conserved across eukaryotes.</p>
+<h3>15. Model Organisms</h3>
+<p><em>Drosophila</em> RNAi (CG10671) recapitulates locomotor/hearing/sensory phenotype; mouse conditional knockouts (liver, adipose, intestine) confirm ER stress and acyl-CoA accumulation; constitutive mouse KO is embryonic lethal. <strong>Gap:</strong> no cochlear/neuronal conditional mouse model. Resources: MGI, FlyBase.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Siddiqi syndrome is best understood as a <strong>cell-autonomous ER lipid-homeostasis failure</strong> that preferentially injures post-mitotic, metabolically demanding cell types. The FITM2 protein performs two intertwined jobs in the ER: (1) as a <strong>fatty acyl-CoA diphosphatase</strong>, it hydrolyzes surplus fatty acyl-CoA to acyl-4′-phosphopantetheine, thereby buffering a reactive lipid species; and (2) as a <strong>lipid-droplet biogenesis factor</strong>, it binds triglyceride and partitions it into nascent cytosolic lipid droplets. Loss of both alleles removes both functions simultaneously.</p>
+<p>The convergent downstream consequence is <strong>ER membrane stress</strong>. Unbuffered acyl-CoA is amphipathic and detergent-like; its accumulation, combined with the inability to sequester triglyceride into droplets, distorts ER membrane structure and triggers the unfolded protein response. In cells that cannot divide to dilute damage and that depend on continuous high-flux membrane and energy metabolism — cochlear hair cells, central neurons of the basal ganglia and corticospinal tracts, peripheral sensory neurons, and epidermal keratinocytes maintaining the skin barrier — this chronic stress manifests as progressive degeneration. This cell-type vulnerability map explains the otherwise puzzling combination of deafness (hair cells), dystonia and spasticity (basal ganglia and corticospinal neurons), sensory neuropathy (dorsal root ganglion neurons), and ichthyosis (barrier-lipid–dependent keratinocytes).</p>
+<p>The <strong>allelic dosage series</strong> is the most elegant piece of the model. Mouse constitutive knockout is embryonic lethal, demonstrating an absolute developmental requirement. In humans, complete biallelic loss is compatible with life but produces the severe, multi-system Siddiqi phenotype. Retaining ~20% of FITM2 activity (the hypomorphic G100R allele) shifts the phenotype to a milder, more slowly progressive hereditary spastic paraplegia. The clinical spectrum therefore maps onto a <strong>continuum of residual enzyme activity</strong>, with the threshold for each organ system's vulnerability differing — the auditory and extrapyramidal systems appear most sensitive to complete loss, while partial loss chiefly compromises the corticospinal tract.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Upstream mechanism</th>
+<th>Downstream manifestation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deafness</td>
+<td>ER stress in cochlear hair cells</td>
+<td>Progressive bilateral SNHL</td>
+</tr>
+<tr>
+<td>Dystonia</td>
+<td>Basal ganglia neuron dysfunction</td>
+<td>Generalized/truncal dystonia</td>
+</tr>
+<tr>
+<td>Spasticity</td>
+<td>Corticospinal tract degeneration</td>
+<td>Spastic paraplegia (variable)</td>
+</tr>
+<tr>
+<td>Sensory neuropathy</td>
+<td>DRG/peripheral neuron injury</td>
+<td>Disturbed sensory function</td>
+</tr>
+<tr>
+<td>Ichthyosis</td>
+<td>Keratinocyte barrier-lipid defect</td>
+<td>Lower-limb ichthyosis</td>
+</tr>
+<tr>
+<td>Growth failure</td>
+<td>Whole-body energy-metabolism defect</td>
+<td>Low BMI, weight/height &lt;3rd centile</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28067622/">28067622</a></td>
+<td><em>A homozygous FITM2 mutation causes a deafness-dystonia syndrome…</em></td>
+<td><strong>Foundational</strong> — identifies causal gene, founding p.Glu2* allele, core phenotype, and Drosophila model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30288795/">30288795</a></td>
+<td><em>First replication that biallelic FITM2 variants cause…</em></td>
+<td>Independent replication; German homozygous missense G232R</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30214770/">30214770</a></td>
+<td><em>First case of deafness-dystonia syndrome due to compound het variants</em></td>
+<td>US compound-heterozygous truncating case; establishes molecular diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41113320/">41113320</a></td>
+<td><em>FITM2-Related Siddiqi Syndrome in Two Iranian Siblings</em></td>
+<td>Confirms recurrent core features incl. ichthyosis of lower limbs</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41758270/">41758270</a></td>
+<td><em>Neuroradiological Phenotype Expansion of Siddiqi Syndrome</em></td>
+<td>Spanish compound-het case; spastic paraplegia + novel MRI findings; states rarity/AR inheritance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32915949/">32915949</a></td>
+<td><em>FIT2 is an acyl-CoA diphosphatase crucial for ER homeostasis</em></td>
+<td><strong>Defines the molecular/enzymatic mechanism</strong></td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36805337/">36805337</a></td>
+<td><em>Fitm2 is required for ER homeostasis and normal function of murine liver</em></td>
+<td>In vivo confirmation: acyl-CoA accumulation, ER stress, liver injury</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26304121/">26304121</a></td>
+<td><em>Postnatal Deletion of FIT2 Causes Lethal Enteropathy</em></td>
+<td>Inducible KO shows FIT2 essential postnatally</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39974099/">39974099</a></td>
+<td><em>Partial loss of FITM2 function causes hereditary spastic paraplegia</em></td>
+<td><strong>Establishes allelic dosage series</strong> with milder HSP phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22106267/">22106267</a></td>
+<td><em>Direct binding of triglyceride to FIT1/FIT2…</em></td>
+<td>Mechanism: FIT proteins partition (not synthesize) triglyceride</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20520733/">20520733</a></td>
+<td><em>Structural insights into triglyceride storage mediated by FIT2</em></td>
+<td>Six-transmembrane topology; cytosolic N/C termini</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30020828/">30020828</a></td>
+<td><em>FIT2 is less abundant in type 2 diabetes…</em></td>
+<td>Adipose-specific KO: lipodystrophy, insulin resistance, ER stress</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The evidence base is <strong>internally consistent</strong>: human genetics (7 families), invertebrate genetics (<em>Drosophila</em>), mammalian conditional knockouts (mouse liver, adipose, intestine), and biochemistry (enzymology, structural topology) all converge on the same molecular lesion. No paper in the reviewed literature challenges the <em>FITM2</em>-loss-of-function causal model.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extremely small sample size.</strong> With only ~10–15 patients from ~7 families, all phenotype frequencies, genotype–phenotype correlations, and prognostic statements are based on case reports, not cohorts. The tentative severity gradient (truncating &gt; missense) is under-powered.</li>
+<li><strong>No neurosensory animal model.</strong> No conditional mouse knockout targeting cochlear hair cells or CNS/PNS neurons exists, so the direct mechanistic link between FITM2 loss and the deafness–dystonia phenotype remains inferred rather than experimentally demonstrated in a mammal.</li>
+<li><strong>No biomarker or functional assay.</strong> Diagnosis relies solely on sequencing; there is no metabolite, protein, or enzyme-activity biomarker to confirm pathogenicity of missense variants or to monitor disease.</li>
+<li><strong>Uncertain phenotype boundaries.</strong> The overlap between complete-loss Siddiqi syndrome and hypomorphic-allele HSP is not fully resolved; whether these are one continuum or distinct entities has clinical counseling implications.</li>
+<li><strong>No natural history data.</strong> Survival, progression rate, and quality-of-life measures are anecdotal. No registry, longitudinal cohort, or formal QoL instrument (EQ-5D, SF-36, PROMIS) has been applied.</li>
+<li><strong>No Orphanet code / prevalence class</strong>, and no epidemiological estimates of prevalence, incidence, or carrier frequency.</li>
+<li><strong>Human tissue mechanism unverified.</strong> Acyl-CoA accumulation and ER stress are documented in mouse liver/adipose/gut and in vitro, but not directly in affected human neurosensory or epidermal tissue.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a neurosensory conditional mouse model</strong> — e.g., <em>Atoh1-Cre</em> (hair cells) or pan-neuronal/<em>Nestin-Cre</em> <em>Fitm2</em> conditional knockout — to test whether FITM2 loss recapitulates progressive SNHL and dystonia, and to establish a preclinical platform.</li>
+<li><strong>Establish patient-derived iPSC models</strong> differentiated into cochlear organoids, cortical/striatal neurons, and keratinocytes to directly measure acyl-CoA accumulation, ER stress markers (BiP, CHOP, spliced XBP1), and lipid-droplet defects in the affected human cell types.</li>
+<li><strong>Develop a functional assay for variant classification</strong> — a cell-based FIT2 acyl-CoA diphosphatase activity or lipid-droplet-rescue assay — to reclassify missense VUS and quantify residual activity, directly testing the dosage-series model.</li>
+<li><strong>Create an international patient registry</strong> (via GeneMatcher/MatchMaker Exchange) to aggregate natural-history data, standardize phenotyping with HPO, apply QoL instruments, and derive prevalence/prognostic estimates.</li>
+<li><strong>Systematic MRI characterization</strong> across all known patients to determine whether thalamic/red-nucleus signal changes are a consistent, diagnostically useful feature.</li>
+<li><strong>Lipidomic/metabolomic profiling</strong> of patient plasma, fibroblasts, and (where available) tissue to search for a diagnostic/monitoring biomarker (e.g., accumulated acyl-CoA species or altered barrier lipids).</li>
+<li><strong>Formally define the Siddiqi–HSP spectrum</strong> by pooling all <em>FITM2</em> variants with residual-activity measurements and correlating with organ-specific severity, to guide genetic counseling.</li>
+<li><strong>Assign an Orphanet ORPHA code</strong> and complete the ontology cross-references to improve discoverability and registry linkage.</li>
+</ol>
+<hr />
+<p><em>Report compiled from a 5-iteration autonomous investigation: 11 confirmed findings, 29 papers reviewed. Evidence types span human clinical case reports, model-organism genetics (Drosophila, mouse, C. elegans), in vitro biochemistry, and structural/computational analysis.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Siddiqi_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Siddiqi_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>DOID:0081273</code> (3 mentions) - the report calls it "Disease Ontology"; DOID calls it <strong>Siddiqi syndrome</strong></li>
+<li><code>MONDO:0032842</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Siddiqi syndrome</strong></li>
+<li><code>HP:0001332</code> (1 mention) - the report calls it "Dystonia (generalized/truncal/limb)"; HP calls it <strong>Dystonia</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "Seizures; chronic diarrhea"; HP calls it <strong>Seizure</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000407</code> (1 mention) - the report calls it "Progressive sensorineural hearing loss"; HP calls it <strong>Sensorineural hearing impairment</strong>, and lists "Sensorineural hearing loss" among its other names</li>
+<li><code>HP:0002376</code> (1 mention) - the report calls it "Regression of motor skills"; HP calls it <strong>Developmental regression</strong>, and lists "Psychomotor regression, progressive" among its other names</li>
+<li><code>HP:0008064</code> (1 mention) - the report calls it "Ichthyosis-like skin (esp. lower limbs)"; HP calls it <strong>Ichthyosis</strong>, and lists "Ichthyotic skin" among its other names</li>
+<li><code>HP:0001761</code> (1 mention) - the report calls it "Contractures / pes cavus"; HP calls it <strong>Pes cavus</strong></li>
+<li><code>UBERON:0002420</code> (1 mention) - the report calls it "Basal ganglion (→ dystonia)"; UBERON calls it <strong>basal ganglion</strong></li>
+<li><code>UBERON:0001844</code> (1 mention) - the report calls it "Cochlea (→ SNHL)"; UBERON calls it <strong>cochlea</strong></li>
+<li><code>UBERON:0001780</code> (1 mention) - the report calls it "Peripheral nerve (→ sensory neuropathy)"; UBERON calls it <strong>spinal nerve</strong>, and lists "spinal nerve tree" among its other names</li>
+<li><code>UBERON:0001003</code> (1 mention) - the report calls it "Skin / epidermis (→ ichthyosis)"; UBERON calls it <strong>skin epidermis</strong></li>
+<li><code>CL:0000855</code> (1 mention) - the report calls it "Cochlear hair cell"; CL calls it <strong>sensory hair cell</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sickle_Cell_Disease-falcon.html">← Sickle Cell Disease (Falcon)</a>
+                
+                
+                <a href="Siderius_Type_X-Linked_Intellectual_Disability-claude_code.html">Siderius Type X-Linked Intellectual Disability (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Siddiqi_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Siddiqi_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
