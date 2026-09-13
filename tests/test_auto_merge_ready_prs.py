@@ -1522,6 +1522,49 @@ def test_non_failure_removals_are_not_strikes(monkeypatch):
     assert auto_merge.ejection_memory("o/r", 7).blocked is False
 
 
+def test_an_unparseable_head_date_fails_open(monkeypatch):
+    """Timestamps are parsed, so a malformed head date must fail open too.
+
+    The strike count is only meaningful relative to when the head was written.
+    If that date cannot be parsed, no strike can be attributed to the current
+    content -- the same situation as an absent date, and the same answer. Two
+    strikes are supplied so the test fails loudly if the guard ever holds here.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "not-a-timestamp",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_an_unparseable_event_date_is_skipped_not_counted(monkeypatch):
+    """One malformed event must not be counted, nor discard the sound ones.
+
+    The surviving event is a single strike, which is below the limit, so the PR
+    is not held -- but the strike is still counted, which is what distinguishes
+    skipping the bad event from abandoning the whole timeline.
+    """
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "whenever", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
 def test_ejection_lookup_failure_fails_open(monkeypatch):
     """A lookup failure must not hold back an otherwise ready PR."""
     def boom(args, token=None):

@@ -284,9 +284,22 @@ pass.
 `reviewDecision == APPROVED` · **no human assignees** ·
 `mergeable == MERGEABLE` · `mergeStateStatus == CLEAN` · every status check
 passing (stricter than `CLEAN`, which only covers *required* checks) ·
-created more than **3 days** ago · targeting `main`. Author identity, head-branch
-prefix, draft status, and exact ancestry with current `main` are not eligibility
-criteria. A known bot/agent assignee is routing metadata rather than a human hold.
+created more than **3 days** ago · targeting `main` ·
+**fewer than `--ejection-strike-limit` (default 2) `failed_checks` removals
+from the merge queue since the head commit was last written**. Author identity,
+head-branch prefix, draft status, and exact ancestry with current `main` are not
+eligibility criteria. A known bot/agent assignee is routing metadata rather than
+a human hold.
+
+That last criterion is the **ejection hold**, and it is the one criterion with no
+trace on the PR page. A queue ejection is otherwise invisible to eligibility: the
+PR stays open and approved, so the next sweep re-enqueues it, it fails again, and
+the loop repeats — #9852 went round three times in fifteen hours, failing every
+speculative stack behind it each time (#10988). A *single* ejection is
+deliberately not a hold, because ejection does not imply fault: a PR ahead in the
+stack can poison it, and a third-party outage can fail it. What triggers the hold
+is repetition against unchanged content. The count is keyed on the head commit's
+`committedDate`, so any push resets it to zero, and a lookup failure fails open.
 
 Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
@@ -432,6 +445,14 @@ that opportunity rather than as an arbitrary cooling-off period.
 
 > **To stop a PR being auto-merged, assign it to a human or leave a
 > `CHANGES_REQUESTED` review.** Draft status does not block it.
+
+There is a third hold, which nobody chooses: a PR held back by the **ejection
+hold** above. Unlike assignment and `CHANGES_REQUESTED`, it leaves no label,
+review, or assignee — its only trace is a `SKIP` line naming the strike count,
+inside the run summary's collapsed `Skipped N near-miss PR(s)` block. So an
+approved, green, days-old PR that is not merging and has neither a human
+assignee nor a requested-changes review has one remaining explanation, and the
+run summary is where to look for it. A push clears it.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 

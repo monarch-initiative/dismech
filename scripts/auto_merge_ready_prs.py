@@ -652,6 +652,10 @@ class EjectionMemory:
     a merge of the base branch) moves that date past the earlier removals and
     resets the count to zero, because the content under test has changed.
 
+    The reset therefore needs the date to move *forward*. Force-pushing a
+    branch back to an older commit leaves the head behind the removals, so the
+    hold persists even though the content changed; any new commit clears it.
+
     Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
     -- it is the queue's own temporary merge commit, and compares as diverged
     from ``main`` -- so it cannot be used to detect base movement. Verified
@@ -705,6 +709,15 @@ def ejection_memory(
         print(f"WARN  #{number}: no head commit date; not applying an "
               "ejection hold", file=sys.stderr)
         return EjectionMemory(False)
+    try:
+        head_at = _parse_ts(head_written)
+    except ValueError:
+        # An unparseable head date cannot attribute a strike to the current
+        # content, so fail open for the same reason an absent one does.
+        print(f"WARN  #{number}: unparseable head commit date "
+              f"{head_written!r}; not applying an ejection hold",
+              file=sys.stderr)
+        return EjectionMemory(False)
     nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
     strikes = 0
     latest = ""
@@ -712,8 +725,16 @@ def ejection_memory(
         if not isinstance(node, dict) or node.get("reason") != "failed_checks":
             continue
         when = str(node.get("createdAt") or "")
-        # ISO-8601 UTC strings from GitHub compare correctly as text.
-        if when <= head_written:
+        # Compared as datetimes, not as text: lexicographic ordering is correct
+        # for GitHub's current `...Z` format but degrades silently rather than
+        # loudly if an offset or fractional seconds ever appear.
+        try:
+            when_at = _parse_ts(when)
+        except ValueError:
+            print(f"WARN  #{number}: skipping ejection event with "
+                  f"unparseable date {when!r}", file=sys.stderr)
+            continue
+        if when_at <= head_at:
             continue  # predates the current content; a push has since reset it
         strikes += 1
         latest = max(latest, when)
@@ -1087,8 +1108,9 @@ def main(argv: list[str] | None = None) -> int:
         # would otherwise be marked ready, skipped, and re-drafted on every
         # run for as long as the hold lasts -- and a failing re-draft would
         # turn the run red over a PR the sweep never intended to touch.
-        # Checked here rather than per candidate, so it costs one extra read
-        # per run.
+        # One extra GraphQL read per candidate that clears the first
+        # evaluate() gate -- up to --max-enqueue-per-run in queue mode, and
+        # in direct mode once per candidate skipped before a merge succeeds.
         memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
         if memory.blocked:
             print(f"SKIP  #{number}: {memory.reason}")
