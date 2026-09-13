@@ -2,6 +2,9 @@
 
 Is dismech's curated structure logically consistent with MONDO's?
 
+For the investigation and reporting workflow, use the repo-local
+[mapping-analysis skill](../../.claude/skills/mapping-analysis/SKILL.md).
+
 dismech grounds its entries in MONDO, and separately asserts its own hierarchy
 through `has_subtypes` and `kb/groupings/`. Those are independent claims, and
 they can disagree. Nothing in the validation stack checks that they don't:

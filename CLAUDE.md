@@ -26,6 +26,9 @@ remain authoritative for day-to-day curation mechanics.
 Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
+- **[mapping-analysis](.claude/skills/mapping-analysis/SKILL.md)**: Use for mapping
+  scope and alignment investigations, Boomer results, proxy merges, and source
+  correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
