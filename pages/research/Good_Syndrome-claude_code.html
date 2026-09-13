@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Good Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Good Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Good Syndrome</h1>
+                
+                <p class="report-subtitle">Good Syndrome (Thymoma with Immunodeficiency): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015696" target="_blank" rel="noopener noreferrer">MONDO:0015696</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">35 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Good Syndrome (Thymoma with Immunodeficiency): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Good syndrome (GS) — also called thymoma-associated immunodeficiency or thymoma with immunodeficiency — is a rare, <strong>adult-onset combined (B-cell and T-cell) primary immunodeficiency</strong> occurring in patients with a thymoma. It was first described by Robert A. Good in 1954–1955 after he noted the co-occurrence of thymoma and hypogammaglobulinemia. GS is now recognized by the WHO/International Union of Immunological Societies (as of 1999) as a distinct primary immunodeficiency, separate from common variable immunodeficiency (CVID), despite frequent misdiagnosis as CVID (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12647230/">PMC12647230</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8019250/">PMC8019250</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0015696" target="_blank" rel="noopener noreferrer">MONDO:0015696</a>
+- <strong>Orphanet:</strong> ORPHA169105 (<a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=169105">orpha.net</a>)
+- <strong>ICD-10:</strong> D81.8 (Other combined immunodeficiencies)
+- <strong>ICD-11:</strong> 4B40.2
+- <strong>OMIM:</strong> No dedicated OMIM entry exists (it is an acquired, not classically Mendelian, disorder)
+- <strong>MeSH/synonyms:</strong> Thymoma with immunodeficiency; thymoma-associated hypogammaglobulinemia; Good's syndrome; thymoma-associated combined immunodeficiency</p>
+<p><strong>Nature of evidence base.</strong> Because GS is exceedingly rare, the literature is dominated by <strong>individual case reports and small retrospective/cross-sectional case series</strong> pooled into systematic reviews, plus (as of 2023–2024) the first <strong>prospective longitudinal cohort study</strong>. There is essentially no large-scale EHR/claims-based epidemiology; most quantitative "prevalence" figures trace back to aggregated case counts rather than population registries.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal factor.</strong> GS requires the essentially simultaneous presence of a <strong>thymic epithelial tumor (thymoma)</strong> and <strong>acquired hypogammaglobulinemia with B-cell deficiency</strong>. There is no known Mendelian/germline genetic cause; it is an <strong>acquired (paraneoplastic-like) adult-onset immunodeficiency</strong>, distinguishing it from inherited agammaglobulinemias (e.g., XLA) and most forms of CVID.</p>
+<p><strong>Genetic risk factors (somatic, not germline):</strong>
+- Thymomas — especially WHO types A and AB, which predominate in GS — very frequently carry a recurrent <strong>somatic missense mutation in GTF2I</strong> (encoding transcription factor TFII-I), invariably p.L424H. This mutation is found in <strong>82% of type A and 74% of type AB thymomas</strong> in large series (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">Nature Genetics, PMC7466068</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37671056/">PMID:37671056</a>).
+- A mouse model of the human thymoma-associated GTF2I mutation shows that mutant TFII-I <strong>impairs thymic epithelial progenitor differentiation</strong>, producing aberrant thymic architecture and reduced thymopoietic activity, particularly of the medullary compartment (<a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">PMID:36175547</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9522929/">Communications Biology, PMC9522929</a>) — a plausible mechanistic link between the thymoma's driver mutation and disrupted central tolerance/thymopoiesis.
+- A dedicated somatic variant profiling study of a GS-associated thymoma has been published, though comprehensive GS-specific genomic characterization (as distinct from thymoma genomics generally) remains limited (<a href="https://www.sciencedirect.com/science/article/pii/S2772613424000039">ScienceDirect S2772613424000039</a>).</p>
+<p><strong>No established environmental/lifestyle causal or protective factors</strong> have been identified — GS is not linked to toxin exposure, infection, diet, or lifestyle in the literature reviewed. No GWAS, susceptibility-loci, or gene–environment interaction data exist, consistent with its status as a rare acquired tumor-associated condition rather than a polygenic disease.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Immunological/laboratory phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Frequency (pooled case series, n≈162)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypogammaglobulinemia</td>
+<td>100%</td>
+<td>Median IgG ≈332 mg/dL (normal 700–1600 mg/dL); IgG can be as low as ~100 mg/dL</td>
+</tr>
+<tr>
+<td>Low IgA</td>
+<td>86.0%</td>
+<td></td>
+</tr>
+<tr>
+<td>Low IgM</td>
+<td>92.6%</td>
+<td>(Some reports describe normal IgA/high IgM patterns in individual cases)</td>
+</tr>
+<tr>
+<td>Absent/low peripheral B cells (CD19+)</td>
+<td>95.2%</td>
+<td>Often near-complete absence; distinguishes GS from most CVID</td>
+</tr>
+<tr>
+<td>Low CD4+ T-cell count</td>
+<td>71.3%</td>
+<td></td>
+</tr>
+<tr>
+<td>Inverted CD4:CD8 ratio</td>
+<td>82.5%</td>
+<td>e.g., ratio 0.45 vs. normal &gt;1.1 in reported cases</td>
+</tr>
+<tr>
+<td>Absent transitional B cells (CD38+CD24+)</td>
+<td>Frequently reported</td>
+<td>Suggests a B-cell precursor developmental defect</td>
+</tr>
+<tr>
+<td>Loss of unswitched/CD21+ B cells, low CD19/CD20, near-absent surface IgD</td>
+<td>Frequently reported</td>
+<td></td>
+</tr>
+<tr>
+<td>Naïve CD8+CD45RA+ T-cell accumulation</td>
+<td>Described as a hallmark finding</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Source: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a> (systematic review, 162 patients); <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5937423/">PMC5937423</a>; case reports.</p>
+<p>Suggested HPO terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a></strong> (Decreased circulating total IgG), <strong><a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a></strong>-family Ig deficiency terms, <strong><a href="http://purl.obolibrary.org/obo/HP_0005404" target="_blank" rel="noopener noreferrer">HP:0005404</a></strong> (Hypogammaglobulinemia), <strong><a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" rel="noopener noreferrer">HP:0010976</a></strong> (Abnormal B cell count / B lymphocytopenia), <strong><a href="http://purl.obolibrary.org/obo/HP_0005400" target="_blank" rel="noopener noreferrer">HP:0005400</a></strong> (CD4 lymphopenia), <strong><a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" rel="noopener noreferrer">HP:0002721</a></strong> (Immunodeficiency), <strong><a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" rel="noopener noreferrer">HP:0002960</a></strong> (Autoimmunity).</p>
+<h3>Clinical phenotypes (symptoms/signs)</h3>
+<ul>
+<li><strong>Recurrent sinopulmonary infections</strong> (bronchitis, pneumonia, sinusitis) — the most common presentation (~67% of primary infection sites in the pooled series). Frequent pathogens: <em>Pseudomonas aeruginosa</em>, <em>Haemophilus influenzae</em>, <em>Streptococcus pneumoniae</em>.</li>
+<li><strong>Opportunistic/invasive infections despite sometimes-normal CD4 counts:</strong> cytomegalovirus (CMV) disease/pneumonitis (~24.7% of infections), mucocutaneous and esophageal candidiasis (~16.7%), <em>Pneumocystis jirovecii</em> pneumonia, cryptococcosis and other invasive fungal disease (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8636207/">PMC8636207</a>).</li>
+<li><strong>Gastrointestinal disease:</strong> chronic diarrhea, malabsorption, and a distinctive <strong>graft-versus-host disease (GVHD)-like colitis</strong> with villous blunting and active chronic inflammation on histology, in the absence of any transplant — a signature and underrecognized GI phenotype of GS, distinguishing it pathologically from typical CVID enteropathy (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12647230/">PMC12647230</a>).</li>
+<li><strong>Mucocutaneous disease:</strong> oral <strong>lichen planus</strong> is a recurrent, relatively distinctive association (~22.9% of autoimmune manifestations) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11323965/">PMC11323965</a>).</li>
+<li><strong>Hematologic autoimmunity: pure red cell aplasia (PRCA)</strong> — the single most common autoimmune association, ~31–35% of GS patients.</li>
+<li><strong>Neuromuscular autoimmunity: myasthenia gravis</strong> — second most common, ~15–28%, sometimes subclinical.</li>
+<li>Rarer: pure white cell aplasia, aplastic anemia/bone marrow failure, CD8+ T-cell large granular lymphocyte leukemia, systemic lupus erythematosus-like features, dementia (rare case reports).</li>
+</ul>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Onset:</strong> adult, typically 40–70 years; mean/median age at diagnosis ~57–60 years (range 35–78 in cohort data).</li>
+<li><strong>Severity/progression:</strong> immunodeficiency is typically <strong>progressive</strong> over years to decades — the 2024 McGill natural history study (37-year follow-up) documented gradual worsening of B- and T-cell compartments over time, independent of thymectomy (<a href="https://pubmed.ncbi.nlm.nih.gov/38122866/">JACI In Practice, PMID:38122866</a>).</li>
+<li><strong>Diagnostic delay:</strong> mean delay ~3.1 years (median 1 year, range 0–17 years) — reflecting the rarity and overlap with CVID.</li>
+</ul>
+<h3>Quality of life</h3>
+<p>No disease-specific validated QoL instrument was identified in the literature; QoL impact is inferred from the burden of recurrent hospitalization for infection, chronic diarrhea, and autoimmune complications, but formal EQ-5D/SF-36 GS-specific data were not found in this search.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>No causal germline gene.</strong> GS is not a monogenic inherited immunodeficiency; there is no HGNC "disease gene" analogous to <em>BTK</em> in XLA.</li>
+<li><strong>Somatic driver in the associated thymoma:</strong> <strong>GTF2I</strong> p.L424H missense mutation (<a href="https://bioregistry.io/HGNC:4661" target="_blank" rel="noopener noreferrer">HGNC:4661</a>), present in the great majority of type A/AB thymomas that predominate in GS (<a href="https://pubmed.ncbi.nlm.nih.gov/37671056/">PMID:37671056</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">PMC7466068</a>). This is a <strong>tumor-somatic</strong>, not germline, variant.</li>
+<li><strong>Functional consequence:</strong> TFII-I is a transcription factor regulating epithelial progenitor cell proliferation/differentiation in the thymus; the mutant form disrupts bipotent thymic epithelial progenitor differentiation and medullary thymic epithelial cell (mTEC) development in mouse models, plausibly impairing central tolerance mechanisms (including AIRE-dependent negative selection) (<a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">PMID:36175547</a>).</li>
+<li><strong>AIRE dysregulation:</strong> Thymomas — including those in GS — have been reported to show <strong>reduced AIRE (autoimmune regulator) gene expression</strong>, contributing to defective central tolerance and paraneoplastic autoimmunity.</li>
+<li><strong>No confirmed modifier genes, epigenetic signatures, or recurrent chromosomal abnormalities</strong> specific to GS (as opposed to thymoma biology generally) were identified.</li>
+<li><strong>Allele frequency/population data:</strong> not applicable — this is a somatic tumor mutation, not a population polymorphism; gnomAD/1000 Genomes data are not relevant.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No dietary, occupational, toxin, or infectious <em>causal</em> exposures for GS itself were identified — the "trigger" is the thymoma, not an external agent. Infections in this section are better understood as <strong>consequences</strong> (complications) of the immunodeficiency rather than causes; see Phenotypes and Diagnostics sections for the pathogen spectrum (CMV, <em>Pseudomonas</em>, <em>Candida</em>, <em>Pneumocystis jirovecii</em>).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (numbered, with inference flagged)</h3>
+<ol>
+<li>A thymic epithelial neoplasm arises, in the great majority of GS cases a <strong>WHO type A (lymphocyte-poor spindle cell, ~23.5%) or type AB (mixed spindle/lymphocyte-rich, ~50.0%) thymoma</strong>, frequently driven by the somatic <strong>GTF2I p.L424H</strong> mutation → <em>this leads to</em> disruption of normal thymic epithelial architecture.</li>
+<li>Mutant TFII-I impairs <strong>bipotent thymic epithelial progenitor differentiation</strong>, particularly of the medullary lineage → <em>this leads to</em> (inferred, extrapolated from mouse model, <a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">PMID:36175547</a>) reduced thymopoietic output and defective <strong>AIRE-mediated central tolerance/negative selection</strong>.</li>
+<li>Disrupted thymic microenvironment and possible bone-marrow-stromal-derived cytokine dysregulation → <em>this leads to</em> (mechanism still incompletely established/hypothesized) <strong>impaired B-cell precursor development</strong>, evidenced by absence of transitional (CD38+CD24+) B cells and loss of unswitched B-cell subsets.</li>
+<li>Progressive <strong>peripheral B-cell depletion</strong> (near-complete absence of CD19+ cells in &gt;95% of cases) → <em>this leads to</em> failure of plasma-cell differentiation and <strong>panhypogammaglobulinemia</strong> (low IgG, IgA, IgM).</li>
+<li>In parallel, thymic T cells are reported to exert an <strong>inhibitory effect on B-cell-mediated immunoglobulin production</strong>, and thymoma-associated Treg export defects further destabilize peripheral immune homeostasis → <em>this contributes to</em> both the humoral defect and to loss of self-tolerance.</li>
+<li>Concurrently, thymopoietic disruption produces <strong>CD4+ T-cell lymphopenia</strong>, an <strong>inverted CD4:CD8 ratio</strong>, and <strong>accumulation of naïve CD8+CD45RA+ T cells</strong> (proposed hallmark of thymoma-related T-cell dysfunction) → <em>this leads to</em> impaired cell-mediated immunity.</li>
+<li>The combined B- and T-cell defect → <em>results in</em> susceptibility to (a) encapsulated/sinopulmonary bacterial pathogens (humoral defect pathway) and (b) viral/fungal/opportunistic pathogens — CMV, <em>Candida</em>, <em>Pneumocystis jirovecii</em> (cellular defect pathway) — clinically manifesting as recurrent infection (in &gt;90% of patients).</li>
+<li>Loss of central and peripheral tolerance (from steps 2 and 5) → <em>branches into</em> a distinct autoimmune phenotype: <strong>pure red cell aplasia</strong> (autoantibody/T-cell mediated marrow suppression of erythroid precursors), <strong>myasthenia gravis</strong> (anti-acetylcholine-receptor autoimmunity), <strong>GVHD-like colitis</strong>, and <strong>oral lichen planus</strong> — occurring in ~51–76% of patients depending on the cohort.</li>
+<li>Because the immune defect originates from <strong>stem/progenitor-level or established peripheral lymphocyte depletion rather than from the tumor mass itself</strong>, thymectomy removes the neoplasm but <strong>does not reverse the hypogammaglobulinemia or B-cell aplasia</strong> in most patients — the defect is durable/self-perpetuating once established (an important and repeatedly confirmed clinical-mechanistic observation, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a>).</li>
+</ol>
+<p><strong>Overall causal status:</strong> The Frontiers 2021 review explicitly states the pathophysiology "<strong>remains unclear</strong>," though it proposes the thymoma "disrupts the balance between host-defense and self-tolerance" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a>); another review states "many different theories were proposed on the pathogenesis of Good's syndrome but so far none has gained acceptance, making this syndrome still a mystery." <strong>Much of the mechanistic chain above (steps 2–5) is therefore inferential/hypothesis-level</strong>, built from a combination of a small number of tissue studies (e.g., B-cell depletion demonstrated directly <em>within thymoma tissue</em> — <a href="https://link.springer.com/article/10.1007/s12672-024-01450-x">Discover Oncology 2024</a>, showing complete B-cell absence in thymoma tissue of 4/5 GS patients) and mouse GTF2I models, rather than a fully demonstrated human causal pathway.</p>
+<p><strong>Molecular pathways/GO terms suggested:</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0033077" target="_blank" rel="noopener noreferrer">GO:0033077</a> T cell differentiation in thymus
+- <a href="http://purl.obolibrary.org/obo/GO_0002519" target="_blank" rel="noopener noreferrer">GO:0002519</a> natural killer cell tolerance induction / <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" rel="noopener noreferrer">GO:0002377</a> immunoglobulin production
+- <a href="http://purl.obolibrary.org/obo/GO_0030217" target="_blank" rel="noopener noreferrer">GO:0030217</a> T cell differentiation
+- <a href="http://purl.obolibrary.org/obo/GO_0042475" target="_blank" rel="noopener noreferrer">GO:0042475</a> odontogenesis (n/a) — not relevant; instead: <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" rel="noopener noreferrer">GO:0048538</a> thymus development
+- <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" rel="noopener noreferrer">GO:0002250</a> adaptive immune response</p>
+<p><strong>Cell types (CL terms):</strong>
+- <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a> B cell (depleted)
+- <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a> Th cell / <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> CD4-positive, alpha-beta T cell (lymphopenic)
+- <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> CD8-positive, alpha-beta T cell (naïve accumulation)
+- <a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" rel="noopener noreferrer">CL:0002293</a> epithelial cell of thymus / thymic medullary epithelial cell
+- <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" rel="noopener noreferrer">CL:0000980</a> plasmablast / <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a> plasma cell (deficient)</p>
+<p><strong>Advanced/omics data:</strong> Single studies exist profiling "in-depth blood immune profiling of Good syndrome patients" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10684950/">PMC10684950</a>) and immunological signature studies of thymic epithelial tumor/GS patients (Frontiers 2022), but no large-scale transcriptomic (GEO), proteomic, or single-cell atlas specific to GS was identified — this remains a substantial evidence gap.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> Thymus (anterior mediastinum) — site of the neoplasm (<a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a> thymus).</li>
+<li><strong>Secondary/systemic involvement:</strong></li>
+<li>Bone marrow (erythroid aplasia, occasional pancytopenia) — <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a></li>
+<li>Lungs/sinopulmonary tract (recurrent infection, bronchiectasis) — <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a></li>
+<li>Gastrointestinal tract, especially small intestine/colon (GVHD-like colitis, villous atrophy) — <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a> (intestine)</li>
+<li>Oral mucosa (lichen planus) — <a href="http://purl.obolibrary.org/obo/UBERON_0003729" target="_blank" rel="noopener noreferrer">UBERON:0003729</a></li>
+<li>Neuromuscular junction (myasthenia gravis) — <a href="http://purl.obolibrary.org/obo/UBERON_0000151" target="_blank" rel="noopener noreferrer">UBERON:0000151</a></li>
+<li>Skin/soft tissue (infections, ~18% of infection sites)</li>
+<li>CNS (rare invasive infection, ~8% of infection sites)</li>
+<li><strong>Body systems:</strong> immune system, hematologic system, respiratory system, gastrointestinal system, neuromuscular system.</li>
+<li><strong>Cellular level:</strong> peripheral B lymphocytes and their bone-marrow/thymic precursors; CD4+ and CD8+ T lymphocyte compartments; thymic epithelial cells (neoplastic).</li>
+<li><strong>Subcellular:</strong> not specifically characterized beyond transcriptional dysregulation (nucleus, via GTF2I/TFII-I).</li>
+<li><strong>Laterality:</strong> thymoma is typically a solitary anterior mediastinal mass; no laterality preference reported.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> adult-onset, typically <strong>40–70 years</strong> (mean/median ~57–60 years); a large McGill cohort recorded median age at thymoma diagnosis of 57.5 years (range 35–78). GS does not occur in childhood, unlike many primary immunodeficiencies and unlike a subset of CVID.</li>
+<li><strong>Onset pattern:</strong> insidious — recurrent infections often precede or coincide with thymoma detection; diagnosis is frequently delayed (mean 3.1 years, median 1 year, up to 17 years).</li>
+<li><strong>Progression:</strong> The 2024 prospective natural history study (McGill, 8 patients, up to 37 years follow-up) is the first to formally characterize GS as a <strong>"progressive adult combined immunodeficiency"</strong> — B- and T-cell compartments continue to decline over years/decades even after thymectomy (<a href="https://pubmed.ncbi.nlm.nih.gov/38122866/">PMID:38122866</a>).</li>
+<li><strong>Disease course pattern:</strong> chronic, generally progressive, punctuated by recurrent infectious episodes and, in many patients, later-onset autoimmune complications (autoimmunity often follows the immunodeficiency temporally).</li>
+<li><strong>Duration:</strong> lifelong once established; no reported spontaneous remission of the immune defect.</li>
+<li><strong>Thymoma staging at diagnosis:</strong> ~68.2% present at localized (Masaoka stage I–II) disease; ~51.4% are disease-free from the tumor at last follow-up versus ~48.6% with active thymoma disease, and active thymoma is itself an independent poor-prognostic factor (OR 4.157) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> GS is very rare; <strong>fewer than 400 reported cases worldwide</strong>, mostly from Europe and Asia. Estimated prevalence <strong>1 in 500,000–700,000</strong>. GS is found in roughly <strong>6–11% of thymoma patients</strong>.</li>
+<li><strong>Inheritance pattern:</strong> <strong>Not inherited</strong> — acquired/sporadic disease; no Mendelian pattern, no penetrance/expressivity concept applies, no reported genetic anticipation, germline mosaicism, founder effect, or consanguinity association.</li>
+<li><strong>Sex ratio:</strong> approximately equal male:female distribution (no significant sex predominance reported).</li>
+<li><strong>Geographic distribution:</strong> most reported cases from Europe and Asia, though this may partly reflect reporting/publication patterns rather than true geographic clustering.</li>
+<li><strong>Comparative epidemiology (from the French DEFI cohort, 690 adults with primary hypogammaglobulinemia):</strong> GS patients (n=21) were diagnosed at a <strong>median age of 60 years</strong>, versus 35 years for CVID and 34 years for B⁻ CVID — underscoring GS's distinctly late-adult onset (<a href="https://academic.oup.com/cid/article/61/2/e13/329344">CID 2015</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Minimal diagnostic criteria (used consistently across systematic reviews):</strong> presence of <strong>both thymoma and hypogammaglobulinemia</strong>, typically with absent/decreased B cells in most cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a>).</p>
+<ul>
+<li><strong>Laboratory/immunologic tests:</strong></li>
+<li>Serum immunoglobulins: low IgG (median ~332 mg/dL, can be as low as ~100 mg/dL), low IgA (86%), low IgM (92.6%) — though some cases show a "low IgG/normal IgA/high IgM" pattern.</li>
+<li><strong>Flow cytometry</strong>: markedly reduced or absent CD19+/CD20+ B cells (as low as single-digit percentages), absent transitional (CD38+CD24+) B cells, reduced CD4+ T cells, inverted CD4:CD8 ratio, naïve CD8+CD45RA+ T-cell predominance.</li>
+<li>Serology: poor/absent vaccine-antigen response (isohemagglutinins, tetanus/pneumococcal titers) consistent with functional antibody deficiency.</li>
+<li><strong>Imaging:</strong> Chest <strong>CT</strong> demonstrating an <strong>anterior mediastinal mass</strong> (thymoma); may also show mediastinal/hilar lymphadenopathy, bilateral traction bronchiectasis, and pulmonary nodules from chronic/recurrent infection.</li>
+<li><strong>Histopathology:</strong> Surgical thymoma specimen classified by <strong>WHO histologic subtype</strong> (predominantly type A or AB in GS); B-cell depletion can be demonstrated directly in thymoma tissue. GI biopsy in symptomatic patients may show villous blunting and GVHD-like active chronic inflammation, distinguishing the enteropathy from classic CVID-associated nodular lymphoid hyperplasia.</li>
+<li><strong>Genetic testing:</strong> Not part of routine clinical workup (no germline gene to test); GTF2I mutation status is a research/tumor-genomic finding, not a diagnostic test for GS itself.</li>
+<li><strong>Differential diagnosis:</strong> Primarily <strong>CVID</strong> — key distinguishing features are GS's later onset (40–70s vs. childhood/young-adult onset common in CVID), lack of familial clustering, <strong>near-total peripheral B-cell absence</strong> (vs. CVID's typically normal/mildly reduced B cells with reduced memory subsets), absence of lymphoid hyperplasia, and, critically, <strong>presence of thymoma</strong>. Other differentials include HIV/AIDS, secondary hypogammaglobulinemia (drug-induced, lymphoproliferative disease), and idiopathic CD4 lymphocytopenia.</li>
+<li><strong>Screening:</strong> No population screening program exists given rarity; clinical practice recommends checking serum immunoglobulin levels and flow cytometry in any patient with myasthenia gravis or an anterior mediastinal mass, particularly before starting immunosuppressive therapy.</li>
+</ul>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Pooled systematic review of 162 patients found <strong>overall mortality of 15.4%</strong> (25/162), with <strong>92.0% of deaths attributable to infection</strong>. This represents substantial improvement over an earlier systematic review's reported <strong>46.1% mortality</strong>, reflecting improved recognition and immunoglobulin replacement access (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">PMC8185358</a>).</li>
+<li><strong>Survival:</strong> <strong>10-year overall survival ≈53.7%</strong> among patients with documented follow-up.</li>
+<li><strong>Independent prognostic factors (multivariate analysis):</strong></li>
+<li>Active thymoma disease: OR 4.157 (p=0.023)</li>
+<li>Cellular-immunity-related infections: OR 3.324 (p=0.033)</li>
+<li>Sinopulmonary infections: OR 14.351 (p=0.003)</li>
+<li>CNS infections: OR 6.403 (p=0.029)</li>
+<li>Bloodstream infections: OR 6.917 (p=0.012)</li>
+<li><strong>Clinical subgroups (cluster analysis)</strong> identified three phenotypic clusters with differing infection/autoimmune profiles and prognosis: Cluster 1 (31.5%, cellular-immunity defects, mucosal/CNS infections), Cluster 2 (47.5%, other/unknown immune defect, lower IgG), Cluster 3 (21.0%, humoral/phagocytic defects, sinopulmonary predominance).</li>
+<li><strong>Note:</strong> Outcomes correlate more strongly with <strong>severity of infections and hematologic/autoimmune complications than with thymoma severity per se</strong> — i.e., the immunologic phenotype, not the tumor stage alone, drives prognosis.</li>
+<li><strong>Complications:</strong> recurrent/invasive infection, bone marrow failure/aplasia (gradual, per some reviews), PRCA-related anemia requiring transfusion, myasthenic crisis, chronic malabsorptive enteropathy.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>Immunoglobulin replacement therapy (IVIG/SCIG):</strong> the <strong>cornerstone of management</strong> — lifelong replacement is necessary because thymectomy does not reverse hypogammaglobulinemia. Reported in <strong>78.4%</strong> of patients in the pooled series; shown to reduce sinopulmonary infection frequency (<a href="https://pubmed.ncbi.nlm.nih.gov/23200552/">PMID:23200552</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29888926/">PMID:29888926</a>). NCIT term: <strong>NCIT:C15986</strong> (Pharmacotherapy) with therapeutic agent immune globulin.</li>
+<li><strong>Thymectomy:</strong> performed in <strong>90.0%</strong> of surgical candidates — primarily indicated for oncologic control of the thymoma (and adjunct management of associated myasthenia gravis) rather than for reversing immunodeficiency, since <strong>"thymectomy has favorable effects on other parathymic syndromes but is ineffective in improving immunologic deficiencies in Good's syndrome."</strong> NCIT: <strong>NCIT:C15329</strong> (Surgical Procedure) / thymectomy-specific term.</li>
+<li><strong>Antimicrobial prophylaxis:</strong> used in only ~17.3% of patients in pooled data — an area of underuse relative to guideline recommendations; targeted prophylaxis (e.g., against <em>Pneumocystis jirovecii</em>, recurrent bacterial sinopulmonary pathogens) is advocated (<a href="https://pubmed.ncbi.nlm.nih.gov/29878906/">PMID:29878906</a>).</li>
+<li><strong>Immunosuppressive therapy for autoimmune complications:</strong> used in ~50.6% of patients with concurrent autoimmunity (e.g., corticosteroids, cyclosporine for PRCA; pyridostigmine/immunosuppression for myasthenia gravis). Case reports describe <strong>rituximab</strong> (anti-CD20) used successfully for refractory PRCA/myasthenia gravis in thymoma-associated multi-autoimmune syndrome, sometimes combined with <strong>tocilizumab</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31472400/">PMID:31472400</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27408396/">PMID:27408396</a>) — used cautiously given pre-existing combined immunodeficiency.</li>
+<li><strong>Vaccination:</strong> Because of profound humoral (and often cellular) immunodeficiency, <strong>live vaccines are generally contraindicated</strong>, and non-live vaccines may be poorly immunogenic; passive immunoglobulin replacement is relied upon instead of active immunization for protection.</li>
+<li><strong>Supportive care:</strong> aggressive treatment of acute infections; monitoring for GI disease (GVHD-like colitis) and hematologic complications; multidisciplinary follow-up (immunology, oncology/thoracic surgery, hematology).</li>
+<li><strong>Experimental/advanced therapeutics:</strong> No gene therapy, targeted molecular therapy, or GS-specific clinical trials were identified (ClinicalTrials.gov search did not surface GS-specific interventional trials in this review); management remains supportive/replacement-based rather than disease-modifying.</li>
+<li><strong>Treatment algorithm summary:</strong> (1) diagnose and stage thymoma → (2) thymectomy for oncologic management → (3) lifelong immunoglobulin replacement regardless of surgical outcome → (4) targeted antimicrobial prophylaxis based on infection risk profile → (5) manage autoimmune complications with immunosuppression/rituximab as needed, balanced against infection risk.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the classical sense (no known preventable cause); however, prompt recognition of thymoma with early immunologic screening (immunoglobulins + flow cytometry) may allow earlier initiation of protective measures.</li>
+<li><strong>Secondary prevention:</strong> Early diagnosis of thymoma (often incidental on chest imaging) combined with immunologic workup before immunosuppressive therapy is initiated (e.g., before treating presumed isolated myasthenia gravis) can identify GS early and avoid inappropriate immunosuppression.</li>
+<li><strong>Tertiary prevention:</strong> Immunoglobulin replacement and antimicrobial prophylaxis to reduce infection-related morbidity/mortality; regular hematologic monitoring for PRCA/marrow failure; GI symptom surveillance for GVHD-like colitis.</li>
+<li><strong>Immunization strategy:</strong> Passive protection via IVIG/SCIG substitutes for active vaccination; live vaccines avoided.</li>
+<li><strong>Genetic counseling:</strong> Not applicable — GS is acquired/sporadic, not heritable.</li>
+<li><strong>Public health relevance:</strong> Minimal, given extreme rarity; no population-level screening programs exist.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Dogs (<em>Canis lupus familiaris</em>, NCBITaxon:9615):</strong> Thymoma is a recognized canine neoplasm, and canine paraneoplastic syndromes include <strong>hypogammaglobulinemia analogous to human Good syndrome</strong>, alongside myasthenia gravis, hypercalcemia, and other autoimmune disease (occurring in an estimated 20–40% of dogs with thymoma). This thymoma-associated hypogammaglobulinemia is explicitly described in the veterinary literature as "<strong>Good syndrome</strong>" in dogs, representing a <strong>natural, spontaneously occurring comparative model</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5989270/">PMC5989270</a>; <a href="https://avmajournals.avma.org/abstract/journals/javma/243/10/javma.243.10.1448.xml">AVMA JAVMA 243:1448</a>).</li>
+<li><strong>Cats:</strong> Thymoma-associated myasthenia gravis and paraneoplastic syndromes are also documented, though hypogammaglobulinemia specifically is less well characterized than in dogs.</li>
+<li><strong>Comparative biology:</strong> The naturally occurring canine disease shares the core features (thymoma + acquired antibody deficiency + autoimmune paraneoplastic phenomena) but formal comparative pathology/mechanistic studies bridging dog and human GS are limited.</li>
+<li><strong>Zoonotic potential:</strong> None — GS is not a transmissible/infectious disease in either species.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>No dedicated animal model exists that fully recapitulates human Good syndrome</strong> (i.e., an induced thymoma + combined immunodeficiency model). This is an important gap.</li>
+<li><strong>Closest genetic model:</strong> A <strong>mouse model expressing the human thymoma-associated GTF2I p.L424H mutation</strong> in thymic epithelium demonstrates <strong>impaired thymic epithelial progenitor differentiation and reduced thymopoietic activity</strong>, reproducing the upstream thymic-developmental defect implicated in GS pathogenesis, though this model targets thymoma biology broadly rather than GS's immunodeficiency/autoimmunity phenotype specifically (<a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">PMID:36175547</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9522929/">Communications Biology, PMC9522929</a>).</li>
+<li><strong>Natural (non-induced) model:</strong> Companion dogs with spontaneous thymoma and acquired hypogammaglobulinemia represent the best available <strong>naturally occurring comparative model</strong>, useful for studying spontaneous thymoma-associated humoral immunodeficiency, though systematic mechanistic study in this population is limited.</li>
+<li><strong>Cell/tissue-based models:</strong> Direct study of resected human thymoma tissue (immunohistochemistry/flow cytometry showing B-cell absence within the tumor microenvironment) has served as a quasi-model system for understanding local immune dysregulation (<a href="https://link.springer.com/article/10.1007/s12672-024-01450-x">Discover Oncology 2024</a>).</li>
+<li><strong>Applications/limitations:</strong> Existing models can address thymic epithelial developmental biology (via GTF2I mouse models) but cannot yet model the peripheral B-cell aplasia, progressive T-cell dysfunction, or autoimmune complications (PRCA, myasthenia gravis, GVHD-like colitis) that define the clinical syndrome — representing a significant unmet need for a translational GS model.</li>
+</ul>
+<hr />
+<h2>Summary of Key Evidence Gaps (for curation purposes)</h2>
+<ol>
+<li><strong>Mechanistic pathway from thymoma → B-cell aplasia is not established</strong> — multiple reviews explicitly state the pathogenesis is unresolved; curated pathophysiology nodes should be flagged with appropriate hedging/hypothesis status rather than presented as confirmed causal biology.</li>
+<li>No GS-specific transcriptomic/proteomic/single-cell atlas exists.</li>
+<li>No dedicated GS animal model exists; the GTF2I mouse model addresses only the upstream thymic-developmental step.</li>
+<li>Quantitative epidemiology rests on pooled case reports/series rather than population-based registries — prevalence estimates (1/500,000–700,000) should be treated as rough.</li>
+<li>OMIM has no dedicated entry; <a href="http://purl.obolibrary.org/obo/MONDO_0015696" target="_blank" rel="noopener noreferrer">MONDO:0015696</a> and <a href="https://bioregistry.io/ORPHA:169105" target="_blank" rel="noopener noreferrer">ORPHA:169105</a> are the primary stable identifiers.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=169105">Orphanet: Good syndrome (ORPHA169105)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12792900/">P-1563. Unraveling a good paradox — Tertiary center experience with Good syndrome, 32 cases through 2024 (PMC12792900)</a></li>
+<li><a href="https://www.cmaj.ca/content/198/5/E171">A 69-year-old man with Good syndrome: thymoma-associated immunodeficiency — CMAJ</a></li>
+<li><a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2021.815710/full">Frontiers | Good's Syndrome: Time to Move on From Reviewing the Past (2021)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S1521661616302509">Prognosis of Good syndrome: mortality and morbidity — ScienceDirect (Semin Hematol 2016)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8185358/">When the Good Syndrome Goes Bad: A Systematic Literature Review (PMC8185358)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s12672-024-01450-x">B cell deficiency in thymoma tissues of Good's syndrome patients — Discover Oncology (2024)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38122866/">Unraveling the Natural History of Good's Syndrome — JACI In Practice (2024); PMID:38122866</a></li>
+<li><a href="https://academic.oup.com/cid/article/61/2/e13/329344">Good Syndrome: An Adult-Onset Immunodeficiency Remarkable for Invasive Infections and Autoimmune Complications — Clinical Infectious Diseases (2015)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11147683/">Good's Syndrome With Pure Red Cell Aplasia and Subclinical Myasthenia Gravis (PMC11147683)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8710742/">Pure Red Cell Aplasia and Other Haematological Diseases Associated With Thymoma (PMC8710742)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/full/10.1002/ccr3.4136">Good's syndrome (immunodeficiency with thymoma): six cases and review — Clinical Case Reports (2021)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35034040/">Lymphocyte-Rich Spindle Cell Thymoma — PMID:35034040</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7970526/">Immunodeficiency and Thymoma: A Case Report on Good Syndrome (PMC7970526)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10296089/">Insights from a Case of Good's Syndrome (PMC10296089)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5937423/">Aberrant Peripheral Immune Function in a Good Syndrome Patient (PMC5937423)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8636207/">Good's syndrome presenting with CMV pneumonitis and oesophageal candidiasis (PMC8636207)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12647230/">Gastrointestinal pathology in Good's syndrome, thinking beyond CVID (PMC12647230)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8019250/">Clinicopathologic features of Good's syndrome: Two cases and literature review (PMC8019250)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2772613424000039">Somatic variant profiling of a thymoma in Good syndrome — ScienceDirect</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">Human thymoma-associated mutation of GTF2I impairs thymic epithelial progenitor differentiation in mice — PMID:36175547</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37671056/">Somatic mutations of thymic epithelial tumors with myasthenia gravis — PMID:37671056</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">Primary Driver Mutations in GTF2I Specific to Thymomas (PMC7466068)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31472400/">Successful combined treatment with thymectomy, rituximab and tocilizumab for thymoma-associated multi-autoimmune syndrome — PMID:31472400</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27408396/">Thymoma with Concomitant PRCA, Good's Syndrome and Myasthenia Gravis Responding to Rituximab — PMID:27408396</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23200552/">Intravenous immunoglobulin replacement therapy — PMID:23200552</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29888926/">Features and outcomes of immunoglobulin therapy in Good syndrome, Thailand — PMID:29888926</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29878906/">Prevention of infectious diseases in patients with Good syndrome — PMID:29878906</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37729389/">Good's syndrome: brief overview of an enigmatic immune deficiency — PMID:37729389</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11323965/">A Case of Oral Lichen Planus Preceding the Diagnosis of Good Syndrome (PMC11323965)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5989270/">Acquired hypogammaglobulinemia associated with thymoma: Good syndrome (veterinary) — PMC5989270</a></li>
+<li><a href="https://avmajournals.avma.org/abstract/journals/javma/243/10/javma.243.10.1448.xml">Clinical features, treatment options, and outcome in dogs with thymoma: 116 cases — JAVMA</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>28</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC8185358</code> <em>(abstract only)</em>: "disrupts the balance between host-defense and self-tolerance"</li>
+<li>Text part not found as substring: 'disrupts the balance between host-defense and self-tolerance' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/34113351/" target="_blank" rel="noopener noreferrer">PMID:34113351</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+<p>30 of 32 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Gonorrhea-claude_code.html">← Gonorrhea (Claude Code)</a>
+                
+                
+                <a href="Gorham-Stout_disease-asta.html">Gorham-Stout disease (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Good_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Good_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

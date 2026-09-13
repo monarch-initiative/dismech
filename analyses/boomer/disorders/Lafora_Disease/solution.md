@@ -1,0 +1,26 @@
+
+ ## dismech-Lafora_Disease
+ * 219 combinations
+ * 216 satisfiable combinations
+ * 1.0 proportion of combinations explored
+ * 0.125 confidence
+ * 0.35504256225 prior probability
+ * 0.009385416782 posterior probability
+Grounding:
+ * True dismech:Lafora_Disease (Lafora_Disease (dismech entry)) ≡ MONDO:0009697 (Lafora disease) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Lafora_Disease (Lafora_Disease (dismech entry)) ⊆ MONDO:0009697 (Lafora disease) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0009697 (Lafora disease) ⊆ dismech:Lafora_Disease (Lafora_Disease (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0009697 (Lafora disease) ≡ DOID:3534 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009697 (Lafora disease) ≡ MESH:D020192 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009697 (Lafora disease) ≡ NCIT:C84804 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009697 (Lafora disease) ≡ ORDO:501 :: prior: 0.95 posterior: 0.95
+ * True dismech:Lafora_Disease#EPM2A-related Lafora disease (Lafora_Disease / EPM2A-related Lafora disease (dismech subtype)) ≡ MONDO:0958199 (myoclonic epilepsy of Lafora 1) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Lafora_Disease#EPM2A-related Lafora disease (Lafora_Disease / EPM2A-related Lafora disease (dismech subtype)) ⊆ MONDO:0958199 (myoclonic epilepsy of Lafora 1) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0958199 (myoclonic epilepsy of Lafora 1) ⊆ dismech:Lafora_Disease#EPM2A-related Lafora disease (Lafora_Disease / EPM2A-related Lafora disease (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0958199 (myoclonic epilepsy of Lafora 1) ≡ DOID:0070660 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0958199 (myoclonic epilepsy of Lafora 1) ≡ OMIM:254780 :: prior: 0.95 posterior: 0.95
+ * True dismech:Lafora_Disease#NHLRC1-related Lafora disease (Lafora_Disease / NHLRC1-related Lafora disease (dismech subtype)) ≡ MONDO:0800306 (myoclonic epilepsy of Lafora 2) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Lafora_Disease#NHLRC1-related Lafora disease (Lafora_Disease / NHLRC1-related Lafora disease (dismech subtype)) ⊆ MONDO:0800306 (myoclonic epilepsy of Lafora 2) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0800306 (myoclonic epilepsy of Lafora 2) ⊆ dismech:Lafora_Disease#NHLRC1-related Lafora disease (Lafora_Disease / NHLRC1-related Lafora disease (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0800306 (myoclonic epilepsy of Lafora 2) ≡ DOID:0061211 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0800306 (myoclonic epilepsy of Lafora 2) ≡ OMIM:620681 :: prior: 0.95 posterior: 0.95
