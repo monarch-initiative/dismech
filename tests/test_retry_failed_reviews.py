@@ -314,6 +314,68 @@ def test_zero_delay_explicitly_bypasses_backoff():
     assert retry.delay_hours(5, 0) == 0
 
 
+def test_summary_links_actions_first_and_keeps_diagnostics():
+    rows = [
+        "Run 30: cannot resolve PR (CalledProcessError).",
+        "Run 30: deferred; PR association unavailable.",
+        "PR #9, run 29: skipped; PR is closed.",
+        "PR #7, run 20: retried failed jobs (attempt 2).",
+        "PR #8, run 21: deferred; retry budget reached.",
+    ]
+    summary = retry.render_summary("owner/repo", rows, False, 1)
+    assert "Live run: 1 rerun requests accepted (limit: 1)." in summary
+    assert "1 PRs deferred at the retry limit" in summary
+    assert "[PR #7](https://github.com/owner/repo/pull/7)" in summary
+    assert "[run 20](https://github.com/owner/repo/actions/runs/20)" in summary
+    assert "[Run 30](https://github.com/owner/repo/actions/runs/30)" in summary
+    assert summary.index("### Restarted reviews") < summary.index("<details>")
+    assert "PR lookup diagnostics (2 messages)" in summary
+    assert "Messages, not unique PRs or runs" in summary
+    assert "they have not been queued" in summary
+    for row in rows:
+        assert row.split(": ", 1)[1] in summary
+
+
+def test_summary_dry_run_does_not_claim_restarts():
+    summary = retry.render_summary(
+        "owner/repo", ["PR #7, run 20: would retry failed jobs (attempt 2)."], True, 5
+    )
+    assert "Dry run: no rerun requests issued; 1 would restart (limit: 5)." in summary
+    assert "### Would restart (dry run) (1)" in summary
+    assert "### Restarted reviews" not in summary
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "Review retries disabled (budget 0).",
+        "No failed review runs need recovery.",
+        "Retries deferred: an active legacy review cannot yet be associated with a PR.",
+        "Discovery failed (CalledProcessError); no retries issued.",
+        "PR #7, run 20: error (CalledProcessError); no further action on this PR.",
+    ],
+)
+def test_summary_preserves_zero_action_and_error_notices(row):
+    summary = retry.render_summary("owner/repo", [row], False, 5)
+    assert "Live run: 0 rerun requests accepted" in summary
+    assert row.split(": ")[-1] in summary
+
+
+def test_main_writes_same_linked_summary_to_stdout_and_actions(
+    monkeypatch, tmp_path, capsys
+):
+    output = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(output))
+    monkeypatch.setattr(
+        retry,
+        "sweep",
+        lambda *args: (["PR #7, run 20: retried failed jobs (attempt 2)."], 0),
+    )
+    assert retry.main(["--repo", "owner/repo"]) == 0
+    assert capsys.readouterr().out.strip() == output.read_text().strip()
+    assert "https://github.com/owner/repo/actions/runs/20" in output.read_text()
+
+
 def test_workflow_job_is_independent_and_respects_dry_run():
     config = yaml.safe_load((ROOT / ".github/workflows/pr-shepherd.yml").read_text())
     job = config["jobs"]["retry-reviews"]

@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podoconiosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Podoconiosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Podoconiosis</h1>
+                
+                <p class="report-subtitle">Podoconiosis (Endemic Non-Filarial Elephantiasis / Geochemical Lymphedema): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005425" target="_blank" rel="noopener noreferrer">MONDO:0005425</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">43 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Podoconiosis (Endemic Non-Filarial Elephantiasis / Geochemical Lymphedema): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Podoconiosis (also "podoconiosis," from Greek <em>podos</em> [foot] + <em>konia</em> [dust]) is a non-infectious, geochemical lymphedema of the lower legs caused by long-term contact of bare feet with irritant, mineral-rich red clay soils derived from alkalic volcanic rock, occurring exclusively in genetically susceptible individuals. It is the second most common cause of tropical lymphedema worldwide after lymphatic filariasis and is one of the very few WHO Neglected Tropical Diseases (NTDs) that is <strong>non-infectious</strong> — grouped, unusually, with snakebite envenoming in the "non-infectious NTD" category of the WHO 2021–2030 NTD roadmap. It is also known by the regional lay term "mossy foot" for its hyperkeratotic, moss-like papillomatous skin lesions.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005425" target="_blank" rel="noopener noreferrer">MONDO:0005425</a>
+- <strong>OMIM:</strong> 614590 — "PODOCONIOSIS, SUSCEPTIBILITY TO; PDCOS" (susceptibility locus entry, not a classic Mendelian disease entry)
+- <strong>Disease Ontology:</strong> <a href="http://purl.obolibrary.org/obo/DOID_0050138" target="_blank" rel="noopener noreferrer">DOID:0050138</a>
+- <strong>MeSH:</strong> D062846 ("Elephantiasis, Nonfilarial" / historically indexed with "Non-Filarial Lymphedema")
+- ICD-10/ICD-11: no dedicated podoconiosis-specific code was identified in this search; it is typically coded under non-filarial lymphedema/elephantiasis categories (curators should verify current ICD-11 foundation entries directly before binding).
+- An Orphanet (ORPHA) code was not confirmed via this search and should be checked directly against Orphadata before citing.</p>
+<p><strong>Synonyms:</strong> endemic non-filarial elephantiasis; nonfilarial elephantiasis; tropical non-filarial elephantiasis; geochemical elephantiasis; "mossy foot" disease; podoconiosis lymphoedema.</p>
+<p><strong>Data provenance:</strong> The evidence base is overwhelmingly <strong>aggregated, disease-level</strong> (cross-sectional community surveys, case-control studies, disease registries such as the Ethiopian national podoconiosis mapping, and genetic-epidemiology cohorts from southern Ethiopia), rather than individual EHR-derived data — reflecting its concentration in resource-limited rural settings without electronic health infrastructure. (WHO fact sheet; Deribe et al., <em>PLoS NTD</em> "Ten Years of Podoconiosis Research in Ethiopia," 2013.)</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors — a gene–environment disease model.</strong> Podoconiosis is the paradigm example of a disease requiring <strong>both</strong> a specific environmental exposure (chronic bare-foot contact with irritant volcanic soil) <strong>and</strong> genetic susceptibility (HLA class II variants); neither alone is sufficient. The WHO states: "evidence suggests that podoconiosis is the result of a genetically determined abnormal inflammatory reaction to mineral particles in irritant red clay soils derived from volcanic deposits." No infectious agent has ever been identified despite extensive investigation.</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>HLA class II locus (chromosome 6p21.3):</strong> The first genome-wide association study (GWAS) of podoconiosis (Tekola Ayele F, et al., <em>N Engl J Med</em> 2012;366:1200-8; <strong><a href="https://pubmed.ncbi.nlm.nih.gov/22455414/" target="_blank" rel="noopener noreferrer">PMID:22455414</a></strong>) genotyped 194 cases and 203 controls from southern Ethiopia and found genome-wide significant association with <strong>rs17612858</strong> (OR 2.19; P=3.44×10⁻⁸), an intergenic SNP between <strong>HLA-DQA1</strong> and <strong>HLA-DQB1</strong>, plus seven other genome-wide-suggestive SNPs in the HLA class II region. Together the HLA SNPs explained ~15.6% of genetic variance and conferred a 2–3-fold increase in risk.
+- <strong>Replication:</strong> A follow-up study (<em>Sci Rep</em> 2021;11:2941; <strong><a href="https://pubmed.ncbi.nlm.nih.gov/33558538/" target="_blank" rel="noopener noreferrer">PMID:33558538</a></strong>) replicated HLA class II (DRB1, DQA1, DQB1) association across three Ethiopian ethnic groups (Wolaita, Amhara, Oromo), strengthening the causal case beyond a single population.
+- <strong>Heritability/segregation analysis:</strong> Multi-generational family studies in the Wolaita ethnic group (1,400 individuals across 59 families) found a sibling recurrence risk ratio (λs) of <strong>5.07</strong> and heritability of <strong>0.63</strong>, with the best-fitting model being an <strong>autosomal co-dominant major gene</strong>, with age and footwear use as significant environmental covariates (Davey G, et al., genetic epidemiology studies referenced in <em>Trans R Soc Trop Med Hyg</em> / <em>PLoS NTD</em>, Ethiopia).
+- <strong>Mechanistic immunogenetic follow-up:</strong> Because HLA class II presents peptide antigens to CD4+ T cells, the HLA association implicates podoconiosis as a <strong>T-cell-mediated inflammatory disease</strong>. A 2020 multiplexed gene-expression study (PMC7738654) and a 2024 <em>Nature Communications</em> paper ("Evidence for immune activation in pathogenesis of the HLA class II associated disease, podoconiosis," PMCID PMC10917762 — PMID not independently confirmed in this search and should be verified before citation) both report signatures of chronic immune activation consistent with an antigen-driven, T-cell-mediated response to mineral particles.</p>
+<p><strong>Environmental/exposure risk factors:</strong>
+- <strong>Soil composition:</strong> Weathering of basaltic and alkaline volcanic rock produces red clay soils rich in <strong>smectite and kaolinite clays</strong>, mica-group minerals, <strong>crystalline silica (quartz)</strong>, iron oxide, and <strong>zirconium</strong>; WHO also implicates <strong>aluminium and beryllium</strong>. A 2023 geochemical/mineralogical characterization study (PMC10611848) and a 2017 study on the <strong>haemolytic activity of soils from areas of varying podoconiosis endemicity</strong> (<em>PLoS ONE</em> 2017; PMC5426718) both link specific mineral/geochemical profiles to endemicity gradients.
+- <strong>Barefoot exposure duration:</strong> Duration and age of onset of barefoot exposure are the dominant environmental determinants; <strong>age of first shoe-wearing correlates positively with age of podoconiosis onset</strong>.
+- <strong>Occupation:</strong> subsistence farming with prolonged barefoot contact with cultivated volcanic soils is the classic occupational exposure.
+- <strong>Altitude:</strong> endemic zones are characteristically <strong>high-altitude</strong> areas with volcanic soils (contrasting with lymphatic filariasis, which is a low-lying, mosquito-borne disease).
+- <strong>Socioeconomic status:</strong> extreme rural poverty precluding shoe ownership is a structural risk factor.</p>
+<p><strong>Protective factors:</strong>
+- <strong>Consistent footwear use</strong> is the principal, well-established environmental protective factor across multiple case-control studies (e.g., Rwanda: "none of the controls went barefoot… in contrast to 11.6% of controls, none of the patients wore closed shoes," Musanze District case-control study, PMC13497288). Floor covering in homes (reducing indoor soil contact) is also protective.
+- <strong>Foot hygiene</strong> (regular washing) reduces cumulative mineral-particle penetration.
+- No specific protective genetic variant/allele has yet been robustly identified (absence of the risk HLA haplotypes is implicitly protective, but no independent protective locus has been reported in the searched literature).</p>
+<p><strong>Gene–environment interaction.</strong> Podoconiosis is repeatedly cited in the literature as a "tropical model for gene–environment interactions" (Davey G, <em>Trans R Soc Trop Med Hyg</em>, 2006) — disease develops only in the intersection of (a) sustained soil exposure and (b) HLA class II susceptibility genotype; neither factor alone produces disease, and community understanding studies show that ~59% of Ethiopian youth in endemic areas already correctly conceptualize this joint causation (PMC6155534).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Podoconiosis exhibits a well-characterized clinical progression from early reversible inflammatory changes to fixed fibrotic elephantiasis. A <strong>de novo five-stage clinical staging system</strong> (Tekola F, et al.) is the field standard:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 (early)</td>
+<td>Itching, tingling/burning sensation on the dorsum of the foot, mild forefoot widening, intermittent swelling</td>
+</tr>
+<tr>
+<td>2</td>
+<td>"Water-bag" pitting, soft edema; flask-shaped leg (narrow at knee, wide at ankle); smooth, dumpy foot surface</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Fibrotic, non-pitting edema below the knee; sclerotic hyper-/hypopigmentation on the shin; fibrotic ridge at the flexural ankle; early nodules, plantar involvement</td>
+</tr>
+<tr>
+<td>4 (advanced)</td>
+<td>Non-pitting edema extending above the knee; skin depigmentation around the ankle</td>
+</tr>
+<tr>
+<td>5 (advanced)</td>
+<td>Fibrotic, globular, "woody"/rubbery tumor-like swelling; ankle ankylosis; multiple nodules and scarring; band-like redundant "pillowy" skin folds</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Symptoms/signs by category:</strong>
+- <strong>Cutaneous:</strong> hyperkeratotic, "mossy," papillomatous nodules (moss-like lesions present in ~77.5% of patients, often bilateral); dry, thickened, fissured skin; toe maceration; plantar/dorsal nodules; hyper- and hypopigmentation.
+- <strong>Lymphedema:</strong> chronic, <strong>bilateral but asymmetric</strong>, ascending (rather than descending) leg swelling that typically <strong>spares the groin</strong> — a key distinguishing feature from filarial lymphedema.
+- <strong>Musculoskeletal:</strong> ankle ankylosis and joint fixation in advanced (stage 4–5) disease, causing significant mobility impairment.
+- <strong>Systemic/complication phenotype — Acute dermatolymphangioadenitis (ADLA):</strong> recurrent acute attacks of fever, pain, erythema, and worsening swelling, triggered by bacterial entry through fissured/cracked skin. Patients experience on average ≥5 episodes/year (up to 23.3/year reported in one Ethiopian district), totaling ~90 incapacitated days/year (PMC6638979; medRxiv 2025.05.12.25327479). Each ADLA episode drives further lymphatic damage and disease progression.
+- <strong>Laboratory/hematological:</strong> studies from West Gojjam, Ethiopia (PMC11687886) and Musanze, Rwanda (PMC13497288) report altered hematological and immunological profiles (e.g., elevated inflammatory markers) versus controls, though these are not yet incorporated into diagnostic criteria.
+- <strong>Behavioral/psychological:</strong> severe depression (OR ~19.8), anxiety (OR ~10.7), and stress symptoms (OR ~13.5) are markedly elevated versus unaffected neighbors (Rwanda comparative study, <em>PLoS NTD</em> 2024, PMC11309478/<a href="https://pubmed.ncbi.nlm.nih.gov/39116063/" target="_blank" rel="noopener noreferrer">PMID 39116063</a>); depressive-symptom prevalence reported at 12.6% (Ethiopia), 38.5% (Cameroon), and 68.5% (Rwanda) among patients.</p>
+<p><strong>Phenotype characteristics:</strong>
+- <strong>Onset:</strong> insidious, typically in young adulthood — mean age at first noticing leg swelling ≈ 25 years; onset is rare before age 5–6, rises through adolescence, and can present up to the sixth decade or later.
+- <strong>Progression:</strong> chronic, slowly progressive over years to decades if unmanaged; <strong>early stages (1–2) are reversible</strong> with footwear and hygiene, but stages 3–5 involve fixed fibrosis.
+- <strong>Severity/frequency:</strong> variable; frequency of nodular/hyperkeratotic ("mossy") lesions ~77.5%; in Ethiopian endemic districts prevalence of any stage disease reaches 5–10%.
+- <strong>Quality of life impact:</strong> significantly reduced across all four WHOQOL subdomains (physical, psychological, social, environmental) versus healthy controls (Northern Ethiopia QOL study, PMC3726315); stigma, illiteracy, comorbidity, and being unmarried are independent correlates of poor QOL.</p>
+<p><strong>Suggested HPO terms</strong> (leads only — must be verified against the current HPO release before curation, per dismech's anti-hallucination policy):
+- Lower-limb lymphedema / lymphedema (general lymphedema term)
+- Hyperkeratosis (<a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" rel="noopener noreferrer">HP:0000962</a> general hyperkeratosis concept)
+- Skin ulcer / skin fissuring
+- Ankle contracture / joint ankylosis
+- Depression, Anxiety (as secondary/behavioral phenotypes)
+- Recurrent skin infections (as the substrate of ADLA)</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal/susceptibility genes:</strong> Podoconiosis is <strong>not</strong> a single-gene Mendelian disorder; it is modeled as a <strong>complex, HLA class II-associated susceptibility trait</strong> (OMIM 614590, "PODOCONIOSIS, SUSCEPTIBILITY TO"). No monogenic causal mutation has been described.</p>
+<p><strong>Implicated loci/genes (HGNC where applicable):</strong>
+- <strong>HLA-DQA1</strong> / <strong>HLA-DQB1</strong> (intergenic SNP rs17612858 between them) — Tekola Ayele et al., <a href="https://pubmed.ncbi.nlm.nih.gov/22455414/" target="_blank" rel="noopener noreferrer">PMID:22455414</a>.
+- <strong>HLA-DRB1</strong> — implicated in replication study (<a href="https://pubmed.ncbi.nlm.nih.gov/33558538/" target="_blank" rel="noopener noreferrer">PMID:33558538</a>) alongside DQA1/DQB1.</p>
+<p><strong>Variant classification:</strong> These are common-variant (population-frequency) susceptibility alleles identified by GWAS, not rare pathogenic Mendelian variants — so ACMG/AMP pathogenicity tiers do not directly apply. Effect sizes are modest (OR ~2.19 for the lead SNP), consistent with a polygenic/complex-trait architecture layered on an obligate environmental exposure.</p>
+<p><strong>Allele frequency:</strong> Population-level allele frequencies for the implicated HLA class II haplotypes in Ethiopian populations were reported in the original GWAS and replication studies but specific frequency values were not retrieved in this search; gnomAD/1000 Genomes do not have curated podoconiosis-specific frequency annotations (this is an HLA-region association, so standard biallelic-variant frequency databases are of limited direct use — HLA imputation/typing panels are more appropriate).</p>
+<p><strong>Somatic vs. germline:</strong> Exclusively germline susceptibility (host genetic background), acting in combination with an acquired environmental exposure — not a somatic disease.</p>
+<p><strong>Functional consequences:</strong> The HLA class II susceptibility association is interpreted as conferring an altered antigen-presentation profile that predisposes CD4+ T cells to mount a chronic, maladaptive inflammatory response to mineral particles absorbed through the skin — i.e., <strong>gain-of-function of a pathological adaptive immune response</strong>, not a loss-of-function protein defect.</p>
+<p><strong>Modifier genes:</strong> None specifically named beyond the co-dominant "major gene" inferred by segregation analysis; the field considers additional minor loci and environmental covariates (age, footwear) likely but not yet mapped.</p>
+<p><strong>Epigenetic information / chromosomal abnormalities:</strong> No epigenetic (DNA methylation, histone modification) studies or chromosomal-abnormality data specific to podoconiosis were identified in this search — this appears to be an open research gap.</p>
+<p><strong>Molecular/immunological profiling:</strong>
+- A 2020 multiplexed gene-expression (NanoString-type) study of PBMCs from HLA class II-genotyped cases/controls (PMC7738654) found evidence of <strong>chronic immune activation</strong> transcriptional signatures.
+- A 2024 <em>Nature Communications</em> study (PMC10917762) extended this, reporting immune-activation evidence directly tied to the HLA-associated disease mechanism.
+- A cytokine-stimulation study (PMC11598685) measured <strong>TNF-α, IL-1β, and IFN-γ</strong> by ELISA in PBMCs from cases vs. endemic healthy controls, at baseline and after in vitro stimulation with <strong>kaolinite, chlorite, and beryllium sulfate</strong>. Key finding: baseline (unstimulated) TNF-α and IL-1β were <strong>significantly higher in patients</strong> than controls, but after mineral stimulation, healthy controls showed a <strong>paradoxically greater increase</strong> in IL-1β (2–3-fold higher with kaolinite/chlorite) than patients — suggesting patients' cells may already be in a chronically activated/exhausted state at baseline. No significant difference in cytokine gene mRNA expression was found, though slight increases in IL-1β and TGF-β were noted.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors:</strong> The central environmental agent is chronic transdermal (plantar) exposure to <strong>irritant, alkalic-volcanic-derived red clay soil</strong>. Implicated mineral/chemical constituents (from soil geochemistry studies, PMC10611848 and PMC5426718):
+- Smectite and kaolinite clays (phyllosilicates)
+- Mica-group minerals
+- Crystalline silica/quartz (colloid-sized alumino-silicate particles)
+- Iron oxide
+- Zirconium
+- Aluminium and beryllium (per WHO)</p>
+<p>Soils from higher-endemicity areas show measurably different mineralogical/geochemical and hemolytic-activity profiles compared to soils from lower-endemicity areas of the same region, supporting a soil-composition dose-response relationship.</p>
+<p><strong>Lifestyle factors:</strong> Habitual bare-footedness (occupational and cultural norm in affected rural communities); lack of floor coverings in homes; poverty precluding shoe purchase/replacement.</p>
+<p><strong>Infectious agents:</strong> None causally implicated in the primary disease process (podoconiosis is explicitly non-infectious). However, <strong>secondary bacterial infection</strong> through fissured, hyperkeratotic skin is the proximate trigger for <strong>ADLA</strong> attacks, which drive disease exacerbation; a 2023 study (<em>Sci Rep</em> 2023, "Tropical leg lymphedema caused by podoconiosis is associated with increased colonisation by anaerobic bacteria") found increased anaerobic bacterial colonization of affected limbs, implicating a polymicrobial (largely anaerobic) skin/soft-tissue flora in the acute-attack pathophysiology.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (numbered, with inference status noted)</h3>
+<ol>
+<li><strong>Chronic barefoot contact</strong> with alkalic-volcanic-derived red clay soil exposes plantar/dorsal foot skin to colloid-sized alumino-silicate mineral particles (kaolinite, smectite, quartz/silica, zirconium, aluminium, beryllium) over years. <em>(Demonstrated — epidemiological and geochemical studies.)</em></li>
+<li>This exposure <strong>leads to</strong> transdermal/transcutaneous penetration of ultrafine mineral particles into the dermis and subcutaneous lymphatics — inferred from post-mortem/biopsy microanalysis showing intralysosomal silicon and aluminium in macrophages of affected lymphatics and lymph nodes (Price-era histochemical studies; <em>Trans R Soc Trop Med Hyg</em> 1985 lymph node/vessel silica study). <em>(Demonstrated in human tissue and supported by animal intralymphatic-silica injection experiments — see below.)</em></li>
+<li>In <strong>HLA class II-susceptible individuals</strong> (particularly those carrying risk alleles/haplotypes at HLA-DQA1/DQB1/DRB1), this <strong>leads to</strong> an aberrant, sustained CD4+ T-cell-mediated adaptive immune response against the mineral particles/particle-associated antigens, rather than normal clearance. <em>(Inferred from GWAS + immune-activation transcriptomic studies; the precise antigenic mechanism by which minerals engage HLA class II presentation is not directly demonstrated and remains a key open question.)</em></li>
+<li>Mineral particles are phagocytosed by <strong>macrophages</strong> in the dermal lymphatics and regional lymph nodes; intralysosomal accumulation <strong>results in</strong> lysosomal membrane rupture, macrophage destruction/activation, and release of pro-fibrotic and pro-inflammatory mediators. <em>(Demonstrated — histopathology and the classic silica-macrophage cytotoxicity model, analogous to silicosis pathogenesis.)</em></li>
+<li>Chronic macrophage activation and cytokine release (elevated baseline TNF-α, IL-1β; likely TGF-β involvement) <strong>drive</strong> endolymphangitis — inflammation of the lymphatic vessel wall — with recruitment of mast cells, lymphocytes, and plasma cells (biopsy series: 94% mast-cell infiltration, 71% plasma-cell infiltration, plus papillary/reticular dermal lymphocytic infiltrate). <em>(Demonstrated by histopathology, <a href="https://pubmed.ncbi.nlm.nih.gov/35604949/" target="_blank" rel="noopener noreferrer">PMID:35604949</a>.)</em></li>
+<li>Persistent endolymphangitis <strong>causes</strong> progressive collagen deposition and fibrosis within lymphatic vessel walls and surrounding dermis (thickened, vertically arranged papillary-dermal collagen bundles; horizontally arranged reticular-dermal bundles; media-sclerosis of blood vessels in later stages). <em>(Demonstrated.)</em></li>
+<li>Fibrotic thickening and scarring of the lymphatic wall <strong>result in</strong> obliteration of the lymphatic lumen and mechanical obstruction to lymph flow — the direct structural lesion producing lymphedema. <em>(Demonstrated — lymphographic and histologic evidence; note early Price-era experiments found silica's obstructive effect on lymph vessels themselves exceeded its effect via lymph nodes.)</em></li>
+<li>Lymphatic obstruction <strong>leads to</strong> chronic interstitial fluid accumulation in the foot/lower leg (clinical edema, initially reversible/pitting — clinical stages 1–2). <em>(Demonstrated.)</em></li>
+<li>Ongoing lymph stasis and tissue hypoxia <strong>drive</strong> progressive dermal/subcutaneous fibrosis, hyperkeratosis, and papillomatosis, producing the fixed, non-pitting, "mossy," nodular elephantiasis of advanced stages 3–5, including ankle ankylosis from peri-articular fibrosis. <em>(Demonstrated clinically/histologically; the precise molecular fibrogenic pathway — e.g., specific TGF-β/fibroblast activation signaling — is inferred by analogy to other fibrotic lymphedemas rather than directly dissected in podoconiosis-specific mechanistic studies.)</em></li>
+<li><strong>Branch — acute exacerbation loop:</strong> Chronic skin fissuring/hyperkeratosis (from step 9) creates portals of entry for skin flora (including anaerobic bacteria); bacterial invasion <strong>triggers</strong> recurrent ADLA attacks (fever, erythema, acute swelling), each of which <strong>further damages</strong> lymphatic architecture and <strong>accelerates</strong> progression back into step 6–9, creating a self-reinforcing cycle of episodic acute inflammation superimposed on chronic fibrosis. <em>(Demonstrated epidemiologically and microbiologically; the precise host-microbe interaction is inferred.)</em></li>
+</ol>
+<h3>Detail by mechanism category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> No podoconiosis-specific signaling pathway (e.g., a defined Wnt/MAPK/PI3K-AKT cascade) has been directly dissected; the field relies on general models of particulate-induced macrophage activation (analogous to silicosis) and T-cell/HLA antigen-presentation biology. Candidate GO terms: <strong>positive regulation of NF-kappaB transcription factor activity</strong>, <strong>T cell receptor signaling pathway</strong>, <strong>inflammatory response</strong>.</li>
+<li><strong>Cellular processes:</strong> macrophage phagocytosis and lysosomal rupture; T-cell activation; mast-cell and plasma-cell infiltration; fibroblast activation/collagen synthesis; endothelial injury to lymphatic vessel walls.</li>
+<li><strong>Protein dysfunction:</strong> No specific misfolded/aggregating protein is implicated; the "dysfunction" is at the level of an aberrant HLA class II-restricted immune recognition event rather than an intrinsic protein structural defect.</li>
+<li><strong>Metabolic changes:</strong> Not specifically characterized in the literature reviewed.</li>
+<li><strong>Immune system involvement:</strong> Central — chronic, HLA class II-restricted, T-cell-mediated inflammatory/autoinflammatory-like response; elevated baseline pro-inflammatory cytokines (TNF-α, IL-1β); mast cell and plasma cell tissue infiltration; blunted mineral-specific cytokine response in patients relative to healthy exposed controls, suggesting immune exhaustion/dysregulation rather than simple hyperreactivity.</li>
+<li><strong>Tissue damage mechanisms:</strong> silica/mineral-induced macrophage cytotoxicity, chronic lymphangitis, fibrosis, and secondary infection-driven acute tissue injury (ADLA).</li>
+<li><strong>Biochemical abnormalities:</strong> No specific enzyme deficiency or ion-channel defect; the defect is immunogenetic (HLA-restricted antigen presentation) rather than a classical inborn-error biochemical lesion.</li>
+<li><strong>Epigenetic changes:</strong> Not characterized in the literature surveyed — an open research gap.</li>
+<li><strong>Molecular profiling:</strong> Transcriptomic (gene-expression) data exist (PMC7738654, PMC10917762) showing immune-activation signatures; no proteomics, metabolomics, or lipidomics datasets specific to podoconiosis were identified.</li>
+<li><strong>Advanced technologies:</strong> No single-cell, spatial transcriptomic, multi-omics, or CRISPR/RNAi functional-genomics studies of podoconiosis were found in this search — likely reflecting the disease's neglected status and resource-limited research settings.</li>
+</ul>
+<p><strong>Suggested GO terms (leads, to be verified):</strong> <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response), <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" rel="noopener noreferrer">GO:0002250</a> (adaptive immune response), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" rel="noopener noreferrer">GO:0042060</a> (wound healing), <a href="http://purl.obolibrary.org/obo/GO_0002437" target="_blank" rel="noopener noreferrer">GO:0002437</a> (inflammatory response to antigenic stimulus).
+<strong>Suggested CL terms (leads):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a> (mast cell), <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a> (lymphocyte), <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell), <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a> (plasma cell), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast), <a href="http://purl.obolibrary.org/obo/CL_0002138" target="_blank" rel="noopener noreferrer">CL:0002138</a> (endothelial cell of lymphatic vessel).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> Primary target is the <strong>lymphatic vasculature of the lower limb</strong> (dermal and subcutaneous lymphatics of the foot and leg below the knee, extending above the knee in advanced disease). Regional lymph nodes (inguinal typically spared/less involved than in filariasis) may show reactive/fibrotic change. Skin and subcutaneous tissue of the foot/leg are secondarily and prominently affected (integumentary system). No visceral organ involvement is described — this contrasts with filarial disease, which can involve genital/scrotal lymphatics.</li>
+<li><strong>Body systems involved:</strong> lymphatic system (primary); integumentary system (skin — hyperkeratosis, fibrosis, nodules); musculoskeletal system (secondary — ankle joint ankylosis in advanced stages); immune system (T-cell/HLA-mediated pathogenesis).</li>
+<li><strong>Tissue/cell level:</strong> dermal papillary and reticular connective tissue (fibrosis); lymphatic endothelium; macrophages, mast cells, lymphocytes, and plasma cells within the dermis and perilymphatic tissue; eccrine sweat gland hyperplasia has also been described in advanced-stage biopsies.</li>
+<li><strong>Subcellular level:</strong> macrophage <strong>lysosomes/phagolysosomes</strong> are the key subcellular compartment — intralysosomal accumulation of silicon/aluminium mineral particles, lysosomal membrane rupture, and consequent release of pro-fibrotic mediators (candidate GO Cellular Component term: <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome).</li>
+<li><strong>Localization:</strong> bilateral but <strong>asymmetric</strong>, <strong>ascending</strong> distribution beginning at the foot/ankle and progressing proximally; characteristically <strong>spares the groin/genitalia</strong> (unlike filarial lymphedema). Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0002387" target="_blank" rel="noopener noreferrer">UBERON:0002387</a> (dermis), <a href="http://purl.obolibrary.org/obo/UBERON_0004357" target="_blank" rel="noopener noreferrer">UBERON:0004357</a> (dorsum of foot) or <a href="http://purl.obolibrary.org/obo/UBERON_0002387" target="_blank" rel="noopener noreferrer">UBERON:0002387</a>/<a href="http://purl.obolibrary.org/obo/UBERON_0001511" target="_blank" rel="noopener noreferrer">UBERON:0001511</a> (leg structures), <a href="http://purl.obolibrary.org/obo/UBERON_0001473" target="_blank" rel="noopener noreferrer">UBERON:0001473</a> (lymphatic vessel), <a href="http://purl.obolibrary.org/obo/UBERON_0002391" target="_blank" rel="noopener noreferrer">UBERON:0002391</a> (lymph node).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> insidious/chronic onset (not acute), typically in adolescence to young adulthood; mean age at first noticing swelling ≈25 years; can present from childhood through the sixth decade of life depending on exposure duration.</li>
+<li><strong>Progression:</strong> Five clinical stages (see Section 3) representing a continuum from early reversible pitting edema (stages 1–2) to fixed fibrotic elephantiasis with joint ankylosis (stages 4–5). Progression rate is variable and strongly modifiable by intervention — footwear/hygiene adoption can halt or reverse early-stage disease, while established fibrosis (stage 3+) is largely irreversible.</li>
+<li><strong>Disease course pattern:</strong> chronic and progressive at baseline, but punctuated by <strong>recurrent acute exacerbations (ADLA)</strong> that produce an episodic/relapsing component superimposed on the underlying progressive fibrotic course; disease is <strong>lifelong</strong> without effective self-care.</li>
+<li><strong>Remission:</strong> partial "remission" (reduction in edema/symptom burden) is achievable with sustained conservative management (foot hygiene, compression, elevation, footwear) especially in early stages; spontaneous remission does not occur.</li>
+<li><strong>Critical periods:</strong> early childhood is a critical window for <strong>prevention</strong> (early and consistent shoe adoption is strongly associated with delayed or prevented onset); once fibrosis is established, the window for reversal closes, making early intervention the key modifiable period.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- <strong>Global burden:</strong> ~4 million people affected worldwide, with disease potential in 32 countries (18 in Africa, 3 in Asia, 11 in Latin America); the WHO fact sheet cites ~17 countries with confirmed cases (12 African, 3 Latin American, 2 Asian) — reflecting the gap between "potentially endemic" and "confirmed endemic" counts. Podoconiosis is <strong>not yet incorporated into the Global Burden of Disease (GBD) study</strong>, a recognized evidence gap, and most quantitative prevalence data originate from Ethiopia specifically.
+- <strong>Ethiopia:</strong> bears an estimated ~25% of the global burden; &gt;35 million people at risk across 345 endemic districts; &gt;1.5 million people (some sources: 1.6 million) living with the disease. Ethiopia-specific pooled prevalence (meta-analysis) = <strong>4.52%</strong> (95% CI 3.92–5.16%); in specific endemic districts, prevalence reaches <strong>5–10%</strong>.
+- <strong>Burden metrics:</strong> 172,073 DALYs annually in Ethiopia (182 per 100,000 population, 2017 estimate); total annual economic burden in Ethiopia estimated at <strong>US$213.2 million</strong>, of which 91.1% is productivity loss; an older (2004) estimate cited ~US$200 million annual productivity loss.
+- <strong>Mortality:</strong> a standardized mortality ratio of ~6 has been reported among affected populations (WHO), though podoconiosis itself is not directly fatal — excess mortality likely reflects ADLA sepsis risk, disability-associated comorbidity, and reduced healthcare access.</p>
+<p><strong>Inheritance pattern:</strong> best-fit segregation model is <strong>autosomal co-dominant major-gene inheritance</strong> with significant environmental covariates (age, footwear) — i.e., a complex trait with a strong single-locus (HLA class II region) contribution layered on an obligate environmental exposure, rather than classic simple Mendelian inheritance.</p>
+<p><strong>Penetrance:</strong> incomplete and <strong>exposure-dependent</strong> — genetic susceptibility (HLA risk genotype) is necessary but not sufficient; penetrance requires the environmental exposure (chronic barefoot soil contact), making this a gene-by-environment-dependent penetrance model.</p>
+<p><strong>Heritability:</strong> h² = 0.63 (Wolaita family study); sibling recurrence risk ratio λs = 5.07.</p>
+<p><strong>Genetic anticipation, germline mosaicism, founder effects:</strong> not described/applicable — this is a common-variant, complex-trait susceptibility disease, not a repeat-expansion or classic single-gene disorder.</p>
+<p><strong>Consanguinity role:</strong> not specifically implicated as a risk modifier in the literature surveyed (contrasts with classic autosomal recessive disorders).</p>
+<p><strong>Carrier frequency:</strong> not meaningfully defined for a complex-trait/HLA-association disease in the way it is for a recessive Mendelian disorder.</p>
+<p><strong>Population demographics:</strong>
+- <strong>Affected populations:</strong> predominantly rural, subsistence-farming communities in East African highlands (Ethiopia, Uganda, Tanzania, Kenya, Rwanda, Burundi, Sudan/South Sudan, Cameroon) plus described foci in Central America and northern India.
+- <strong>Geographic distribution:</strong> endemic to <strong>high-altitude volcanic soil regions</strong> — a striking contrast to the low-lying, mosquito-vector-dependent distribution of lymphatic filariasis.
+- <strong>Sex ratio:</strong> conflicting across studies — a meta-analysis found women ~1.15× more likely affected than men; some single-site studies report much stronger female predominance (up to 3.2:1 in some regions), while a Wolaita, Ethiopia survey found near-parity (M:F ≈ 1:0.98), likely reflecting differing occupational/exposure patterns by locality.
+- <strong>Age distribution:</strong> most cases (~64%) occur in the economically productive 16–45-year age range; rare before age 5–6; some studies report highest prevalence after age 45–55, consistent with cumulative lifetime soil exposure.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnostic approach:</strong> Podoconiosis is fundamentally a <strong>diagnosis of clinical exclusion</strong>, based on history (barefoot residence in an endemic volcanic-soil area), physical examination (bilateral, asymmetric, ascending, groin-sparing lymphedema with characteristic mossy/nodular skin changes), and targeted tests to exclude the principal differential diagnoses.</p>
+<p><strong>Key differentiation from lymphatic filariasis</strong> (the most important differential):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Podoconiosis</th>
+<th>Lymphatic filariasis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Laterality</td>
+<td>Bilateral, asymmetric</td>
+<td>Typically unilateral</td>
+</tr>
+<tr>
+<td>Progression direction</td>
+<td>Ascending</td>
+<td>Descending</td>
+</tr>
+<tr>
+<td>Groin/genital involvement</td>
+<td>Very rare</td>
+<td>Frequent (hydrocele common)</td>
+</tr>
+<tr>
+<td>Geography</td>
+<td>High-altitude volcanic soil</td>
+<td>Low-lying, mosquito-endemic</td>
+</tr>
+<tr>
+<td>Systemic febrile inflammatory episodes</td>
+<td>ADLA (secondary bacterial)</td>
+<td>Filarial adenolymphangitis</td>
+</tr>
+<tr>
+<td>Filarial antigen test (ICT card)</td>
+<td><strong>Negative</strong></td>
+<td><strong>Positive</strong></td>
+</tr>
+<tr>
+<td>Night blood smear microfilariae</td>
+<td>Absent</td>
+<td>Present (nocturnal periodicity in most regions)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Clinical/laboratory tests:</strong>
+- <strong>Filarial antigen rapid tests</strong> (e.g., ICT card test for circulating filarial antigen) and <strong>night blood smears</strong> for microfilariae are the standard exclusionary tests — negative in podoconiosis.
+- <strong>Ultrasound</strong> can detect the pathognomonic "filarial dance sign" of live adult worms in lymphatics in filariasis; its absence supports podoconiosis, though ultrasound is not itself diagnostic of podoconiosis.
+- <strong>Skin biopsy/histopathology</strong> (as in the PMC9166354/<a href="https://pubmed.ncbi.nlm.nih.gov/35604949/" target="_blank" rel="noopener noreferrer">PMID:35604949</a> study) can support diagnosis by showing the characteristic papillary dermal lymphocytic infiltrate, mast-cell/plasma-cell infiltration, and collagen bundle changes, though this is a research rather than routine clinical tool.
+- No podoconiosis-specific serum biomarker or genetic test is in clinical use; the HLA class II association is a research finding, not (yet) a diagnostic test.</p>
+<p><strong>Differential diagnosis (beyond filariasis):</strong> lepromatous leprosy (distinguished by sensory loss, thickened peripheral nerves, trophic ulcers — absent in podoconiosis), Kaposi sarcoma, mycetoma pedis, elephantiasis nostras verrucosa (chronic venous/lymphatic disease from other causes), and systemic causes of lower-limb edema (e.g., cardiac, renal, hepatic).</p>
+<p><strong>Genetic testing:</strong> No clinical genetic test panel exists for podoconiosis; genetic/HLA typing remains a research tool (e.g., ClinicalTrials.gov NCT01939431, "Genetic and Other Aspects of Podoconiosis").</p>
+<p><strong>Screening:</strong> No formal population screening program beyond community-based case-finding/mapping surveys (e.g., Ethiopia's national integrated LF/podoconiosis morbidity mapping, PMC6044548) used to define endemic districts for targeted intervention.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Podoconiosis is not itself directly lethal, but a standardized mortality ratio of ~6 has been reported in affected populations (WHO), likely reflecting ADLA-related sepsis, disability-associated vulnerability, and healthcare-access disparities; formal disease-specific mortality/survival statistics (5-/10-year survival) are not established the way they are for cancers.</li>
+<li><strong>Morbidity/disability:</strong> Substantial — advanced-stage disease causes major functional impairment (mobility limitation from ankle ankylosis and massive limb swelling), lost productivity (91% of Ethiopia's US$213.2M annual economic burden is productivity loss), and profound social/psychological morbidity (severe depression OR ~19.8, anxiety OR ~10.7 versus unaffected neighbors).</li>
+<li><strong>Quality of life:</strong> significantly reduced across physical, psychological, social, and environmental WHOQOL domains; stigma (social exclusion from schools, churches, mosques, and marriage prospects) is a major independent driver of poor QOL, distinct from the physical disease burden itself.</li>
+<li><strong>Complications:</strong> recurrent ADLA (the dominant complication, causing ~90 incapacitated days/year in affected individuals in some cohorts); secondary bacterial/anaerobic infection; chronic wounds; joint ankylosis; disfiguring nodules.</li>
+<li><strong>Recovery potential:</strong> early-stage (1–2) disease is substantially reversible with consistent conservative management (footwear, hygiene, compression, elevation); stages 3–5 fibrotic/ankylotic changes are largely irreversible, though ADLA frequency and QOL can still be improved by treatment (nodulectomy, compression, hygiene) even in advanced disease.</li>
+<li><strong>Prognostic factors:</strong> stage at initiation of treatment, consistency of self-care/footwear adherence, frequency of ADLA episodes, and presence of stigma/psychosocial comorbidity all predict functional and QOL outcomes. No molecular/biomarker-based prognostic tool has been validated.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no curative pharmacotherapy or disease-modifying drug</strong> for podoconiosis; management is centered on <strong>lymphedema self-care and, where needed, surgery</strong> — analogous to management of other chronic lymphedemas.</p>
+<p><strong>Supportive/conservative care (mainstay, evidence-based via RCT):</strong>
+- <strong>Foot hygiene:</strong> daily washing with soap, water, and antiseptic.
+- <strong>Emollients:</strong> regular application to reduce skin fissuring (a key ADLA-prevention measure).
+- <strong>Compression bandaging/garments</strong> and <strong>limb elevation</strong> at night.
+- <strong>Exercise</strong> and <strong>consistent use of socks and shoes.</strong>
+- This bundled regimen was tested in the <strong>GoLBeT trial</strong> ("Gojjam Lymphoedema Best Practice Trial," a pragmatic RCT in northern Ethiopia; protocol PMC4504163, results PMC6562300) — a community-based package delivered via lay "Community Podoconiosis Agents," designed specifically to <strong>reduce the frequency of ADLA episodes</strong>. An earlier one-year follow-up study of a simplified lymphedema treatment regimen in southern Ethiopia (<em>PLoS NTD</em> 2010, PMC2994920) demonstrated effectiveness of this basic self-care package.
+- Cost-effectiveness/social-outcome analysis of community-based treatment in East Gojjam (PMC6808421) supports scaling this model.</p>
+<p><strong>Surgical/interventional:</strong>
+- <strong>Nodulectomy (surgical debulking of fibrotic nodules):</strong> performed under local anesthesia, wounds left to heal by secondary intention with compression bandaging. A study of surgical debulking in Ethiopia (<em>PLoS NTD</em> 2021; <strong><a href="https://pubmed.ncbi.nlm.nih.gov/33481805/" target="_blank" rel="noopener noreferrer">PMID:33481805</a></strong>) found nodulectomy produced significant DLQI (Dermatology Life Quality Index) improvement with no serious complications, supporting its use as a standard resource-appropriate procedure. Suggested NCIT term: <strong>NCIT:C15329</strong> (Surgical Procedure); the treatment could also carry <code>therapeutic_modality: SURGERY</code>.</p>
+<p><strong>Pharmacotherapy:</strong> No specific disease-modifying drugs exist; <strong>antibiotic therapy</strong> is used for acute ADLA episodes (targeting the secondary bacterial/anaerobic skin infection) — suggested NCIT term <strong>NCIT:C258</strong> (Antibiotic) or a specific agent-level CHEBI/NCIT binding once a specific regimen is identified from local guidelines.</p>
+<p><strong>Rehabilitation/psychosocial:</strong> psychosocial support and community reintegration efforts (addressing stigma) are increasingly recognized as necessary treatment-adjacent components given the disproportionate mental-health burden; NCIT candidate: <strong>NCIT:C15747</strong> (Supportive Care).</p>
+<p><strong>Advanced therapeutics (gene therapy, cell therapy, RNA-based, immunotherapy):</strong> none reported or applicable — podoconiosis management remains entirely in the domain of lymphedema self-care and surgery; there is no oncologic/immunotherapeutic analog in the literature reviewed.</p>
+<p><strong>Experimental treatments:</strong> GoLBeT (RCT, completed, community lymphedema-management package) is the key trial identified; ClinicalTrials.gov NCT01939431 ("Genetic and Other Aspects of Podoconiosis") is a genetic/observational study rather than an interventional trial. No NCT-registered pharmacologic trials were identified in this search.</p>
+<p><strong>Treatment algorithms:</strong> Stage-based — early (1–2) disease emphasizes prevention/reversal via footwear+hygiene; established fibrotic disease (3–5) combines ongoing lymphedema self-care with nodulectomy for symptomatic nodules and ADLA-prevention bundles to arrest further deterioration.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Prevention is the single most impactful intervention category for podoconiosis, given the absence of curative treatment.</p>
+<ul>
+<li><strong>Primary prevention:</strong> the cornerstone — <strong>consistent footwear use from early childhood</strong>, <strong>daily foot hygiene</strong> (washing), and <strong>floor covering</strong> in homes to reduce indoor soil contact. Multiple case-control studies (Rwanda, Ethiopia) confirm shoe-wearing as the dominant modifiable protective factor. Rwanda has implemented a national public <strong>barefoot-walking ban</strong> as an explicit public-health prevention policy (also targeting other soil-borne diseases).</li>
+<li><strong>Secondary prevention:</strong> early case detection (community mapping surveys) and early initiation of self-care before fibrotic (stage 3+) changes become established.</li>
+<li><strong>Tertiary prevention:</strong> ADLA-prevention bundles (hygiene, emollients, compression) to prevent complications/further disease progression in those already affected — this is the GoLBeT trial's explicit target outcome.</li>
+<li><strong>Immunization:</strong> not applicable — no infectious/vaccine-preventable component.</li>
+<li><strong>Screening programs:</strong> population-based community mapping (integrated with lymphatic filariasis morbidity mapping in Ethiopia, PMC6044548) is used to define endemic districts for targeted resource allocation, rather than individual diagnostic screening.</li>
+<li><strong>Genetic screening/counseling:</strong> not currently part of clinical practice; research studies (e.g., NCT01939431) note that <strong>genetic research itself faces stigma-related informed-consent challenges</strong> in affected communities (BMC Medical Ethics qualitative study, cited in search results), a notable ethical/implementation consideration for any future genetic counseling program.</li>
+<li><strong>Behavioral interventions:</strong> community health education (e.g., the Mossy Foot Treatment and Prevention Association's model of training patients as community health agents) to promote footwear adoption and hygiene, and to reduce stigma.</li>
+<li><strong>Public health interventions:</strong> the WHO 2021–2030 NTD roadmap includes podoconiosis as a non-infectious NTD target for national program integration; Ethiopia's Federal Ministry of Health has prioritized podoconiosis elimination given the country's disproportionate global burden. No specific WHO 2030 numeric elimination target for podoconiosis alone was identified in this search (the overarching NTD roadmap targets — 90% reduction in people requiring NTD treatment, 75% reduction in NTD-related DALYs, ≥100 countries eliminating ≥1 NTD — apply at the aggregate NTD-portfolio level).</li>
+<li><strong>Environmental interventions:</strong> community-level floor covering/soil-contact reduction programs in schools and homes in endemic districts.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Podoconiosis, as an environmentally-and-genetically determined human disease dependent on a specific human HLA class II susceptibility architecture and human bipedal barefoot behavior, has <strong>no described naturally occurring veterinary or wildlife counterpart</strong> in the literature surveyed. No OMIA (Online Mendelian Inheritance in Animals) entry, comparative veterinary case series, or cross-species susceptibility data were identified — this is expected, since livestock/companion animals do not share the same plantar skin exposure pattern, gait, or HLA architecture, and no zoonotic or cross-species transmission mechanism exists (the disease is non-infectious). This is a notable gap relative to many other NTDs but is mechanistically expected given the disease's human-specific gene-environment etiology.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>There is <strong>no validated whole-animal model that specifically recapitulates podoconiosis</strong> as a disease entity (unlike, e.g., filarial lymphedema, which has established animal infection models). However, related experimental and model-organism work is directly relevant to its mechanistic underpinnings:</p>
+<ul>
+<li><strong>Historical intralymphatic silica-injection experiments</strong> (foundational to the Price-era pathogenesis model; described in the <em>Trans R Soc Trop Med Hyg</em> 1985 silica/lymph-node/vessel study): direct <strong>intralymphatic injection of fine silica particles</strong> in experimental animals produced an "immediate and intense macrophage reaction with later fibrosis both within lymph vessels and to a lesser extent within lymph nodes," with lymphography showing that the resulting obstruction was driven more by vessel-wall than lymph-node effects — this is the closest thing to a mechanistic animal model of podoconiosis pathogenesis and directly supports the silica/mineral-macrophage-fibrosis causal chain (step 2–7 above). Species and exact citation detail were not fully resolved in this search and should be confirmed against the primary Trans R Soc Trop Med Hyg article before citation as a formal "animal model" record.</li>
+<li><strong>General lymphedema models</strong> (not podoconiosis-specific, but mechanistically analogous for the downstream lymphatic-obstruction/fibrosis phenotype): the <strong>murine tail lymphedema model</strong> (surgical ablation of tail lymphatics) and the <strong>murine hindlimb secondary lymphedema model</strong> (surgical/radiation-based) reproduce the distal-limb swelling and fibrosis phenotype seen in podoconiosis, though they model post-surgical/radiation lymphedema rather than particulate-mineral-induced disease.</li>
+<li><strong>Genetic lymphatic-dysfunction model:</strong> the <strong>Chy mouse</strong> (missense VEGFR3/<em>Flt4</em> mutation) develops congenital chylous ascites and progressive peripheral lymphedema — useful for studying lymphatic vessel biology generally but not etiologically related to podoconiosis's acquired, particulate/immune-mediated mechanism.</li>
+<li><strong>Silicosis models</strong> (rat intratracheal silica instillation, PMC1008352) are the closest analogous <strong>organ-system</strong> model for silica-macrophage-fibrosis biology, informing (by analogy to the lung) how crystalline silica engages macrophage phagolysosomal rupture and downstream fibrogenesis in the lymphatic/dermal context of podoconiosis.</li>
+</ul>
+<p><strong>Overall assessment:</strong> podoconiosis-specific model-organism research is minimal-to-absent in the modern literature; the mechanistic evidence base rests primarily on <strong>human tissue/biopsy studies</strong>, <strong>human genetic-epidemiology (GWAS/family) studies</strong>, and <strong>historical animal silica-injection experiments</strong> from the 1970s–80s, representing a significant translational research gap (no modern in vivo model exists to test candidate interventions before human trials).</p>
+<hr />
+<h2>Summary of Key Evidence Gaps (for curation awareness)</h2>
+<ol>
+<li>No modern podoconiosis-specific animal model exists to mechanistically validate the HLA–mineral–macrophage–fibrosis causal chain in vivo.</li>
+<li>Epigenetic, proteomic, metabolomic, single-cell, and spatial transcriptomic data are entirely absent from the literature surveyed.</li>
+<li>Global burden data outside Ethiopia are sparse; podoconiosis is not yet included in the GBD framework.</li>
+<li>The precise antigen/mechanism by which mineral particles engage HLA class II-restricted T-cell activation remains undefined (cytokine-stimulation data are inconsistent/paradoxical, PMC11598685).</li>
+<li>No podoconiosis-specific ICD-11/Orphanet code was confirmed in this search and should be verified directly before ontology binding.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.omim.org/entry/614590">Podoconiosis, Susceptibility to (PDCOS) - OMIM 614590</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20096054/">Podoconiosis - non-filarial geochemical elephantiasis - PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15735414/">Podoconiosis: endemic nonfilarial elephantiasis - PubMed</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJMoa1108448">HLA Class II Locus and Susceptibility to Podoconiosis - NEJM (PMID:22455414)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7870958/">Replication of HLA class II locus association with susceptibility to podoconiosis in three Ethiopian ethnic groups - PMC (PMID:33558538)</a></li>
+<li><a href="https://www.nature.com/articles/s41467-024-46347-z">Evidence for immune activation in pathogenesis of the HLA class II associated disease, podoconiosis - Nature Communications</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7738654/">Multiplexed gene expression analysis of HLA class II-associated podoconiosis implicates chronic immune activation in its pathogenesis - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11598685/">Differences in Cytokine Expression at Baseline and in Response to Mineral Stimulation by PBMCs from Podoconiosis Cases and Healthy Controls - PMC</a></li>
+<li><a href="https://academic.oup.com/trstmh/article/79/5/645/1944163">The effects of silica on lymph nodes and vessels—a possible mechanism in the pathogenesis of non-filarial endemic elephantiasis - Trans R Soc Trop Med Hyg</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC7034335">Podoconiosis pathogenesis: renewed use of an historical archive - PMC</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0001706X21000978">Podoconiosis – From known to unknown: Obstacles to tackle - ScienceDirect</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10611848/">A geochemical and mineralogical characterization of soils associated with podoconiosis - PMC</a></li>
+<li><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0177219">Haemolytic activity of soil from areas of varying podoconiosis endemicity in Ethiopia - PLOS ONE</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13340807/">The health and economic burden of podoconiosis in East Africa: systematic review and meta-analysis - PMC (PMID:42308246)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7139123/">The health and economic burden of podoconiosis in Ethiopia - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8830091/">Prevalence of podoconiosis and its associated factors in Gamo zone, Southern Ethiopia, 2021 - PMC</a></li>
+<li><a href="https://www.who.int/news-room/fact-sheets/detail/podoconiosis-(non-filarial-lymphoedema)">Podoconiosis (non-filarial lymphoedema) - WHO Fact Sheet</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40898820/">Podoconiosis: a comprehensive clinical review and strategies for control and elimination - PubMed (PMID:40898820)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1155/jotm/9961827">Genetic, Immunological, and Public Health Perspectives on Podoconiosis - Journal of Tropical Medicine (PMID:41341693)</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371%2Fjournal.pntd.0010057">Podoconiosis: Clinical spectrum and microscopic presentations - PLOS NTD (PMID:35604949)</a></li>
+<li><a href="https://www.nature.com/articles/s41598-023-40765-7">Tropical leg lymphedema caused by podoconiosis is associated with increased colonisation by anaerobic bacteria - Scientific Reports</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6638979/">The impact of acute adenolymphangitis in podoconiosis on caregivers - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33481805/">Surgical debulking of podoconiosis nodules and its impact on quality of life in Ethiopia - PubMed (PMID:33481805)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6562300/">Lymphoedema management to prevent acute dermatolymphangioadenitis in podoconiosis in northern Ethiopia (GoLBeT): a pragmatic RCT - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4504163/">Podoconiosis treatment in northern Ethiopia (GoLBet): study protocol - PMC</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371%2Fjournal.pntd.0000902">Effectiveness of a Simple Lymphoedema Treatment Regimen in Podoconiosis Management in Southern Ethiopia: One Year Follow-Up - PLOS NTD</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6808421/">Cost-effectiveness and social outcomes of a community-based treatment for podoconiosis lymphoedema, East Gojjam, Ethiopia - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3726315/">The impact of podoconiosis on quality of life in Northern Ethiopia - PMC</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0012346">Bearing the burden: Podoconiosis and mental health—Rwanda comparative study - PLOS NTD (PMID:39116063)</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371%2Fjournal.pntd.0009492">The impact of podoconiosis, lymphatic filariasis, and leprosy on disability and mental well-being: systematic review - PLOS NTD</a></li>
+<li><a href="https://www.frontiersin.org/journals/tropical-diseases/articles/10.3389/fitd.2024.1483407/full">Frontiers: Stigma related to podoconiosis in Ethiopia: a systematic review</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6044548/">Integrated morbidity mapping of lymphatic filariasis and podoconiosis cases in 20 co-endemic districts of Ethiopia - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11637681/">Podoconiosis in Uganda: prevalence, geographical distribution and risk factors - PMC</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Podoconiosis">Podoconiosis - Wikipedia</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2405844020322891">Epidemiology and sex differences of podoconiosis in Ethiopia: A systemic review and meta-analysis - ScienceDirect</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6155534/">Rural youths' understanding of gene x environmental contributors to heritable health conditions: podoconiosis in Ethiopia - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13497288/">Hematological profiles and preventive-practice characteristics among patients with podoconiosis: a case-control study in Musanze District, Rwanda - PMC</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371%2Fjournal.pntd.0002554">Individual Correlates of Podoconiosis in Areas of Varying Endemicity: A Case-Control Study - PLOS NTD</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10464951/">Determinants of Podoconiosis in Bensa District, Sidama Region, Ethiopia: A case control study - PMC</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT01939431">Genetic and Other Aspects of Podoconiosis - ClinicalTrials.gov NCT01939431</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7738650/">Podoconiosis: key priorities for research and implementation - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4645432/">The feasibility of eliminating podoconiosis - PMC</a></li>
+<li><a href="https://journals.plos.org/plosntds/article?id=10.1371%2Fjournal.pntd.0002301">Ten Years of Podoconiosis Research in Ethiopia - PLOS NTD</a></li>
+</ul>
+<p><strong>Note on downstream use:</strong> All ontology-term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT) in this report are research leads only, per dismech's anti-hallucination curation policy — each must be independently verified (label match, dynamic-enum reachability) via OAK/<code>just validate-terms</code> before being bound in a KB entry. Several PMIDs above were extracted from search-engine snippets rather than direct PubMed fetches (which were blocked by cookie/CAPTCHA walls during this session); curators should re-verify each PMID against PubMed directly, and re-derive exact-quote snippets from the primary source before use as <code>evidence:</code> blocks, per the <code>dismech-references</code> skill.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>41</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMC:PMC1008352</code> (1 mention) - Intratracheal injection into rats of size-graded silica particles.</li>
+<li>shared terms: none</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>podoconiosis</code>, <code>disease</code>, <code>chronic</code>, <code>lymphatic</code>, <code>ethiopia</code>, <code>lymphedema</code>, <code>hla</code>, <code>class</code>, <code>skin</code>, <code>endemic</code>, <code>adla</code>, <code>model</code>, <code>directly</code>, <code>genetic</code>, <code>soil</code>, <code>environmental</code>, <code>secondary</code>, <code>foot</code>, <code>footwear</code>, <code>mechanism</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0002387</code> (2 mentions) - the report calls it "dermis"; UBERON calls it <strong>pes</strong></li>
+<li><code>UBERON:0004357</code> (1 mention) - the report calls it "dorsum of foot"; UBERON calls it <strong>paired limb/fin bud</strong></li>
+<li><code>UBERON:0001511</code> (1 mention) - the report calls it "leg structures"; UBERON calls it <strong>skin of leg</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0002391</code> (1 mention) - the report calls it "lymph node"; UBERON calls it <strong>lymph</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PNPO_Deficiency-claude_code.html">← PNPO Deficiency (Claude Code)</a>
+                
+                
+                <a href="POEMS_Syndrome-falcon.html">POEMS Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Podoconiosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Podoconiosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
