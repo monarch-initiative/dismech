@@ -1,0 +1,11 @@
+---
+reference_id: GEO:GSE42986
+title: Transcriptome profiling in human primary mitochondrial respiratory chain disease
+content_type: summary
+---
+
+# Transcriptome profiling in human primary mitochondrial respiratory chain disease
+
+## Content
+
+Primary mitochondrial respiratory chain (RC) diseases are heterogeneous in etiology and manifestations but collectively impair cellular energy metabolism. To identify a common cellular response to RC disease, systems biology level transcriptome investigations were performed in human RC disease skeletal muscle and fibroblasts. Global transcriptional and post-transcriptional dysregulation in a tissue-specific fashion was identified across diverse RC complex and genetic etiologies. RC disease muscle was characterized by decreased transcription of cytosolic ribosomal proteins to reduce energy-intensive anabolic processes, increased transcription of mitochondrial ribosomal proteins, shortened 5'-UTRs to improve translational efficiency, and stabilization of 3'-UTRs containing AU-rich elements. These same modifications in a reversed direction typified RC disease fibroblasts. RC disease also dysregulated transcriptional networks related to basic nutrient-sensing signaling pathways, which collectively mediate many aspects of tissue-specific cellular responses to primary RC disease. These findings support the utility of a systems biology approach to improve mechanistic understanding of mitochondrial RC disease. To identify a common cellular response to primary RC that might improve mechanistic understanding and lead to targeted therapies for human RC disease, we performed collective transcriptome profiling in skeletal muscle biopsy specimens and fibroblast cell lines (FCLs) of a diverse cohort of human mitochondrial disease subjects relative to controls. Systems biology investigations of common cellular responses to primary RC disease revealed a collective pattern of transcriptional, post-transcriptional and translational dysregulation occurring in a highly tissue-specific fashion.
