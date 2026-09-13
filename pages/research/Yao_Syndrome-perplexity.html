@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yao Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Yao Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Yao Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>1.1 Definition and Clinical Overview</h3>
+<p>Yao syndrome is classified as a systemic autoinflammatory disease characterized by periodic episodes of fever and abnormal inflammation involving multiple organ systems, notably the skin, joints, gastrointestinal tract, and serosal surfaces.[1][3][8] MedlinePlus Genetics describes Yao syndrome (formerly <em>NOD2</em>-associated autoinflammatory disease) as a disorder with episodic fever and inflammation affecting many parts of the body, highlighting that in affected individuals, the innate immune response is abnormally activated, leading to tissue and organ damage; based on this pathophysiology, it is defined as an autoinflammatory disease rather than a classic autoimmune disease.[1] OMIM entry 617321 similarly defines “Yao syndrome” as an autoinflammatory phenotype characterized by periodic fever, dermatitis, arthritis, distal extremity swelling, gastrointestinal symptoms, and sicca-like manifestations, associated with specific <em>NOD2</em> variants.[4] VisualDx summarizes the core phenotype as episodic fever, rash, polyarthritis, distal extremity swelling, gastrointestinal symptoms, and sicca-like symptoms, all arising from overactivation of the innate immune system due to <em>NOD2</em> dysfunction.[13]</p>
+<p>Clinically, patients present with recurrent inflammatory “flares” that last from days to weeks and are separated by asymptomatic intervals of weeks or months.[5][17] The cutaneous manifestations are typically erythematous patches or plaques, often on the trunk and extremities, with histopathologic findings encompassing spongiotic dermatitis, mixed lymphocytic and neutrophilic infiltrates, and sometimes granulomatous changes.[3][5] Musculoskeletal features include inflammatory arthralgia or arthritis, often oligoarticular or polyarticular, with characteristic distal lower extremity swelling, particularly of the ankles and feet.[3][5] Gastrointestinal symptoms such as abdominal pain and diarrhea are common, and many patients report sicca-like manifestations, including dry eyes and dry mouth, but without the high-titer autoantibodies typical of Sjögren syndrome.[4][5][6][8] Additional features may include eyelid swelling, pleuritis, pericarditis, and nonspecific constitutional complaints such as fatigue and myalgia, forming a heterogeneous but recognizable clinical constellation.[3][8][17]</p>
+<p>From an ontological perspective, Yao syndrome corresponds to <a href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a> (Yao syndrome) in the Mondo Disease Ontology, and can be mapped to the Human Phenotype Ontology term “Autoinflammatory disease” (<a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" rel="noopener noreferrer">HP:0004430</a>), reflecting its pathogenesis rooted in innate immune dysregulation. It is categorized as a <strong>Mendelian-associated but multifactorial autoinflammatory disorder</strong>, in which susceptibility is conferred by genetic variants in a known gene (<em>NOD2</em>) but clinical expression is modulated by additional polygenic and environmental factors.[4][6][8] This complexity underscores the need for integrating both genomic and clinical data in disease knowledge bases.</p>
+<h3>1.2 Disease Identifiers and Ontology Mapping</h3>
+<p>Yao syndrome is referenced in multiple authoritative genetic and clinical databases that are central to knowledge-base curation. OMIM lists Yao syndrome under phenotype MIM number 617321, linked to the <em>NOD2</em> gene (MIM 605956) at locus 16q12.1, and explicitly notes that susceptibility is conferred by variation in <em>NOD2</em>.[4] The OMIM entry designates the inheritance as “multifactorial” and uses phenotypic mapping key 3, indicating a complex trait with known susceptibility locus rather than a strictly monogenic Mendelian disorder.[4] GenIA’s <em>NOD2</em> gene entry also links to OMIM 617321 and notes association with Yao syndrome or <em>NOD2</em>-associated autoinflammatory disease as one of the major <em>NOD2</em>-related phenotypes, alongside Crohn’s disease and Blau syndrome.[11]</p>
+<p>VisualDx identifies Yao syndrome as a systemic autoinflammatory disease associated with <em>NOD2</em> gene mutations, and provides standardized coding identifiers, including ICD‑10‑CM M04.8 (“Other autoinflammatory syndrome”) and SNOMED CT concept 768667002 (“Nucleotide binding oligomerization domain containing 2-associated autoinflammatory disease”), which are important for EHR integration and clinical decision support.[13] The NIH Genetic Testing Registry (GTR) includes an entry for “Yao syndrome” (condition C4310620), indicating availability of genetic tests targeting <em>NOD2</em> variants associated with this condition.[16] In MeSH and PubMed, Yao syndrome is indexed under “Hereditary autoinflammatory diseases,” “NOD2 protein, human,” and “Yao syndrome,” ensuring consistent retrieval in literature searches.[12]</p>
+<p>In ontology terms, Yao syndrome can be aligned with <a href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a>; the primary causal gene <em>NOD2</em> maps to <a href="https://bioregistry.io/HGNC:5332" target="_blank" rel="noopener noreferrer">HGNC:5332</a> and NCBI Gene ID 64127.[11] Key anatomical systems involved correspond to UBERON terms such as skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), joint (<a href="http://purl.obolibrary.org/obo/UBERON_0000981" target="_blank" rel="noopener noreferrer">UBERON:0000981</a>), gastrointestinal tract (<a href="http://purl.obolibrary.org/obo/UBERON_0001045" target="_blank" rel="noopener noreferrer">UBERON:0001045</a>), and serous membranes such as pleura (<a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" rel="noopener noreferrer">UBERON:0000977</a>) and pericardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002412" target="_blank" rel="noopener noreferrer">UBERON:0002412</a>).[1][4][8] Phenotypic features can be mapped to HPO terms such as “Recurrent fever” (<a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a>), “Erythematous skin patches” (<a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" rel="noopener noreferrer">HP:0001065</a>), “Arthralgia” (<a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a>), “Peripheral edema” (<a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" rel="noopener noreferrer">HP:0002619</a>), “Abdominal pain” (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>), “Diarrhea” (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a>), “Dry mouth” (<a href="http://purl.obolibrary.org/obo/HP_0001570" target="_blank" rel="noopener noreferrer">HP:0001570</a>), “Dry eye” (<a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" rel="noopener noreferrer">HP:0001097</a>), “Pleuritis” (<a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" rel="noopener noreferrer">HP:0002108</a>), and “Pericarditis” (<a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" rel="noopener noreferrer">HP:0001634</a>).[3][4][8][13]</p>
+<h3>1.3 Synonyms and Naming History</h3>
+<p>The disease entity now known as Yao syndrome has undergone a notable nomenclature evolution that reflects advances in understanding its genetic basis. Initial clinical descriptions referred to “NOD2-associated autoinflammatory disease (NAID)” or “nucleotide-binding oligomerization domain containing 2 (NOD2)-associated autoinflammatory disease,” emphasizing the link to <em>NOD2</em> variants and its classification within systemic autoinflammatory diseases.[5][7][9] Subsequent work by Yao and colleagues characterized the phenotype more comprehensively and proposed diagnostic criteria, leading to adoption of the eponym “Yao syndrome,” which OMIM and later publications now use as the standard term.[4][5][8][12]</p>
+<p>OMIM uses the name “Yao syndrome” and explicitly notes that it is formerly known as <em>NOD2</em>-associated autoinflammatory disease, and VisualDx similarly describes “Yao syndrome (YAOS), formerly designated as <em>NOD2</em>-associated autoinflammatory disease.”[4][8][13] Frontiers in Immunology and PubMed-indexed articles consistently use “Yao syndrome (YAOS)” as the preferred term, often accompanied by the clarification that it is a systemic autoinflammatory disease previously termed <em>NOD2</em>-associated autoinflammatory disease.[8][12][18] In clinical rheumatology literature, the terms “NOD2-associated autoinflammatory disease,” “NAID,” and “Yao syndrome” may be used interchangeably, but the modern consensus is to reserve “Yao syndrome” for the specific phenotype defined by the Yao criteria and <em>NOD2</em> susceptibility variants, and to consider “NOD2-associated autoinflammatory diseases” as a broader spectrum including Blau syndrome and early-onset sarcoidosis.[3][7][17]</p>
+<p>Synonyms and closely related descriptors thus include “Yao syndrome (YAOS),” “NOD2-associated autoinflammatory disease (NAID),” and “NOD2-associated systemic autoinflammatory disease.”[4][5][7][9] For ontology and database purposes, it is important to record these alternative names as exact or related synonyms to ensure interoperability and comprehensive term matching. The classification as an “autoinflammatory syndrome” also aligns Yao syndrome with the NCIT term “Autoinflammatory syndrome” (NCIT:C128323), although its molecular specificity to <em>NOD2</em> variants distinguishes it within this category.[8][12]</p>
+<h3>1.4 Data Sources and Evidence Base</h3>
+<p>Information about Yao syndrome in the current literature is derived primarily from aggregated clinical case series, retrospective cohort studies, mechanistic in vitro investigations, and expert narrative reviews, rather than from large population-based epidemiologic datasets or randomized controlled trials.[5][8][9][12][18] The landmark Rheumatology (Oxford) article by Yao et al. in 2015 reported a large cohort of 143 adult patients with suspected NOD2-associated autoinflammatory disease, of whom 54 carriers of <em>NOD2</em> variants were classified as having NAID/Yao syndrome, establishing the core clinical phenotype and genotype profile.[5] OMIM and MedlinePlus Genetics derive their summaries from this and related studies, providing disease-level descriptions rather than patient-level EHR data.[1][4]</p>
+<p>More recently, a comprehensive 194-patient cohort analysis titled “Comprehensive clinical phenotype, genotype and therapy in Yao syndrome” (<a href="https://pubmed.ncbi.nlm.nih.gov/39372397/" target="_blank" rel="noopener noreferrer">PMID: 39372397</a>; Frontiers in Immunology 2024) has provided extensive aggregated data on phenotypic patterns, variant combinations, treatment responses, and proposed mechanistic hypotheses.[8][12] Mechanistic insights into <em>NOD2</em> expression, splicing, and pathway activation in Yao syndrome come from an in vitro study examining peripheral blood mononuclear cells (PBMCs) from ten YAOS patients and six healthy controls (<a href="https://pubmed.ncbi.nlm.nih.gov/29471675/" target="_blank" rel="noopener noreferrer">PMID: 29471675</a>).[18] Treatment evidence is synthesized in a systematic analysis (<a href="https://pubmed.ncbi.nlm.nih.gov/27984003/" target="_blank" rel="noopener noreferrer">PMID: 27984003</a>) of therapeutic outcomes in NOD2-associated autoinflammatory disease, which reports response rates to glucocorticoids, sulfasalazine, and IL‑1/IL‑6 inhibitors.[9]</p>
+<p>Individual case reports further enrich the qualitative understanding of atypical presentations, pediatric cases, and coexisting immunologic disorders, such as Yao syndrome in a child with complement component 2 deficiency (C2D).[3][15][17] These human clinical data are complemented by general mechanistic studies of <em>NOD2</em> function in mouse and human T cells and innate immune cells, which, while not specific to Yao syndrome, inform the broader pathophysiologic framework.[10][11] At present, there is no evidence that major databases such as OMIM or MedlinePlus are incorporating direct EHR-level data; rather, they compile curated summaries based on published case series and reviews.[1][4] For knowledge-base construction, it is therefore crucial to annotate the provenance of evidence as <strong>human clinical cohort</strong>, <strong>case report</strong>, or <strong>in vitro mechanistic study</strong>, and to note the relative absence of population-scale real-world data.</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Genetic Causal Factors: NOD2 and Disease Susceptibility</h3>
+<p>The primary genetic determinant of Yao syndrome susceptibility is variation in the <em>NOD2</em> gene, which encodes nucleotide-binding oligomerization domain containing 2, a cytosolic pattern recognition receptor of the NLR family that recognizes muramyl dipeptide (MDP), a component of bacterial cell wall peptidoglycan.[4][8][11] OMIM explicitly states that a number sign (#) is used with entry 617321 because evidence shows that susceptibility to Yao syndrome is conferred by variation in <em>NOD2</em> on chromosome 16q12.1, and it links the phenotype to specific <em>NOD2</em> variants described by Yao and Shen.[4] MedlinePlus Genetics notes that certain <em>NOD2</em> gene variations increase the risk of developing Yao syndrome and that most people with Yao syndrome have at least one <em>NOD2</em> variant, and some have two or more, although the precise functional impact of these variants on NOD2 protein remains incompletely understood.[1]</p>
+<p>In the initial large cohort of NOD2-associated autoinflammatory disease, associated variants were primarily IVS8(+158) and compound IVS8(+158)/R702W, which differ in genotype frequency and phenotypic profile from those seen in Crohn’s disease.[5] Subsequent work has consolidated the view that IVS8+158 (also described as c.2798+158C&gt;T or c.2717+158C&gt;T depending on the transcript reference) and R702W (c.2104C&gt;T, p.Arg702Trp) are the principal Yao syndrome susceptibility variants, with additional contributions from low-frequency variants such as L1007fs (c.3019dup, p.Leu1007Profs<em>2) and V955I (c.2863G&gt;A, p.Val955Ile).[6][8][12] The Frontiers cohort study reported that in 194 YAOS patients, most individuals carried IVS8+158 either alone or in combination with R702W, L1007fs, V955I, or other </em>NOD2* variants, and that these combinations appeared to modulate phenotypic expression.[8][12]</p>
+<p>From a molecular standpoint, NOD2 variants associated with Yao syndrome are generally of low penetrance and do not abolish protein function entirely, suggesting that they confer a subtle gain-of-function or dysregulated activation tendency rather than straightforward loss-of-function, especially in the specific context of innate immune signaling.[6][8][18] This contrasts with certain Blau syndrome-associated <em>NOD2</em> mutations, which are more clearly associated with constitutive activation and granulomatous inflammation.[7][11] Nevertheless, functional studies in PBMCs from YAOS patients carrying IVS8+158 and IVS8+158/R702W haplotypes reveal altered baseline NOD2 transcript levels, increased basal p38 MAPK activity, aberrant IL‑6 secretion, and genotype-specific changes in NF‑κB and TNFα activation upon MDP stimulation, confirming that these “susceptibility” variants do indeed perturb NOD2 signaling.[18]</p>
+<h3>2.2 Yao Syndrome as a Genetically Transitional Multifactorial Disease</h3>
+<p>Yao syndrome is best conceptualized as a genetically transitional disease, occupying an intermediate status between monogenic autoinflammatory syndromes and polygenic complex diseases.[3][6][8] The term “genetically transitional disease” was introduced to describe conditions in which a specific mutation or low-penetrance variant is required but insufficient to cause disease, and clinical expression depends on interactions with other genetic and environmental factors.[3][6] The dermatologic case report by Patel et al. emphasizes that Yao syndrome “has been recently categorized as a genetically transitional disease, which is a genetic disease status between monogenic and polygenic diseases in which a mutation is required but is insufficient to cause disease,” and notes that most cases occur sporadically and present in adulthood.[3]</p>
+<p>The Frontiers cohort study further elaborates that YAOS is considered a multifactorial autoinflammatory disorder to which susceptibility is conferred by specific <em>NOD2</em> variants, including IVS8+158, V955I, R702W, and 1007fs, and that disease expression likely results from complex interactions among these variants and genetic backgrounds in other innate immune sensor genes, combined with environmental triggers.[6][8][12] MedlinePlus Genetics explicitly notes that Yao syndrome appears to be a complex disease without a single genetic cause, lacks a straightforward pattern of inheritance, and that many individuals carrying one or more <em>NOD2</em> variants associated with Yao syndrome never develop the disease.[1] OMIM echoes this by classifying the inheritance as “multifactorial” rather than autosomal dominant or recessive, and by emphasizing the concept of susceptibility rather than deterministic causality.[4]</p>
+<p>This genetically transitional framework has implications for risk modeling and counseling. Unlike classic Mendelian autoinflammatory syndromes such as familial Mediterranean fever or Blau syndrome, in which pathogenic variants have high penetrance and clear segregation patterns, Yao syndrome’s low penetrance and sporadic occurrence mean that carrying a <em>NOD2</em> susceptibility variant increases risk but is not predictive of disease with certainty.[5][6][8] At the same time, the relatively strong association with specific variants such as IVS8+158 and R702W distinguishes Yao syndrome from more diffuse polygenic risk architectures in conditions like Crohn’s disease, where dozens of loci contribute small effect sizes.[7][11] This hybrid status mandates a nuanced approach that integrates genotype, environmental exposures, and personal medical history.</p>
+<h3>2.3 Genetic Risk Factors: Susceptibility Variants and Modifier Alleles</h3>
+<p>Within the <em>NOD2</em> gene, several variants have been robustly associated with Yao syndrome susceptibility based on cohort genotyping and functional studies. The intronic variant IVS8+158 (also reported as c.2798+158C&gt;T or c.2717+158C&gt;T depending on transcript numbering) is the single most prevalent variant among YAOS patients and is often present either as a single variant or in compound heterozygous combination with other <em>NOD2</em> changes.[5][6][8][12] In the 194-patient cohort, IVS8+158 was observed in the majority of patients, commonly paired with R702W, L1007fs, V955I, or additional rare variants, and the study concluded that these variants contribute to disease either individually or in combination.[8][12] The earlier Rheumatology cohort also found that associated variants were primarily IVS8(+158) or compound IVS8(+158)/R702W, indicating a distinctive genotype profile compared with Crohn’s disease.[5]</p>
+<p>R702W (c.2104C&gt;T; p.Arg702Trp) is another key susceptibility variant, located in exon 4 encoding part of the central NACHT domain of NOD2.[6][8][11] Although R702W is also a known Crohn’s disease risk allele, its presence in combination with IVS8+158 appears to define a specific YAOS genotype with characteristic alterations in NF‑κB and TNFα responses.[18] Functional analysis of PBMCs from patients carrying the IVS8+158/R702W haplotype showed suppressed MDP-stimulated NF‑κB activity and reduced TNFα secretion, suggesting that this genotype produces a qualitatively different signaling profile compared with IVS8+158 alone, which is associated with elevated basal p38 MAPK activity and IL‑6 secretion.[18] This genotype-specific functional divergence reinforces the view of R702W as a modifier allele within the YAOS spectrum.</p>
+<p>Additional variants identified in YAOS cohorts include L1007fs (c.3019dup; p.Leu1007Profs*2), a frameshift variant long recognized as a major Crohn’s disease susceptibility allele, and V955I (c.2863G&gt;A; p.Val955Ile), which has more recently been identified as a YAOS susceptibility variant, mainly in combination with IVS8+158.[6][8][12] OMIM and GenIA highlight that most YAOS-associated variants cluster within the leucine-rich repeat (LRR) domain and adjacent regions, which mediate ligand recognition, as well as within the NACHT domain, which controls oligomerization and downstream signaling.[8][11] The presence of rare or low-frequency variants in other innate immune sensor genes has also been reported in some YAOS patients, suggesting that additional genetic modifiers may shape disease severity and organ involvement.[8]</p>
+<p>It is important to distinguish these YAOS-associated variants from other <em>NOD2</em> alleles that confer risk for Crohn’s disease but are not clearly implicated in Yao syndrome. For example, the missense variant G881R/G908R (ClinVar Variation ID 4692; NM_001370466.1:c.2641G&gt;C, p.Gly881Arg) is associated with an approximately 2.6-fold increased risk of Crohn’s disease and has experimentally demonstrated decreased NF‑κB activity and reduced response to lipopolysaccharide and peptidoglycan compared with wild-type protein.[14] However, this variant is relatively frequent in the general population, present in about 1.4% of European alleles, and is classified in ClinVar as a “Risk Allele” for Crohn’s disease but “likely benign” or “uncertain significance” overall.[14] There is currently no evidence linking G881R/G908R specifically to Yao syndrome, underscoring the distinct variant spectrum and pathogenetic mechanisms of YAOS compared with Crohn’s disease.</p>
+<p>Beyond <em>NOD2</em> itself, modifier genes may include other NLRs, pattern recognition receptors, or components of downstream signaling such as RIPK2, NF‑κB subunits, and MAPKs. While direct evidence in YAOS is limited, the Frontiers study notes that some patients carry <em>NOD2</em> variants together with variants in other systemic autoinflammatory disease (SAID) genes, hinting at a complex polygenic background.[8] For knowledge-base annotation, <em>NOD2</em> (<a href="https://bioregistry.io/HGNC:5332" target="_blank" rel="noopener noreferrer">HGNC:5332</a>) should be recorded as the primary susceptibility gene, with IVS8+158, R702W, L1007fs, and V955I as key variants, and additional innate immune genes marked as potential modifiers pending further validation.</p>
+<h3>2.4 Environmental Risk Factors and Triggers</h3>
+<p>Environmental triggers and exposures play a critical role in the expression and exacerbation of Yao syndrome in individuals carrying <em>NOD2</em> susceptibility variants. MedlinePlus Genetics notes that researchers suspect environmental factors such as infections may contribute to triggering the disease in genetically predisposed individuals, and that the exact nature of these factors remains incompletely delineated.[1] The Frontiers cohort analysis provides more concrete evidence, reporting that gastrointestinal surgeries can trigger or exacerbate disease flares, and that COVID‑19 infection or vaccination has been observed to elicit disease expression or exacerbation in some YAOS patients.[8] These observations suggest that perturbations in mucosal integrity, systemic immune activation, and pathogen exposure can interact with dysregulated NOD2 signaling to precipitate autoinflammatory episodes.</p>
+<p>In the pediatric case of Yao syndrome occurring in a child with complement component 2 deficiency (C2D), recurrent nightly fevers and other YAOS-compatible symptoms emerged in the context of an underlying immunodeficiency that predisposes to severe bacterial infections and autoimmune disease.[15] While the specific environmental infections or exposures were not fully enumerated, the case highlights that concurrent immune system disorders and infection susceptibility can modulate the clinical impact of <em>NOD2</em> variants.[15] More broadly, systemic stressors such as major surgery, acute infection, or inflammatory vaccinations may act as environmental “hits” in a two-hit or multi-hit pathogenetic model, whereby NOD2 variants set the stage for aberrant innate immune responses and environmental challenges provide the activating stimuli.</p>
+<p>Lifestyle factors such as diet, smoking, or occupational exposures have not yet been systematically studied in Yao syndrome, in contrast to Crohn’s disease where such associations are better characterized.[7][11] Given NOD2’s primary expression in intestinal epithelial cells and peripheral blood leukocytes, and its role as a sensor of bacterial peptidoglycan, it is plausible that alterations in gut microbiota, barrier function, or chronic exposure to specific microbial or environmental antigens could influence disease risk and flares, but direct evidence in YAOS cohorts is currently limited.[8][18] For now, environmental factors in Yao syndrome should be described as <strong>triggers and modulators of disease expression</strong> rather than primary causes, with COVID‑19 infection/vaccination and gastrointestinal surgery serving as the most clearly documented examples.[8]</p>
+<h3>2.5 Protective Factors and Benign Genetic Variation</h3>
+<p>Protective factors in Yao syndrome have not been explicitly delineated in the literature; however, the high proportion of individuals in the general population carrying certain <em>NOD2</em> variants without developing disease implies the existence of genetic and environmental modifiers that mitigate risk.[1][14] ClinVar data on the G881R/G908R variant illustrates this concept: although associated with increased risk of Crohn’s disease, its high allele frequency, presence of homozygotes among healthy individuals, and classification as “likely benign” or “uncertain significance” outside the context of Crohn’s disease indicate that many <em>NOD2</em> variants are tolerated or even potentially protective against specific infections or immune challenges.[14] The functional impact—decreased NF‑κB activity and reduced response to peptidoglycan—could conceivably lessen the propensity for hyper-inflammatory responses in some contexts, though this remains speculative.[14]</p>
+<p>MedlinePlus Genetics stresses that many people who have one or more <em>NOD2</em> gene variants associated with Yao syndrome never develop the disease, highlighting incomplete penetrance and implying that uncharacterized protective factors must exist.[1] These may include other genetic variants that dampen innate immune signaling, robust regulatory T cell function, favorable microbiome composition, or environmental exposures that favor tolerance rather than inflammatory priming. Epigenetic programming of immune cells and mucosal barrier integrity could also serve as protective buffers against the pro-inflammatory tendencies conferred by <em>NOD2</em> susceptibility variants.[8][18]</p>
+<p>From a practical standpoint, protective factors can be conceptualized as the absence of specific triggers or the presence of compensatory regulatory mechanisms rather than discrete protective alleles. Thus, while no specific protective variants have been documented for Yao syndrome, the disease’s multifactorial and low-penetrance nature inherently acknowledges the existence of protective influences that maintain health in many <em>NOD2</em> variant carriers.</p>
+<h3>2.6 Gene–Environment Interactions</h3>
+<p>Gene–environment interactions are central to the etiologic model of Yao syndrome. IVS8+158 and associated <em>NOD2</em> variants prime the innate immune system by altering basal NOD2 expression, p38 MAPK activity, and IL‑6 secretion; environmental exposures such as bacterial products, tissue injury, or systemic inflammatory stimuli then engage these primed pathways to produce exaggerated or dysregulated inflammatory responses.[18] The Frontiers study explicitly frames YAOS as resulting from complex interactions between <em>NOD2</em> variants and genetic backgrounds of other innate immune sensor genes, compounded by environmental triggers such as gastrointestinal surgery and COVID‑19 infection or vaccination.[8] This observation aligns with broader autoinflammatory disease paradigms, where infections or immunologic stressors precipitate flares in genetically susceptible individuals.</p>
+<p>Mechanistically, muramyl dipeptide (MDP) derived from bacterial peptidoglycan binds the leucine-rich repeat (LRR) domain of NOD2, inducing conformational changes that enable oligomerization, nodosome formation, RIPK2 recruitment, and activation of NF‑κB and MAPK pathways.[10][11] In YAOS patients carrying IVS8+158, basal p38 MAPK activity and IL‑6 secretion are elevated, and IL‑6 production is further enhanced upon MDP stimulation, indicating that even normal microbial exposures could elicit disproportionate inflammatory responses in these individuals.[18] Conversely, in IVS8+158/R702W haplotype carriers, MDP-stimulated NF‑κB activity and TNFα secretion are suppressed, suggesting an altered sensing or signaling dynamic that may predispose to atypical or chronic inflammatory patterns rather than acute classical responses.[18] These genotype-specific differences underline how gene–environment interactions may vary across YAOS subgroups.</p>
+<p>Clinically, gene–environment interactions manifest as disease flares triggered by infections, surgeries, or vaccinations, particularly when systemic inflammatory pathways are engaged.[1][8][15] The case of YAOS in a child with C2 deficiency further exemplifies how underlying immune system abnormalities, genetic predisposition, and environmental exposures converge to produce complex autoinflammatory phenotypes.[15] For ontology mapping, relevant Gene Ontology biological process terms include “response to muramyl dipeptide” (<a href="http://purl.obolibrary.org/obo/GO_0032495" target="_blank" rel="noopener noreferrer">GO:0032495</a>), “defense response to bacterium” (<a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a>), and “positive regulation of canonical NF‑κB signaling” (<a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a>), while environmental exposures such as “viral infection” and “surgical procedure” can be linked to CHEBI or exposure ontology terms for integration into multi-layered knowledge graphs.[11][18]</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core Systemic Inflammatory Features: Fever and Episodic Flares</h3>
+<p>The hallmark phenotype of Yao syndrome is the presence of recurrent, episodic inflammatory flares characterized by fever and systemic symptoms. OMIM and MedlinePlus Genetics both describe YAOS as involving periodic fever episodes associated with abnormal inflammation.[1][4] In the initial NAID cohort, patients typically presented with periodic fever, dermatitis, and inflammatory arthritis, with the median age at onset being 33.5 years and median disease duration at diagnosis 10.7 years, indicating a chronic recurrent course.[5] The Rheumatologist clinical review notes that patients generally experience flu-like symptoms followed by episodic fever and erythematous patches or plaques, with each flare lasting a few days to several weeks and separated by asymptomatic intervals of weeks or months.[17]</p>
+<p>HPO mapping for these core systemic features includes “Recurrent fever” (<a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a>), “Fatigue” (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>), and “Myalgia” (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>).[3][5][17] The age of onset is typically early to middle adulthood, though pediatric cases have been documented, suggesting the corresponding ontology term “Adult onset” (<a href="http://purl.obolibrary.org/obo/HP_0003581" target="_blank" rel="noopener noreferrer">HP:0003581</a>) but with allowance for “Childhood onset” (<a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a>) in rare situations.[3][6][13][15] Symptom severity is generally moderate to severe during flares, but the episodic nature means that patients may have near-normal function between episodes. Progression is usually <strong>episodic and fluctuating</strong> rather than steadily progressive, and there is no clear evidence of cumulative organ failure akin to systemic vasculitis or severe autoimmune connective tissue disease.[5][8]</p>
+<p>The quality-of-life impact of recurrent fever and systemic inflammation is substantial. Flares often interfere with work, social functioning, and sleep, particularly when accompanied by pain, fatigue, and gastrointestinal symptoms.[5][9][17] Although specific EQ‑5D or SF‑36 data are not yet reported for YAOS cohorts, analogous autoinflammatory conditions show significant impairment in physical functioning, vitality, and role limitations during active phases, and patients frequently describe a heavy burden of unpredictability and chronic illness. For knowledge bases, the systemic inflammatory phenotype of Yao syndrome can be captured using <a href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a>, <a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" rel="noopener noreferrer">HP:0004430</a> (autoinflammatory disease), <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a> (recurrent fever), and NCIT terms such as “Systemic inflammatory disease” (NCIT:C123950).</p>
+<h3>3.2 Cutaneous Manifestations: Dermatitis and Folliculitis</h3>
+<p>Cutaneous involvement is one of the defining features of Yao syndrome and is incorporated as a major criterion in the diagnostic framework. OMIM lists dermatitis as a key component of the phenotype, and the NAID cohort reports that skin disease typically manifests as erythematous patches or plaques on the trunk and extremities.[4][5] Patel et al. describe a YAOS case in dermatologic practice where cyclical folliculitis, erythematous plaques and patches, and periodic fevers were the predominant presentation, underscoring the importance of recognizing dermatologic clues.[3] Histopathologic findings in YAOS skin lesions vary but include mixed lymphocytic and neutrophilic infiltrates, spongiotic dermatitis, and occasional granulomatous changes, reflecting heterogeneous inflammatory mechanisms.[3][5]</p>
+<p>HPO terms relevant to cutaneous manifestations include “Erythematous skin patches” (<a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" rel="noopener noreferrer">HP:0001065</a>), “Erythematous papular rash” (<a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" rel="noopener noreferrer">HP:0011123</a>), “Spongiotic dermatitis” (<a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" rel="noopener noreferrer">HP:0000982</a>), and possibly “Folliculitis” (<a href="http://purl.obolibrary.org/obo/HP_0001051" target="_blank" rel="noopener noreferrer">HP:0001051</a>) for cases with cyclical follicular inflammation.[3][5] The age of onset for skin manifestations mirrors systemic flares, usually in adulthood, and severity ranges from mild to markedly symptomatic, with pruritus, pain, and cosmetic concerns impacting quality of life.[3][5][17] Episodes are episodic and align temporally with fever and systemic symptoms, thus their progression is fluctuating rather than continuous. Frequency is high among affected individuals: in cohort studies, the majority of YAOS patients exhibit some form of dermatitis, making it a core phenotype rather than an occasional manifestation.[5][8][12]</p>
+<p>Cutaneous disease directly affects quality of life through discomfort, sleep disturbances, and social or occupational impacts due to visible rash. In some patients, skin findings are the initial clue leading to further evaluation and eventual diagnosis, and dermatologists play an important role in early recognition.[3][17] For ontology mapping, <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin) defines the primary anatomical structure, while CL terms such as “keratinocyte” (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) and “dermal fibroblast” (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>) can be used to represent cellular participants in the inflammatory infiltrates. The presence of neutrophils and lymphocytes in the dermal infiltrate corresponds to <a href="http://purl.obolibrary.org/obo/CL_0000776" target="_blank" rel="noopener noreferrer">CL:0000776</a> (neutrophil) and <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a> (T cell), indicating innate and adaptive cellular involvement.[3][5]</p>
+<h3>3.3 Musculoskeletal Manifestations: Arthralgia, Arthritis, and Distal Swelling</h3>
+<p>Musculoskeletal symptoms in Yao syndrome include arthralgia, inflammatory arthritis, and distinctive distal extremity swelling, particularly affecting the ankles and feet. OMIM and the original Yao criteria specify oligo- or polyarthralgia or inflammatory arthritis and distal extremity swelling as minor clinical criteria, and these features are reported in the majority of YAOS patients.[4][5] In the NAID cohort, oligopolyarthritis/arthralgia was common, and characteristic distal lower extremity swelling was noted, differentiating YAOS from other autoinflammatory or autoimmune arthritis phenotypes.[5] VisualDx similarly emphasizes polyarthritis and distal extremity swelling as key clinical manifestations.[13]</p>
+<p>HPO terms for musculoskeletal involvement include “Arthralgia” (<a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a>), “Inflammatory arthritis” (<a href="http://purl.obolibrary.org/obo/HP_0003041" target="_blank" rel="noopener noreferrer">HP:0003041</a>), and “Peripheral edema” (<a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" rel="noopener noreferrer">HP:0002619</a>), with more specific terms such as “Ankle swelling” (<a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" rel="noopener noreferrer">HP:0001742</a>) applicable to characteristic distal leg involvement.[4][5][13] Age of onset is again typically adult, although pediatric YAOS can also feature joint symptoms.[6][15] Symptom severity ranges from mild joint discomfort to clinically significant arthritis with functional impairment and difficulty walking during flares. Progression is episodic; some patients show chronic arthralgia with episodic exacerbations, while others experience arthritis only during systemic flares.[5][8]</p>
+<p>These musculoskeletal symptoms substantially impair quality of life, particularly in individuals whose occupation requires prolonged standing or physical labor. Pain, stiffness, and swelling can limit mobility and daily activities, and repeated flares may lead to anxiety regarding future functional capacity. For ontology mapping, the primary anatomical structures are joints (<a href="http://purl.obolibrary.org/obo/UBERON_0000981" target="_blank" rel="noopener noreferrer">UBERON:0000981</a>) and distal lower limb (<a href="http://purl.obolibrary.org/obo/UBERON_0001443" target="_blank" rel="noopener noreferrer">UBERON:0001443</a>), and relevant cell types include synovial fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0002554" target="_blank" rel="noopener noreferrer">CL:0002554</a>), chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>), and infiltrating immune cells such as macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>) and neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000776" target="_blank" rel="noopener noreferrer">CL:0000776</a>). Pathophysiologic processes correspond to GO terms like “inflammatory response” (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>) and “regulation of joint inflammation” (a composite of related GO processes).</p>
+<h3>3.4 Gastrointestinal and Abdominal Manifestations</h3>
+<p>Gastrointestinal involvement is common in Yao syndrome and encompasses abdominal pain, diarrhea, and other nonspecific GI complaints. OMIM lists abdominal pain and/or diarrhea as minor criteria, and MedlinePlus Genetics notes that gastrointestinal manifestations are part of the disease’s multi-organ involvement.[1][4] In cohort data, GI symptoms are frequently reported and can be a prominent feature, sometimes mimicking inflammatory bowel disease but lacking the classic endoscopic and histologic findings of Crohn’s disease.[5][8][12] The Rheumatologist review stresses that GI and sicca-like symptoms are part of the typical YAOS constellation, and clinicians must distinguish these from primary gastrointestinal or autoimmune conditions.[17]</p>
+<p>Relevant HPO terms include “Abdominal pain” (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>), “Diarrhea” (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a>), “Nausea” (<a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a>), and potentially “Irritable bowel” (<a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" rel="noopener noreferrer">HP:0002579</a>) in some phenotypic descriptions.[4][5][8] The age of GI symptom onset typically coincides with systemic flares and may begin in adulthood, although YAOS can manifest in childhood with recurrent nightly fevers and GI complaints, as in the C2 deficiency case.[15] Severity is variable: some patients experience mild, self-limited episodes, while others have significant abdominal pain and diarrhea that require medical evaluation and occasionally hospitalization to exclude acute abdominal emergencies.[5][8]</p>
+<p>Quality-of-life impact is significant given the discomfort, dietary restrictions, and anxiety associated with recurrent GI symptoms. Patients often undergo extensive workup to rule out Crohn’s disease, celiac disease, infections, or malignancy, contributing to diagnostic delay and psychological stress.[5][17] For ontology purposes, the gastrointestinal tract (<a href="http://purl.obolibrary.org/obo/UBERON_0001045" target="_blank" rel="noopener noreferrer">UBERON:0001045</a>) is the principal anatomical structure, and cell types include intestinal epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002253" target="_blank" rel="noopener noreferrer">CL:0002253</a>), lamina propria macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a>), and mucosal lymphocytes (<a href="http://purl.obolibrary.org/obo/CL_0000895" target="_blank" rel="noopener noreferrer">CL:0000895</a>), all of which express NOD2 and participate in innate immune responses.[11][18] GO processes such as “defense response to bacterium” (<a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a>) and “response to muramyl dipeptide” (<a href="http://purl.obolibrary.org/obo/GO_0032495" target="_blank" rel="noopener noreferrer">GO:0032495</a>) are particularly relevant to GI phenotypes in YAOS.[11][18]</p>
+<h3>3.5 Sicca-like Symptoms and Mucosal Involvement</h3>
+<p>Sicca-like symptoms, including dryness of eyes and mouth, are characteristic but somewhat enigmatic features of Yao syndrome. OMIM and the Yao criteria include sicca-like symptoms as minor diagnostic criteria, and cohort studies report that a sizeable subset of YAOS patients present with dry mucosal surfaces but lack the high-titer autoantibodies or histologic features of primary Sjögren syndrome.[4][5][6][8] MedlinePlus Genetics notes that sicca-like manifestations are part of the disease’s systemic inflammatory profile, and VisualDx similarly incorporates sicca symptoms into its clinical description.[1][13]</p>
+<p>HPO terms applicable here include “Dry mouth” (<a href="http://purl.obolibrary.org/obo/HP_0001570" target="_blank" rel="noopener noreferrer">HP:0001570</a>), “Xerostomia” (<a href="http://purl.obolibrary.org/obo/HP_0001565" target="_blank" rel="noopener noreferrer">HP:0001565</a>), and “Dry eye” (<a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" rel="noopener noreferrer">HP:0001097</a>). The age of onset generally overlaps with other YAOS features and is often adult, though pediatric cases might show mucosal dryness as part of systemic inflammation.[6][15] Severity ranges from mild discomfort to pronounced dryness requiring artificial tears and saliva substitutes. Unlike Sjögren syndrome, YAOS sicca-like symptoms usually occur without autoantibodies such as SSA/Ro or SSB/La, and salivary gland biopsy often lacks classic lymphocytic sialadenitis, pointing toward functional or inflammatory dysregulation rather than typical autoimmune exocrinopathy.[4][5]</p>
+<p>Quality of life is affected through discomfort, dental complications due to reduced saliva, visual disturbances, and increased susceptibility to mucosal infections. However, these symptoms are generally less life-threatening than systemic flares and can often be managed symptomatically. For anatomical mapping, mucosal surfaces such as lacrimal gland (<a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a>) and salivary glands (<a href="http://purl.obolibrary.org/obo/UBERON_0001044" target="_blank" rel="noopener noreferrer">UBERON:0001044</a>) are relevant structures, and cell types include epithelial cells of salivary and lacrimal tissues (<a href="http://purl.obolibrary.org/obo/CL_0002598" target="_blank" rel="noopener noreferrer">CL:0002598</a>) and resident immune cells. Pathophysiologic processes may involve GO terms such as “regulation of secretion” and “inflammatory response,” though specific mechanistic data for sicca symptoms in YAOS remain sparse.[8][18]</p>
+<h3>3.6 Distal Extremity and Eyelid Swelling</h3>
+<p>Distal extremity swelling—particularly involving the legs and ankles—and eyelid swelling are distinctive features of Yao syndrome and are highlighted in both diagnostic criteria and cohort analyses.[4][5][8] The NAID cohort and OMIM description emphasize swelling of the distal extremities as a characteristic finding, and the Frontiers study notes that distal leg and eyelid swelling are among the disease’s hallmark clinical phenotypes, contributing to the recognizable constellation of symptoms.[4][5][8] VisualDx similarly underscores distal extremity swelling as part of the clinical picture.[13]</p>
+<p>HPO terms relevant to these findings include “Peripheral edema” (<a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" rel="noopener noreferrer">HP:0002619</a>), “Ankle swelling” (<a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" rel="noopener noreferrer">HP:0001742</a>), and “Eyelid edema” (<a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a>). Age of onset is typical adulthood, and severity can vary from mild puffy ankles to substantial swelling that impairs mobility and causes discomfort.[5][8] Eyelid swelling may be intermittent and associated with flares, leading to cosmetic concerns and potential visual disturbances, though sight-threatening complications are not commonly reported.[8][13] The progression is episodic, correlating with systemic inflammatory activity, and frequency is high enough to be considered a characteristic phenotype in YAOS cohorts, rather than a rare incidental finding.[5][8][12]</p>
+<p>Quality-of-life impact is considerable given the functional and cosmetic consequences. Swollen extremities hinder walking, physical work, and exercise; eyelid swelling affects appearance and can cause psychosocial distress. For ontology mapping, relevant anatomical structures include lower limb (<a href="http://purl.obolibrary.org/obo/UBERON_0001443" target="_blank" rel="noopener noreferrer">UBERON:0001443</a>), ankle joint region (<a href="http://purl.obolibrary.org/obo/UBERON_0001465" target="_blank" rel="noopener noreferrer">UBERON:0001465</a>), and eyelid (<a href="http://purl.obolibrary.org/obo/UBERON_0001461" target="_blank" rel="noopener noreferrer">UBERON:0001461</a>). Cell types involved likely include vascular endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), perivascular pericytes (<a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" rel="noopener noreferrer">CL:0000669</a>), and infiltrating innate immune cells such as neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000776" target="_blank" rel="noopener noreferrer">CL:0000776</a>) and macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), with mechanisms involving increased vascular permeability and interstitial fluid accumulation under inflammatory cytokine influence. GO processes such as “regulation of vascular permeability” and “inflammatory response” are relevant mechanistic descriptors.[8][18]</p>
+<h3>3.7 Cardiopulmonary Manifestations: Pleuritis and Pericarditis</h3>
+<p>Cardiopulmonary manifestations in Yao syndrome include pleuritis and pericarditis, which are incorporated as minor criteria in the Yao diagnostic framework.[3][4][8] OMIM lists pericarditis and/or pleuritis among the Yao syndrome minor criteria, recognizing that serosal inflammation is part of the systemic autoinflammatory spectrum.[4] Patel et al. similarly note that pleuritis and pericarditis are minor diagnostic features, and VisualDx describes pleuritis and pericarditis as possible components of the disease phenotype.[3][13] These manifestations are less common than skin, joint, and GI symptoms but can have significant clinical implications when present.</p>
+<p>HPO terms for these features include “Pleuritis” (<a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" rel="noopener noreferrer">HP:0002108</a>) and “Pericarditis” (<a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" rel="noopener noreferrer">HP:0001634</a>). Age of onset for cardiopulmonary involvement does not appear to differ from other YAOS symptoms and typically occurs in adulthood.[5][8] Severity can range from mild pleuritic chest pain to clinically significant effusions or pericardial inflammation requiring hospitalization and anti-inflammatory therapy. Progression is episodic, associated with systemic flares, and frequency among YAOS patients is lower than cutaneous or musculoskeletal manifestations, though precise prevalence percentages are not yet standardized across cohorts.[8][12]</p>
+<p>The quality-of-life impact is substantial due to pain, dyspnea, and potential anxiety about cardiac involvement. Serious complications such as constrictive pericarditis or chronic pulmonary fibrosis have not been widely reported in YAOS, suggesting that these manifestations are generally manageable with appropriate anti-inflammatory treatment.[9][17] Anatomically, pleura (<a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" rel="noopener noreferrer">UBERON:0000977</a>) and pericardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002412" target="_blank" rel="noopener noreferrer">UBERON:0002412</a>) are the key structures, and relevant cell types include mesothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002577" target="_blank" rel="noopener noreferrer">CL:0002577</a>) and infiltrating innate immune cells. Pathophysiologic processes correspond to “serositis” and “inflammatory response,” and integration of these features into a knowledge base requires careful differentiation from similar serosal involvement in other autoinflammatory and autoimmune conditions.[4][8]</p>
+<h3>3.8 Pediatric Versus Adult Phenotype</h3>
+<p>While Yao syndrome predominantly presents in adults aged 20–50 years, pediatric cases are increasingly recognized, expanding the phenotypic spectrum.[6][13][15] VisualDx notes that YAOS predominantly presents in adults with a female-to-male ratio of approximately 2:1, but pediatric cases have also been reported, indicating that age of onset is not strictly limited to adulthood.[13] The C2 deficiency case report describes a three-year-old girl with one year of recurrent nightly fevers, rash, and systemic symptoms, who was ultimately diagnosed with Yao syndrome based on <em>NOD2</em> IVS8+158 and R702W variants and fulfillment of clinical criteria.[15] This case underscores that YAOS can present in early childhood, especially in the context of underlying immune disorders, and may be under-recognized in pediatric populations.</p>
+<p>Adult YAOS typically manifests with the full spectrum of periodic fever, dermatitis, arthralgia/arthritis, distal extremity swelling, GI and sicca-like symptoms, and occasional serositis, whereas pediatric cases may initially present with fever and rash, and other features emerge over time.[5][8][15] Severity and quality-of-life impact in children can be considerable given developmental and educational disruptions, and the differential diagnosis includes monogenic autoinflammatory diseases such as Blau syndrome and early-onset sarcoidosis, which also involve <em>NOD2</em> but have distinct granulomatous phenotypes.[7][15] HPO terms such as “Childhood onset” (<a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a>) and “Recurrent fever” (<a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a>) are particularly relevant to pediatric YAOS.</p>
+<p>For knowledge-base entries, it is important to record both adult and pediatric onset categories, and to note that although most cases occur sporadically in adulthood, Yao syndrome can manifest in children, sometimes in association with other immunogenetic conditions. This reinforces the multifactorial nature of YAOS and suggests that age-dependent factors, such as maturation of immune regulation and exposure history, may influence disease expression.[6][8][15]</p>
+<h3>3.9 Laboratory Abnormalities and Biomarkers</h3>
+<p>Laboratory abnormalities in Yao syndrome are generally nonspecific and reflect systemic inflammation rather than unique diagnostic signatures. Common findings during flares include elevated acute phase reactants such as C‑reactive protein (CRP) and erythrocyte sedimentation rate (ESR), and sometimes mild leukocytosis, although these markers are not consistently abnormal.[5][8][9] Importantly, autoimmune serologies such as antinuclear antibodies (ANA), rheumatoid factor, and anti-SSA/SSB are typically negative or low-titer, which is incorporated into the exclusion criteria for Yao syndrome and helps differentiate it from autoimmune conditions.[4][5][8] Thus, “Negative autoimmune workup” is a formal part of the diagnostic criteria.[3][4][8]</p>
+<p>Mechanistic studies illustrate that plasma levels of certain inflammatory mediators, including TNFα, IL‑1β, IL‑6, IFNγ, and S100A12, may be unaltered in YAOS patients, at least at baseline, despite evidence of altered NOD2 pathway activation in PBMCs.[18] The study by Yao et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/29471675/" target="_blank" rel="noopener noreferrer">PMID: 29471675</a>) found that intron-8 splicing of NOD2 transcripts was unaffected by carriage of IVS8+158, but NOD2 transcript levels and basal p38 MAPK activity were significantly elevated in PBMCs from IVS8+158 YAOS patients; basal IL‑6 secretion was also elevated and further enhanced by MDP stimulation, whereas NF‑κB activity and TNFα secretion were suppressed in IVS8+158/R702W haplotype carriers.[18] These findings suggest that <strong>cell-based functional assays</strong>—such as measuring IL‑6 secretion and MAPK activation in response to MDP—could serve as mechanistic biomarkers, though they are not yet standard clinical tests.</p>
+<p>HPO terms for laboratory abnormalities include “Elevated C-reactive protein” (<a href="http://purl.obolibrary.org/obo/HP_0030050" target="_blank" rel="noopener noreferrer">HP:0030050</a>), “Elevated erythrocyte sedimentation rate” (<a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" rel="noopener noreferrer">HP:0003565</a>), and “Negative autoimmune antibody test” (<a href="http://purl.obolibrary.org/obo/HP_0002965" target="_blank" rel="noopener noreferrer">HP:0002965</a>). The quality-of-life impact of laboratory abnormalities is indirect, influencing diagnostic pathways and treatment decisions rather than directly causing symptoms. For ontology mapping, LOINC codes corresponding to CRP, ESR, and autoantibody assays can be linked to YAOS as commonly evaluated but not pathognomonic tests. Mechanistically relevant GO terms include “positive regulation of p38 MAPK cascade” (<a href="http://purl.obolibrary.org/obo/GO_1900746" target="_blank" rel="noopener noreferrer">GO:1900746</a>) and “regulation of interleukin-6 production” (<a href="http://purl.obolibrary.org/obo/GO_0032675" target="_blank" rel="noopener noreferrer">GO:0032675</a>), and these may be attached to NOD2 and PBMC cell types in knowledge graphs.[11][18]</p>
+<h2>4. Genetic and Molecular Information</h2>
+<h3>4.1 NOD2 Gene: Structure, Function, and Ontology</h3>
+<p>The <em>NOD2</em> gene, also known as CARD15 or NLRC2, encodes nucleotide-binding oligomerization domain containing 2, a member of the NLR family of cytosolic pattern recognition receptors.[11] GenIA describes NOD2 as primarily expressed in peripheral blood leukocytes and intestinal epithelial cells, acting as a cytosolic PRR for bacterial cell wall-derived muramyl dipeptides.[11] The NOD2 protein consists of two N-terminal caspase recruitment domains (CARDs), a central nucleotide-binding oligomerization (NACHT) domain, and a C-terminal leucine-rich repeat (LRR) domain that mediates ligand recognition.[11] Upon binding MDP via its LRR domain, NOD2 undergoes conformational changes that lead to self-oligomerization, formation of an active complex termed the “nodosome,” recruitment of RIPK2 kinase, and activation of NF‑κB and MAPK signaling pathways, culminating in immune gene expression.[10][11]</p>
+<p>NOD2’s biological roles are annotated in Gene Ontology as “intracellular signal transduction” (<a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" rel="noopener noreferrer">GO:0035556</a>), “response to muramyl dipeptide” (<a href="http://purl.obolibrary.org/obo/GO_0032495" target="_blank" rel="noopener noreferrer">GO:0032495</a>), “positive regulation of canonical NF‑κB signal transduction” (<a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a>), and “defense response to bacterium” (<a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a>).[11] In humans and mice, NOD2 is functionally active not only in myeloid cells but also in CD4+ T cells, where murine studies have shown that Nod2 stimulation with MDP leads to nuclear accumulation of c‑Rel NF‑κB subunit and modulates T cell signaling, although Nod2 is dispensable for T cell-induced colitis and regulatory T cell development.[10] These data illustrate that NOD2 participates in both innate immune sensing and adaptive immune regulation.</p>
+<p>From a clinical genetics standpoint, <em>NOD2</em> is associated with several chronic inflammatory disorders beyond Yao syndrome. It was the first gene linked to susceptibility to Crohn’s disease, with common low-penetrance variants such as R702W, G908R, and L1007fs conferring substantial relative risk.[7][11][14] Gain-of-function mutations in <em>NOD2</em> cause Blau syndrome and early-onset sarcoidosis, characterized by juvenile-onset granulomatous inflammation of skin, joints, and eyes.[7][11] Yao syndrome thus adds a third major phenotype to the <em>NOD2</em> disease spectrum, with a distinct pattern of systemic autoinflammation without granulomatous pathology and with characteristic skin, joint, GI, and sicca-like features.[4][5][8] For ontology mapping, NOD2 corresponds to <a href="https://bioregistry.io/HGNC:5332" target="_blank" rel="noopener noreferrer">HGNC:5332</a>, NCBI Gene ID 64127, UniProt Q9HC29, and OMIM 605956, and is annotated with GO terms as noted above.[11]</p>
+<h3>4.2 Spectrum of NOD2 Variants in Yao Syndrome</h3>
+<p>The spectrum of <em>NOD2</em> variants implicated in Yao syndrome encompasses common and rare changes across intronic and coding regions, with IVS8+158 and R702W being the most consistently reported. The NAID cohort study notes that associated variants were primarily IVS8(+158) and compound IVS8(+158)/R702W, and that the genotype profile differed from Crohn’s disease.[5] In the expanded YAOS cohort, patients were often identified to carry two or more variants, most commonly combinations such as IVS8+158/R702W, IVS8+158/L1007fs, IVS8+158/V955I, IVS8+158/other variants, or <em>NOD2</em> variants alongside other SAID gene variants; ninety-nine patients carried single variants.[6][8][12] These patterns suggest that IVS8+158 functions as a central susceptibility variant around which other modifiers cluster.</p>
+<p>IVS8+158 is an intronic variant located in intron 8, described as c.2798+158C&gt;T or c.2717+158C&gt;T depending on transcript, and is the most prevalent single variant in YAOS cohorts.[5][6][8][12] Its functional impact does not appear to involve altered intron-8 splicing; instead, PBMCs from IVS8+158 YAOS patients show elevated NOD2 transcript levels and increased basal p38 MAPK activity, indicating a potential effect on transcriptional regulation or mRNA stability.[18] Basal IL‑6 secretion is also increased and further enhanced by MDP stimulation, pointing toward a hyper-responsive innate immune state.[18] R702W (c.2104C&gt;T; p.Arg702Trp), located in the NACHT domain, is a well-known Crohn’s disease susceptibility allele and, in combination with IVS8+158, defines a YAOS haplotype with suppressed NF‑κB activity and TNFα secretion upon MDP stimulation, distinct from the IVS8+158-alone profile.[18]</p>
+<p>L1007fs (c.3019dup; p.Leu1007Profs*2) is another Crohn’s disease-associated variant that appears in some YAOS patients, often alongside IVS8+158, and is presumed to contribute to disease susceptibility, though its functional role in YAOS specifically has not been extensively characterized.[6][8][12] V955I (c.2863G&gt;A; p.Val955Ile) has more recently been identified as a YAOS susceptibility variant, typically found in combination with IVS8+158; it resides in the LRR-adjacent region and may alter ligand sensing or conformational dynamics.[6][8][12] The presence of rare variants in other exons and domains suggests a broader spectrum of NOD2 changes that can contribute to YAOS, but IVS8+158, R702W, L1007fs, and V955I remain the main variants recognized in cohort analyses.[6][8][12]</p>
+<p>For knowledge-base annotation, these variants should be recorded with HGVS nomenclature, OMIM and ClinVar IDs where available, and classified as <strong>susceptibility variants</strong> rather than fully penetrant pathogenic mutations. They are germline in origin and inherited in a complex multifactorial pattern with low penetrance.[1][4][6] Allele frequencies in population databases such as gnomAD are not provided in the YAOS literature, but separate data for Crohn’s disease-associated variants indicate that R702W and L1007fs are relatively common in European populations.[11][14] In Yao syndrome, no founder effect or population-specific variant has been definitively established, though most NAID/YAOS patients in early cohorts were non-Jewish whites.[5]</p>
+<h3>4.3 Variant Classification, Penetrance, and Population Data</h3>
+<p>Variant classification in Yao syndrome must distinguish between pathogenic monogenic mutations, low-penetrance risk alleles, and benign polymorphisms. OMIM and cohort studies consistently describe <em>NOD2</em> variants in YAOS as <strong>susceptibility variants</strong> that confer risk but are not sufficient alone to cause disease, aligning with low-penetrance, multifactorial inheritance rather than classic Mendelian patterns.[1][4][6][8] IVS8+158, R702W, L1007fs, and V955I should thus be classified as likely pathogenic or risk alleles in the context of Yao syndrome when present in appropriate genotype combinations and associated with compatible clinical phenotypes, but they may be benign in other contexts or in individuals without symptoms.</p>
+<p>ClinVar’s classification of G881R/G908R as a risk allele for Crohn’s disease but likely benign or VUS overall illustrates the complexity of classifying <em>NOD2</em> variants across disease contexts.[14] For YAOS, no dedicated ClinVar entries yet define IVS8+158 or R702W specifically as Yao syndrome risk alleles, but OMIM and NAID/YAOS literature provide strong evidence linking these variants to disease susceptibility.[4][5][8][12][18] Penetrance is incomplete: MedlinePlus notes that many individuals with <em>NOD2</em> variants associated with Yao syndrome never develop the disease, and OMIM’s multifactorial inheritance designation similarly implies low penetrance and variable expressivity.[1][4]</p>
+<p>Population data specifically for YAOS-associated variants are limited, but broader <em>NOD2</em> epidemiology indicates that common variants such as R702W and L1007fs are present in a sizable fraction of individuals in Western populations, particularly those with Crohn’s disease.[11][14] The NAID cohort comprised 143 adult patients, all non-Jewish whites, suggesting possible ascertainment bias rather than true ethnic restriction.[5] Prevalence estimates for Yao syndrome itself, as provided by Yao et al., indicate an estimated population prevalence of 1 to 10 per 100,000 in the American adult population, making it relatively common compared with other autoinflammatory diseases.[4] For knowledge bases, these numbers should be annotated as approximate and subject to revision as more diverse cohorts are studied.</p>
+<h3>4.4 Modifier Genes and Innate Immune Networks</h3>
+<p>Although <em>NOD2</em> is the principal susceptibility gene for Yao syndrome, variant combinations and coexisting changes in other systemic autoinflammatory disease genes suggest the involvement of modifier loci. The Frontiers cohort notes that, in subgroup analysis, some YAOS patients carried <em>NOD2</em> variants together with variants in other SAID genes, and it proposes that YAOS may result from a complex interaction of genetic variants in <em>NOD2</em> and genetic backgrounds from other innate immune sensor genes.[8] These may include other NLR family members, Toll-like receptors (TLRs), inflammasome components, and cytokine signaling molecules, many of which have known associations with autoinflammatory or autoimmune diseases.</p>
+<p>While specific modifier genes for YAOS have not yet been definitively identified in large-scale GWAS or sequencing studies, the conceptual framework aligns with an extended innate immune network in which NOD2 interacts with RIPK2, NF‑κB subunits, MAPKs such as p38, and regulatory molecules controlling IL‑1 and IL‑6 pathways.[10][11][18] Variants in these genes could shape the threshold and magnitude of inflammatory responses to NOD2 activation, thereby modulating severity, organ involvement, and treatment response in YAOS. For ontology mapping, potential modifier genes may be recorded under the category “innate immune sensor genes” and linked to GO terms like “innate immune response” (<a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a>) and “pattern recognition receptor signaling pathway” (<a href="http://purl.obolibrary.org/obo/GO_0002220" target="_blank" rel="noopener noreferrer">GO:0002220</a>).</p>
+<h3>4.5 Chromosomal Location and Structural Variation</h3>
+<p>Yao syndrome’s primary genetic locus is <em>NOD2</em> on chromosome 16q12.1, spanning base positions 50,693,588 to 50,733,077 on the positive strand in GRCh38, as documented in GenIA.[11] OMIM confirms the chromosomal location and links the phenotype to this locus.[4] There is currently no evidence that large-scale chromosomal abnormalities such as aneuploidy, translocations, or inversions contribute to Yao syndrome, nor have structural variants (CNVs) involving <em>NOD2</em> been implicated as primary risk factors in YAOS cohorts.[4][5][8] Thus, structural variation at the chromosomal level is not a major etiologic feature of this disease.</p>
+<p>For knowledge-base annotation, the chromosomal locus can be mapped precisely to UCSC Genome Browser coordinates, and dbVar or DECIPHER entries can be cross-checked for structural variants overlapping <em>NOD2</em>; however, such variants may be more relevant to other phenotypes or may be benign. Yao syndrome’s genetic architecture is driven predominantly by single-nucleotide variants and small insertions/deletions rather than large structural rearrangements.[4][5][6][8]</p>
+<h3>4.6 Epigenetic Considerations</h3>
+<p>Epigenetic changes in Yao syndrome have not yet been directly characterized in published studies; however, the observed alterations in NOD2 transcript levels and baseline MAPK and cytokine activity suggest that epigenetic modulation of gene expression may contribute to disease.[18] Elevated NOD2 transcript levels in PBMCs from IVS8+158 YAOS patients could arise from changes in promoter methylation, histone modification, or chromatin accessibility, though the study did not explicitly investigate these mechanisms.[18] Similarly, persistent elevation of IL‑6 secretion and p38 MAPK activity may reflect stable epigenetic programming of innate immune cells toward a pro-inflammatory phenotype.</p>
+<p>Given NOD2’s role in training innate immunity and the emerging concept of “trained immunity” involving epigenetic reprogramming of monocytes and macrophages in response to microbial stimuli, it is plausible that repeated environmental triggers such as infections or vaccines could induce epigenetic changes that interact with <em>NOD2</em> variants to sustain an autoinflammatory state.[8][18] For ontology mapping, potential epigenetic processes can be linked to GO terms such as “histone modification” (<a href="http://purl.obolibrary.org/obo/GO_0016570" target="_blank" rel="noopener noreferrer">GO:0016570</a>), “DNA methylation” (<a href="http://purl.obolibrary.org/obo/GO_0006306" target="_blank" rel="noopener noreferrer">GO:0006306</a>), and “chromatin organization” (<a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" rel="noopener noreferrer">GO:0006325</a>), though these remain hypothetical in YAOS until specific epigenomic studies are performed.</p>
+<h2>5. Environmental and Lifestyle Factors</h2>
+<h3>5.1 Infectious Triggers</h3>
+<p>Infections, particularly viral infections such as COVID‑19 and bacterial exposures activating mucosal immunity, appear to act as triggers for Yao syndrome flares and possibly for initial disease expression. MedlinePlus Genetics notes that environmental factors such as infections may play a role in triggering Yao syndrome in individuals with <em>NOD2</em> variants that increase risk.[1] The Frontiers cohort explicitly reports that COVID‑19 infection or vaccinations can elicit disease expression or exacerbate Yao syndrome, illustrating a clear example of infection-related gene–environment interaction.[8] The pediatric C2 deficiency case likewise underscores that an immunodeficient state with increased susceptibility to severe bacterial infections can coexist with Yao syndrome, though the specific infections are not detailed.[15]</p>
+<p>Mechanistically, infections provide pathogen-associated molecular patterns (PAMPs) such as muramyl dipeptide and other bacterial or viral ligands that engage NOD2 and other pattern recognition receptors, thereby activating innate immune pathways that are dysregulated in YAOS patients with susceptibility variants.[10][11][18] Viral infections like SARS‑CoV‑2 also provoke systemic cytokine responses and may disrupt mucosal barriers or systemic immune homeostasis, creating conditions that favor autoinflammatory flares. For ontology mapping, infectious triggers can be represented by NCBI Taxonomy IDs for pathogens (e.g., SARS‑CoV‑2) and linked to exposure ontology terms for “viral infection” and “bacterial infection,” connected to YAOS as environmental risk factors.</p>
+<h3>5.2 Surgical and Physical Stressors</h3>
+<p>Gastrointestinal surgeries and other major physical stressors are reported to trigger or exacerbate Yao syndrome. The Frontiers cohort notes that gastrointestinal surgeries may trigger or worsen YAOS, and suggests that surgical interventions altering gut anatomy or physiology could act as environmental “hits” in genetically susceptible individuals.[8] This may involve disruption of mucosal barrier integrity, changes in microbiota, and increased exposure of immune cells to luminal antigens, all of which can interact with NOD2-mediated pathways.</p>
+<p>Beyond GI surgery, other systemic stressors such as trauma, major illness, or intense physical exertion could theoretically precipitate flares, though these have not been systematically documented in YAOS cohorts. For knowledge-base annotation, surgical procedures can be linked to NCIT terms for specific operations and to exposure ontology concepts for “surgical stress,” and associated with increased risk of YAOS flares in individuals with <em>NOD2</em> susceptibility variants.[8]</p>
+<h3>5.3 Other Environmental Exposures</h3>
+<p>No robust evidence currently links specific environmental toxins, pollutants, or occupational exposures to Yao syndrome risk or course. Unlike Crohn’s disease, where smoking and certain environmental factors have well-characterized associations, YAOS literature has not yet explored such exposures in detail.[7][11] Nevertheless, the general principle that environmental factors modulate autoinflammatory disease expression suggests that future studies may identify additional risk or protective exposures.</p>
+<p>For now, disease knowledge bases should record that environmental factors—including infections, surgeries, and possibly other systemic stressors—are recognized triggers, but that specific pollutants, chemicals, or lifestyles are not yet established as causal or modifying factors. CHEBI terms for muramyl dipeptide and bacterial peptidoglycan can be linked to NOD2 and YAOS as key ligands in the mechanistic chain.[10][11][18]</p>
+<h3>5.4 Lifestyle Factors</h3>
+<p>Lifestyle factors such as smoking, diet, alcohol consumption, and physical activity have not been systematically studied in Yao syndrome cohorts.[5][8][12] While these factors are important in Crohn’s disease and many autoimmune conditions, YAOS data currently lack robust analyses of their impact. Given NOD2’s role in gut immunity and microbiota interactions, diet and smoking could conceivably modulate disease course, but this remains speculative.</p>
+<p>For knowledge bases, lifestyle factors should be flagged as areas of <strong>insufficient data</strong> in YAOS, with a note that general health-promoting behaviors and infection prevention are reasonable but not evidence-based preventive strategies. Future epidemiologic studies may update this section with concrete associations.</p>
+<h2>6. Mechanism and Pathophysiology</h2>
+<h3>6.1 Ordered Causal Chain from NOD2 Variation to Clinical Phenotype</h3>
+<p>The mechanistic pathophysiology of Yao syndrome can be conceptualized as a multi-step causal chain that links germline <em>NOD2</em> susceptibility variants and environmental triggers to systemic autoinflammatory manifestations. Step 1: Germline low-penetrance variants in <em>NOD2</em>, such as IVS8+158, R702W, L1007fs, and V955I, alter NOD2 expression levels and signaling responsiveness in innate immune cells and intestinal epithelial cells, leading to a primed pro-inflammatory state.[5][6][8][11][18] Step 2: Environmental exposures, including bacterial products like muramyl dipeptide, viral infections such as COVID‑19, and physical stressors like gastrointestinal surgery, engage NOD2 and other pattern recognition receptors, resulting in aberrant activation of NF‑κB and MAPK pathways in these primed cells.[8][10][11][18] Step 3: Dysregulated intracellular signaling causes altered cytokine secretion profiles, particularly elevated basal and stimulus-induced IL‑6 secretion in IVS8+158 carriers and suppressed TNFα responses in IVS8+158/R702W haplotype carriers, as well as changes in other inflammatory mediators; some of these alterations are directly demonstrated, while others are inferred from pathway analyses.[18] Step 4: The abnormal cytokine milieu and innate immune activation induce recurrent inflammatory episodes in tissues expressing NOD2 and housing resident or infiltrating immune cells—skin, joints, gastrointestinal tract, and serosal membranes—leading to local inflammation manifesting as dermatitis, arthritis, GI symptoms, and serositis.[1][3][4][5][8] Step 5: Recurrent tissue inflammation and edema in distal extremities and eyelids result in characteristic swelling and systemic symptoms such as fever, fatigue, and myalgia, reflecting systemic cytokine effects and local vascular changes.[3][5][8][17] Step 6: Over time, persistent but fluctuating autoinflammatory activity produces a chronic recurrent disease course without necessarily progressing to irreversible organ damage, though quality of life is significantly affected.[5][8][9] </p>
+<p>Within this causal chain, Steps 1–3 are upstream, involving genetic variants and molecular signaling; Steps 4–5 are downstream, representing tissue-level inflammation and clinical manifestations; Step 6 describes the long-term natural history. Branching occurs at the level of genotype-specific signaling: in IVS8+158 carriers, IL‑6 and p38 MAPK pathways are preferentially elevated, while in IVS8+158/R702W carriers, NF‑κB and TNFα responses are suppressed, potentially leading to distinct phenotypic patterns and differential treatment responses.[18] Some mechanisms, such as specific roles of epigenetic reprogramming and microbiota interactions, are inferred rather than directly demonstrated and should be annotated accordingly in knowledge bases.</p>
+<h3>6.2 NOD2 Signaling, NF‑κB, and MAPK Pathways</h3>
+<p>At the molecular level, NOD2 is a key sensor of bacterial cell wall components, and its activation leads to canonical NF‑κB and MAPK pathway engagement.[10][11] Upon binding muramyl dipeptide via the LRR domain, NOD2 undergoes conformational changes that enable oligomerization and formation of an active “nodosome,” which recruits RIPK2 kinase through CARD–CARD interactions.[10][11] RIPK2 then activates the IKK complex and downstream NF‑κB subunits such as p65 and c‑Rel, as well as MAPKs including p38 and JNK, leading to transcription of pro-inflammatory cytokines and chemokines.[10] In murine CD4+ T cells, NOD2 stimulation with MDP leads to nuclear accumulation of c‑Rel and modulates T cell signaling, though Nod2 is dispensable for T cell-induced colitis and regulatory T cell development, indicating a modulatory rather than essential role in adaptive immunity.[10]</p>
+<p>In Yao syndrome, functional studies of PBMCs reveal genotype-specific alterations in NOD2 signaling. Yao et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/29471675/" target="_blank" rel="noopener noreferrer">PMID: 29471675</a>) examined NOD2 expression, transcript splicing, signaling pathway activation, and cytokine profiles in PBMCs from ten YAOS patients and six healthy individuals.[18] They found that intron-8 splicing was unaffected by IVS8+158 carriage, but NOD2 transcript level and basal p38 MAPK activity were significantly elevated in PBMCs from IVS8+158 YAOS patients; moreover, these cells had elevated basal IL‑6 secretion that was enhanced by muramyl dipeptide stimulation.[18] In contrast, in patients carrying the IVS8+158/R702W haplotype, MDP-stimulated NF‑κB activity was suppressed, as was TNFα secretion, indicating that this genotype leads to attenuated canonical NF‑κB signaling and TNFα production.[18]</p>
+<p>These data demonstrate that NOD2 expression and pathway activation are aberrant in Yao syndrome and that specific genotypes produce distinct signaling profiles, with IVS8+158 favoring MAPK and IL‑6 pathways and IVS8+158/R702W altering NF‑κB and TNFα responses.[18] GO terms such as “positive regulation of canonical NF‑κB signal transduction” (<a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a>), “response to muramyl dipeptide” (<a href="http://purl.obolibrary.org/obo/GO_0032495" target="_blank" rel="noopener noreferrer">GO:0032495</a>), and “p38 MAPK cascade” (<a href="http://purl.obolibrary.org/obo/GO_0038066" target="_blank" rel="noopener noreferrer">GO:0038066</a>) can be attached to NOD2 and PBMC cell types in knowledge bases to reflect these mechanistic insights.[11][18]</p>
+<h3>6.3 Innate Immune Dysregulation and Autoinflammation</h3>
+<p>Yao syndrome is classified as an autoinflammatory disease because its pathogenesis primarily involves dysregulated innate immune responses rather than antigen-specific adaptive autoimmunity.[1][3][8] MedlinePlus Genetics notes that in people with Yao syndrome, the innate immune response is abnormally activated, which causes fevers and inflammation-related tissue damage, and explicitly classifies YAOS as an autoinflammatory disease based on this process.[1] Systemic autoinflammatory diseases (SAIDs) are characterized by unprovoked episodes of inflammation with a benign autoimmune workup—meaning autoantibodies and autoreactive T cells are absent or minimal—and Yao syndrome fits this pattern, with negative autoimmune serologies serving as exclusion criteria.[3][4][5][8]</p>
+<p>At the cellular level, dysregulated NOD2 signaling in monocytes, macrophages, dendritic cells, and intestinal epithelial cells leads to inappropriate or exaggerated inflammatory responses to microbial or sterile stimuli, manifesting as recurrent fever and tissue-specific inflammation.[10][11][18] Elevated basal IL‑6 secretion and p38 MAPK activity in IVS8+158 YAOS PBMCs indicate a primed inflammatory state; upon stimulation, these cells likely produce an amplified cytokine response, contributing to systemic symptoms and local tissue damage.[18] In IVS8+158/R702W carriers, altered NF‑κB and TNFα responses may predispose to atypical or chronic inflammatory patterns, though the clinical implications are still being elucidated.[18]</p>
+<p>Importantly, adaptive immunity in YAOS appears relatively spared in terms of classic autoimmunity. Autoantibody tests are typically negative, and there is no strong evidence of antigen-specific T cell-driven tissue destruction, distinguishing Yao syndrome from diseases like lupus or rheumatoid arthritis.[4][5][8] This reinforces the classification of YAOS as an autoinflammatory rather than autoimmune disease. GO terms such as “innate immune response” (<a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a>), “inflammatory response” (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), and “regulation of cytokine production” (<a href="http://purl.obolibrary.org/obo/GO_0001817" target="_blank" rel="noopener noreferrer">GO:0001817</a>) are central to its mechanistic ontology.</p>
+<h3>6.4 Cytokine Profiles and Inflammatory Mediators</h3>
+<p>Cytokine profiling in Yao syndrome reveals nuanced alterations that underscore its autoinflammatory nature. Yao et al. report that plasma levels of TNFα, IL‑1β, IL‑6, IFNγ, and S100A12 were unaltered in YAOS patients compared with controls, suggesting that systemic cytokine elevations may not be persistent at baseline.[18] However, PBMC functional assays show elevated basal IL‑6 secretion in IVS8+158 carriers, with further enhancement upon MDP stimulation, and suppressed TNFα secretion in IVS8+158/R702W carriers.[18] These findings indicate that cytokine dysregulation is context- and genotype-dependent, and may be more evident under stimulatory conditions than at rest.</p>
+<p>Therapeutic observations support the centrality of IL‑6 in YAOS pathophysiology. A YAOS IVS8+158 patient treated with tocilizumab, an IL‑6 receptor antagonist, experienced marked clinical improvement, suggesting that targeting IL‑6 signaling can effectively ameliorate symptoms.[18] A systematic analysis of treatment and outcomes in NOD2-associated autoinflammatory disease notes that IL‑1 and IL‑6 inhibitors such as canakinumab and tocilizumab yielded clinical benefits in refractory patients, reinforcing the relevance of these cytokines.[9] These human clinical data directly implicate IL‑6 and IL‑1 pathways as therapeutic targets and mechanistic drivers of disease.</p>
+<p>Other mediators such as S100A12, a neutrophil-derived alarmin often elevated in autoinflammatory conditions, do not appear substantially altered at baseline in YAOS, though this does not exclude dynamic changes during flares.[18] For knowledge-base annotation, cytokine involvement can be mapped to NCIT terms such as “Interleukin-6” (NCIT:C20522), “Tumor Necrosis Factor alpha” (NCIT:C20396), and “Interleukin-1 beta” (NCIT:C20522), linked to Yao syndrome as key inflammatory mediators, with IL‑6 playing a particularly prominent role in genotype-specific signaling and therapeutic responses.[9][18]</p>
+<h3>6.5 Cellular and Tissue-Level Consequences</h3>
+<p>At the tissue level, dysregulated NOD2 signaling and cytokine production in Yao syndrome lead to multi-organ inflammation that manifests clinically as dermatitis, arthritis, GI symptoms, and serositis. In the skin, elevated IL‑6 and other cytokines promote recruitment and activation of neutrophils and lymphocytes, resulting in mixed inflammatory infiltrates, spongiotic changes, and erythematous plaques and patches.[3][5] In joints, inflammatory mediators drive synovial hyperplasia, increased vascular permeability, and infiltration by macrophages, neutrophils, and lymphocytes, causing arthralgia and arthritis with distal extremity swelling.[5][8] In the gastrointestinal tract, mucosal immune activation leads to abdominal pain and diarrhea without the granulomatous pathology typical of Crohn’s disease, indicating overlapping but distinct mechanisms.[5][7][8][11]</p>
+<p>Serosal surfaces such as pleura and pericardium can also be affected, with mesothelial cell activation and inflammatory infiltrates causing pleuritis and pericarditis.[4][8] Eyelid and distal leg swelling likely reflect localized edema due to increased vascular permeability and interstitial fluid accumulation under cytokine influence, particularly IL‑6 and TNFα, which are known to modulate vascular endothelial function.[8][9][18] These tissue-level processes correspond to GO terms like “inflammatory response” (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), “regulation of vascular permeability,” and “leukocyte migration” (<a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" rel="noopener noreferrer">GO:0050900</a>), and involve cell types including neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000776" target="_blank" rel="noopener noreferrer">CL:0000776</a>), macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), and various lymphocyte subsets (<a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a>).</p>
+<p>Importantly, despite recurrent inflammation, Yao syndrome does not typically lead to progressive organ destruction or severe fibrosis, at least in reported cohorts, suggesting that inflammatory episodes are self-limited and reversible with appropriate therapy.[5][8][9] This contrasts with chronic granulomatous diseases like Blau syndrome, where granuloma formation can cause long-term tissue damage.[7][11] For knowledge bases, this distinction should be noted under outcome and prognosis.</p>
+<h3>6.6 Molecular Profiling and Multi-Omics Evidence</h3>
+<p>Molecular profiling in Yao syndrome is currently limited to targeted gene expression and signaling analyses in PBMCs, rather than comprehensive transcriptomics, proteomics, or metabolomics. Yao et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/29471675/" target="_blank" rel="noopener noreferrer">PMID: 29471675</a>) measured NOD2 transcript levels, intron-8 splicing, pathway activation markers, and cytokine secretion, finding elevated NOD2 expression, increased basal p38 MAPK activity, and elevated basal and MDP-stimulated IL‑6 secretion in IVS8+158 carriers, along with suppressed NF‑κB activity and TNFα secretion in IVS8+158/R702W carriers.[18] These targeted data provide important mechanistic insights but do not yet represent full multi-omics profiling.</p>
+<p>There are as yet no publicly reported RNA-seq, proteomics, metabolomics, or lipidomics studies specifically focused on YAOS cohorts. However, given NOD2’s role in innate immune responses, one would expect transcriptomic signatures involving increased expression of inflammatory cytokines, chemokines, and pattern recognition receptors, as well as proteomic changes in secreted cytokines and intracellular signaling proteins. Metabolomic and lipidomic alterations may include shifts toward pro-inflammatory eicosanoids and energy metabolism pathways typical of activated immune cells. These remain speculative and should be flagged as knowledge gaps in knowledge bases.</p>
+<p>Single-cell and spatial transcriptomics technologies have not yet been applied directly to Yao syndrome tissues, but their future use could reveal cell type-specific mechanisms and heterogeneity in skin, joint, and gut lesions. Functional genomics screens such as CRISPR or RNAi have not been reported in YAOS, though they have been used to study NOD2 function more broadly.[10][11] For now, molecular profiling in Yao syndrome is anchored in PBMC functional assays and limited gene expression analyses, which should be annotated as in vitro mechanistic evidence rather than comprehensive omics.</p>
+<h3>6.7 Integration with Related NOD2-Associated Diseases</h3>
+<p>Yao syndrome exists within a broader spectrum of NOD2-associated diseases that includes Crohn’s disease, Blau syndrome, and early-onset sarcoidosis.[4][7][11] Crohn’s disease is a polygenic inflammatory bowel disease in which common low-penetrance NOD2 variants such as R702W, G908R, and L1007fs contribute to susceptibility, and heightened NF‑κB activity in intestinal tissue is thought to have a genetic basis related to CARD15/NOD2 polymorphisms.[7][11][14] Blau syndrome and early-onset sarcoidosis are monogenic autoinflammatory disorders caused by gain-of-function NOD2 mutations, leading to non-caseating granulomatous inflammation of skin, joints, and eyes.[7][11] These diseases share certain clinical features with YAOS, such as skin and joint involvement, but they differ in age of onset, granulomatous pathology, and organ specificity.</p>
+<p>Yao syndrome is distinguished by its adult-onset, episodic course, non-granulomatous dermatitis, distal extremity swelling, GI and sicca-like symptoms, and absence of high-titer autoantibodies.[3][4][5][8] It is considered a systemic autoinflammatory disease with a benign autoimmune workup and genetically transitional architecture.[3][6][8] The NAID cohort emphasizes that NOD2-associated autoinflammatory disease (Yao syndrome) differs phenotypically from Crohn’s disease, with distinct genotype profiles and more systemic inflammatory features.[5] The RMD Open review notes that substitutions in CARD15/NOD2 have been found in NAID, which shares clinical characteristics with Blau syndrome and early-onset sarcoidosis but remains a separate entity.[7]</p>
+<p>Integrating these diseases in knowledge bases requires careful mapping of overlapping and distinct features. NOD2 should be annotated as a gene with multiple associated phenotypes: Crohn’s disease (<a href="http://purl.obolibrary.org/obo/MONDO_0005030" target="_blank" rel="noopener noreferrer">MONDO:0005030</a>), Blau syndrome (<a href="http://purl.obolibrary.org/obo/MONDO_0007257" target="_blank" rel="noopener noreferrer">MONDO:0007257</a>), early-onset sarcoidosis, and Yao syndrome (<a href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a>).[4][7][11] Ontology terms for granulomatous inflammation (<a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" rel="noopener noreferrer">HP:0001919</a>) apply to Blau and sarcoidosis but not Yao syndrome, whereas “Recurrent fever” (<a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a>) and “Autoinflammatory disease” (<a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" rel="noopener noreferrer">HP:0004430</a>) are shared across SAIDs. This comparative framework helps highlight the unique mechanistic and clinical aspects of YAOS while situating it within the NOD2 disease continuum.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ Systems and Primary Involvement</h3>
+<p>Yao syndrome primarily affects the cutaneous, musculoskeletal, gastrointestinal, and lymphoreticular systems, with occasional involvement of cardiopulmonary serosal surfaces.[1][4][5][8][12][13] The Frontiers study summarizes that YAOS is a systemic inflammatory disease mainly involving the cutaneous, musculoskeletal, lymphoreticular, cardiopulmonary, and gastrointestinal systems, with rare involvement of internal solid organs.[8][12] This multi-organ pattern underpins the clinical heterogeneity and complexity of the syndrome.</p>
+<p>The skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) is a primary organ site, with erythematous plaques, patches, and occasional folliculitis representing localized inflammatory manifestations.[3][5] Joints (<a href="http://purl.obolibrary.org/obo/UBERON_0000981" target="_blank" rel="noopener noreferrer">UBERON:0000981</a>), particularly in distal extremities, are involved in arthralgia and arthritis, and distal leg tissues exhibit edema and inflammatory swelling.[5][8] The gastrointestinal tract (<a href="http://purl.obolibrary.org/obo/UBERON_0001045" target="_blank" rel="noopener noreferrer">UBERON:0001045</a>) is affected through abdominal pain and diarrhea, likely reflecting mucosal immune activation and altered barrier function.[5][8][11] Lymphoreticular tissues such as lymph nodes and spleen may be involved through generalized inflammatory activation, though overt lymphadenopathy is not a defining feature in cohorts.[8][12] Cardiopulmonary serosal membranes, including pleura (<a href="http://purl.obolibrary.org/obo/UBERON_0000977" target="_blank" rel="noopener noreferrer">UBERON:0000977</a>) and pericardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002412" target="_blank" rel="noopener noreferrer">UBERON:0002412</a>), can exhibit serositis, manifesting as pleuritis and pericarditis.[4][8][13]</p>
+<p>These organ-level involvements should be annotated in knowledge bases with appropriate UBERON and NCIT terms and linked to phenotypic manifestations, mechanistic pathways, and cell types.</p>
+<h3>7.2 Tissue Types and Cell Populations</h3>
+<p>The tissue types affected in Yao syndrome include epithelial tissues (skin and gastrointestinal mucosa), connective tissues (synovium, dermis, subcutis), and serosal membranes, all of which harbor resident and infiltrating immune cells. In the skin, epidermal keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) and dermal fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>) interact with infiltrating neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000776" target="_blank" rel="noopener noreferrer">CL:0000776</a>), macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), and lymphocytes (<a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a>) to produce dermatitis and erythematous lesions.[3][5] In joints, synovial fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0002554" target="_blank" rel="noopener noreferrer">CL:0002554</a>), endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), and cartilage cells (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>) participate in inflammatory arthritis and edema.[5][8] In the gastrointestinal tract, intestinal epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002253" target="_blank" rel="noopener noreferrer">CL:0002253</a>), lamina propria macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a>), and mucosal lymphocytes (<a href="http://purl.obolibrary.org/obo/CL_0000895" target="_blank" rel="noopener noreferrer">CL:0000895</a>) contribute to abdominal pain and diarrhea.[11][18]</p>
+<p>PBMCs—including monocytes, lymphocytes, and dendritic cells—are central to systemic pathophysiology, as functional studies show altered NOD2 expression, p38 MAPK activity, and IL‑6 and TNFα secretion profiles in these cell populations from YAOS patients.[18] Mesothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002577" target="_blank" rel="noopener noreferrer">CL:0002577</a>) lining pleura and pericardium are involved in serositis, and vascular endothelial cells and pericytes mediate vascular permeability changes leading to edema in distal extremities and eyelids.[8][9][18] These cell types should be captured using Cell Ontology (CL) terms and linked to relevant GO processes in knowledge bases.</p>
+<h3>7.3 Subcellular Compartments and Signaling Nodes</h3>
+<p>At the subcellular level, NOD2 is localized to the cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>), where it senses muramyl dipeptide and forms nodosomes upon activation.[11] Downstream signaling involves cytoplasmic kinases such as RIPK2 and MAPKs, and nuclear translocation of NF‑κB subunits including c‑Rel and p65, connecting cytosolic sensing to nuclear transcriptional responses.[10][11] Functional assays in PBMCs evaluate nuclear NF‑κB activity and cytoplasmic p38 MAPK phosphorylation, indicating that these compartments are critical signaling nodes in YAOS pathophysiology.[18]</p>
+<p>Other subcellular compartments such as mitochondria, endoplasmic reticulum, and lysosomes may be involved indirectly through metabolic reprogramming and inflammasome-related processes, but these are not yet specifically described in YAOS literature. For ontology mapping, <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> (cytosol), <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> (nucleus), and <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane) are relevant cellular component terms, and these can be attached to NOD2 and associated signaling molecules.</p>
+<h3>7.4 Anatomical Localization and Patterns</h3>
+<p>Clinically, Yao syndrome exhibits particular anatomical localization patterns that aid recognition. Skin lesions commonly occur on the trunk and proximal extremities, though they may be more generalized; distal extremity swelling focuses on ankles and feet, and eyelid edema affects periocular tissues.[3][5][8][13] Joint involvement often targets lower extremity joints, though upper limbs can also be affected.[5][8] GI symptoms reflect diffuse abdominal involvement rather than localized segmental disease, differentiating YAOS from Crohn’s disease, which has characteristic segmental intestinal pathology.[5][7][11] Serositis may involve pleura and pericardium, leading to chest pain localized to these areas.[4][8][13]</p>
+<p>Lateralization patterns are not strongly emphasized; distal extremity swelling and dermatitis appear to be bilateral or symmetric more often than unilateral, though individual cases may vary.[5][8] For ontology mapping, bilateral involvement can be coded using HPO terms such as “Bilateral peripheral edema” and anatomical qualifiers for symmetry. Integrating these localization patterns into knowledge bases supports clinical decision support and phenotypic clustering.</p>
+<h2>8. Temporal Development and Natural History</h2>
+<h3>8.1 Age of Onset and Onset Pattern</h3>
+<p>Yao syndrome typically begins in early to middle adulthood, with median age at onset reported as 33.5 years in the NAID cohort, and most patients presenting between ages 20 and 50.[5][13] VisualDx notes that YAOS predominantly presents in adults aged 20–50 years, with a female-to-male ratio of about 2:1.[13] However, pediatric cases such as the three-year-old with C2 deficiency demonstrate that YAOS can begin in childhood, particularly in individuals with additional immunogenetic predispositions.[15] Thus, age of onset can range from childhood to middle adulthood, with adult onset being most common.</p>
+<p>The onset pattern is typically insidious and episodic rather than acute. Many patients report a history of recurrent fevers, rash, arthralgia, and GI symptoms over years before diagnosis, with flares being initially attributed to viral infections or other nonspecific causes.[5][17] The NAID cohort notes a median disease duration at diagnosis of 10.7 years, indicating substantial delay between onset and recognition.[5] Onset of flares may be triggered by specific events such as infections or surgeries, but the underlying predisposition exists prior to such triggers.</p>
+<h3>8.2 Episodic Course and Flare Characteristics</h3>
+<p>Yao syndrome follows a relapsing-remitting episodic course characterized by intermittent flares separated by asymptomatic intervals. The Rheumatologist review describes YAOS as a periodic disease with flares lasting a few days to weeks and asymptomatic intervals of several weeks to months, during which patients may feel well.[17] Symptom clusters during flares include fever, erythematous rash, arthralgia, distal extremity swelling, abdominal pain, diarrhea, and sicca-like symptoms.[3][5][8][17] Each flare is self-limited, and anti-inflammatory treatment can shorten its duration and attenuate severity.[9]</p>
+<p>Disease stages in YAOS are not formally defined as in cancer staging, but conceptually, early disease involves sporadic mild flares, intermediate disease features more frequent and severe episodes, and advanced disease may involve chronic low-grade symptoms with intermittent exacerbations.[5][8][9] Progression rate is variable; some patients experience stable patterns with similar flare frequency over years, while others notice increasing frequency or severity, potentially influenced by environmental triggers or changes in immune regulation.</p>
+<h3>8.3 Long-Term Progression, Remission, and Critical Periods</h3>
+<p>Long-term progression in Yao syndrome appears to be characterized by chronic recurrent disease without substantial irreversible organ damage, at least in reported cohorts.[5][8][9] Flares recur over many years, but with appropriate treatment, patients can achieve symptom control and maintain functional capacity. There is no strong evidence of progression to severe cardiopulmonary, renal, or neurologic involvement, nor of increased overall mortality directly attributable to YAOS.[5][8][9][12] Complete spontaneous remission is not commonly documented, though some patients may experience long periods without flares.</p>
+<p>Remission patterns in YAOS are predominantly treatment-induced rather than spontaneous, with glucocorticoids and sulfasalazine often achieving significant reductions in flare frequency and severity.[9] Critical periods may include the years surrounding major triggering events such as infections or surgeries, during which disease expression may intensify. It is possible that early recognition and treatment in these critical windows could modify long-term course, but prospective data are lacking.</p>
+<p>For knowledge bases, YAOS should be annotated as a chronic relapsing-remitting autoinflammatory disease with variable progression and predominantly treatment-induced remission, and with overall prognosis often favorable under appropriate management.</p>
+<h2>9. Inheritance and Population Characteristics</h2>
+<h3>9.1 Inheritance Pattern, Penetrance, and Expressivity</h3>
+<p>Yao syndrome exhibits a multifactorial inheritance pattern with low penetrance and variable expressivity. OMIM explicitly classifies YAOS as “Multifactorial” and notes that susceptibility is conferred by <em>NOD2</em> variation, but that many individuals who carry <em>NOD2</em> variants never develop disease.[4] MedlinePlus Genetics reiterates that Yao syndrome appears to be a complex disease without a single genetic cause and does not have a straightforward pattern of inheritance; only a small percentage of affected individuals have a family history of the disease.[1] The NAID cohort found that 93% of cases were sporadic, further supporting non-Mendelian inheritance and the rarity of familial clustering.[5]</p>
+<p>Penetrance is incomplete and likely age-dependent; individuals carrying <em>NOD2</em> variants may develop YAOS in adulthood or remain asymptomatic throughout life.[1][4][5][6] Expressivity is variable, with some patients exhibiting the full constellation of fever, rash, arthritis, GI, sicca, and serositis, while others have milder or partial phenotypes.[3][5][8][12] There is no evidence of genetic anticipation, germline mosaicism, or classic autosomal dominant or recessive inheritance patterns. For knowledge bases, Yao syndrome should be tagged as a <strong>low-penetrance, multifactorial autoinflammatory disease</strong> with <em>NOD2</em> susceptibility variants, and disease expression modulated by environmental and additional genetic factors.</p>
+<h3>9.2 Epidemiology: Prevalence, Incidence, and Demographics</h3>
+<p>Epidemiologic data for Yao syndrome are limited but suggest that it is more common than initially thought among autoinflammatory diseases. Yao et al. (2015) stated that Yao syndrome is relatively common compared with other autoinflammatory diseases in the American adult population, with an estimated prevalence of 1 to 10 per 100,000.[4] The NAID cohort included 143 adult patients with suspected disease, of whom 54 were confirmed NAID/YAOS cases carrying <em>NOD2</em> variants.[5] All NAID patients in this cohort were non-Jewish whites, and 69% were women, indicating a female predominance but also potential ascertainment bias in the population studied.[5]</p>
+<p>VisualDx notes a female-to-male ratio of approximately 2:1 and a predominant age range of 20–50 years at presentation.[13] The Frontiers 194-patient cohort includes individuals across adolescent, adult, and aged categories, reflecting a broader age spectrum.[12] Incidence rates have not been systematically reported, but given the episodic nature and diagnostic delays, incidence is likely underestimated. For knowledge bases, YAOS should be recorded as a rare disease with estimated prevalence 1–10 per 100,000, female predominance, and typical adult onset, with pediatric cases acknowledged.</p>
+<p>Geographic distribution data are sparse; most published cohorts originate from North American centers, and there are no definitive data on prevalence in other regions or ethnic groups.[4][5][8][12] Given NOD2’s involvement in Crohn’s disease and Blau syndrome across global populations, it is likely that YAOS exists internationally but is underdiagnosed. Carrier frequencies for specific YAOS-associated variants in general populations are not yet well defined, but Crohn’s-associated NOD2 variants are present in 30–50% of CD patients and a smaller fraction of controls in Western hemisphere populations.[11][14]</p>
+<h3>9.3 Population Genetics and Founder Effects</h3>
+<p>There is currently no evidence of founder mutations or population-specific variants unique to Yao syndrome. The NAID cohort’s restriction to non-Jewish whites reflects study recruitment rather than true genetic confinement.[5] YAOS-associated variants such as IVS8+158, R702W, L1007fs, and V955I are not known to be confined to specific ethnic groups; their broader population frequencies derive mostly from Crohn’s disease studies, which emphasize European and North American populations.[11][14] Consanguinity does not appear to play a significant role, and familial cases are rare.[1][4][5]</p>
+<p>Knowledge bases should thus record YAOS as a disease without known founder effects, with susceptibility variants present in diverse populations, and emphasize the need for more inclusive genetic and clinical studies to refine population genetics.</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical Evaluation and Laboratory Workup</h3>
+<p>Diagnosing Yao syndrome requires integrating clinical features, laboratory tests, and molecular genetics within a structured framework. Clinically, physicians evaluate patients for recurrent episodic fever, dermatitis, arthralgia or inflammatory arthritis with distal extremity swelling, gastrointestinal symptoms, sicca-like manifestations, and serositis (pleuritis or pericarditis).[3][4][5][8][13][17] A detailed history of flare pattern, triggers, and prior evaluations is essential, as many patients undergo extensive workups for autoimmune and infectious diseases before YAOS is considered.[5][17]</p>
+<p>Laboratory workup typically includes inflammatory markers (CRP, ESR), complete blood counts, metabolic panels, and autoimmune serologies (ANA, rheumatoid factor, anti-SSA/SSB, anti-dsDNA). In Yao syndrome, CRP and ESR may be elevated during flares but are not consistently abnormal, and autoimmune tests are usually negative or low-titer, which is a key exclusion criterion.[4][5][8][9] Infectious workup is needed to rule out infectious causes of fever and rash. Clinicians also evaluate for organ-specific involvement via imaging or specialized tests as indicated (e.g., echocardiography for pericarditis, chest imaging for pleuritis).</p>
+<h3>10.2 Histopathology and Imaging</h3>
+<p>Histopathologic examination of skin lesions in Yao syndrome can aid diagnosis by revealing characteristic, though not pathognomonic, patterns. Patel et al. describe mixed lymphocytic and neutrophilic infiltrates, spongiotic dermatitis, and occasional granulomatous changes in YAOS skin biopsies.[3] The NAID cohort notes erythematous patches or plaques with variable histopathologic findings including spongiotic dermatitis and granulomatous changes, differentiating YAOS from purely neutrophilic dermatoses or classic autoimmune skin diseases.[5] These patterns should be recorded in pathology ontologies with terms for spongiosis, mixed infiltrate, and granulomas.</p>
+<p>Imaging studies in YAOS are used primarily to assess complications: echocardiography and chest CT or X‑ray can detect pericardial and pleural effusions indicative of serositis, while joint imaging (X‑ray, ultrasound, MRI) may show synovitis without erosive changes typical of rheumatoid arthritis.[4][8][9][17] GI imaging and endoscopy are often performed to exclude Crohn’s disease and other structural pathologies. Typically, YAOS does not exhibit the transmural granulomatous lesions characteristic of Crohn’s disease, supporting differential diagnosis.[5][7][11]</p>
+<h3>10.3 Molecular and Genetic Testing</h3>
+<p>Molecular testing for <em>NOD2</em> variants is a cornerstone of Yao syndrome diagnosis. OMIM and Frontiers emphasize that due to its association with specific <em>NOD2</em> gene mutations, molecular testing is necessary for diagnosis, and that YAOS is diagnosed when clinical criteria and molecular criteria are fulfilled alongside exclusion criteria.[4][8][12] The NIH Genetic Testing Registry (GTR) includes Yao syndrome as a condition for which targeted <em>NOD2</em> sequencing is available, indicating that laboratories offer tests for IVS8+158, R702W, L1007fs, V955I, and other variants.[15][16]</p>
+<p>The diagnostic criteria require demonstration of a <em>NOD2</em> variant, typically IVS8+158 or R702W, and sometimes additional variants, in the context of a compatible clinical phenotype.[3][4][5][8][12][15] Whole exome sequencing (WES) and whole genome sequencing (WGS) may detect <em>NOD2</em> variants incidentally or as part of broader autoinflammatory panels, but targeted gene panels focusing on SAID genes are more commonly used in clinical practice.[8][12][16] Chromosomal microarray, karyotyping, FISH, mitochondrial DNA testing, and repeat expansion testing are not routinely indicated, as YAOS is not associated with large structural variants, mitochondrial disorders, or repeat expansions.[4][5][8]</p>
+<h3>10.4 Formal Diagnostic Criteria</h3>
+<p>Formal diagnostic criteria for Yao syndrome, outlined by Yao and Shen and later summarized in dermatologic and rheumatologic reviews, comprise major, minor, molecular, and exclusion components.[3][4][5][8][17] A patient can receive a diagnosis of Yao syndrome if they fulfill at least two major clinical criteria, at least one minor criterion, the molecular criterion, and all exclusion criteria.[3][4][5][8] Major clinical criteria include periodic occurrence of at least two flares, recurrent fevers, and dermatitis; minor criteria include arthralgia or inflammatory arthritis and distal extremity swelling, gastrointestinal symptoms (abdominal pain or diarrhea), sicca-like symptoms, and pericarditis or pleuritis.[3][4][5][8] The molecular criterion is the presence of a <em>NOD2</em> variant, typically IVS8+158, R702W, L1007fs, or V955I, and the exclusion criteria include negative autoimmune workup and exclusion of other autoinflammatory and autoimmune diseases such as Crohn’s disease, Blau syndrome, adult sarcoidosis, primary Sjögren syndrome, and monogenic SAIDs.[3][4][5][8]</p>
+<p>These criteria can be represented in knowledge bases using a structured table that links clinical features to HPO terms and molecular criteria to HGNC and ClinVar identifiers, and that encodes exclusion requirements via conditional logic.</p>
+<h3>10.5 Differential Diagnosis</h3>
+<p>Differential diagnosis of Yao syndrome includes a range of autoinflammatory and autoimmune conditions with overlapping features. Crohn’s disease, Blau syndrome, and early-onset sarcoidosis share <em>NOD2</em> associations and may present with fever, rash, and arthritis, but Crohn’s disease has distinct granulomatous bowel pathology and Blau/sarcoidosis have non-caseating granulomas in affected tissues.[5][7][11] Primary Sjögren syndrome presents with sicca symptoms and autoantibodies, but lacks the periodic fever and distal extremity swelling of YAOS; high-titer SSA/SSB autoantibodies and characteristic salivary gland biopsy findings differentiate Sjögren.[4][8]</p>
+<p>Other autoinflammatory syndromes, such as adult-onset Still’s disease, periodic fever syndromes (e.g., TRAPS, CAPS), and Behçet’s disease, may mimic YAOS with recurrent fever, rash, and arthralgia, but differ in genetic causes, mucosal involvement patterns, and specific clinical features.[3][5][7][17] Negative autoimmune serologies and demonstration of <em>NOD2</em> variants support YAOS diagnosis, while the absence of granulomatous pathology in skin and GI biopsies helps exclude Blau and sarcoidosis.[3][5][7][11][17] Knowledge bases should encode these differential diagnoses with decision-tree logic and distinguishing features.</p>
+<h3>10.6 Screening Considerations</h3>
+<p>Routine screening for Yao syndrome in asymptomatic individuals is not currently recommended, given its low prevalence, low penetrance, and multifactorial inheritance. Screening for <em>NOD2</em> variants may be performed in individuals with unexplained recurrent fever, rash, arthralgia, and GI symptoms after exclusion of common causes, particularly when YAOS is suspected by rheumatologists or immunologists.[5][8][17] Newborn screening, carrier screening, preimplantation genetic diagnosis, and prenatal testing are not standard for YAOS, as its variants are low penetrance risk alleles and do not cause severe congenital disease.[1][4][5]</p>
+<p>Genetic counseling should nonetheless be offered to YAOS patients and their families to explain the nature of susceptibility variants, the multifactorial inheritance, and the limited predictive value of testing in asymptomatic relatives. Screening for other autoinflammatory or autoimmune conditions may be appropriate depending on family history and clinical context.</p>
+<h2>11. Outcome and Prognosis</h2>
+<h3>11.1 Morbidity, Functional Impact, and Quality of Life</h3>
+<p>Yao syndrome is associated with substantial morbidity due to recurrent flares and chronic symptoms, affecting physical functioning, psychological well-being, and social and occupational roles. Recurrent fever, rash, arthralgia, distal extremity swelling, GI symptoms, and sicca-like manifestations can significantly impair daily life, leading to missed work, reduced physical activity, and social withdrawal during flares.[5][8][9][17] The chronic nature of the disease and diagnostic delays can contribute to anxiety and depression, though formal quality-of-life measures such as SF‑36 or EQ‑5D have not yet been systematically reported in YAOS cohorts.</p>
+<p>Treatment with glucocorticoids and sulfasalazine often improves quality of life by reducing flare frequency and severity, but long-term steroid use carries risks such as osteoporosis and metabolic side effects.[9] Biologic therapies such as IL‑1 and IL‑6 inhibitors can provide relief in refractory cases and may further enhance quality of life by achieving deeper control of inflammation.[9][18] Knowledge bases should record Yao syndrome as a chronic autoinflammatory disease with significant morbidity but potentially good functional outcomes under appropriate treatment.</p>
+<h3>11.2 Mortality and Life Expectancy</h3>
+<p>Available data do not indicate that Yao syndrome substantially increases mortality or reduces life expectancy in most patients. Cohort studies have not reported elevated death rates or life-threatening complications directly attributable to YAOS.[5][8][9][12] The disease is characterized by recurrent inflammation rather than progressive organ failure, and serious complications such as constrictive pericarditis or severe pulmonary disease are rare or unreported.</p>
+<p>Life expectancy in YAOS is therefore presumed to be near-normal, particularly when flares are adequately controlled and comorbidities are managed. However, long-term prospective studies are lacking, and knowledge bases should note that mortality data are limited and that the absence of evidence does not equate to proof of no impact.</p>
+<h3>11.3 Complications and Recovery Potential</h3>
+<p>Complications in Yao syndrome include potential long-term musculoskeletal damage from recurrent arthritis, such as joint stiffness or mild degenerative changes, and psychosocial complications from chronic illness, such as depression and anxiety.[5][8][9][17] GI complications may include nutritional deficiencies or weight loss in individuals with frequent diarrhea and abdominal pain. Serositis can lead to transient effusions and associated symptoms, but chronic constrictive disease is rare.</p>
+<p>Recovery potential is generally good, with many patients achieving partial or substantial remission with appropriate therapy. Glucocorticoids can quickly reduce flare severity and duration, and sulfasalazine provides longer-term disease-modifying effects in a significant proportion of patients.[9] Biologics further enhance recovery in refractory cases. Knowledge bases should record that YAOS has a generally favorable prognosis under treatment, with high recovery potential per flare and limited long-term organ damage.</p>
+<h3>11.4 Prognostic Factors and Biomarkers</h3>
+<p>Prognostic factors in Yao syndrome may include genotype, age at onset, flare frequency, presence of serosal involvement, and response to initial therapy. For example, IVS8+158 carriers with elevated IL‑6 and MAPK activity might respond particularly well to IL‑6 inhibitors such as tocilizumab, as suggested by case reports, whereas IVS8+158/R702W carriers with altered NF‑κB and TNFα signaling might have different risk profiles.[18] However, systematic prognostic biomarker studies are lacking.</p>
+<p>Inflammatory markers such as CRP and ESR may correlate with flare severity but are not reliable predictors of long-term course. NOD2 transcript levels and IL‑6 secretion in PBMCs could theoretically serve as prognostic biomarkers if validated in larger cohorts.[18] For knowledge bases, these should be annotated as exploratory or investigational biomarkers rather than established prognostic tools.</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Glucocorticoids and Conventional Anti-Inflammatory Agents</h3>
+<p>Glucocorticoids are widely used as first-line therapy in Yao syndrome, and cohort analyses confirm their efficacy in reducing flare severity and duration. The systematic analysis of treatment and outcomes in NOD2-associated autoinflammatory disease (<a href="https://pubmed.ncbi.nlm.nih.gov/27984003/" target="_blank" rel="noopener noreferrer">PMID: 27984003</a>) reports that glucocorticoids markedly decreased disease severity and duration of flares in 19 patients (36.6%).[9] The study concludes that glucocorticoids may be considered a first-line treatment option for YAOS, providing rapid anti-inflammatory effects.[9] Mechanistically, glucocorticoids act via glucocorticoid receptor-mediated modulation of gene transcription, inhibiting NF‑κB and other pro-inflammatory pathways, and thereby countering NOD2-mediated inflammation.</p>
+<p>Sulfasalazine, a disease-modifying anti-rheumatic drug (DMARD) with anti-inflammatory and immunomodulatory properties, also shows significant efficacy in YAOS. The same systematic analysis notes that sulfasalazine treatment achieved significant symptomatic improvement in 22 patients (42%), suggesting that it can serve as a steroid-sparing agent and a cornerstone of maintenance therapy.[9] Sulfasalazine’s mechanisms include inhibition of NF‑κB and reduction of cytokine production, making it mechanistically compatible with NOD2 pathway dysregulation.</p>
+<p>Nonsteroidal anti-inflammatory drugs (NSAIDs) may provide symptomatic relief for arthralgia and mild inflammation but are not sufficient as sole therapy in most YAOS patients. For ontology mapping, glucocorticoids correspond to NCIT terms such as “Prednisone” (NCIT:C769), and sulfasalazine to “Sulfasalazine” (NCIT:C34588). These treatments should be recorded as standard-of-care therapies for Yao syndrome, with glucocorticoids as acute flare management and sulfasalazine as maintenance.</p>
+<h3>12.2 Biologic Therapies Targeting IL‑1 and IL‑6</h3>
+<p>Biologic therapies targeting IL‑1 and IL‑6 have emerged as important options for refractory Yao syndrome. The systematic treatment analysis reports that three patients received canakinumab (an IL‑1β inhibitor) or tocilizumab (an IL‑6 receptor antagonist) with clinical benefits, indicating that cytokine-targeted biologics can be effective when conventional therapies are insufficient.[9] Mechanistic data showing elevated IL‑6 secretion in IVS8+158 YAOS patients provide a strong rationale for IL‑6 blockade in this genotype subgroup.[18] Indeed, tocilizumab treatment of a YAOS IVS8+158 patient resulted in marked clinical improvement, directly linking IL‑6 inhibition to symptom control.[18]</p>
+<p>IL‑1 inhibitors such as canakinumab may be beneficial in patients where IL‑1β plays a role in autoinflammatory flares, though specific mechanistic data are less robust than for IL‑6 in YAOS.[9] TNFα inhibitors have not been systematically studied in Yao syndrome, and given suppressed TNFα secretion in IVS8+158/R702W carriers, their role may be limited.[18] For ontology mapping, canakinumab corresponds to NCIT:C78061 and tocilizumab to NCIT:C84241.</p>
+<h3>12.3 Other Advanced and Experimental Therapies</h3>
+<p>Beyond IL‑1 and IL‑6 inhibitors, other advanced therapies such as JAK inhibitors, small molecule NF‑κB or MAPK inhibitors, and targeted NOD2 modulators remain experimental in the context of Yao syndrome. No clinical trials specifically targeting YAOS with these agents have been reported to date.[8][12] Gene therapy or cell therapy is not currently applicable, as <em>NOD2</em> variants are low penetrance and multifactorial, and the disease does not result from a simple loss-of-function amenable to replacement.</p>
+<p>RNA-based therapies such as antisense oligonucleotides targeting NOD2 mRNA could theoretically modulate overexpressed NOD2 in IVS8+158 carriers, but this remains speculative. Similarly, CRISPR-based editing of susceptibility variants is still far from clinical translation. Knowledge bases should note these experimental possibilities but classify them under future directions rather than current treatment.</p>
+<h3>12.4 Treatment Outcomes and Strategies</h3>
+<p>Treatment outcomes in Yao syndrome are generally favorable when appropriate therapies are used. Glucocorticoids and sulfasalazine reduce flare severity and frequency in a substantial proportion of patients, and biologics can further improve outcomes in refractory cases.[9][18] Long-term steroid-sparing strategies prioritize DMARDs and biologics to minimize glucocorticoid side effects. Personalized medicine approaches based on genotype—such as preferential use of IL‑6 inhibitors in IVS8+158 carriers with elevated IL‑6—represent an emerging strategy.[18]</p>
+<p>Treatment algorithms typically begin with NSAIDs and glucocorticoids for acute flares, add sulfasalazine for maintenance, and escalate to IL‑1 or IL‑6 inhibitors for refractory disease.[9][17] Combination therapies may be used, but the risk of immunosuppression requires careful monitoring. Knowledge bases should encode these strategies with NCIT terms for pharmacologic agents, link them to mechanism-of-action descriptors, and annotate evidence levels (case series, cohort data) and response rates where available.</p>
+<h2>13. Prevention and Counseling</h2>
+<h3>13.1 Primary, Secondary, and Tertiary Prevention</h3>
+<p>Primary prevention of Yao syndrome is challenging due to its multifactorial genetic and environmental etiology and low penetrance. Since <em>NOD2</em> susceptibility variants are relatively common and often benign in carriers, there is no rationale for population-level genetic screening or preventive interventions at present.[1][4][5] General infection prevention measures and health-promoting behaviors (vaccination, hygiene, healthy lifestyle) may reduce triggers, but their specific effectiveness in preventing YAOS onset is unproven.</p>
+<p>Secondary prevention focuses on early detection and prompt treatment of flares to reduce morbidity. Clinicians should maintain awareness of YAOS in patients with recurrent fever, rash, and arthralgia, particularly when autoimmune workup is negative and <em>NOD2</em> variants are present.[5][8][17] Early diagnosis enables timely introduction of glucocorticoids, sulfasalazine, and biologics, potentially reducing flare frequency and limiting complications.</p>
+<p>Tertiary prevention involves strategies to prevent complications in established disease, such as osteoporosis prophylaxis in patients on long-term glucocorticoids, psychosocial support to mitigate depression and anxiety, and regular monitoring for cardiovascular and GI complications.[9][17] These measures should be encoded in knowledge bases as standard management tasks.</p>
+<h3>13.2 Immunization, Screening, and Risk Stratification</h3>
+<p>Immunization strategies in Yao syndrome follow general population guidelines, with particular attention to infection prevention given the role of infections as flare triggers. COVID‑19 vaccination can both prevent severe infection and, in some cases, trigger flares, as reported in the Frontiers cohort; thus, clinicians should counsel patients regarding potential transient disease exacerbation and plan prophylactic or early flare management.[8] There are no YAOS-specific vaccines.</p>
+<p>Screening programs for YAOS are not established, but targeted genetic testing for <em>NOD2</em> variants may be used as part of diagnostic evaluation in symptomatic patients. Risk stratification based on genotype, such as identifying IVS8+158 carriers, may inform treatment choices and surveillance intensity, though formal risk models are not yet available.[6][8][18]</p>
+<h3>13.3 Genetic Counseling and Public Health</h3>
+<p>Genetic counseling is important in Yao syndrome to explain the nature of <em>NOD2</em> susceptibility variants, multifactorial inheritance, and limited predictive value of testing. Counselors should emphasize that carrying a variant increases risk but does not guarantee disease, and that environmental and additional genetic factors play major roles.[1][4][6][8] Family members of YAOS patients may be offered targeted <em>NOD2</em> testing if clinically indicated, but routine testing of asymptomatic relatives is not standard.</p>
+<p>Public health interventions for YAOS focus on raising awareness among clinicians to reduce diagnostic delays and misdiagnosis as autoimmune or infectious disease. Educational materials for rheumatologists, dermatologists, and immunologists, such as clinical reviews and case reports, help disseminate knowledge.[3][5][17] As more data accrue, public health databases may incorporate YAOS into autoinflammatory disease registries.</p>
+<h2>14. Other Species and Natural Disease</h2>
+<h3>14.1 NOD2-Related Disease in Animals and Comparative Pathology</h3>
+<p>Natural Yao syndrome-like disease has not been described in other species, but NOD2-related inflammatory conditions in animals provide comparative insights. NOD2 orthologs exist in many mammals and play similar roles in innate immune sensing of bacterial peptidoglycan.[11] In veterinary medicine, NOD2 polymorphisms have been investigated in canine inflammatory bowel disease and other conditions, though direct analogues to YAOS are not established.</p>
+<p>Comparative pathology between human NOD2-associated diseases and animal models highlights the evolutionary conservation of NLR functions and innate immune mechanisms.[7][10][11] For knowledge bases, animal data should be used primarily to inform mechanistic understanding rather than to define separate disease entries unless clear natural disease entities analogous to Yao syndrome are documented.</p>
+<h3>14.2 Evolutionary Conservation of Mechanisms</h3>
+<p>NOD2’s evolutionary conservation across species supports the generalizability of mechanistic findings. HomoloGene and related resources show that NOD2 orthologs in mice and other organisms share domain structures and ligand recognition functions, indicating that muramyl dipeptide sensing and downstream NF‑κB/MAPK activation are conserved biological processes.[10][11] This conservation strengthens the relevance of model organism studies of NOD2 function to human Yao syndrome, particularly for understanding basic signaling mechanisms.</p>
+<h2>15. Model Organisms</h2>
+<h3>15.1 NOD2 Mouse Models and Insights</h3>
+<p>Mouse models of NOD2 function, including knockout and transgenic lines, have been extensively used to study intestinal inflammation, host defense, and T cell regulation, though not specifically Yao syndrome.[10][11] Nod2 knockout mice exhibit altered susceptibility to bacterial infections and experimental colitis, and studies have shown that Nod2 stimulation with MDP in murine CD4+ T cells leads to nuclear accumulation of c‑Rel NF‑κB subunit, but Nod2 is dispensable for T cell-induced colitis and regulatory T cell development.[10] These findings suggest that NOD2 modulates but does not solely determine T cell-mediated inflammation.</p>
+<p>While no mouse models currently recapitulate the full Yao syndrome phenotype with episodic systemic autoinflammation, NOD2 mutant and knockout mice provide valuable insight into how NOD2 variants alter innate and adaptive immune responses, informing YAOS pathophysiology. For knowledge bases, these models should be annotated as <strong>mechanistic models of NOD2 function</strong> rather than specific Yao syndrome models.</p>
+<h3>15.2 Cellular and In Vitro Models</h3>
+<p>In vitro models using human PBMCs from YAOS patients represent the most directly relevant mechanistic systems. Yao et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/29471675/" target="_blank" rel="noopener noreferrer">PMID: 29471675</a>) studied PBMCs from ten YAOS patients and six healthy individuals, measuring NOD2 expression, intron-8 splicing, p38 MAPK activity, NF‑κB activation, and cytokine secretion in response to MDP.[18] These experiments demonstrated that NOD2 expression and signaling are aberrant in YAOS and that specific genotypes produce distinct functional profiles, providing crucial mechanistic data.</p>
+<p>Cell lines engineered to express wild-type or mutant NOD2 have also been used to study NOD2 function, though not specifically in YAOS contexts. These models support understanding of domain-specific effects and ligand recognition. For knowledge bases, PBMC-based in vitro models should be annotated as human mechanistic evidence, while transfected cell lines and mouse T cell models provide supporting data.</p>
+<h3>15.3 Limitations and Translational Relevance</h3>
+<p>Model organisms and in vitro systems have limitations in capturing the full complexity of Yao syndrome, including its episodic course, multifactorial inheritance, and multi-organ involvement. Mouse models may not exhibit the human-specific features of distal extremity swelling, sicca-like symptoms, or adult-onset episodic flares. PBMC in vitro assays do not fully replicate tissue microenvironments or long-term dynamics.</p>
+<p>Nonetheless, these models are highly relevant for understanding NOD2 signaling, cytokine regulation, and potential therapeutic targets. Translational relevance is strongest for pathways directly measured in PBMCs, such as IL‑6 and p38 MAPK, which have been therapeutically targeted in YAOS. Knowledge bases should capture both the strengths and limitations of these models, distinguishing between direct human clinical evidence and extrapolated mechanistic insights.</p>
+<h2>Conclusion</h2>
+<p>Yao syndrome, designated <a href="http://purl.obolibrary.org/obo/MONDO_0015019" target="_blank" rel="noopener noreferrer">MONDO:0015019</a> and OMIM 617321, is a systemic autoinflammatory disease characterized by recurrent fever, dermatitis, arthralgia or inflammatory arthritis with distal extremity swelling, gastrointestinal manifestations, sicca-like symptoms, and occasional serositis, and is genetically associated with specific low-penetrance variants in the innate immune sensor gene <em>NOD2</em>.[1][3][4][5][6][8][12][13] It exemplifies a genetically transitional disease in which <em>NOD2</em> variants such as IVS8+158, R702W, L1007fs, and V955I confer susceptibility but require additional genetic and environmental factors—such as infections and gastrointestinal surgery—to produce clinical expression.[1][3][6][8] Mechanistically, Yao syndrome involves aberrant NOD2 signaling in innate immune cells, with genotype-specific alterations in NF‑κB and MAPK pathways and IL‑6 and TNFα secretion, leading to dysregulated autoinflammatory responses in skin, joints, gastrointestinal tract, and serosal membranes.[10][11][18] </p>
+<p>Clinically, YAOS typically presents in adults with a female predominance, follows a chronic relapsing-remitting course, and is underpinned by negative autoimmune serologies and distinctive phenotypic features that differentiate it from Crohn’s disease, Blau syndrome, sarcoidosis, and Sjögren syndrome.[4][5][7][8][17] Diagnosis relies on structured criteria requiring major clinical manifestations, minor features, <em>NOD2</em> susceptibility variants, and exclusion of other diseases, and is supported by histopathologic, laboratory, and imaging data.[3][4][5][8][12][15][17] Treatment is anchored in glucocorticoids and sulfasalazine as first-line agents, with IL‑1 and IL‑6 inhibitors such as canakinumab and tocilizumab providing effective options for refractory disease, guided by mechanistic evidence of cytokine involvement.[9][18] Prognosis is generally favorable with appropriate management, with substantial morbidity from recurrent flares but limited evidence of increased mortality or progressive organ failure.[5][8][9][12]</p>
+<p>From a knowledge-base perspective, Yao syndrome requires detailed annotation of its genetic architecture (NOD2, susceptibility variants, multifactorial inheritance), mechanistic pathways (NF‑κB, MAPK, IL‑6), clinical phenotypes (mapped to HPO terms), anatomical structures (UBERON), cell types (CL), and treatments (NCIT), with clear distinction between human clinical evidence, in vitro mechanistic studies, and model organism data.[1][3][4][5][6][8][9][10][11][12][13][14][15][18] Gaps in current knowledge include comprehensive multi-omics profiling, robust epidemiologic data across diverse populations, and formal quality-of-life assessments. Future research integrating omics, functional genomics, and longitudinal clinical data will further refine the understanding of Yao syndrome and enhance personalized management, while disease knowledge bases can play a central role in organizing and disseminating this complex information for clinicians, researchers, and patients.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>10</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>82</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>76</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0004430</code> (3 mentions) - the report calls it "Autoinflammatory disease", "autoinflammatory disease"; HP calls it <strong>Severe combined immunodeficiency</strong></li>
+<li><code>HP:0001065</code> (2 mentions) - the report calls it "Erythematous skin patches"; HP calls it <strong>Striae distensae</strong></li>
+<li><code>HP:0002619</code> (3 mentions) - the report calls it "Peripheral edema"; HP calls it <strong>Varicose veins</strong></li>
+<li><code>HP:0002108</code> (2 mentions) - the report calls it "Pleuritis"; HP calls it <strong>Spontaneous pneumothorax</strong></li>
+<li><code>HP:0001634</code> (2 mentions) - the report calls it "Pericarditis"; HP calls it <strong>Mitral valve prolapse</strong></li>
+<li><code>NCIT:C128323</code> (1 mention) - the report calls it "Autoinflammatory syndrome"; NCIT calls it <strong>Parapharyngeal Abscess</strong></li>
+<li><code>NCIT:C123950</code> (1 mention) - the report calls it "Systemic inflammatory disease"; NCIT calls it <strong>Study Day of Cardiovascular System Findings</strong></li>
+<li><code>HP:0011123</code> (1 mention) - the report calls it "Erythematous papular rash"; HP calls it <strong>Inflammatory abnormality of the skin</strong></li>
+<li><code>HP:0000982</code> (1 mention) - the report calls it "Spongiotic dermatitis"; HP calls it <strong>Palmoplantar keratoderma</strong></li>
+<li><code>HP:0001051</code> (1 mention) - the report calls it "Folliculitis"; HP calls it <strong>Seborrheic dermatitis</strong></li>
+<li><code>CL:0000542</code> (3 mentions) - the report calls it "T cell"; CL calls it <strong>lymphocyte</strong></li>
+<li><code>HP:0003041</code> (1 mention) - the report calls it "Inflammatory arthritis"; HP calls it <strong>Humeroradial synostosis</strong></li>
+<li><code>HP:0001742</code> (2 mentions) - the report calls it "Ankle swelling"; HP calls it <strong>Nasal congestion</strong></li>
+<li><code>HP:0002579</code> (1 mention) - the report calls it "Irritable bowel"; HP calls it <strong>Gastrointestinal dysmotility</strong></li>
+<li><code>HP:0000494</code> (1 mention) - the report calls it "Eyelid edema"; HP calls it <strong>Downslanted palpebral fissures</strong></li>
+<li><code>HP:0030050</code> (1 mention) - the report calls it "Elevated C-reactive protein"; HP calls it <strong>obsolete Narcolepsy</strong></li>
+<li><code>HP:0002965</code> (1 mention) - the report calls it "Negative autoimmune antibody test"; HP calls it <strong>Cutaneous anergy</strong></li>
+<li><code>GO:1900746</code> (1 mention) - the report calls it "positive regulation of p38 MAPK cascade"; GO calls it <strong>regulation of vascular endothelial growth factor signaling pathway</strong></li>
+<li><code>NCIT:C20396</code> (1 mention) - the report calls it "Tumor Necrosis Factor alpha"; NCIT calls it <strong>Protein Phosphatase 2A Subunit Gene</strong></li>
+<li><code>NCIT:C34588</code> (1 mention) - the report calls it "Sulfasalazine"; NCIT calls it <strong>Enuresis</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0001570</code> (2 mentions), reported as "Dry mouth" - HP does not contain this term</li>
+<li><code>HP:0001565</code> (1 mention), reported as "Xerostomia" - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0030050</code> (obsolete Narcolepsy) (1 mention) - replaced by <code>HP:0002524</code></li>
+<li><code>GO:0016570</code> (obsolete histone modification) (1 mention)</li>
+<li><code>GO:0006306</code> (obsolete DNA methylation) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0002097</code> (3 mentions) - the report calls it "skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+<li><code>HP:0001097</code> (2 mentions) - the report calls it "Dry eye"; HP calls it <strong>Keratoconjunctivitis sicca</strong>, and lists "Dry eyes" among its other names</li>
+<li><code>GO:0043123</code> (3 mentions) - the report calls it "positive regulation of canonical NF‑κB signaling", "positive regulation of canonical NF‑κB signal transduction"; GO calls it <strong>positive regulation of canonical NF-kappaB signal transduction</strong></li>
+<li><code>HP:0003593</code> (2 mentions) - the report calls it "Childhood onset"; HP calls it <strong>Infantile onset</strong></li>
+<li><code>CL:0000057</code> (2 mentions) - the report calls it "dermal fibroblast"; CL calls it <strong>fibroblast</strong></li>
+<li><code>CL:0000776</code> (5 mentions) - the report calls it "neutrophil"; CL calls it <strong>immature neutrophil</strong></li>
+<li><code>GO:0002220</code> (1 mention) - the report calls it "pattern recognition receptor signaling pathway"; GO calls it <strong>innate immune response activating cell surface receptor signaling pathway</strong></li>
+<li><code>GO:0016570</code> (1 mention) - the report calls it "histone modification"; GO calls it <strong>obsolete histone modification</strong></li>
+<li><code>GO:0006306</code> (1 mention) - the report calls it "DNA methylation"; GO calls it <strong>obsolete DNA methylation</strong></li>
+<li><code>NCIT:C20522</code> (2 mentions) - the report calls it "Interleukin-6", "Interleukin-1 beta"; NCIT calls it <strong>Interleukin-1 Beta</strong></li>
+<li><code>NCIT:C769</code> (1 mention) - the report calls it "Prednisone"; NCIT calls it <strong>Prednisolone</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0004430</code> - called "Autoinflammatory disease", "autoinflammatory disease"</li>
+<li><code>HP:0001954</code> - called "Recurrent fever", "recurrent fever"</li>
+<li><code>GO:0043123</code> - called "positive regulation of canonical NF‑κB signaling", "positive regulation of canonical NF‑κB signal transduction"</li>
+<li><code>NCIT:C20522</code> - called "Interleukin-6", "Interleukin-1 beta"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="XFE_Progeroid_Syndrome-openscientist.html">← XFE Progeroid Syndrome (OpenScientist)</a>
+                
+                
+                <a href="Yaws-falcon.html">Yaws (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Yao_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Yao_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

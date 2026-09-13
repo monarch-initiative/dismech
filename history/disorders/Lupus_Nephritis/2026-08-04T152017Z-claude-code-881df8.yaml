@@ -1,0 +1,43 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Lupus_Nephritis
+  path: kb/disorders/Lupus_Nephritis.yaml
+session:
+  id: 2026-08-04T152017Z-claude-code-881df8
+  timestamp: '2026-08-04T15:20:17Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - mechanistic_hypotheses
+  - discussions
+  summary: Add bidirectional kidney-immune crosstalk arm from Chernova 2024 (PMID:39120952)
+  details: |
+    Curated Chernova I, "Lupus Nephritis: Immune Cells and the Kidney Microenvironment", Kidney360 2024 (PMID:39120952) into the existing Lupus_Nephritis entry.
+
+    The entry previously modelled lupus nephritis as a strictly unidirectional cascade (autoantibody -> immune-complex deposition -> complement/Fc/TLR activation -> glomerular and tubulointerstitial injury). That is precisely the framing this review argues is incomplete, so the pass added the reciprocal arm rather than restating the existing chain.
+
+    Added:
+    - Two mechanistic_hypotheses groups. "unidirectional_immune_injury_model" (CANONICAL) names the pre-existing chain and carries a PARTIAL-support citation to Chernova recording that the review holds the unidirectional framing to be incomplete rather than wrong. "bidirectional_kidney_immune_crosstalk" (EMERGING) captures the reciprocal model. All pre-existing and new causal edges were opted into the appropriate hypothesis_groups.
+    - Two pathophysiology nodes, both biological_scale TISSUE: "Intrarenal Immune Infiltration and Proinflammatory Cytokine Milieu" (GO:0050900, GO:0001816; T cell, macrophage) and "Kidney Microenvironment Conditioning of Intrarenal Immune Cells" (GO:0071456 hypoxia, GO:0006972 hyperosmotic response, GO:0019882 antigen presentation, GO:0001816 cytokine production, GO:0045321 leukocyte activation; kidney epithelial cell, kidney tubule cell, mesangial cell, podocyte).
+    - A deliberate feedback edge from the conditioning node back to the infiltration node. This closes a 2-cycle in the pathograph, which is the reciprocal arm that distinguishes the two hypothesis groups; render.py handles cycles explicitly.
+    - A KNOWLEDGE_GAP discussion (gap_kidney_targeted_ln_therapy) on whether the intrarenal loop can be interrupted by kidney-targeted therapy without systemic immunosuppression, attached to both new nodes. All nine currently curated treatments act systemically; the review frames kidney-targeted therapy prospectively ("can lead to", "may represent"), so it was recorded as an open gap with a proposed paired-biopsy target-engagement experiment rather than as a curated treatment.
+
+    Evidence discipline: the reference was cached with "just fetch-reference PMID:39120952" (abstract_only; the publisher DOI returned 403, so no full text was available and all snippets are exact abstract quotes). Because the source is a narrative review, every new evidence item is tagged evidence_source: OTHER, and node-level notes record that the individual arms rest on model-system and in-vitro work cited within the review rather than on direct human renal outcome data. The EMERGING rather than CANONICAL status of the new hypothesis group reflects the same caution.
+
+    Validation: just validate, just validate-terms, and just validate-references all pass; 42/42 snippets verified against the cached reference.
+
+    Incidental, unrelated to this paper: five ontology terms are pre-cached so validation does not depend on a live OLS round-trip. NCIT:C70741 (Obinutuzumab, added in PR #7116) plus GO:0006972, GO:0045321 and GO:0071456 were absent from the enum/label caches, and validation of this file failed intermittently against the ols: adapters that conf/oak_config.yaml uses for NCIT and GO (issue #5160), reporting "not in dynamic enum". That message is misleading: linkml-term-validator's _is_value_in_reachable_from short-circuits on a None label ("if label is None: return False") and swallows traversal exceptions, so a transient ebi.ac.uk read timeout (the OLS client uses a 5s read timeout, and cold proxied connections here exceeded it) is surfaced as a membership failure rather than as a service outage. All five terms were confirmed genuinely reachable from their enum source nodes both through the live ols: adapters and through the local sqlite:obo builds; the cache rows were written by the validator itself, none by hand. The rows make validation of this entry deterministic and offline-safe, which is the reason to keep them.
+
+    Root cause is upstream and this repo is behind on both validators: oaklib 0.7.1 is installed against 0.7.4 current, and linkml-term-validator 0.4.4 against 0.4.5. LTV 0.4.5 specifically ships "Distinguish service outages from missing terms in ontology lookups" and raises its floor to oaklib>=0.7.4, which is the actual fix for the misleading error. Upgrading both is deliberately left out of this curation commit and proposed as separate work. Note also that oaklib 0.7.2 fixed silent truncation of OLS ancestor/descendant closures to the first page (INCATools/ontology-access-kit#893); that bug did not reproduce on the installed 0.7.1 here (a 52-ancestor CHEBI closure returned complete), so it is recorded as a latent risk rather than an observed one.
