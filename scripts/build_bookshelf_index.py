@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
                 if csv_path.exists()
                 else 0
             )
-    write_manifest(manifest, counts, _dt.date.today().isoformat())
+    write_manifest(manifest, counts, _dt.datetime.now(tz=_dt.UTC).date().isoformat())
     print(f"manifest -> {manifest}", file=sys.stderr)
     return 0
 

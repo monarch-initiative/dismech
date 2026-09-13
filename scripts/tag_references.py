@@ -48,7 +48,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from dismech.bookshelf import (  # noqa: E402
+from dismech.bookshelf import (
     DEFAULT_INDEX_DIR,
     SOURCE_TAGS,
     BookshelfIndex,

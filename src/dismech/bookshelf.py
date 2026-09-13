@@ -65,8 +65,28 @@ NEAR_THRESHOLD = 0.95
 #: Tokens that carry no disease identity on their own. A name made only of
 #: these ("hereditary disease") is never used for a containment match.
 _STOPWORDS = frozenset(
-    "syndrome disease disorder disorders type of the and with related deficiency "
-    "overview hereditary familial congenital autosomal dominant recessive x linked".split()
+    [
+        "syndrome",
+        "disease",
+        "disorder",
+        "disorders",
+        "type",
+        "of",
+        "the",
+        "and",
+        "with",
+        "related",
+        "deficiency",
+        "overview",
+        "hereditary",
+        "familial",
+        "congenital",
+        "autosomal",
+        "dominant",
+        "recessive",
+        "x",
+        "linked",
+    ]
 )
 _RELATED_PREFIX = re.compile(r"^[a-z0-9]+ related ")
 _RELATED_GENE = re.compile(r"^([a-z0-9]+) related ")
@@ -166,7 +186,7 @@ class BookshelfIndex:
         cls,
         index_dir: Path = DEFAULT_INDEX_DIR,
         sources: Iterable[str] = tuple(SOURCE_TAGS),
-    ) -> "BookshelfIndex":
+    ) -> BookshelfIndex:
         index = cls()
         for source in sources:
             path = index_dir / f"{source}.csv"
