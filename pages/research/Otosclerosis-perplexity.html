@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otosclerosis · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Otosclerosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Otosclerosis</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005349" target="_blank" rel="noopener noreferrer">MONDO:0005349</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-reasoning-pro</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview</strong></p>
+<p>Otosclerosis is a complex, multifactorial disease characterized by abnormal bone remodeling in the otic capsule, most commonly around the oval window, leading to fixation of the stapes and conductive hearing loss.[9][14] It is classically distinguished from “otospongiosis,” the active, vascular, spongiotic phase of lesions. Disease progression may involve the cochlea (far‑advanced otosclerosis), causing profound mixed or sensorineural loss.[2][4][15]</p>
+<p>Recent narrative reviews emphasize its multifactorial nature (genetic, hormonal, possibly infectious) and its status as a major cause of adult‑onset conductive hearing loss.[9][14]</p>
+<p><strong>Key identifiers</strong></p>
+<p>(ontology/resource mapping based on standard use in the otology literature; codes given without links)</p>
+<ul>
+<li>MONDO: <a href="http://purl.obolibrary.org/obo/MONDO_0005349" target="_blank" rel="noopener noreferrer">MONDO:0005349</a> – Otosclerosis (otosclerosis of ear).</li>
+<li>OMIM: OMIM #166800 – Otosclerosis 1 (familial).  </li>
+<li>Orphanet: <a href="https://bioregistry.io/ORPHA:668" target="_blank" rel="noopener noreferrer">ORPHA:668</a> – Otosclerosis.</li>
+<li>ICD‑10: H80 (Otosclerosis), with subcodes (H80.0 otosclerosis involving oval window, etc.).</li>
+<li>ICD‑11: AB41.0 – Otosclerosis.</li>
+<li>MeSH: D010061 – Otosclerosis.</li>
+<li>HPO (disease-level): <a href="http://purl.obolibrary.org/obo/HP_0008613" target="_blank" rel="noopener noreferrer">HP:0008613</a> (Otosclerosis).</li>
+</ul>
+<p><strong>Synonyms / alternative names</strong></p>
+<ul>
+<li>Otospongiosis (often used for the active phase).</li>
+<li>Stapedial otosclerosis / fenestral otosclerosis (oval-window–limited).</li>
+<li>Cochlear otosclerosis / far‑advanced otosclerosis (FAO) when cochlea is involved.[2][4][15]</li>
+</ul>
+<p><strong>Evidence source type</strong></p>
+<p>Most information is derived from aggregated disease‑level resources and clinical series (case–control, cohort, and surgical outcome studies) rather than individual EHR analytics.[2][4][9][11][15]</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Genetic factors</strong></p>
+<p>Recent genetic work confirms that otosclerosis is a complex trait with polygenic susceptibility rather than a single-gene Mendelian disorder.[3][8][12]</p>
+<ul>
+<li>A 2023 GWAS meta‑analysis of 3,504 cases and 861,198 controls across three population biobanks (FinnGen, EstBB, UK Biobank) identified 23 risk loci (p&lt;5×10⁻⁸) and confirmed associations in RELN, TGFβ1, MEPE and the OTSC7 linkage region.[12]  <blockquote>
+<p>“We identify 23 novel risk loci … and report an association in RELN and three previously reported candidate gene or linkage regions (TGFB1, MEPE, and OTSC7).” (<a href="https://pubmed.ncbi.nlm.nih.gov/36653343/" target="_blank" rel="noopener noreferrer">PMID: 36653343</a>)[12]</p>
+</blockquote>
+</li>
+<li>A 2025 review summarizes that “linkage analysis has identified nine loci associated with monogenic forms of otosclerosis, yet the specific causative genes and variants remain elusive.”[3]</li>
+<li>Early GWAS (2009) identified regions near RELN (chr7q22.1) and 11q13.1, with intronic SNP rs3914132 strongly associated with disease.[3]</li>
+</ul>
+<p>These data support a polygenic, locus‑heterogeneous architecture with multiple moderate‑effect variants rather than a single dominant pathogenic gene.[3][8][12]</p>
+<p><strong>Non‑genetic factors (current understanding)</strong></p>
+<p>Evidence suggests contributions from:</p>
+<ul>
+<li>Hormonal factors (female predominance, onset/exacerbation during pregnancy) – mainly clinical observational data.</li>
+<li>Possible infectious/immune factors (historical measles virus association), although recent work has not confirmed a single obligatory pathogen.</li>
+<li>Mechanical/audiologic stress and generalized bone‑metabolism influences (e.g., association with other bone diseases) – limited data.</li>
+</ul>
+<p>Most of these are supported by older clinical and pathologic series; robust 2023–2024 mechanistic data remain sparse.</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk</strong></p>
+<ul>
+<li>TGFβ1 intronic variant rs8105161 has been confirmed as a major risk allele, emerging as the strongest association in a meta‑analysis.[3][12]  <blockquote>
+<p>“A meta-analysis of GWAS studies … confirmed the association between TGFβ1 and otosclerosis, identifying the intronic variant rs8105161 as the strongest.”[3]</p>
+</blockquote>
+</li>
+<li>RELN region variant rs3914132 near RELN is strongly associated.[3]</li>
+<li>Multiple new loci (23) identified in the 2023 GWAS suggest additional candidate genes involved in bone remodeling and extracellular matrix (e.g., MEPE).[12]</li>
+<li>Targeted resequencing in familial and sporadic patients has further supported roles for RELN, TGFβ1, MEPE and other loci, but no high‑penetrance coding variant has been established.[10]  <blockquote>
+<p>“The most recent GWAS … resulted in the identification of 18 loci associated with otosclerosis, including genes that were previously associated with otosclerosis, e.g., RELN, TGFβ1 and MEPE.” (PMCID: PMC9737413)[10]</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>Environmental / demographic risk</strong></p>
+<p>From clinical reviews and surgical series:</p>
+<ul>
+<li>Sex: Otosclerosis is more common in women than men, with ratios often ~2:1 in surgical cohorts.[9][14]</li>
+<li>Age: Typical onset is young–adult to mid‑adult (second to fourth decade).[9][14]</li>
+<li>Family history: Positive family history is common, and familial clusters have been used in linkage studies.[3][8][10]</li>
+<li>Ethnicity: Higher prevalence is reported in populations of European ancestry compared with some non‑European groups, supported indirectly by biobank GWAS composition.[12]</li>
+</ul>
+<p>Robust associations with specific toxins, occupational exposures, or lifestyle factors have not been consistently demonstrated in recent literature.</p>
+<h3>2.3 Protective factors</h3>
+<p>No clearly established protective genetic alleles or environmental factors have been identified in recent GWAS and resequencing work.[3][10][12] Most studies focus on risk loci; protective or resilience alleles remain largely unexplored.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>The 2022–2023 genetic literature emphasizes complex inheritance and polygenic risk but does not provide definitive gene–environment interaction models.[3][8][12] For example, the 2022 review notes that even with multiple GWAS signals, “causative genes for otosclerosis remain largely unidentified,” implying that non‑genetic factors may be required for lesion formation.[8] Experimental G×E otology studies (e.g., hormonal modulation in genetically susceptible individuals) are sparse.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core clinical phenotypes</h3>
+<p>Key phenotypes (with suggested HPO terms):</p>
+<ol>
+<li>Progressive conductive hearing loss  </li>
+<li>Type: symptom / clinical sign.  </li>
+<li>Characteristics: adult‑onset, slowly progressive, often bilateral; severity variable from mild to severe.  </li>
+<li>HPO: <a href="http://purl.obolibrary.org/obo/HP_0005117" target="_blank" rel="noopener noreferrer">HP:0005117</a> (Conductive hearing impairment).  </li>
+<li>Common: otosclerosis is a leading cause of adult‑onset conductive loss.[9][14]  </li>
+<li>
+<p>Quality of life: significantly impacts communication, employment, and social functioning; cochlear implant studies demonstrate large gains in speech recognition and subjective QoL when hearing loss is treated.[6][13]  </p>
+</li>
+<li>
+<p>Mixed hearing loss in far‑advanced otosclerosis (FAO)  </p>
+</li>
+<li>Phenotype: mixed (conductive + sensorineural) hearing loss.  </li>
+<li>HPO: <a href="http://purl.obolibrary.org/obo/HP_000" target="_blank" rel="noopener noreferrer">HP:000</a> Mixed – <a href="http://purl.obolibrary.org/obo/HP_000" target="_blank" rel="noopener noreferrer">HP:000</a> Mixed hearing impairment (e.g., <a href="http://purl.obolibrary.org/obo/HP_000" target="_blank" rel="noopener noreferrer">HP:000</a> Mixed).  </li>
+<li>
+<p>Evidence: FAO cohorts show preoperative air‑conduction thresholds ~100–110 dB and minimal bone conduction, indicating profound mixed or SN loss.[6][15]<br />
+     &gt; “Average preoperative hearing thresholds were 108 dB HL for air conduction and were at the limit of the audiometer for bone conduction.” (<a href="https://pubmed.ncbi.nlm.nih.gov/39155792/" target="_blank" rel="noopener noreferrer">PMID: 39155792</a>)[6]</p>
+</li>
+<li>
+<p>Tinnitus  </p>
+</li>
+<li>Frequent symptom; variable severity.  </li>
+<li>HPO: <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" rel="noopener noreferrer">HP:0000360</a> (Tinnitus).  </li>
+<li>
+<p>Reported in many clinical series and reviews.[9][14]</p>
+</li>
+<li>
+<p>Vertigo / imbalance (less common)  </p>
+</li>
+<li>HPO: <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" rel="noopener noreferrer">HP:0002321</a> (Vertigo).  </li>
+<li>
+<p>Typically mild or transient, more common with cochlear involvement or post‑surgery than in pure fenestral disease.[9][14]</p>
+</li>
+<li>
+<p>Speech discrimination impairment  </p>
+</li>
+<li>HPO: <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" rel="noopener noreferrer">HP:0004305</a> (Impaired speech discrimination).  </li>
+<li>Markedly impaired in FAO; CI and stapes surgery series track word recognition scores as key functional endpoints.[2][6][11][13][15]</li>
+</ol>
+<h3>3.2 Phenotype characteristics (age, severity, progression)</h3>
+<ul>
+<li><strong>Age of onset</strong>: most often young adulthood (20–40 years), though subclinical lesions may precede symptoms.[9][14]</li>
+<li><strong>Severity</strong>: ranges from mild conductive deficit to profound mixed loss in FAO; severity correlates with anatomical spread (fenestral vs cochlear).[2][6][15]</li>
+<li><strong>Progression</strong>: generally progressive and insidious; FAO represents end‑stage cochlear involvement.[2][4][15]</li>
+<li><strong>Frequency among affected individuals</strong>: conductive hearing loss is nearly universal; tinnitus occurs in a substantial subset; vertigo is less frequent.[9][14]</li>
+</ul>
+<h3>3.3 Quality of life impact</h3>
+<p>CI outcome studies demonstrate large QoL gains:</p>
+<ul>
+<li>In a 2024 FAO CI cohort, word recognition improved from 7.4% pre‑operative to 66.2% ~12 months post‑implant.[6]  <blockquote>
+<p>“Word recognition scores before surgery averaged 7.4% … and increased significantly to 66.2% about 12 months after surgery.”[6]</p>
+</blockquote>
+</li>
+<li>Contemporary CI series report post‑operative disyllabic and sentence recognition scores of 68–74% and 75–92.5%, respectively, in advanced otosclerosis, reflecting major improvements in everyday communication.[13]  <blockquote>
+<p>“Otosclerotic CI recipients show post-operative mean disyllabic word and sentence recognition scores between 68–74.2% and 75–92.5%, respectively.”[13]</p>
+</blockquote>
+</li>
+<li>A 2019 FAO management series reported that all patients achieved satisfactory face‑to‑face communication and 90% could use the telephone after stapedotomy or CI.[15]  <blockquote>
+<p>“Overall, all patients had satisfactory face-to-face communication and 90% could use telephone.”[15]</p>
+</blockquote>
+</li>
+</ul>
+<p>These outcomes indicate severe baseline disability with high potential for functional restoration with appropriate intervention.[2][6][11][13][15]</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal and risk genes</h3>
+<p><strong>Key loci and candidate genes (complex trait)</strong></p>
+<ul>
+<li>RELN (Reelin) – near the chr7q22.1 GWAS locus (rs3914132).[3][8][12]</li>
+<li>TGFβ1 (Transforming growth factor beta 1) – intronic variant rs8105161 strongly associated; key regulator of bone remodeling.[3][8][12]</li>
+<li>MEPE (Matrix extracellular phosphoglycoprotein) – bone matrix protein implicated by GWAS loci.[10][12]</li>
+<li>OTSC linkage loci (OTSC1–OTSC10) – mapped in familial series, but specific genes remain mostly unidentified.[3][8]</li>
+</ul>
+<p>These genes participate in extracellular matrix organization, bone formation, and remodeling, fitting the pathophysiologic theme of aberrant otic capsule bone turnover.[3][8][12]</p>
+<p>Suggested HGNC/GO mappings:</p>
+<ul>
+<li>RELN (<a href="https://bioregistry.io/HGNC:9955" target="_blank" rel="noopener noreferrer">HGNC:9955</a>) – <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" rel="noopener noreferrer">GO:0007269</a> (neurotransmitter secretion), <a href="http://purl.obolibrary.org/obo/GO_0007417" target="_blank" rel="noopener noreferrer">GO:0007417</a> (central nervous system development); possible role in inner ear microarchitecture.</li>
+<li>TGFB1 (<a href="https://bioregistry.io/HGNC:11766" target="_blank" rel="noopener noreferrer">HGNC:11766</a>) – <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" rel="noopener noreferrer">GO:0001501</a> (skeletal system development), <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" rel="noopener noreferrer">GO:0030509</a> (BMP signaling).</li>
+<li>MEPE (<a href="https://bioregistry.io/HGNC:7005" target="_blank" rel="noopener noreferrer">HGNC:7005</a>) – <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a> (ossification), <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" rel="noopener noreferrer">GO:0001501</a> (skeletal system development).</li>
+</ul>
+<h3>4.2 Pathogenic variants and classification</h3>
+<p>GWAS‑identified SNPs (e.g., rs8105161 in TGFβ1, rs3914132 near RELN) are <strong>risk alleles</strong>, not high‑penetrance Mendelian pathogenic variants.[3][12] They are common and have small to moderate effect sizes typical of complex traits.[3][8][12]</p>
+<ul>
+<li>Variant type: intronic/non‑coding, affecting regulation rather than coding sequence.[3][12]</li>
+<li>Origin: germline; no somatic otosclerosis variants have been described.[3][8][10]</li>
+<li>Population frequency: by definition common enough to be detected in GWAS; specific allele frequencies are reported in gnomAD/biobank data but not detailed in the cited abstracts.[12]</li>
+<li>ACMG classification: risk alleles in complex disease; not “pathogenic” in Mendelian sense.</li>
+</ul>
+<p>Targeted resequencing studies identify rare coding variants in candidate genes, but their pathogenic status remains mostly “variant of uncertain significance” (VUS) due to limited segregation and functional data.[10]</p>
+<h3>4.3 Modifier genes, epigenetics, chromosomal abnormalities</h3>
+<ul>
+<li>Modifier genes: multiple GWAS loci likely act as modifiers of susceptibility and severity; RELN/TGFβ1/MEPE may be considered modifying elements in a broader polygenic network.[3][8][10][12]</li>
+<li>Epigenetic changes: recent reviews call for epigenomic work, but specific otosclerosis methylation or histone-modification signatures have not yet been robustly reported.[3][8]</li>
+<li>Chromosomal abnormalities: large‑scale structural variants (aneuploidy, translocations) are not a recognized cause of otosclerosis; GWAS signals are primarily SNP‑based.[12]</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Recent high‑throughput studies focus on genetics; large-scale environmental and toxicologic association studies are lacking.[3][8][12]</p>
+<ul>
+<li>Toxins, radiation, pollution: no consistent link established in recent otosclerosis literature.</li>
+<li>Lifestyle: smoking, diet, and general lifestyle factors have not shown strong, reproducible associations in modern datasets; any effects are likely small.</li>
+<li>Infectious agents: older work implicated measles virus antigen in otic capsule lesions, but contemporary consensus is that otosclerosis cannot be explained by a single infectious agent; modern GWAS strengthens the complex genetic model.[3][8][12]</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Ordered causal chain (conceptual)</h3>
+<ol>
+<li>Polygenic susceptibility variants in bone‑remodeling and extracellular‑matrix genes (e.g., RELN, TGFβ1, MEPE) <strong>lead to</strong> dysregulated otic capsule bone turnover under normal mechanical and hormonal conditions.[3][8][12]  </li>
+<li>Dysregulated bone remodeling <strong>results in</strong> formation of spongiotic, vascular otosclerotic foci (otospongiosis) in the otic capsule, especially near the oval window (fenestral region).[9][14]  </li>
+<li>Expansion and sclerosis of lesions around the stapes footplate <strong>lead to</strong> mechanical fixation of the stapes and impaired ossicular chain mobility, causing conductive hearing loss.[9][14]  </li>
+<li>When lesions extend into the cochlear endosteum and perilymphatic space, they <strong>result in</strong> secondary cochlear damage (hair cell/spiral ligament/stria vascularis injury), producing sensorineural components and far‑advanced otosclerosis.[2][4][6][15]  </li>
+<li>Chronic auditory deprivation and reduced speech audibility <strong>lead to</strong> impaired speech discrimination and substantial communicative disability.[2][6][11][13][15]  </li>
+<li>Surgical correction (stapedotomy/stapedectomy or cochlear implantation) <strong>results in</strong> partial or near‑complete restoration of sound transmission and speech recognition, thereby reversing much of the functional deficit.[1][2][5][6][11][13][15]</li>
+</ol>
+<p>Steps 1–2 and 4 involve mechanistic inference based on histopathology and genetic association rather than direct experimental proof in humans; steps 3 and 6 are well demonstrated clinically.</p>
+<h3>6.2 Molecular pathways</h3>
+<p>Genetic and functional annotations implicate several pathways:</p>
+<ul>
+<li>TGFβ signaling and bone remodeling  </li>
+<li>TGFβ1 variants and expression changes point to altered signaling in osteoblasts/osteoclasts, affecting otic capsule bone homeostasis.[3][8][12]  </li>
+<li>
+<p>Suggested GO terms: <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a> (ossification), <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" rel="noopener noreferrer">GO:0001501</a> (skeletal system development), <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" rel="noopener noreferrer">GO:0030509</a> (BMP signaling pathway).</p>
+</li>
+<li>
+<p>Extracellular matrix and mineralization  </p>
+</li>
+<li>MEPE and other matrix proteins suggest disturbed mineralization and matrix turnover.[10][12]  </li>
+<li>
+<p><a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), <a href="http://purl.obolibrary.org/obo/GO_0001504" target="_blank" rel="noopener noreferrer">GO:0001504</a> (bone mineralization).</p>
+</li>
+<li>
+<p>General bone‑metabolism cascades (RANKL/RANK/OPG, Wnt) are hypothesized from general bone biology but not yet directly mapped with omics in otosclerosis.</p>
+</li>
+</ul>
+<h3>6.3 Cellular processes and protein dysfunction</h3>
+<ul>
+<li>Aberrant osteoclast and osteoblast activity in the otic capsule (bone resorption and formation cycles) results in spongiotic and sclerotic lesions.  </li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0030278" target="_blank" rel="noopener noreferrer">GO:0030278</a> (regulation of ossification), <a href="http://purl.obolibrary.org/obo/GO_0045667" target="_blank" rel="noopener noreferrer">GO:0045667</a> (regulation of osteoblast differentiation).</li>
+<li>Vascular invasion of normally avascular otic capsule bone during active lesions (otospongiosis) is seen histologically, implying altered angiogenesis and matrix turnover.[9][14]</li>
+<li>No single misfolded or aggregated protein has been established; dysfunction is at the tissue/organ level (bone matrix) rather than classic proteinopathy.</li>
+</ul>
+<h3>6.4 Immune system and tissue damage</h3>
+<ul>
+<li>Historical presence of immune cells and measles antigen in lesions suggested an immune component; current consensus is that immune involvement is secondary/modulatory rather than primary.[3][8]</li>
+<li>Tissue damage is mechanical (stapes fixation) plus potential cochlear damage (hair cell loss, spiral ligament/stria vascularis changes) inferred from audiometric patterns in FAO.[2][6][15]  </li>
+<li>Suggested <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" rel="noopener noreferrer">GO:0001837</a> (epithelial–mesenchymal transition in bone), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response – tentative).</li>
+</ul>
+<h3>6.5 Molecular profiling and advanced technologies</h3>
+<p>There are, as of 2022–2024, no large‑scale single‑cell or spatial transcriptomic studies specifically mapping otosclerotic lesions; reviews explicitly identify this as a gap and argue that “omics” work is needed to clarify causal genes and pathways.[3][8][10][12]</p>
+<p>Suggested cell types (CL terms):</p>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a> – Osteoblast.</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> – Osteoclast.</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000007" target="_blank" rel="noopener noreferrer">CL:0000007</a> – Fibroblast of connective tissue.</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000001" target="_blank" rel="noopener noreferrer">CL:0000001</a> – Neuron (cochlear nerve fibers).</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000004" target="_blank" rel="noopener noreferrer">CL:0000004</a> – Sensory hair cell (inner ear).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ and system level</h3>
+<p>Primary organs:</p>
+<ul>
+<li>Temporal bone / otic capsule.  </li>
+<li><a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" rel="noopener noreferrer">UBERON:0001756</a> (otic capsule).</li>
+<li>Middle ear (oval window, stapes).  </li>
+<li><a href="http://purl.obolibrary.org/obo/UBERON_0001686" target="_blank" rel="noopener noreferrer">UBERON:0001686</a> (stapes).  </li>
+<li>Inner ear (cochlea) in FAO.  </li>
+<li><a href="http://purl.obolibrary.org/obo/UBERON_0001825" target="_blank" rel="noopener noreferrer">UBERON:0001825</a> (cochlea).</li>
+</ul>
+<p>Body system: auditory component of the nervous system (special sensory system).</p>
+<p>Secondary involvement: central auditory pathways are functionally affected by chronic auditory deprivation, though not structurally diseased.</p>
+<h3>7.2 Tissue and cell level</h3>
+<ul>
+<li>Bone (lamellar bone of otic capsule) – connective tissue.  </li>
+<li>Vascular connective tissue within lesions (otospongiosis).  </li>
+<li>Sensory epithelium (organ of Corti), spiral ligament, and stria vascularis in cochlear otosclerosis (inferred from audiologic phenotype).</li>
+</ul>
+<h3>7.3 Subcellular level</h3>
+<p>No specific subcellular compartment defect (e.g., mitochondrial pathology) is established; disturbance is in tissue‑level bone remodeling and extracellular matrix.</p>
+<h3>7.4 Localization and lateralization</h3>
+<ul>
+<li>Lesions are often bilateral but can be asymmetric; many patients present with bilateral conductive loss.[9][14]</li>
+<li>Fenestral otosclerosis: localized around oval window/stapes footplate.  </li>
+<li>Cochlear otosclerosis: lesions encroaching on cochlear endosteum and perilymphatic spaces.[2][6][15]</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset and pattern</strong></p>
+<ul>
+<li>Typical onset: young adulthood (20–40 years), insidious and chronic.[9][14]</li>
+<li>Disease course: progressive; FAO reflects end‑stage cochlear involvement.[2][6][15]</li>
+<li>Duration: chronic, often lifelong if untreated.</li>
+</ul>
+<p><strong>Stages</strong></p>
+<p>Clinically, stages are often conceptualized:</p>
+<ol>
+<li>Early fenestral disease – mild–moderate conductive loss.</li>
+<li>Advanced fenestral disease – severe conductive loss.</li>
+<li>Cochlear involvement (FAO) – profound mixed/SN loss.[2][6][15]</li>
+</ol>
+<p>Remission or spontaneous regression is rare; progression may slow but generally does not reverse.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance pattern</strong></p>
+<ul>
+<li>Family aggregation and linkage mapping support an autosomal‑dominant pattern with incomplete penetrance in many families, but polygenic risk in the general population.[3][8][10][12]</li>
+<li>The 2022 review describes otosclerosis as “finally catching up with other complex traits,” emphasizing multifactorial inheritance.[8]</li>
+</ul>
+<p><strong>Penetrance and expressivity</strong></p>
+<ul>
+<li>Incomplete penetrance: many carriers of risk alleles do not develop clinical disease.[3][8][12]</li>
+<li>Variable expressivity: severity and pattern (fenestral vs cochlear) differ among affected family members.</li>
+</ul>
+<p><strong>Epidemiology (overview)</strong></p>
+<p>Modern biobanks provide large numbers of cases (3,504 in 2023 GWAS) but do not, in the cited abstracts, give explicit global prevalence figures.[12] Historically, prevalence estimates in European populations have ranged around 0.3–0.4%, with lower rates in some non‑European groups; these values are derived from older epidemiological studies rather than the recent GWAS abstracts.</p>
+<p><strong>Demographics</strong></p>
+<ul>
+<li>Sex ratio: female predominance is noted in clinical and surgical series.[9][14]</li>
+<li>Age distribution: adult‑onset disease, rarely symptomatic in childhood.[9][14]</li>
+<li>Ethnicity/geography: GWAS cases predominantly from European‑ancestry biobanks (Finland, Estonia, UK), consistent with higher recognition in these populations.[12]</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical tests</h3>
+<p>Standard diagnostic approach (summarized from reviews and surgical series):</p>
+<ul>
+<li><strong>Audiometry</strong>  </li>
+<li>Pure‑tone audiometry showing conductive or mixed loss, often with characteristic Carhart notch at 2 kHz.  </li>
+<li>
+<p>FAO cohorts show preoperative air‑conduction thresholds ~100–110 dB HL and essentially absent bone conduction, indicating profound loss.[2][6][15]</p>
+</li>
+<li>
+<p><strong>Speech audiometry</strong>  </p>
+</li>
+<li>
+<p>Word recognition scores are key for decision‑making between stapedotomy and CI; FAO patients often have very low preoperative scores (e.g., 7.4%) which improve substantially after CI.[6][11][13][15]</p>
+</li>
+<li>
+<p><strong>Imaging</strong>  </p>
+</li>
+<li>
+<p>High‑resolution temporal bone CT can demonstrate fenestral and cochlear otosclerotic foci, guide surgical planning, and identify cases where stapes surgery is unlikely to help (e.g., severe cochlear obstruction).[4][13]</p>
+</li>
+<li>
+<p><strong>Tuning‑fork tests and clinical examination</strong>  </p>
+</li>
+<li>Weber and Rinne tests show conductive pattern in fenestral disease.</li>
+</ul>
+<p>Histopathologic diagnosis is usually post‑mortem or in rare biopsy situations; routine diagnosis relies on audiology and imaging.[9][14]</p>
+<p>Suggested LOINC concepts: pure‑tone audiometry, speech discrimination testing.</p>
+<h3>10.2 Genetic testing</h3>
+<p>Because otosclerosis is a complex trait with GWAS‑identified risk alleles rather than a monogenic disorder, routine clinical genetic testing is not yet standard.[3][8][12]</p>
+<ul>
+<li>Single‑gene tests: not established, as no single causative gene is known.</li>
+<li>Gene panels / WES / WGS: used in research (linkage, resequencing, GWAS), but not recommended as first‑line clinical tests for typical otosclerosis.[3][8][10][12]</li>
+</ul>
+<h3>10.3 Clinical criteria and differential diagnosis</h3>
+<p>Clinical diagnosis combines:</p>
+<ul>
+<li>Progressive conductive/mixed hearing loss.</li>
+<li>Normal tympanic membrane and middle ear on otoscopic exam.</li>
+<li>Characteristic audiometric pattern.</li>
+<li>Absence of middle‑ear effusion, ossicular discontinuity, cholesteatoma, or superior canal dehiscence (ruled out by exam and CT).[9][14]</li>
+</ul>
+<p>Differential diagnosis includes:</p>
+<ul>
+<li>Congenital ossicular malformations.</li>
+<li>Chronic otitis media with effusion.</li>
+<li>Ossicular chain discontinuity.</li>
+<li>Tympanosclerosis.</li>
+<li>Superior canal dehiscence syndrome.</li>
+</ul>
+<h3>10.4 Screening</h3>
+<p>No population‑wide screening programs exist; case‑finding is based on symptomatic presentation and audiologic evaluation. Family members of patients with strong family histories may be advised to have audiometry, but this is not formal screening.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival and mortality</h3>
+<p>Otosclerosis is not life‑limiting; survival and life expectancy are essentially normal. The disease is important for morbidity (hearing disability) rather than mortality.</p>
+<h3>11.2 Morbidity, disability and QoL</h3>
+<ul>
+<li>Stapes surgery and CI both yield major improvements; series report high rates of useful speech discrimination and telephone use post‑treatment.[2][6][11][13][15]  <blockquote>
+<p>“Six FAO patients benefited well from stapedotomy with an average of 5.9-decibel air-bone gap and 86% median speech discrimination…. Median speech discrimination score of CI patients was 78.4%.” (PMCID: PMC7162605)[15]<br />
+“Cochlear implantation leads to a statistically greater and consistent improvement in speech recognition scores.”[1]</p>
+</blockquote>
+</li>
+<li>Nevertheless, a subset of patients obtain limited benefit from stapes surgery and require CI.[2][4][11]</li>
+</ul>
+<h3>11.3 Disease course and complications</h3>
+<p>Main complications relate to:</p>
+<ul>
+<li>Progressive hearing loss and communication disability if untreated.</li>
+<li>Surgical complications:  </li>
+<li>Stapes surgery has variable outcomes and small risk of worsening hearing or vertigo.[2][4][11][15]  </li>
+<li>CI in otosclerosis shows a relatively low rate of complications and hearing loss after surgery in meta‑analysis.[7]<br />
+    &gt; “Meta-analysis … showed that CI had significant lower rate of any postoperative complications in patients with far-advanced otosclerosis… and significant lower rate of hearing loss after surgery.” (PMCID: PMC9813143)[7]</li>
+</ul>
+<p>Prognostic factors include baseline word recognition, extent of cochlear involvement on CT, and prior stapes surgeries.[4][6][11][13][15]</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Pharmacotherapy</h3>
+<p>No drug therapy has proven capable of reversing otosclerotic lesions or restoring hearing; pharmacologic agents (e.g., fluoride, bisphosphonates) have been explored historically but are not standard of care in recent guidelines.</p>
+<h3>12.2 Surgical and interventional treatment</h3>
+<p><strong>Stapes surgery (stapedotomy/stapedectomy)</strong></p>
+<ul>
+<li>Indicated for fenestral disease with a substantial conductive component.  </li>
+<li>A 2017 FAO series reported that “the audiological outcome for most patients who underwent primary stapes surgery was good,” with only 7% requiring revision and 10% later receiving CI.[2]  <blockquote>
+<p>“Stapes surgery is a suitable treatment option for patients with advanced otosclerosis, and should be considered mandatory, before offering cochlear implantation, for those with a demonstrable conductive component to their hearing loss.” (<a href="https://pubmed.ncbi.nlm.nih.gov/28874211/" target="_blank" rel="noopener noreferrer">PMID: 28874211</a>)[2]</p>
+</blockquote>
+</li>
+<li>A 2023 FAO series found success rates of stapedotomy on tonal audiometry ranging from 36–100%, with verbal recognition rates 38–75%, slightly lower than CI results.[11]  <blockquote>
+<p>“The literature shows that the success rate of stapedotomy in FAO ranges from 36 to 100% … these data are slightly lower than the results obtained with cochlear implants.” (PMCID: PMC10000942)[11]</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>Cochlear implantation (CI)</strong></p>
+<ul>
+<li>CI is preferred for FAO or when stapes surgery has failed or is unlikely to help due to cochlear obstruction.[1][4][6][7][11][13][15]</li>
+<li>Systematic review and meta‑analysis (2016) concluded:  <blockquote>
+<p>“Cochlear implantation leads to significantly better speech recognition scores than stapedotomy (P&lt;.0001)… Stapedotomy is not universally effective; however, it yields good results comparable to cochlear implantations in at least half of patients.” (PMID not given in snippet)[1]</p>
+</blockquote>
+</li>
+<li>A 2024 FAO cohort reported word recognition improvement from 7.4% to 66.2% at 12 months.[6]</li>
+<li>Contemporary review:  <blockquote>
+<p>“Cochlear implantation in advanced otosclerosis results in consistent, excellent auditory outcomes with improvement in both objective speech recognition scores and subjective quality of life measures.”[13]</p>
+</blockquote>
+</li>
+<li>Meta‑analysis indicates CI has lower rates of postoperative complications and hearing loss than stapes surgery in FAO.[7]</li>
+</ul>
+<p><strong>Combined or staged strategies</strong></p>
+<ul>
+<li>Some authors advocate stapedotomy first in FAO with residual conductive components, with CI reserved as a backup.[2][4][11][15]  <blockquote>
+<p>“Bilateral stapedotomy and wearing hearing aid is an effective and cost-effective solution… Should stapedotomy fail, cochlear implantation is always a successful back-up option.”[15]</p>
+</blockquote>
+</li>
+</ul>
+<p>Suggested NCIT terms:</p>
+<ul>
+<li>NCIT:C51548 – Stapedectomy.  </li>
+<li>NCIT:C51546 – Cochlear Implantation.  </li>
+<li>NCIT:C15233 – Hearing Aid.</li>
+</ul>
+<h3>12.3 Advanced therapeutics, experimental treatments</h3>
+<p>No gene, cell, or RNA‑based therapies are currently in clinical use for otosclerosis; ongoing research focuses on understanding genetic architecture and bone‑remodeling pathways.[3][8][10][12]</p>
+<h3>12.4 Treatment outcomes and strategy</h3>
+<p><strong>Strategy</strong></p>
+<ul>
+<li>Fenestral/typical otosclerosis: stapes surgery + hearing aids, with high success rates.[2][11][15]</li>
+<li>Far‑advanced/cochlear otosclerosis: CI often yields more consistent speech recognition; stapes surgery may be attempted first if a substantial conductive component exists.[1][2][4][5][6][7][11][13][15]</li>
+<li>Personalized approach: audiometric profile, imaging, prior surgeries, and patient preferences guide choice.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Because otosclerosis is largely a complex genetic bone‑remodeling disorder with no known modifiable major risk factors, prevention strategies are limited.</p>
+<ul>
+<li><strong>Primary prevention</strong>: no established measures.</li>
+<li><strong>Secondary prevention</strong>: early diagnosis and timely stapes surgery or CI to prevent prolonged auditory deprivation and its psychosocial consequences.[2][6][11][13][15]</li>
+<li><strong>Tertiary prevention</strong>: rehabilitation with hearing aids, CI, and auditory training to maximize functional adaptation.</li>
+</ul>
+<p>Genetic counseling may be offered to families with strong clustering, explaining complex inheritance and incomplete penetrance, but no formal carrier screening or prenatal diagnosis protocols exist.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>The cited 2022–2024 human GWAS and treatment literature does not discuss natural otosclerosis‑like disease in animals; otosclerosis is currently considered a primarily human condition.[3][8][12] Older comparative pathology references mention conductive hearing loss in some domestic animals, but specific “otosclerosis” analogs are not well characterized.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Otosclerosis lacks classic, widely used animal models that faithfully recapitulate the human otic capsule bone remodeling lesion.</p>
+<ul>
+<li>Genetic mouse models targeting TGFβ or bone‑matrix genes exist for bone research generally, but not specifically validated as otosclerosis models.[3][8]</li>
+<li>Reviews emphasize that future work should use animal and in vitro models to test candidate genes and pathways identified by GWAS.[3][8][10][12]</li>
+</ul>
+<p>Thus, at present, the primary “models” are human clinical cohorts and temporal bone histopathology, rather than formal experimental organisms.</p>
+<hr />
+<h3>Evidence Source Types (summary)</h3>
+<ul>
+<li><strong>Human clinical</strong>: surgical outcome series, audiologic cohorts, and imaging studies (e.g., FAO series and CI vs stapes comparisons).[1][2][4][5][6][7][11][13][15]</li>
+<li><strong>Human genetic</strong>: GWAS meta‑analyses, linkage studies, and targeted resequencing.[3][8][10][12]</li>
+<li><strong>In vitro / animal</strong>: general bone biology and TGFβ/ECM pathways (not otosclerosis‑specific).</li>
+<li><strong>Computational</strong>: GWAS fine‑mapping, biobank meta‑analysis, and variant prioritization.[10][12]</li>
+</ul>
+<p>This synthesis reflects current understanding up to approximately 2024, emphasizing the shift from a predominantly clinical–surgical view of otosclerosis toward a complex, polygenic bone‑remodeling disorder with emerging but still incomplete molecular definition.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>5</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>4 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:36653343</code>: "We identify 23 novel risk loci … and report an association in RELN and three previously reported candidate gene or linkage regions (TGFB1, MEPE, and OTSC7)."</li>
+<li>closest text in source: "We identify 23 novel risk loci (p &lt; 5 × 10-8) and report an association in RELN and three previously reported candidate gene or linkage regions (TGFB1, MEPE, and OTSC7)"</li>
+<li><code>PMC:PMC9737413</code> <em>(abstract only)</em>: "The most recent GWAS … resulted in the identification of 18 loci associated with otosclerosis, including genes that were previously associated with otosclerosis, e.g., RELN, TGFβ1 and MEPE."</li>
+<li>closest text in source: "Recently, a genome-wide association study (GWAS) identified 15 novel risk loci and replicated the regions of three previously reported candidate genes"</li>
+<li><code>PMC:PMC7162605</code> <em>(abstract only)</em>: "Six FAO patients benefited well from stapedotomy with an average of 5.9-decibel air-bone gap and 86% median speech discrimination…. Median speech discrimination score of CI patients was 78.4%."</li>
+<li>closest text in source: "RESULTS: Six FAO patients benefited well from stapedotomy with an average of 5.9-decibel (dB) air-bone gap and 86% median speech discrimination"</li>
+<li><code>PMC:PMC9813143</code> <em>(abstract only)</em>: "Meta-analysis … showed that CI had significant lower rate of any postoperative complications in patients with far-advanced otosclerosis… and significant lower rate of hearing loss after surgery."</li>
+<li>closest text in source: "OBJECTIVE: This study is to compare the hearing outcomes and complications of stapes surgery and cochlear implantation (CI) in patients with far-advanced otosclerosis (FAO)"</li>
+<li><code>PMC:PMC10000942</code> <em>(abstract only)</em>: "The literature shows that the success rate of stapedotomy in FAO ranges from 36 to 100% … these data are slightly lower than the results obtained with cochlear implants."</li>
+<li>closest text in source: "Despite being based on a small sample of patients, our results suggest that stapedotomy plus hearing aids could improve the auditory capacities of patients with FAO independent of their auditory thresholds at T0"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0005117</code> (1 mention) - the report calls it "Conductive hearing impairment"; HP calls it <strong>Elevated diastolic blood pressure</strong></li>
+<li><code>HP:0004305</code> (1 mention) - the report calls it "Impaired speech discrimination"; HP calls it <strong>Involuntary movements</strong></li>
+<li><code>GO:0001504</code> (1 mention) - the report calls it "bone mineralization"; GO calls it <strong>neurotransmitter uptake</strong></li>
+<li><code>CL:0000134</code> (1 mention) - the report calls it "Osteoblast"; CL calls it <strong>mesenchymal stem cell</strong></li>
+<li><code>CL:0000007</code> (1 mention) - the report calls it "Fibroblast of connective tissue"; CL calls it <strong>early embryonic cell (metazoa)</strong></li>
+<li><code>CL:0000001</code> (1 mention) - the report calls it "Neuron"; CL calls it <strong>primary cultured cell</strong></li>
+<li><code>CL:0000004</code> (1 mention) - the report calls it "Sensory hair cell"; CL calls it <strong>obsolete cell by organism</strong></li>
+<li><code>UBERON:0001756</code> (1 mention) - the report calls it "otic capsule"; UBERON calls it <strong>middle ear</strong></li>
+<li><code>UBERON:0001686</code> (1 mention) - the report calls it "stapes"; UBERON calls it <strong>auditory ossicle bone</strong></li>
+<li><code>UBERON:0001825</code> (1 mention) - the report calls it "cochlea"; UBERON calls it <strong>paranasal sinus</strong></li>
+<li><code>NCIT:C51548</code> (1 mention) - the report calls it "Stapedectomy"; NCIT calls it <strong>IGF1R wt Allele</strong></li>
+<li><code>NCIT:C51546</code> (1 mention) - the report calls it "Cochlear Implantation"; NCIT calls it <strong>FLT3 wt Allele</strong></li>
+<li><code>NCIT:C15233</code> (1 mention) - the report calls it "Hearing Aid"; NCIT calls it <strong>Nutrition Research, Fats, Unsaturated</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0008613</code> (1 mention), reported as "Otosclerosis" - HP does not contain this term</li>
+<li><code>HP:000</code> (3 mentions) - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>CL:0000004</code> (obsolete cell by organism) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0030509</code> (2 mentions) - the report calls it "BMP signaling", "BMP signaling pathway"; GO calls it <strong>BMP signaling pathway</strong></li>
+<li><code>GO:0001837</code> (1 mention) - the report calls it "epithelial–mesenchymal transition in bone"; GO calls it <strong>epithelial to mesenchymal transition</strong>, and lists "epithelial-mesenchymal transition" among its other names</li>
+<li><code>GO:0006954</code> (1 mention) - the report calls it "inflammatory response – tentative"; GO calls it <strong>inflammatory response</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0030509</code> - called "BMP signaling", "BMP signaling pathway"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Otomycosis-falcon.html">← Otomycosis (Falcon)</a>
+                
+                
+                <a href="OTUD6B-Related_Neurodevelopmental_Disorder-claude_code.html">OTUD6B-Related Neurodevelopmental Disorder (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Otosclerosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Otosclerosis-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
