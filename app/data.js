@@ -1452,6 +1452,106 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "3-Hydroxyacyl-CoA Dehydrogenase Deficiency",
+    "disease_id": "MONDO:0017715",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism",
+      "Hyperinsulinemic Hypoglycemia"
+    ],
+    "creation_date": "2026-09-12T05:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "3-Hydroxyacyl-CoA dehydrogenase deficiency (HADH deficiency, also known as short-chain 3-hydroxyacyl-CoA dehydrogenase or SCHAD deficiency) is an autosomal recessive inborn error of metabolism caused by biallelic loss-of-function mutations in the nuclear HADH gene. HADH encodes mitochondrial short-chain 3-hydroxyacyl-CoA dehydrogenase, which catalyzes the penultimate NAD+-dependent oxidation of short- and medium-chain L-3-hydroxyacyl-CoAs to 3-ketoacyl-CoAs in the fatty acid beta-oxidation pathway. Uniquely among mitochondrial fatty acid beta-oxidation defects, the primary clinical presentation is persistent congenital hyperinsulinemic hypoglycemia and severe dietary protein (leucine) sensitivity, rather than cardiomyopathy, rhabdomyolysis, or severe hepatic failure. Pathophysiologically, this hyperinsulinemic phenotype arises because SCHAD directly interacts with and tonically inhibits mitochondrial glutamate dehydrogenase (GDH/GLUD1) in pancreatic beta cells. Loss of SCHAD protein eliminates this tonic inhibition, driving constitutive GDH activation, accelerated glutaminolysis, increased beta-cell ATP/ADP ratio, closure of ATP-sensitive potassium (K-ATP) channels, membrane depolarization, and dysregulated calcium-dependent insulin exocytosis. When residual enzyme activity is profoundly depleted, metabolic hallmarks including elevated plasma 3-hydroxybutyrylcarnitine (C4-OH) and urinary 3-hydroxyglutarate are detected. Because beta-cell K-ATP channels remain structurally intact, hyperinsulinism in HADH deficiency is characteristically responsive to diazoxide.",
+    "pathophysiology": [
+      "Biallelic HADH Loss-of-Function Mutations",
+      "Impaired Mitochondrial Short-Chain Fatty Acid Beta-Oxidation",
+      "Accumulation of 3-Hydroxybutyrylcarnitine and 3-Hydroxyglutarate",
+      "Loss of Tonic SCHAD Inhibition of Glutamate Dehydrogenase",
+      "Accelerated Glutaminolysis and Mitochondrial ATP Generation",
+      "Pancreatic Beta-Cell Depolarization and Inappropriate Insulin Secretion",
+      "Profound Hypoketotic Hypoglycemia and Neuroglycopenia"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "type B pancreatic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000169"
+    ],
+    "biological_processes": [
+      "fatty acid beta-oxidation",
+      "insulin secretion",
+      "positive regulation of insulin secretion"
+    ],
+    "phenotypes": [
+      "Hyperinsulinemic hypoglycemia",
+      "Hypoketotic hypoglycemia",
+      "Seizure",
+      "Lethargy",
+      "Hypotonia",
+      "Intellectual disability",
+      "Microcephaly",
+      "Neonatal hypoglycemia",
+      "Postprandial hypoglycemia",
+      "Dicarboxylic aciduria",
+      "Elevated circulating acylcarnitine concentration"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Metabolic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000825",
+      "HP:0001985",
+      "HP:0001250",
+      "HP:0001254",
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0001998",
+      "HP:0012051",
+      "HP:0003215",
+      "HP:0045045"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HADH loss-of-function variants"
+    ],
+    "treatments": [
+      "Diazoxide",
+      "Chlorothiazide",
+      "Frequent Carbohydrate Feedings and Avoidance of Fasting",
+      "Dietary Protein Moderation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "3-Hydroxybutyrylcarnitine (C4-OH)",
+      "3-Hydroxyglutaric acid",
+      "Inappropriately elevated plasma insulin",
+      "Blood glucose"
+    ],
+    "source_file": "3-hydroxyacyl-CoA_Dehydrogenase_Deficiency.yaml",
+    "page_url": "../pages/disorders/3-Hydroxyacyl-CoA_Dehydrogenase_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "3-methylglutaconic_Aciduria_With_Deafness_Encephalopathy_And_Leigh-like_Syndrome",
     "disease_id": "MONDO:0013875",
     "category": "Mendelian",
@@ -75422,6 +75522,82 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Cone-rod dystrophy and hearing loss 1",
+    "disease_id": "MONDO:0020778",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited retinal dystrophy",
+      "Sensorineural hearing loss",
+      "Ciliopathy"
+    ],
+    "creation_date": "2026-09-11T11:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cone-rod dystrophy and hearing loss 1 is an autosomal recessive ciliopathy caused by biallelic CEP78 variants. It pairs a childhood- or adolescent-onset, cone-predominant cone-rod dystrophy with bilateral, postlingual, progressive sensorineural hearing loss, and in some affected males with sperm abnormalities causing infertility.\nThe unifying mechanism is centriolar. CEP78 sits at the distal end of the mature centriole, recruited there by the CEP350-FOP scaffold, and it acts on CP110 through the EDD1-DYRK2-DDB1 ubiquitin ligase. Cells lacking CEP78 have elevated CP110 and disordered ciliogenesis, and patient fibroblasts and nasal brushings show elongated primary cilia.\nHow CEP78 acts on that ligase is disputed, and the entry does not pick a side. The two papers that characterise it reach opposite conclusions - one has CEP78 inhibiting the ligase, which would make CEP78 loss increase CP110 ubiquitination, while the other has CEP78 recruiting it, which would make CEP78 loss decrease ubiquitination and so raise CP110. The elevated-CP110 observation is common ground and is what the pathograph rests on; the direction of the ubiquitination step is recorded as an open disagreement rather than resolved by picking the paper that fits. The three organs that fail are the three whose post-mitotic cells depend most on a centriole-derived structure: the photoreceptor connecting cilium, the cochlear hair cell, and the sperm flagellum. Why the eye is affected first and hardest has a partial anatomical answer - CEP78 labels cone inner segments more intensely than rods - which is unusually satisfying for a ciliopathy.\nIt is deliberately not Usher syndrome, and the distinction is clinical as well as genetic: Usher syndrome is rod-first with congenital hearing loss, while this is cone-first with postlingual, progressive loss. Misdiagnosis as Usher syndrome is documented and the founding authors flag it.\nOn scope. MONDO:0014980 \"cone-rod dystrophy and hearing loss\" xrefs OMIM phenotypic series OMIMPS:617236 and has exactly two descendants: this entry's term and MONDO:0020780 (CEP250), which dismech already curates as Cone-rod_Dystrophy_And_Hearing_Loss_2. Curating the series term would have duplicated that entry, so this is the CEP78 member, named to match its sibling. See notes.",
+    "pathophysiology": [
+      "Biallelic CEP78 Loss-of-Function Variants",
+      "Loss of CEP78 from the Distal End of the Mature Centriole",
+      "Elevated CP110 and Disordered Cilium Assembly",
+      "Photoreceptor Connecting Cilium Dysfunction",
+      "Cochlear Hair Cell Dysfunction",
+      "Sperm Flagellar Defect"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "auditory hair cell",
+      "sperm"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000202",
+      "CL:0000019"
+    ],
+    "biological_processes": [
+      "cilium assembly",
+      "protein ubiquitination"
+    ],
+    "phenotypes": [
+      "Cone/cone-rod dystrophy",
+      "Progressive sensorineural hearing impairment",
+      "Male infertility",
+      "Abnormal sperm morphology"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Otologic",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0000408",
+      "HP:0003251",
+      "HP:0012864"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CEP78"
+    ],
+    "treatments": [
+      "Cochlear implantation",
+      "Low-vision rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cone-rod_Dystrophy_And_Hearing_Loss_1.yaml",
+    "page_url": "../pages/disorders/Cone-rod_dystrophy_and_hearing_loss_1.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Cone-rod dystrophy and hearing loss 2",
     "disease_id": "MONDO:0020780",
     "category": "Mendelian",
@@ -98829,6 +99005,100 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Dyskeratosis Congenita Autosomal Recessive 8",
+    "disease_id": "MONDO:0859319",
+    "category": "Mendelian",
+    "parents": [
+      "Dyskeratosis Congenita"
+    ],
+    "creation_date": "2026-09-11T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A telomere biology disorder in which dyskeratosis congenita is produced not by a defect in telomere machinery but by a defect in nucleotide supply. Patients have the classic mucocutaneous triad and progressive bone marrow failure, and the cause is severe germline thymidylate synthase deficiency.\nIts genetic architecture is the reason this entry exists as its own record rather than as a row under the parent dyskeratosis congenita entry. It is **digenic**, and in an unusual configuration. An affected child inherits a loss-of-function coding variant in TYMS from one parent, and from the other a specific haplotype carrying rare variants in ENOSF1 - the naturally occurring antisense regulator transcribed from the opposite strand of the same locus. Elevated ENOSF1 silences the remaining wild-type TYMS allele post-transcriptionally. So the disease presents as recessive, and both parents are unaffected, yet one of them has an entirely wild-type TYMS coding sequence. Standard recessive segregation is not observed and a single-gene panel will not find it.\nTwo things follow that shaped how this was curated.\nThe mechanism runs through nucleotide metabolism rather than through the telomere. TYMS catalyses the only de novo route to dTMP; losing it depletes the thymidine nucleotide pool, distorts the dNTP balance, and produces genotoxic stress and defective transcription, from which abnormal telomere maintenance follows. The entry orders the chain that way, because the order is what makes this disease mechanistically different from the shelterin and telomerase forms of dyskeratosis congenita that it is clinically indistinguishable from.\nAnd there is a directly actionable pharmacogenomic consequence. Thymidylate synthase is the target of fluoropyrimidines, and patient cells are hypersensitive to 5-fluorouracil. Given that dyskeratosis congenita carries a raised risk of squamous cell carcinoma, a patient with this genotype may well be offered exactly the drug class their cells cannot tolerate.\n**A note on this entry's identifier.** MONDO asserts a causal-gene relationship from MONDO:0859319 to DCLRE1B (`MONDO:0859319 RO:0004003 HGNC:17641`). That assertion is wrong. OMIM 620133, to which MONDO:0859319 is mapped `equivalentTo`, is the TYMS-ENOSF1 entity defined by Tummala et al. DCLRE1B/Apollo is a real telomere gene with a real human phenotype, but it is a different one. This entry curates the disease OMIM 620133 describes; see the discussion below.",
+    "pathophysiology": [
+      "Digenic TYMS-ENOSF1 Genotype",
+      "ENOSF1-Mediated Silencing of the Wild-Type TYMS Allele",
+      "Severe Thymidylate Synthase Deficiency",
+      "Deoxyribonucleotide Pool Imbalance",
+      "Genotoxic Stress and Defective Transcription",
+      "Abnormal Telomere Maintenance",
+      "Antimetabolite Hypersensitivity",
+      "Dyskeratosis Congenita Phenotype"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "antisense silencing of TYMS by ENOSF1",
+      "de novo dTMP biosynthesis",
+      "DNA damage response to nucleotide misincorporation",
+      "telomere maintenance"
+    ],
+    "phenotypes": [
+      "Abnormal Skin Pigmentation",
+      "Nail Dystrophy",
+      "Oral Leukoplakia",
+      "Bone Marrow Failure",
+      "Decreased Circulating Immunoglobulin",
+      "Cutaneous Malignancy",
+      "Abnormal Dentition",
+      "Sparse Hair",
+      "Short Telomere Length"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Oral",
+      "Hematologic",
+      "Immunologic",
+      "Neoplastic",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0007427",
+      "HP:0008404",
+      "HP:0002745",
+      "HP:0005528",
+      "HP:0004313",
+      "HP:0008069",
+      "HP:0000164",
+      "HP:0008070",
+      "HP:0031413"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TYMS",
+      "ENOSF1"
+    ],
+    "treatments": [
+      "Avoidance of Fluoropyrimidines and Hydroxyurea",
+      "Malignancy Surveillance",
+      "Androgen Therapy and Hematopoietic Cell Transplantation",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dyskeratosis_Congenita_Autosomal_Recessive_8.yaml",
+    "page_url": "../pages/disorders/Dyskeratosis_Congenita_Autosomal_Recessive_8.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Dyslexia",
     "disease_id": "MONDO:0005489",
     "category": "Complex",
@@ -114406,7 +114676,7 @@ window.searchData = [
       "fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000542",
+      "CL:0017006",
       "CL:0011020",
       "CL:0000681",
       "CL:0000540",
@@ -114438,9 +114708,13 @@ window.searchData = [
       "Seizures",
       "Cryptorchidism",
       "Dental Anomalies",
+      "Cardiovascular Defects",
+      "Hair Abnormalities",
       "Renal Hypoplasia",
       "Renal Cysts",
-      "Hypopigmented and Hyperpigmented Macules",
+      "Renal Cortical Thinning",
+      "Hypomelanotic Macules",
+      "Hypermelanotic Macules",
       "Talipes Equinovarus"
     ],
     "phenotype_categories": [
@@ -114450,10 +114724,12 @@ window.searchData = [
       "Craniofacial",
       "Genitourinary",
       "Dental",
-      "Renal",
-      "Dermatologic"
+      "Cardiovascular",
+      "Dermatologic",
+      "Renal"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Genitourinary",
       "Growth",
       "Head and Neck",
@@ -114478,9 +114754,13 @@ window.searchData = [
       "HP:0001250",
       "HP:0000028",
       "HP:0000164",
+      "HP:0001626",
+      "HP:0001595",
       "HP:0000089",
       "HP:0000107",
-      "HP:0001053",
+      "HP:0011035",
+      "HP:0009719",
+      "HP:0001034",
       "HP:0001762"
     ],
     "frequencies": [
@@ -114502,7 +114782,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Filippi_Syndrome.yaml",
     "page_url": "../pages/disorders/Filippi_Syndrome.html",
-    "num_phenotypes": 19,
+    "num_phenotypes": 23,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
@@ -183336,6 +183616,102 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Marshall Syndrome",
+    "disease_id": "MONDO:0007949",
+    "category": "Mendelian",
+    "parents": [
+      "Type XI collagenopathy",
+      "Hereditary connective tissue disorder",
+      "Skeletal dysplasia"
+    ],
+    "creation_date": "2026-09-11T11:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Marshall syndrome is a dominantly inherited type XI collagenopathy caused by heterozygous COL11A1 variants, presenting from infancy with midfacial hypoplasia and a depressed nasal bridge, high myopia with congenital or juvenile cataract and vitreoretinal degeneration, and an early, severe, progressive sensorineural hearing loss that is predominantly cochlear. Short stature, cleft palate and early-onset osteoarthritis complete the picture.\nThe mechanism is dominant negative rather than haploinsufficient, and that distinction is what organises the rest of the entry. The characteristic variant class is a splice-site change at one of the 54-bp exons in the C-terminal region of COL11A1. Because collagen exons are sized to keep the Gly-Xaa-Yaa repeat in register, skipping one leaves the message in frame, so the cell makes a shortened but stable proalpha1(XI) chain that still co-assembles into the collagen XI heterotrimer and poisons it. Collagen XI templates the diameter of heterotypic collagen II/XI fibrils, so the consequences fall on the three tissues that depend most on precisely organised fibrils: growth-plate cartilage, the ocular vitreous, and the membranous labyrinth.\nWhether Marshall syndrome is a disease distinct from Stickler syndrome type 2 has been argued since the 1970s, and dismech does not treat the question as closed. The two are allelic - both are COL11A1 - and individual patients with features of both are reported repeatedly, including within a single family. What supports separating them is a genotype-phenotype correlation (the 54-bp C-terminal splice class tracks the Marshall end) and an audiological one (the hearing loss is earlier and more severe than in Stickler type 1). The entry records the correlation, the overlap, and a published argument that the two are one entity, rather than asserting the split and leaving the dissent out.\nA practical warning, because it is a live source of error rather than a curiosity: the eponym \"Marshall syndrome\" is also used for PFAPA (periodic fever, aphthous stomatitis, pharyngitis, adenitis) and for acquired cutis laxa type II. Neither has anything to do with COL11A1. A literature search on the name alone returns all three.",
+    "pathophysiology": [
+      "Heterozygous COL11A1 54-bp Exon Splice-Site Variant",
+      "In-Frame Exon Skipping and a Shortened proalpha1(XI) Chain",
+      "Dominant-Negative Poisoning of the Collagen XI Heterotrimer",
+      "Defective Heterotypic Collagen II/XI Fibril Assembly",
+      "Growth Plate Chondrocyte Disorganization",
+      "Vitreoretinal Collagen Matrix Defect",
+      "Membranous Labyrinth Collagen Defect"
+    ],
+    "cell_types": [
+      "growth plate cartilage chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "collagen fibril organization",
+      "cartilage development"
+    ],
+    "phenotypes": [
+      "Midface retrusion",
+      "Depressed nasal bridge",
+      "High myopia",
+      "Cataract",
+      "Retinal detachment",
+      "Progressive sensorineural hearing impairment",
+      "Cleft palate",
+      "Short stature",
+      "Premature osteoarthritis",
+      "Glaucoma",
+      "Ectopia lentis"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Ophthalmologic",
+      "Otologic",
+      "Growth",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011800",
+      "HP:0005280",
+      "HP:0011003",
+      "HP:0000518",
+      "HP:0000541",
+      "HP:0000408",
+      "HP:0000175",
+      "HP:0004322",
+      "HP:0003088",
+      "HP:0000501",
+      "HP:0001083"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL11A1"
+    ],
+    "treatments": [
+      "Retinal surveillance and prophylactic retinal intervention",
+      "Hearing amplification and cochlear implantation",
+      "Joint replacement for degenerative arthropathy",
+      "Cataract surgery",
+      "Genetic counselling"
+    ],
+    "environmental": [
+      "Ocular or head trauma, including contact sports"
+    ],
+    "biochemical": [],
+    "source_file": "Marshall_Syndrome.yaml",
+    "page_url": "../pages/disorders/Marshall_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Mayer-Rokitansky-Kuster-Hauser_Syndrome",
@@ -286225,10 +286601,15 @@ window.searchData = [
       "Alternative Oncogenic Pathways",
       "DNA Repair Deficiency",
       "Genomic Instability",
+      "Macrophage-Mediated Immune Suppression",
       "Aggressive Tumor Behavior"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "M1 macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000863"
+    ],
     "biological_processes": [
       "estrogen receptor signaling pathway",
       "epidermal growth factor receptor signaling pathway",
@@ -286236,6 +286617,8 @@ window.searchData = [
       "homologous recombination",
       "DNA damage response",
       "chromosome segregation",
+      "inflammatory response",
+      "M1 macrophage polarization",
       "cell population proliferation"
     ],
     "phenotypes": [
@@ -286280,10 +286663,10 @@ window.searchData = [
     "source_file": "Triple_Negative_Breast_Cancer.yaml",
     "page_url": "../pages/disorders/Triple-Negative_Breast_Cancer.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
   },
   {
@@ -290181,28 +290564,48 @@ window.searchData = [
     ],
     "creation_date": "2026-06-22T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "MED12-mutant",
+      "HMGA2-rearranged",
+      "FH-deficient"
+    ],
     "description": "Uterine leiomyomas are benign monoclonal smooth muscle tumors that arise from a single myometrial cell acquiring a driver mutation in MED12, HMGA2, or FH. Ovarian estrogen and progesterone then drive smooth muscle proliferation and abundant extracellular matrix deposition during each ovulatory cycle. Progressive tumor growth distorts the uterus, producing abnormal uterine bleeding, bulk symptoms, and reproductive complications.",
     "pathophysiology": [
       "Driver Mutation-Initiated Clonal Transformation",
-      "Hormone-Driven Myometrial Smooth Muscle Proliferation and ECM Deposition",
-      "Tumor Growth and Clinical Manifestations"
+      "Hormone-Driven Myometrial Smooth Muscle Proliferation",
+      "Fumarate Accumulation in FH-Deficient Leiomyoma",
+      "Pseudohypoxic HIF Stabilization in FH-Deficient Leiomyoma",
+      "Excessive Extracellular Matrix Deposition and Tissue Stiffening",
+      "Aberrant Pseudocapsule Angiogenesis and Venous Ectasia",
+      "Endometrial Hemostatic Failure and Impaired Vessel Closure",
+      "Tumor Growth and Clinical Manifestations",
+      "Bulk Compression of Adjacent Pelvic Organs"
     ],
     "cell_types": [
       "myometrial smooth muscle cell",
       "tumor-associated fibroblast",
-      "leiomyoma smooth muscle cell"
+      "leiomyoma smooth muscle cell",
+      "endothelial cell",
+      "endometrial stromal cell"
     ],
     "cell_type_ids": [
       "CL:0002366",
       "CL:0000057",
-      "CL:0000192"
+      "CL:0000192",
+      "CL:0000115",
+      "CL:0002255"
     ],
     "biological_processes": [
       "Wnt/beta-catenin signaling dysregulation",
       "smooth muscle cell proliferation",
       "progesterone receptor signaling",
-      "excessive extracellular matrix deposition"
+      "tricarboxylic acid cycle",
+      "excessive extracellular matrix deposition",
+      "collagen fibril organization",
+      "TGF-beta receptor signaling",
+      "angiogenesis",
+      "endometrial hemostatic plug formation",
+      "endometrial decidualization"
     ],
     "phenotypes": [
       "Uterine Leiomyoma",
@@ -290211,7 +290614,12 @@ window.searchData = [
       "Dysmenorrhea",
       "Iron Deficiency Anemia",
       "Infertility and Reproductive Morbidity",
-      "Constipation from Bulk Compression"
+      "Constipation from Bulk Compression",
+      "Urinary Frequency",
+      "Dyspareunia",
+      "Pelvic Mass",
+      "Recurrent Pregnancy Loss",
+      "Preterm Birth"
     ],
     "phenotype_categories": [
       "Clinical"
@@ -290221,7 +290629,8 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Genitourinary",
-      "Neoplasm"
+      "Neoplasm",
+      "Prenatal and Birth"
     ],
     "phenotype_ids": [
       "HP:0000131",
@@ -290230,7 +290639,11 @@ window.searchData = [
       "HP:0100607",
       "HP:0001891",
       "HP:0000789",
-      "HP:0002019"
+      "HP:0002019",
+      "HP:0100515",
+      "HP:0030016",
+      "HP:0031501",
+      "HP:0001622"
     ],
     "frequencies": [],
     "genes": [
@@ -290242,6 +290655,7 @@ window.searchData = [
       "GnRH Agonist Therapy",
       "Oral GnRH Antagonist Therapy",
       "Selective Progesterone Receptor Modulator Therapy",
+      "Mifepristone",
       "Tranexamic Acid",
       "Nonsteroidal Anti-Inflammatory Drugs",
       "Levonorgestrel Intrauterine System",
@@ -290253,16 +290667,22 @@ window.searchData = [
       "Radiofrequency Ablation",
       "Iron Replacement Therapy"
     ],
-    "environmental": [],
+    "environmental": [
+      "Chronic low vitamin D status",
+      "Developmental exposure to endocrine-disrupting chemicals",
+      "Obesity and excess adiposity",
+      "Alcohol consumption",
+      "Parity"
+    ],
     "biochemical": [],
     "source_file": "Uterine_Leiomyoma.yaml",
     "page_url": "../pages/disorders/Uterine_Leiomyoma.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
     "num_genes": 3,
-    "num_treatments": 13,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 14,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Uveal Coloboma-Cleft Lip and Palate-Intellectual Disability Syndrome",
@@ -301362,17 +301782,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2905,
-  "total_subtypes": 3723,
-  "total_disorders_and_subtypes": 6628,
-  "total_unique_evidence_sources": 40878,
-  "total_unique_publications": 38524,
+  "total_disorder_pages": 2909,
+  "total_subtypes": 3726,
+  "total_disorders_and_subtypes": 6635,
+  "total_unique_evidence_sources": 40931,
+  "total_unique_publications": 38575,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2900,
-  "total_unique_pathological_events": 17488,
+  "total_pathographs": 2904,
+  "total_unique_pathological_events": 17522,
   "total_modules": 174,
-  "total_research_reports": 3027,
+  "total_research_reports": 3033,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
