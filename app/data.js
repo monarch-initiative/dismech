@@ -30503,6 +30503,86 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Autosomal Dominant Nonsyndromic Hearing Loss 25",
+    "disease_id": "MONDO:0011568",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Nonsyndromic Hearing Loss",
+      "Hereditary Hearing Loss"
+    ],
+    "creation_date": "2026-09-01T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Delayed-onset, progressive, predominantly high-frequency sensorineural hearing loss caused by heterozygous variants in SLC17A8, which encodes vesicular glutamate transporter 3 (VGLUT3). VGLUT3 is the transporter that fills the synaptic vesicles of the cochlear inner hair cell with glutamate before they are released onto the auditory nerve terminal, so the gene sits at the very first synapse of hearing. Among the three vesicular glutamate transporters it is the only one expressed in inner hair cells, which is why a defect in it produces deafness and almost nothing else.\nTwo things make this entry worth reading rather than filing as one more DFNA locus.\nThe first is that the gene's function makes DFNA25 look like an auditory synaptopathy and the patients do not behave like one. The Slc17a8 null mouse is a textbook synaptopathy: otoacoustic emissions are robust, sound-evoked auditory-nerve responses are absent, and brainstem responses can still be driven electrically, so the cochlear amplifier is intact and the step after it is not. The knock-in mouse carrying the actual human allele has intact emissions too. But in the patients carrying that same allele, otoacoustic emissions are absent - the opposite result - and the knock-in study concludes on that basis that DFNA25 is more likely a progressive hearing loss than an auditory neuropathy. Whether those absent emissions are the disease or a lifetime of accumulated noise exposure is unresolved, and it is the question that decides which class this disease belongs to.\nThe second is that the two mouse models disagree about where the lesion starts. The null points at vesicle filling. The knock-in points at the hair bundle: inner hair cell stereocilia collapse while outer hair cell bundles do not, the summating potential falls, and the synaptic changes - oversized ribbons, a faster sustained release rate - appear later. That is mechanistically surprising, because VGLUT3 is not present in inner hair cell stereocilia and its loss does not affect transducer activity, so no route from the transporter to the bundle is established. This entry curates both accounts as hypothesis groups rather than choosing between them.\nThe third is that neither mouse has the genotype a patient has. Both are homozygous. The heterozygous knock-in - the genotype that matches a DFNA25 carrier - has only mild hearing impairment, which its authors note contrasts with the dominant transmission seen in the human families. Because truncating and splice alleles have since been reported in dominant families too, the allelic mechanism has to be argued case by case rather than assumed from the gene.\nClinically the disease is easy to miss. It is postlingual, slowly progressive and high-frequency, which is the audiometric shape of presbycusis and of noise damage, and the founding clinical study says in as many words that separating it from those is difficult. Penetrance is age-dependent and, in the original kindred, appeared to depend on which parent transmitted the haplotype.",
+    "pathophysiology": [
+      "Heterozygous SLC17A8 Variant",
+      "Altered VGLUT3 Function in the Inner Hair Cell",
+      "Impaired Glutamate Release at the Inner Hair Cell Ribbon Synapse",
+      "Inner Hair Cell Stereocilia Bundle Disruption",
+      "Reduced Inner Hair Cell Receptor Potential",
+      "Synaptic Ribbon Enlargement and Altered Sustained Exocytosis",
+      "Failure of Auditory Nerve Activation with Preserved Cochlear Amplification",
+      "Secondary Deafferentation of the Inner Hair Cell"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "type 1 spiral ganglion neuron",
+      "cochlear outer hair cell",
+      "spiral ganglion neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:4023115",
+      "CL:0000601",
+      "CL:0011113"
+    ],
+    "biological_processes": [
+      "glutamate loading into inner hair cell synaptic vesicles",
+      "glutamate secretion at the inner hair cell afferent synapse",
+      "inner hair cell stereocilium bundle organization",
+      "mechanotransduction in the inner hair cell hair bundle",
+      "sustained glutamate release from the inner hair cell ribbon synapse",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Progressive High-Frequency Sensorineural Hearing Loss",
+      "Postlingual Delayed Onset",
+      "Age-Dependent Penetrance",
+      "Absent Otoacoustic Emissions",
+      "Absence of Syndromic Features"
+    ],
+    "phenotype_categories": [
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0001757",
+      "HP:0008596",
+      "HP:6000182"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC17A8"
+    ],
+    "treatments": [
+      "Hearing Aids",
+      "Cochlear Implantation",
+      "AAV-mediated VGLUT3 Gene Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_25.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_25.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Autosomal Dominant Nonsyndromic Hearing Loss 2B",
     "disease_id": "MONDO:0012976",
     "category": "Mendelian",
@@ -63875,6 +63955,106 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Charcot-Marie-Tooth Disease Type 2B2",
+    "disease_id": "MONDO:0011570",
+    "category": "Mendelian",
+    "parents": [
+      "Charcot-Marie-Tooth Disease Type 2",
+      "Hereditary Motor and Sensory Neuropathy"
+    ],
+    "creation_date": "2026-09-08T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive, adult-onset, axonal sensorimotor polyneuropathy that was mapped in a large consanguineous Costa Rican family and is caused by biallelic loss of function in PNKP, the bifunctional DNA-repair enzyme polynucleotide kinase 3'-phosphatase.\nThe gene assignment has a history that this entry puts in front rather than in a footnote, because a reader who consults an older source will find the wrong gene. The locus was mapped to 19q13.3 in 2001; in 2009 an exhaustive Sanger screen of the interval found a single homozygous missense variant, MED25 p.Ala335Val, and MED25 was proposed as causative. No second CMT family with a MED25 variant was ever reported. Re-examining the same family by exome sequencing in 2018 found a homozygous nonsense variant in PNKP, p.Gln517ter, in the last exon of an adjacent gene inside the same linkage interval - a variant that the original screen had actually seen but discarded, because the PNKP annotation then in use placed it outside the coding sequence. Five further unrelated Costa Rican CMT2 patients who had been typed as MED25 heterozygotes turned out to be compound heterozygous for that PNKP allele and a second one, p.Thr408del, already associated with ataxia with oculomotor apraxia type 4. The MED25 and PNKP variants cosegregate on one ancestral founder haplotype, which is exactly why the first screen landed on the wrong one of the two. The ClinGen Charcot-Marie-Tooth Disease Gene Curation Expert Panel classified MED25-CMT2B2 as DISPUTED in 2021, noting among other things that the MED25 allele is homozygous in four unaffected gnomAD individuals.\nSo this is not a mapped locus without a gene. It is a mapped locus whose gene was misassigned and then corrected, and the corrected gene brings a mechanism with it. PNKP is a bifunctional end-processing enzyme: it phosphorylates 5' ends and dephosphorylates 3' ends to create the 5'-phosphate/3'-hydroxyl termini that DNA ligase requires. Loss of that activity leaves single-strand breaks unrepaired, and in cells from patients across the whole PNKP disease spectrum the measured deficit is specifically in single-strand break repair and not in double-strand break repair. The p.Gln517ter allele truncates the last five residues of a C-terminus that is buried between the kinase and phosphatase domains and contacts both, so the predicted consequence is destabilisation of the folded enzyme rather than removal of a catalytic residue.\nWhat makes CMT2B2 a distinct entity within that spectrum rather than a relabelling of it is severity and tissue distribution. PNKP variants also cause microcephaly with seizures and developmental delay (MCSZ) at the severe neurodevelopmental end, and ataxia with oculomotor apraxia type 4 (AOA4) in between. The CMT2B2 patients have neither microcephaly, seizures nor developmental delay; onset is in the third decade; and the leading problem is a severe length-dependent axonal sensorimotor neuropathy, with cerebellar involvement present but mild - slurred speech in all of them, oculomotor involvement in some, and cerebellar atrophy on MRI without brain or brainstem atrophy. The 2018 authors attribute that mildness to an allelic effect. A further observation from the biochemistry lines up with the clinical split without proving it: reduced PNKP phosphatase activity tracks with neurodevelopmental disease while reduced kinase activity tracks with neurodegeneration. This entry records that correlation as a correlation.\nManagement is supportive and is not disease-specific; no CMT2B2 treatment study appears in the sources curated here.",
+    "pathophysiology": [
+      "Biallelic PNKP Loss-of-Function Variant",
+      "Destabilised PNKP C-Terminus and Loss of DNA End-Processing Activity",
+      "Impaired DNA Single-Strand Break Repair",
+      "Accumulation of Unrepaired Single-Strand Breaks in Post-Mitotic Neurons",
+      "Length-Dependent Peripheral Axonal Degeneration",
+      "Cerebellar Neuronal Injury",
+      "Adult-Onset Axonal Sensorimotor Polyneuropathy",
+      "Mild Cerebellar Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "fibroblast",
+      "sensory neuron",
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000057",
+      "CL:0000101",
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "single strand break repair",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Distal Muscle Weakness",
+      "Distal Amyotrophy",
+      "Areflexia",
+      "Distal Sensory Impairment",
+      "Pes Cavus and Hammertoes",
+      "Loss of Ambulation",
+      "Dysarthria",
+      "Oculomotor Apraxia",
+      "Cerebellar Atrophy",
+      "Claw Hand Deformity",
+      "Scoliosis",
+      "Gait Ataxia",
+      "Absence of Microcephaly, Seizures and Developmental Delay"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002460",
+      "HP:0003693",
+      "HP:0001284",
+      "HP:0002936",
+      "HP:0001761",
+      "HP:0002505",
+      "HP:0001260",
+      "HP:0000657",
+      "HP:0001272",
+      "HP:0034337",
+      "HP:0002650",
+      "HP:0002066"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "PNKP",
+      "MED25"
+    ],
+    "treatments": [
+      "Physiotherapy, orthoses and rehabilitation",
+      "Genetic counselling and cascade testing",
+      "Avoidance of neurotoxic medications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Type_2B2.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2B2.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type 4",
@@ -160699,6 +160879,112 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Johanson-Blizzard syndrome",
+    "disease_id": "MONDO:0009479",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Johanson-Blizzard syndrome (JBS) is a rare autosomal recessive multisystem disorder caused by biallelic loss-of-function variants in UBR1, which encodes one of the E3 ubiquitin ligases of the N-end rule (Arg/N-degron) branch of the ubiquitin-proteasome system. Its clinical hallmark is congenital exocrine pancreatic insufficiency together with hypoplasia or aplasia of the nasal alae, aplasia cutis of the scalp, oligodontia of the permanent teeth, sensorineural hearing loss, short stature and variable intellectual disability; hypothyroidism, other endocrinopathies including later-onset diabetes, and cardiac, genitourinary and anorectal malformations occur in a subset. In affected individuals the pancreas does not express UBR1 and shows an intrauterine-onset destructive pancreatitis with acinar loss and fibro-fatty replacement, so exocrine failure is largely established by birth. The proximate molecular defect is failure of regulated N-degron proteolysis, but the specific disease-relevant substrate(s) stabilized in human pancreas and in the developing craniofacial, cochlear and endocrine tissues remain undefined; missense alleles that retain partial catalytic activity are associated with milder disease.",
+    "pathophysiology": [
+      "Biallelic UBR1 Loss of Function",
+      "Impaired N-end Rule Proteolysis",
+      "Intrauterine Destructive Pancreatitis",
+      "Exocrine Pancreatic Failure",
+      "Malabsorption and Failure to Thrive",
+      "Multisystem Developmental and Organ Dysfunction"
+    ],
+    "cell_types": [
+      "pancreatic acinar cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002064"
+    ],
+    "biological_processes": [
+      "N-end rule pathway proteolysis",
+      "dysregulated acinar cell apoptosis"
+    ],
+    "phenotypes": [
+      "Exocrine pancreatic insufficiency",
+      "Hypoplasia of the nasal alae",
+      "Aplasia cutis congenita of scalp",
+      "Oligodontia",
+      "Sensorineural hearing loss",
+      "Hypothyroidism",
+      "Short stature",
+      "Failure to thrive",
+      "Intellectual disability",
+      "Microcephaly",
+      "Anal atresia",
+      "Congenital heart defect",
+      "Genitourinary anomaly"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Craniofacial",
+      "Integumentary",
+      "Dental",
+      "Auditory",
+      "Endocrine",
+      "Growth",
+      "Neurologic",
+      "Cardiovascular",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001738",
+      "HP:0000430",
+      "HP:0007385",
+      "HP:0000677",
+      "HP:0000407",
+      "HP:0000821",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0002023",
+      "HP:0001627",
+      "HP:0000119"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "UBR1"
+    ],
+    "treatments": [
+      "Pancreatic enzyme replacement and fat-soluble vitamin supplementation",
+      "Levothyroxine replacement",
+      "Cochlear device implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Johanson-Blizzard_Syndrome.yaml",
+    "page_url": "../pages/disorders/Johanson-Blizzard_syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Joint Laxity, Short Stature, and Myopia",
@@ -302858,17 +303144,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2918,
+  "total_disorder_pages": 2921,
   "total_subtypes": 3728,
-  "total_disorders_and_subtypes": 6646,
-  "total_unique_evidence_sources": 41050,
-  "total_unique_publications": 38690,
+  "total_disorders_and_subtypes": 6649,
+  "total_unique_evidence_sources": 41071,
+  "total_unique_publications": 38709,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2913,
-  "total_unique_pathological_events": 17589,
+  "total_pathographs": 2916,
+  "total_unique_pathological_events": 17609,
   "total_modules": 174,
-  "total_research_reports": 3042,
+  "total_research_reports": 3045,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
