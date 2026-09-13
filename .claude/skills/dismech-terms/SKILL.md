@@ -14,6 +14,11 @@ description: >
 Follow the session-wide ontology and cache contract in `CLAUDE.md`. Use this
 workflow for each concrete term decision.
 
+For GO assignments whose biological meaning or experimental support is in
+question, also use [go-assignment](../go-assignment/SKILL.md). It covers mechanism
+coherence and optional consultation of AIGR gene reviews; the checks below still
+govern identifiers, labels, and descriptor placement.
+
 ## Core workflow
 
 ### 1. Inspect the field and its range
