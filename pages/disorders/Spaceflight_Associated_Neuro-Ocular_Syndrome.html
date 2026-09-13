@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Spaceflight Associated Neuro-Ocular Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Spaceflight Associated Neuro-Ocular Syndrome</h1>
             <div class="header-meta">
 
@@ -3654,7 +3801,7 @@
 
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Spaceflight%20Associated%20Neuro-Ocular%20Syndrome"
@@ -3817,7 +3964,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3896,18 +4043,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves vascular endothelial cell, annotated with blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         vascular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular endothelial cell, annotated with blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3935,18 +4084,20 @@ This pathophysiological event involves vascular endothelial cell, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cerebrospinal fluid circulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go">GO:0090660</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0090660</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3985,7 +4136,9 @@ This pathophysiological event involves cerebrospinal fluid circulation (GO:00906
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4007,7 +4160,9 @@ This pathophysiological event involves cerebrospinal fluid circulation (GO:00906
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39827235" target="_blank">PMID:39827235</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4029,7 +4184,9 @@ This pathophysiological event involves cerebrospinal fluid circulation (GO:00906
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33335101" target="_blank">PMID:33335101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4063,18 +4220,20 @@ This pathophysiological event involves cerebrospinal fluid circulation (GO:00906
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4091,18 +4250,20 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal astrocyte (CL:4033015). CL:4033015 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4033015" target="_blank" class="curie-chip curie-chip-cl">CL:4033015</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4033015" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:4033015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal astrocyte (CL:4033015). CL:4033015 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4130,18 +4291,20 @@ This pathophysiological event involves retinal astrocyte (CL:4033015). CL:403301
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326). GO:0033326 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cerebrospinal fluid secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033326" target="_blank" class="curie-chip curie-chip-go">GO:0033326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0033326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326). GO:0033326 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4180,7 +4343,9 @@ This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4202,7 +4367,9 @@ This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33117025" target="_blank">PMID:33117025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4224,7 +4391,9 @@ This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33335101" target="_blank">PMID:33335101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4258,18 +4427,20 @@ This pathophysiological event involves cerebrospinal fluid secretion (GO:0033326
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4330,7 +4501,9 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083526" target="_blank">PMID:33083526</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4346,13 +4519,15 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33083526" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33083526" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083526" target="_blank">PMID:33083526</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4411,7 +4586,9 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33117025" target="_blank">PMID:33117025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4445,18 +4622,20 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves choroidal cell of the eye (CL:0000348). CL:0000348 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         choroidal cell of the eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000348" target="_blank" class="curie-chip curie-chip-cl">CL:0000348</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000348" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000348</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal cell of the eye (CL:0000348). CL:0000348 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4502,7 +4681,9 @@ This pathophysiological event involves choroidal cell of the eye (CL:0000348). C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4524,7 +4705,9 @@ This pathophysiological event involves choroidal cell of the eye (CL:0000348). C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4558,18 +4741,20 @@ This pathophysiological event involves choroidal cell of the eye (CL:0000348). C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4597,18 +4782,20 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4662,7 +4849,9 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34179686" target="_blank">PMID:34179686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4684,7 +4873,9 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31527661" target="_blank">PMID:31527661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4718,18 +4909,20 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4757,18 +4950,20 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves phototransduction (GO:0007602). GO:0007602 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phototransduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" class="curie-chip curie-chip-go">GO:0007602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007602</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves phototransduction (GO:0007602). GO:0007602 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4807,7 +5002,9 @@ This pathophysiological event involves phototransduction (GO:0007602). GO:000760
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31527661" target="_blank">PMID:31527661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4855,7 +5052,7 @@ This pathophysiological event involves phototransduction (GO:0007602). GO:000760
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CSF Compartmentalization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compartmentalization of CSF within the orbital subarachnoid space may create a pressure differential that contributes to optic disc edema independently of overall ICP elevation. The cul-de-sac anatomy of the optic nerve sheath may act as a one-way valve, trapping CSF and elevating local pressure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Optic Nerve Sheath Distension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distension of the optic nerve sheath with increased cerebrospinal fluid, visualized on MRI and ultrasound, reflecting elevated perioptic subarachnoid space pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6001281\"}}, {\"id\": \"Retinal Gene Expression Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spaceflight induces gene expression changes in retinal tissue, with differentially expressed genes enriched for phototransduction and photoreceptor phenotypes. These transcriptomic changes are downstream consequences of oxidative stress and epigenetic alterations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"phototransduction\"]}}, {\"id\": \"Retinal Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spaceflight induces oxidative stress-related damage in retinal tissue. Epigenetic alterations and pathway changes associated with retinal disease have been documented in murine models of spaceflight exposure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"response to oxidative stress\"]}}], \"edges\": [{\"source\": \"Optic Nerve Sheath Distension\", \"target\": \"CSF Compartmentalization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic nerve sheath distension may contribute to compartmentalization of CSF within the orbital subarachnoid space.\"}, {\"source\": \"Retinal Oxidative Stress\", \"target\": \"Retinal Gene Expression Changes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress drives downstream transcriptomic reprogramming in retinal tissue.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CSF Compartmentalization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compartmentalization of CSF within the orbital subarachnoid space may create a pressure differential that contributes to optic disc edema independently of overall ICP elevation. The cul-de-sac anatomy of the optic nerve sheath may act as a one-way valve, trapping CSF and elevating local pressure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cephalad Fluid Shift in Microgravity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In microgravity, the absence of hydrostatic pressure gradients causes a redistribution of body fluids toward the head. This cephalad fluid shift increases venous pressure in the head and neck, elevates intracranial pressure, and contributes to optic disc edema and posterior globe flattening.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular endothelial cell\"], \"biological_processes\": [\"cerebrospinal fluid circulation\"]}}, {\"id\": \"Elevated Ambient Carbon Dioxide\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The ISS cabin atmosphere contains CO2 levels higher than terrestrial ambient (typically 2-5 mmHg vs \u003c1 mmHg on Earth). Elevated CO2 causes cerebral vasodilation, which may exacerbate intracranial pressure elevation and contribute to SANS pathology.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Elevated Intracranial Pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic mildly elevated intracranial pressure during long-duration spaceflight is hypothesized to transmit along the optic nerve sheath, compressing the optic nerve and causing papilledema, globe flattening, and choroidal folds. Unlike terrestrial idiopathic intracranial hypertension, the ICP elevation in SANS is typically mild and not associated with severe headaches.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal ganglion cell\", \"retinal astrocyte\"], \"biological_processes\": [\"cerebrospinal fluid secretion\"]}}, {\"id\": \"Microgravity Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prolonged exposure to microgravity during spaceflight is the primary environmental factor driving SANS. The condition is predominantly seen after missions of 6 months or longer aboard the International Space Station. Over the last 10 years, approximately 1 in 3 astronauts flying long-duration ISS missions have presented with one or more SANS findings.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Optic Nerve Sheath Distension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distension of the optic nerve sheath with increased cerebrospinal fluid, visualized on MRI and ultrasound, reflecting elevated perioptic subarachnoid space pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6001281\"}}, {\"id\": \"Retinal Gene Expression Changes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spaceflight induces gene expression changes in retinal tissue, with differentially expressed genes enriched for phototransduction and photoreceptor phenotypes. These transcriptomic changes are downstream consequences of oxidative stress and epigenetic alterations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"phototransduction\"]}}, {\"id\": \"Retinal Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spaceflight induces oxidative stress-related damage in retinal tissue. Epigenetic alterations and pathway changes associated with retinal disease have been documented in murine models of spaceflight exposure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"response to oxidative stress\"]}}], \"edges\": [{\"source\": \"Optic Nerve Sheath Distension\", \"target\": \"CSF Compartmentalization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic nerve sheath distension may contribute to compartmentalization of CSF within the orbital subarachnoid space.\"}, {\"source\": \"Retinal Oxidative Stress\", \"target\": \"Retinal Gene Expression Changes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress drives downstream transcriptomic reprogramming in retinal tissue.\"}, {\"source\": \"Microgravity Exposure\", \"target\": \"Cephalad Fluid Shift in Microgravity\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Microgravity is not a risk factor for this entry, it is the condition without which none of it happens, and the node is named for it. Direct because the step is mechanical rather than biological: removing the hydrostatic gradient redistributes fluid headward, which is what the node describes. The fetched item is the authors\u0027 own conclusion and names both ends of this edge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Ambient Carbon Dioxide\", \"target\": \"Elevated Intracranial Pressure\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"The two slots here are deliberately telling different stories, and the difference is the point. The link type is known because the schema asks what the field knows: hypercapnic cerebral vasodilation raising intracranial pressure is well-characterised physiology, and this exposure\u0027s own description names that step. The predicate is the weaker one because it answers a different question, whether that edge operates in this population at cabin concentrations, which the source declines to say. Recorded as modulating rather than predisposing on the source\u0027s own instruction. The exposure entry describes cabin carbon dioxide raising intracranial pressure through cerebral vasodilation, but the cited review states outright that the physiologic role of carbon dioxide remains ill defined and lists it among its open questions. Both items are carried so the candidate mechanism and the authors\u0027 refusal to commit to it travel together, and the predicate matches the weaker of the two.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4874,11 +5071,9 @@ This pathophysiological event involves phototransduction (GO:0007602). GO:000760
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4888,7 +5083,7 @@ This pathophysiological event involves phototransduction (GO:0007602). GO:000760
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-optic-disc-edema" data-dismech-node="Optic Disc Edema" data-dismech-type="phenotype">
@@ -4899,16 +5094,22 @@ This pathophysiological event involves phototransduction (GO:0007602). GO:000760
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Papilledema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001085</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype from the Human Phenotype Ontology.">
-                        Papilledema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" class="curie-chip curie-chip-hp">HP:0001085</a>
-
-
+This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4929,7 +5130,9 @@ This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4951,7 +5154,9 @@ This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31162175" target="_blank">PMID:31162175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4977,6 +5182,102 @@ This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype fro
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-nerve-fiber-layer-thickening" data-dismech-node="Retinal Nerve Fiber Layer Thickening" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Retinal Nerve Fiber Layer Thickening
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Retinal nerve fiber edema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0020120</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal nerve fiber layer thickening, annotated with Retinal nerve fiber edema (HP:0020120). HP:0020120 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21849212" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After 6 months of space flight, 7 astronauts had ophthalmic findings, consisting of disc edema in 5, globe flattening in 5, choroidal folds in 5, cotton wool spots (CWS) in 3, nerve fiber layer thickening by OCT in 6, and decreased near vision in 6 astronauts."</div>
+
+
+                <div class="evidence-explanation">Nerve fiber layer thickening on OCT was documented in 6 of 7 astronauts, the most frequent objective imaging finding in the landmark SANS cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32047839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patel et al. showed an increase in retinal nerve fiber layer (RNFL) thickness and total retinal thickness close to the optic nerve head margin consistent with optic disc edema"</div>
+
+
+                <div class="evidence-explanation">Quantitative OCT comparison of long-duration ISS astronauts with healthy controls confirmed increased RNFL and total retinal thickness near the optic nerve head after microgravity exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-posterior-globe-flattening" data-dismech-node="Posterior Globe Flattening" data-dismech-type="phenotype">
                     <div class="item-name">
                         Posterior Globe Flattening
@@ -4985,16 +5286,22 @@ This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal eye morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012372</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Posterior globe flattening, annotated with Abnormal eye morphology (HP:0012372). HP:0012372 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal eye morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012372" target="_blank" class="curie-chip curie-chip-hp">HP:0012372</a>
-
-
+This clinical feature is Posterior globe flattening, annotated with Abnormal eye morphology (HP:0012372). HP:0012372 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5015,7 +5322,9 @@ This clinical feature is Posterior globe flattening, annotated with Abnormal eye
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5049,16 +5358,22 @@ This clinical feature is Posterior globe flattening, annotated with Abnormal eye
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal choroid morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000610" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000610</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Choroidal folds, annotated with Abnormal choroid morphology (HP:0000610). HP:0000610 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal choroid morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000610" target="_blank" class="curie-chip curie-chip-hp">HP:0000610</a>
-
-
+This clinical feature is Choroidal folds, annotated with Abnormal choroid morphology (HP:0000610). HP:0000610 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5079,7 +5394,9 @@ This clinical feature is Choroidal folds, annotated with Abnormal choroid morpho
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5101,7 +5418,9 @@ This clinical feature is Choroidal folds, annotated with Abnormal choroid morpho
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5135,16 +5454,22 @@ This clinical feature is Choroidal folds, annotated with Abnormal choroid morpho
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Retinal cotton wool spot</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031606" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0031606</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Retinal cotton wool spots, annotated with Retinal cotton wool spot (HP:0031606). HP:0031606 is a phenotype from the Human Phenotype Ontology.">
-                        Retinal cotton wool spot
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031606" target="_blank" class="curie-chip curie-chip-hp">HP:0031606</a>
-
-
+This clinical feature is Retinal cotton wool spots, annotated with Retinal cotton wool spot (HP:0031606). HP:0031606 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5165,7 +5490,9 @@ This clinical feature is Retinal cotton wool spots, annotated with Retinal cotto
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5199,16 +5526,22 @@ This clinical feature is Retinal cotton wool spots, annotated with Retinal cotto
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypermetropia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000540</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperopic shift, annotated with Hypermetropia (HP:0000540). HP:0000540 is a phenotype from the Human Phenotype Ontology.">
-                        Hypermetropia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp">HP:0000540</a>
-
-
+This clinical feature is Hyperopic shift, annotated with Hypermetropia (HP:0000540). HP:0000540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5229,7 +5562,9 @@ This clinical feature is Hyperopic shift, annotated with Hypermetropia (HP:00005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5251,7 +5586,9 @@ This clinical feature is Hyperopic shift, annotated with Hypermetropia (HP:00005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5285,16 +5622,22 @@ This clinical feature is Hyperopic shift, annotated with Hypermetropia (HP:00005
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Optic nerve sheath dilatation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6001281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:6001281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic nerve sheath distension, annotated with Optic nerve sheath dilatation (HP:6001281). HP:6001281 is a phenotype from the Human Phenotype Ontology.">
-                        Optic nerve sheath dilatation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6001281" target="_blank" class="curie-chip curie-chip-hp">HP:6001281</a>
-
-
+This clinical feature is Optic nerve sheath distension, annotated with Optic nerve sheath dilatation (HP:6001281). HP:6001281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5315,7 +5658,9 @@ This clinical feature is Optic nerve sheath distension, annotated with Optic ner
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33083526" target="_blank">PMID:33083526</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5349,16 +5694,20 @@ This clinical feature is Optic nerve sheath distension, annotated with Optic ner
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced visual acuity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
-
-
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5379,7 +5728,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5401,7 +5752,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33117025" target="_blank">PMID:33117025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5444,16 +5797,22 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased intracranial pressure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002516</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.">
-                        Increased intracranial pressure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp">HP:0002516</a>
-
-
+This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5474,7 +5833,9 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5496,7 +5857,9 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30286250" target="_blank">PMID:30286250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5507,101 +5870,6 @@ This clinical feature is Increased intracranial pressure (HP:0002516). HP:000251
 
 
                 <div class="evidence-explanation">Confirms that astronauts exhibit symptoms consistent with elevated ICP due to absence of gravitational unloading during spaceflight.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-nerve-fiber-layer-thickening" data-dismech-node="Retinal Nerve Fiber Layer Thickening" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Retinal Nerve Fiber Layer Thickening
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Retinal nerve fiber layer thickening, annotated with Retinal nerve fiber edema (HP:0020120). HP:0020120 is a phenotype from the Human Phenotype Ontology.">
-                        Retinal nerve fiber edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020120" target="_blank" class="curie-chip curie-chip-hp">HP:0020120</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21849212" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"After 6 months of space flight, 7 astronauts had ophthalmic findings, consisting of disc edema in 5, globe flattening in 5, choroidal folds in 5, cotton wool spots (CWS) in 3, nerve fiber layer thickening by OCT in 6, and decreased near vision in 6 astronauts."</div>
-
-
-                <div class="evidence-explanation">Nerve fiber layer thickening on OCT was documented in 6 of 7 astronauts, the most frequent objective imaging finding in the landmark SANS cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32047839" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patel et al. showed an increase in retinal nerve fiber layer (RNFL) thickness and total retinal thickness close to the optic nerve head margin consistent with optic disc edema"</div>
-
-
-                <div class="evidence-explanation">Quantitative OCT comparison of long-duration ISS astronauts with healthy controls confirmed increased RNFL and total retinal thickness near the optic nerve head after microgravity exposure.</div>
 
 
 
@@ -5653,6 +5921,9 @@ This clinical feature is Retinal nerve fiber layer thickening, annotated with Re
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5669,18 +5940,18 @@ This clinical feature is Retinal nerve fiber layer thickening, annotated with Re
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">lower body negative pressure therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is lower body negative pressure therapy, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">lower body negative pressure therapy</span>
+This treatment is lower body negative pressure therapy, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is lower body negative pressure therapy, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -5698,6 +5969,14 @@ This treatment is lower body negative pressure therapy, annotated with Therapeut
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5723,7 +6002,9 @@ This treatment is lower body negative pressure therapy, annotated with Therapeut
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30286250" target="_blank">PMID:30286250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5745,7 +6026,9 @@ This treatment is lower body negative pressure therapy, annotated with Therapeut
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33335101" target="_blank">PMID:33335101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5775,18 +6058,18 @@ This treatment is lower body negative pressure therapy, annotated with Therapeut
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">mobile lower body negative pressure suit<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is mobile lower body negative pressure suit, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">mobile lower body negative pressure suit</span>
+This treatment is mobile lower body negative pressure suit, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is mobile lower body negative pressure suit, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -5804,6 +6087,14 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5829,7 +6120,9 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31747995" target="_blank">PMID:31747995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5869,6 +6162,12 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
 
 
 
+
+
+
+                <div class="item-desc">Checked ECTO for an exposure_term binding (issue #8430); ECTO has no microgravity, gravity, or weightlessness exposure term of any kind, so left unbound rather than forcing this onto an unrelated broad parent.</div>
+
+
                 <div class="item-desc">Prolonged exposure to microgravity during spaceflight is the primary environmental factor driving SANS. The condition is predominantly seen after missions of 6 months or longer aboard the International Space Station. Over the last 10 years, approximately 1 in 3 astronauts flying long-duration ISS missions have presented with one or more SANS findings.
 </div>
 
@@ -5886,7 +6185,9 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31162175" target="_blank">PMID:31162175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5908,7 +6209,9 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072472" target="_blank">PMID:37072472</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5930,10 +6233,139 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cephalad Fluid Shift in Microgravity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Microgravity is not a risk factor for this entry, it is the condition without which none of it happens, and the node is named for it. Direct because the step is mechanical rather than biological: removing the hydrostatic gradient redistributes fluid headward, which is what the node describes. The fetched item is the authors&#39; own conclusion and names both ends of this edge.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21849212" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21849212" target="_blank">PMID:21849212</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We hypothesize that the optic nerve and ocular changes we describe may result from cephalad fluid shifts brought about by prolonged microgravity exposure"</div>
+
+
+                <div class="evidence-explanation">Names prolonged microgravity exposure and the cephalad fluid shift in one sentence, which is exactly this edge. Graded support to match this paper&#39;s existing grading on this node, though the authors write it as a hypothesis and the word belongs on the record.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31162175" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31162175" target="_blank">PMID:31162175</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over the last 10 years, ~1 in 3 astronauts flying long-duration ISS missions have presented with ≥1 of these ocular findings."</div>
+
+
+                <div class="evidence-explanation">Reports that about one in three astronauts on long-duration station missions showed at least one of these ocular findings. It sizes how often the exposure is followed by the disease and says nothing about the fluid shift at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37072472" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072472" target="_blank">PMID:37072472</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Long-duration spaceflight is associated with neurologic and ophthalmic clinical and imaging findings in astronauts termed spaceflight associated neuro-ocular syndrome (SANS)."</div>
+
+
+                <div class="evidence-explanation">States that long-duration spaceflight is associated with the neurologic and ophthalmic findings that define the syndrome. An association at the level of the whole disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-elevated-ambient-carbon-dioxide" data-dismech-node="Elevated Ambient Carbon Dioxide" data-dismech-type="environmental">
                 <div class="item-name">Elevated Ambient Carbon Dioxide</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to elevated ambient carbon dioxide
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000049" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-23">ECTO:9000049</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to elevated ambient carbon dioxide, annotated with exposure to carbon dioxide (ECTO:9000049). ECTO:9000049 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -5954,7 +6386,9 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5976,12 +6410,141 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Elevated Intracranial Pressure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The two slots here are deliberately telling different stories, and the difference is the point. The link type is known because the schema asks what the field knows: hypercapnic cerebral vasodilation raising intracranial pressure is well-characterised physiology, and this exposure&#39;s own description names that step. The predicate is the weaker one because it answers a different question, whether that edge operates in this population at cabin concentrations, which the source declines to say. Recorded as modulating rather than predisposing on the source&#39;s own instruction. The exposure entry describes cabin carbon dioxide raising intracranial pressure through cerebral vasodilation, but the cited review states outright that the physiologic role of carbon dioxide remains ill defined and lists it among its open questions. Both items are carried so the candidate mechanism and the authors&#39; refusal to commit to it travel together, and the predicate matches the weaker of the two.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32047839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ongoing debate has prompted revisiting some of the other risk factors including carbon dioxide and in particular the role of hypercapnia in increased ICP"</div>
+
+
+                <div class="evidence-explanation">Names carbon dioxide and the intracranial pressure at this node in one clause. Partial because it reports a debate being revisited rather than a result, and it is the closest any cited sentence comes to this edge.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32047839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Since astronauts are exposed to these elevated CO2 levels in addition to MG the possible physiologic role of CO2 remains ill defined"</div>
+
+
+                <div class="evidence-explanation">The bound on the claim, in the same paper&#39;s words: carbon dioxide is confounded with microgravity because astronauts meet both at once, and its physiologic role is not defined. This is why the link modulates rather than predisposes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32047839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32047839" target="_blank">PMID:32047839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These potential risk factors include high salt diets, rigorous resistive exercise, exposure to elevated ambient CO2 levels and possible defects in the vitamin B12-dependent 1-carbon transfer pathways."</div>
+
+
+                <div class="evidence-explanation">Lists elevated ambient carbon dioxide among potential risk factors alongside high salt diets, resistive exercise and a vitamin B12 pathway defect. A list of candidates, which names the exposure without stating a mechanism or a magnitude.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5996,9 +6559,9 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse131954">
                 <div class="item-name">
-                    RNA-seq of murine retina after 35-day spaceflight on ISS (RR-9)
+                    Spaceflight causes changes in gene expression, photoreceptor integrity, and oxidative stress-related damage in the murine retina
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE131954" target="_blank">geo:GSE131954</a>
@@ -6036,12 +6599,12 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse159771">
                 <div class="item-name">
-                    DNA methylome and transcriptome of spaceflight mouse retina (ISS)
+                    Illumina NGS RNA-seq and RRBS Sequencing on Spaceflight Mouse Retina
 
                     <span class="dataset-accession">
-                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE152382" target="_blank">geo:GSE152382</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE159771" target="_blank">geo:GSE159771</a>
                     </span>
 
                 </div>
@@ -6104,7 +6667,6 @@ This treatment is mobile lower body negative pressure suit, annotated with Thera
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Spaceflight Associated Neuro-Ocular Syndrome
 creation_date: &#39;2026-03-17T00:00:00Z&#39;
-updated_date: &#39;2026-03-19T00:00:00Z&#39;
 category: Complex
 parents:
 - Neuro-Ophthalmologic Disorder
@@ -6257,7 +6819,7 @@ pathophysiology:
       changes reflect altered CSF dynamics in microgravity.
   - reference: PMID:33083526
     reference_title: &#34;Quantitative magnetic resonance image assessment of the optic nerve and surrounding sheath after spaceflight.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       a subject diagnosed with optic disc edema (Frisen Grade 1, right eye)
@@ -6684,6 +7246,47 @@ phenotypes:
       with spectacles, though structural changes may persist.
 environmental:
 - name: Microgravity Exposure
+  influences_mechanisms:
+  - target: Cephalad Fluid Shift in Microgravity
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Microgravity is not a risk factor for this entry, it is the condition
+      without which none of it happens, and the node is named for it. Direct
+      because the step is mechanical rather than biological: removing the
+      hydrostatic gradient redistributes fluid headward, which is what the
+      node describes. The fetched item is the authors&#39; own conclusion and
+      names both ends of this edge.
+    evidence:
+    - reference: PMID:21849212
+      reference_title: &#34;Optic disc edema, globe flattening, choroidal folds, and hyperopic shifts observed in astronauts after long-duration space flight.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We hypothesize that the optic nerve and ocular changes we describe may result from cephalad fluid shifts brought about by prolonged microgravity exposure&#34;
+      explanation: &gt;-
+        Names prolonged microgravity exposure and the cephalad fluid shift in
+        one sentence, which is exactly this edge. Graded support to match this
+        paper&#39;s existing grading on this node, though the authors write it as
+        a hypothesis and the word belongs on the record.
+    - reference: PMID:31162175
+      reference_title: &#34;Gravitational Influence on Intraocular Pressure: Implications for Spaceflight and Disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Over the last 10 years, ~1 in 3 astronauts flying long-duration ISS missions have presented with ≥1 of these ocular findings.&#34;
+      explanation: &gt;-
+        Reports that about one in three astronauts on long-duration station
+        missions showed at least one of these ocular findings. It sizes how
+        often the exposure is followed by the disease and says nothing about
+        the fluid shift at this node.
+    - reference: PMID:37072472
+      reference_title: &#34;Spaceflight associated neuro-ocular syndrome (SANS): an update on potential microgravity-based pathophysiology and mitigation development.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Long-duration spaceflight is associated with neurologic and ophthalmic clinical and imaging findings in astronauts termed spaceflight associated neuro-ocular syndrome (SANS).&#34;
+      explanation: &gt;-
+        States that long-duration spaceflight is associated with the
+        neurologic and ophthalmic findings that define the syndrome. An
+        association at the level of the whole disease.
   description: &gt;
     Prolonged exposure to microgravity during spaceflight is the primary
     environmental factor driving SANS. The condition is predominantly seen
@@ -6712,12 +7315,73 @@ environmental:
     explanation: &gt;-
       Confirms the association of SANS specifically with long-duration
       spaceflight.
+  notes: &gt;-
+    Checked ECTO for an exposure_term binding (issue #8430); ECTO has no
+    microgravity, gravity, or weightlessness exposure term of any kind, so
+    left unbound rather than forcing this onto an unrelated broad parent.
 - name: Elevated Ambient Carbon Dioxide
+  influences_mechanisms:
+  - target: Elevated Intracranial Pressure
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The two slots here are deliberately telling different stories, and the
+      difference is the point. The link type is known because the schema asks
+      what the field knows: hypercapnic cerebral vasodilation raising
+      intracranial pressure is well-characterised physiology, and this
+      exposure&#39;s own description names that step. The predicate is the weaker
+      one because it answers a different question, whether that edge operates
+      in this population at cabin concentrations, which the source declines
+      to say. Recorded as modulating rather than predisposing on the source&#39;s
+      own
+      instruction. The exposure entry describes cabin carbon dioxide raising
+      intracranial pressure through cerebral vasodilation, but the cited
+      review states outright that the physiologic role of carbon dioxide
+      remains ill defined and lists it among its open questions. Both items
+      are carried so the candidate mechanism and the authors&#39; refusal to
+      commit to it travel together, and the predicate matches the weaker of
+      the two.
+    evidence:
+    - reference: PMID:32047839
+      reference_title: &#34;Spaceflight associated neuro-ocular syndrome (SANS) and the neuro-ophthalmologic effects of microgravity: a review and an update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The ongoing debate has prompted revisiting some of the other risk factors including carbon dioxide and in particular the role of hypercapnia in increased ICP&#34;
+      explanation: &gt;-
+        Names carbon dioxide and the intracranial pressure at this node in one
+        clause. Partial because it reports a debate being revisited rather
+        than a result, and it is the closest any cited sentence comes to this
+        edge.
+    - reference: PMID:32047839
+      reference_title: &#34;Spaceflight associated neuro-ocular syndrome (SANS) and the neuro-ophthalmologic effects of microgravity: a review and an update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Since astronauts are exposed to these elevated CO2 levels in addition to MG the possible physiologic role of CO2 remains ill defined&#34;
+      explanation: &gt;-
+        The bound on the claim, in the same paper&#39;s words: carbon dioxide is
+        confounded with microgravity because astronauts meet both at once, and
+        its physiologic role is not defined. This is why the link modulates
+        rather than predisposes.
+    - reference: PMID:32047839
+      reference_title: &#34;Spaceflight associated neuro-ocular syndrome (SANS) and the neuro-ophthalmologic effects of microgravity: a review and an update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These potential risk factors include high salt diets, rigorous resistive exercise, exposure to elevated ambient CO2 levels and possible defects in the vitamin B12-dependent 1-carbon transfer pathways.&#34;
+      explanation: &gt;-
+        Lists elevated ambient carbon dioxide among potential risk factors
+        alongside high salt diets, resistive exercise and a vitamin B12
+        pathway defect. A list of candidates, which names the exposure without
+        stating a mechanism or a magnitude.
   description: &gt;
     The ISS cabin atmosphere contains CO2 levels higher than terrestrial
     ambient (typically 2-5 mmHg vs &lt;1 mmHg on Earth). Elevated CO2 causes
     cerebral vasodilation, which may exacerbate intracranial pressure
     elevation and contribute to SANS pathology.
+  exposure_term:
+    preferred_term: exposure to elevated ambient carbon dioxide
+    term:
+      id: ECTO:9000049
+      label: exposure to carbon dioxide
   evidence:
   - reference: PMID:32047839
     reference_title: &#34;Spaceflight associated neuro-ocular syndrome (SANS) and the neuro-ophthalmologic effects of microgravity: a review and an update.&#34;
@@ -6792,7 +7456,7 @@ treatments:
       providing a feasible in-flight countermeasure.
 datasets:
 - accession: geo:GSE131954
-  title: RNA-seq of murine retina after 35-day spaceflight on ISS (RR-9)
+  title: Spaceflight causes changes in gene expression, photoreceptor integrity, and oxidative stress-related damage in the murine retina
   description: &gt;
     Transcriptomic profiling of retinas from C57BL/6 mice flown aboard the ISS
     for 35 days, identifying 600 differentially expressed genes enriched for
@@ -6804,8 +7468,8 @@ datasets:
       label: Mus musculus
   data_type: BULK_RNA_SEQ
   publication: PMID:31527661
-- accession: geo:GSE152382
-  title: DNA methylome and transcriptome of spaceflight mouse retina (ISS)
+- accession: geo:GSE159771
+  title: Illumina NGS RNA-seq and RRBS Sequencing on Spaceflight Mouse Retina
   description: &gt;
     Integrated DNA methylome and transcriptome analysis of mouse retinas
     following 37-day spaceflight, revealing epigenetic clock deceleration and
@@ -6877,7 +7541,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spaceflight Associated Neuro-Ocular Syndrome", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spaceflight_Associated_Neuro-Ocular_Syndrome", "yamlRevision": "235882c18989"};
+        const OS_CONFIG = {"diseaseName": "Spaceflight Associated Neuro-Ocular Syndrome", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spaceflight_Associated_Neuro-Ocular_Syndrome", "yamlRevision": "5588b2bd49f0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7296,5 +7960,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

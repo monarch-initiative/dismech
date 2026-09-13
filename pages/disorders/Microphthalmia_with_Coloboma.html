@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Microphthalmia with Coloboma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Microphthalmia with Coloboma</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Microphthalmia%20with%20Coloboma"
@@ -3830,7 +3977,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3915,7 +4062,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3960,7 +4107,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3983,7 +4132,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4028,7 +4177,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4051,7 +4202,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -4090,13 +4241,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36192130" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36192130" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4169,7 +4322,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sox2-mac">
 
                     <div class="item-name">
                         SOX2-related microphthalmia/anophthalmia with coloboma
@@ -4197,7 +4350,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-otx2-mac">
 
                     <div class="item-name">
                         OTX2-related microphthalmia/anophthalmia with coloboma
@@ -4225,7 +4378,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pax6-mac">
 
                     <div class="item-name">
                         PAX6-related microphthalmia with coloboma
@@ -4253,7 +4406,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mab21l2-mac">
 
                     <div class="item-name">
                         MAB21L2-related microphthalmia with coloboma
@@ -4269,7 +4422,7 @@
 
                     </div>
 
-                    <div class="item-desc">Coding MAB21L2 variants and non-coding regulatory deletions upstream of MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding regulatory pathogenesis in MAC.</div>
+                    <div class="item-desc">Coding MAB21L2 variants and non-coding regulatory deletions upstream of MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding regulatory pathogenesis in MAC. Note that the recurrent p.Arg51Cys allele causes a distinct *syndromic* oculo-skeletal disorder with rhizomelic limb shortening and intellectual disability, curated separately as Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome and listed in the ISDS skeletal nosology; this entry stays scoped to the isolated MAC presentation and therefore carries no ISDS assignment.</div>
 
 
 
@@ -4281,7 +4434,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-foxe3-mac">
 
                     <div class="item-name">
                         FOXE3-related microphthalmia with coloboma
@@ -4309,7 +4462,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aldh1a3-mac">
 
                     <div class="item-name">
                         ALDH1A3-related microphthalmia/anophthalmia with coloboma
@@ -4337,7 +4490,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fzd5-coloboma">
 
                     <div class="item-name">
                         FZD5-related coloboma with microcornea
@@ -4394,18 +4547,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002672</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4422,18 +4577,20 @@ This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4461,18 +4618,20 @@ This pathophysiological event involves Retinal pigment epithelial cell (CL:00025
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Closure of optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go">GO:0061386</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0061386</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4493,18 +4652,20 @@ This pathophysiological event involves decreased Closure of optic fissure (GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0048593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4532,33 +4693,37 @@ This pathophysiological event involves abnormal Camera-type eye morphogenesis (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0005412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:0003072 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Optic cup
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003072</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003072" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0003072</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:0003072 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4596,7 +4761,9 @@ This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:00030
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4629,18 +4796,20 @@ This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:00030
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Retinal progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl">CL:0002672</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002672" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002672</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:0002672 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4657,18 +4826,20 @@ This pathophysiological event involves Retinal progenitor cell (CL:0002672). CL:
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4696,18 +4867,20 @@ This pathophysiological event involves Neural crest cell (CL:0011012). CL:001101
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go">GO:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4728,18 +4901,20 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go">GO:0048592</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048592</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4760,18 +4935,20 @@ This pathophysiological event involves abnormal Eye morphogenesis (GO:0048592). 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4799,18 +4976,20 @@ This pathophysiological event involves abnormal Camera-type eye morphogenesis (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000970</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4864,7 +5043,9 @@ This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39455595" target="_blank">PMID:39455595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4904,18 +5085,20 @@ This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Retinoic acid receptor signaling pathway (GO:0048384). GO:0048384 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Retinoic acid receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go">GO:0048384</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0048384</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Retinoic acid receptor signaling pathway (GO:0048384). GO:0048384 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4973,7 +5156,9 @@ This pathophysiological event involves decreased Retinoic acid receptor signalin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39296666" target="_blank">PMID:39296666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5013,18 +5198,20 @@ This pathophysiological event involves decreased Retinoic acid receptor signalin
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5082,7 +5269,9 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5104,7 +5293,9 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5144,18 +5335,20 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go">GO:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5213,7 +5406,9 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39455595" target="_blank">PMID:39455595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5235,7 +5430,9 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39455595" target="_blank">PMID:39455595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5283,7 +5480,7 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical absence of the globe with preserved ocular adnexa, at the severe end of the MAC spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing ocular tissue resulting from incomplete optic-fissure closure; may involve iris, ciliary body, retina/choroid, and/or optic nerve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Disrupted optic-cup and globe morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the eye-development gene regulatory network impairs optic vesicle/optic cup specification, growth, and patterning. Reduced or mispatterned neuroepithelial proliferation yields a small globe (microphthalmia), and in severe cases failure of optic-vesicle outgrowth yields anophthalmia. The same developmental disruption that reduces globe size also predisposes to incomplete optic-fissure closure, so microphthalmia and coloboma frequently co-occur.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Neural crest cell\"], \"biological_processes\": [\"Eye development\", \"Eye morphogenesis\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Eye\"]}}, {\"id\": \"Failure of optic fissure closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in colobomatous microphthalmia is failure of the embryonic optic (choroid) fissure to close. During optic-cup morphogenesis the invaginating optic cup forms a transient inferonasal groove (the optic fissure) through which the hyaloid vasculature enters; fusion of its margins completes the eye. When fusion fails, tissue is left \\\"missing\\\" at the inferonasal pole, producing coloboma of the iris, ciliary body, retina/choroid, and/or optic nerve. In humans the fissure normally closes by about the 7th week, so the insult is early-embryonic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Closure of optic fissure\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Optic fissure\", \"Optic cup\"]}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small eye, defined as a globe with total axial length at least two standard deviations below the age-adjusted mean.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Non-coding regulatory variant pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of MAC remains undiagnosed because analysis often focuses on coding variants. Conserved non-coding regulatory elements (enhancers) controlling eye-development genes can be deleted or disrupted, abolishing correct spatiotemporal expression. The ~113.5 kb homozygous deletion 19.38 kb upstream of MAB21L2 removes conserved elements, two of which bind OTX2, and causes microphthalmia and coloboma \\u2014 establishing enhancer loss as a bona fide MAC mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Eye development\"]}}, {\"id\": \"Retinoic acid signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid (RA) signaling, generated locally by retinaldehyde dehydrogenases (including ALDH1A3) and acting through retinoic-acid receptors, is required for ventral optic-cup patterning and optic-fissure morphogenesis. Genetic loss of RA synthesis (ALDH1A3) and teratogenic perturbation of the retinoid pathway (e.g. isotretinoin/retinoic-acid embryopathy, maternal vitamin A deficiency) both converge on this pathway, a classic gene\\u2013environment phenocopy in MAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Retinoid pathway teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal exposures that disrupt retinoid (vitamin A / retinoic acid) biology \\u2014 including isotretinoin/retinoic-acid embryopathy and maternal vitamin A deficiency \\u2014 are associated with microphthalmia and coloboma, acting as a phenocopy of genetic retinoid-pathway lesions (e.g. ALDH1A3).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thalidomide and other ocular teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thalidomide is a classic ocular teratogen, and additional environmental contributors to anophthalmia/microphthalmia include gestational infections, maternal vitamin A deficiency, X-ray exposure, and solvent misuse.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/FZD5 signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Wnt receptor FZD5 is expressed throughout eye development; FZD5 variants disrupt Wnt signaling required for optic-fissure closure. Most reported alleles are dominant-negative (the mutant receptor sequesters Wnt ligands), but a recessive hypomorphic missense allele impairing signal transduction causes syndromic coloboma with microcornea, illustrating an alternative Wnt-pathway mechanism in MAC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Failure of optic fissure closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete apposition and fusion of the optic-fissure margins leaves the persistent ocular cleft that defines coloboma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-cup invagination and ventral patterning precede fissure apposition; disturbed cup geometry can therefore compromise the later closure step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe morphogenesis produces a small globe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early morphogenesis failure can prevent globe formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic acid signaling disruption\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of retinoic-acid signaling impairs ventral optic-cup patterning and growth, feeding the shared morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Wnt/FZD5 signaling disruption\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Wnt/FZD5 signaling, required during eye development, impairs optic-fissure closure and produces coloboma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-coding regulatory variant pathogenesis\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer loss abolishes correct spatiotemporal expression of eye-development genes (e.g. MAB21L2), driving the shared optic-cup and globe morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Retinoid pathway teratogens\", \"target\": \"Retinoic acid signaling disruption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Retinoid drugs act on the very signalling pathway this node names, so the exposure perturbs retinoic acid signalling directly rather than through an intermediate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thalidomide and other ocular teratogens\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Groups several unrelated environmental contributors, including gestational infection and maternal vitamin A deficiency, whose common feature is raising the chance that fissure closure fails rather than a shared mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical absence of the globe with preserved ocular adnexa, at the severe end of the MAC spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing ocular tissue resulting from incomplete optic-fissure closure; may involve iris, ciliary body, retina/choroid, and/or optic nerve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Disrupted optic-cup and globe morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the eye-development gene regulatory network impairs optic vesicle/optic cup specification, growth, and patterning. Reduced or mispatterned neuroepithelial proliferation yields a small globe (microphthalmia), and in severe cases failure of optic-vesicle outgrowth yields anophthalmia. The same developmental disruption that reduces globe size also predisposes to incomplete optic-fissure closure, so microphthalmia and coloboma frequently co-occur.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Neural crest cell\"], \"biological_processes\": [\"Eye development\", \"Eye morphogenesis\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Eye\"]}}, {\"id\": \"Failure of optic fissure closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in colobomatous microphthalmia is failure of the embryonic optic (choroid) fissure to close. During optic-cup morphogenesis the invaginating optic cup forms a transient inferonasal groove (the optic fissure) through which the hyaloid vasculature enters; fusion of its margins completes the eye. When fusion fails, tissue is left \\\"missing\\\" at the inferonasal pole, producing coloboma of the iris, ciliary body, retina/choroid, and/or optic nerve. In humans the fissure normally closes by about the 7th week, so the insult is early-embryonic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Closure of optic fissure\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Optic fissure\", \"Optic cup\"]}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small eye, defined as a globe with total axial length at least two standard deviations below the age-adjusted mean.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Non-coding regulatory variant pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of MAC remains undiagnosed because analysis often focuses on coding variants. Conserved non-coding regulatory elements (enhancers) controlling eye-development genes can be deleted or disrupted, abolishing correct spatiotemporal expression. The ~113.5 kb homozygous deletion 19.38 kb upstream of MAB21L2 removes conserved elements, two of which bind OTX2, and causes microphthalmia and coloboma \\u2014 establishing enhancer loss as a bona fide MAC mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Eye development\"]}}, {\"id\": \"Ophthalmic surgical management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical interventions in colobomatous microphthalmia include cataract surgery / lensectomy and vitreoretinal surgery for coloboma-associated retinal detachment, with management individualized by visual potential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinoic acid signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid (RA) signaling, generated locally by retinaldehyde dehydrogenases (including ALDH1A3) and acting through retinoic-acid receptors, is required for ventral optic-cup patterning and optic-fissure morphogenesis. Genetic loss of RA synthesis (ALDH1A3) and teratogenic perturbation of the retinoid pathway (e.g. isotretinoin/retinoic-acid embryopathy, maternal vitamin A deficiency) both converge on this pathway, a classic gene\\u2013environment phenocopy in MAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Retinoid pathway teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal exposures that disrupt retinoid (vitamin A / retinoic acid) biology \\u2014 including isotretinoin/retinoic-acid embryopathy and maternal vitamin A deficiency \\u2014 are associated with microphthalmia and coloboma, acting as a phenocopy of genetic retinoid-pathway lesions (e.g. ALDH1A3).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary supportive care includes prosthetic/conformer expansion of the orbit for severe microphthalmia/anophthalmia, low-vision aids and vision rehabilitation, and developmental/early-intervention support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thalidomide and other ocular teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thalidomide is a classic ocular teratogen, and additional environmental contributors to anophthalmia/microphthalmia include gestational infections, maternal vitamin A deficiency, X-ray exposure, and solvent misuse.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/FZD5 signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Wnt receptor FZD5 is expressed throughout eye development; FZD5 variants disrupt Wnt signaling required for optic-fissure closure. Most reported alleles are dominant-negative (the mutant receptor sequesters Wnt ligands), but a recessive hypomorphic missense allele impairing signal transduction causes syndromic coloboma with microcornea, illustrating an alternative Wnt-pathway mechanism in MAC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Failure of optic fissure closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete apposition and fusion of the optic-fissure margins leaves the persistent ocular cleft that defines coloboma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-cup invagination and ventral patterning precede fissure apposition; disturbed cup geometry can therefore compromise the later closure step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe morphogenesis produces a small globe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early morphogenesis failure can prevent globe formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic acid signaling disruption\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of retinoic-acid signaling impairs ventral optic-cup patterning and growth, feeding the shared morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Wnt/FZD5 signaling disruption\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Wnt/FZD5 signaling, required during eye development, impairs optic-fissure closure and produces coloboma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-coding regulatory variant pathogenesis\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer loss abolishes correct spatiotemporal expression of eye-development genes (e.g. MAB21L2), driving the shared optic-cup and globe morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Retinoid pathway teratogens\", \"target\": \"Retinoic acid signaling disruption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Retinoid drugs act on the very signalling pathway this node names, so the exposure perturbs retinoic acid signalling directly rather than through an intermediate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thalidomide and other ocular teratogens\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Groups several unrelated environmental contributors, including gestational infection and maternal vitamin A deficiency, whose common feature is raising the chance that fissure closure fails rather than a shared mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmic surgical management\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5304,11 +5501,9 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5327,16 +5522,22 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5357,7 +5558,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5389,7 +5592,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -5398,16 +5601,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
-                        Microphthalmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
-
-
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5428,7 +5635,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5460,16 +5669,20 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000589</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
-                        Coloboma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
-
-
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5490,7 +5703,9 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5516,22 +5731,26 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-coloboma" data-dismech-node="Chorioretinal coloboma" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Chorioretinal coloboma
+                        Iris coloboma
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a phenotype from the Human Phenotype Ontology.">
-                        Chorioretinal coloboma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp">HP:0000567</a>
-
-
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5552,7 +5771,77 @@ This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Iris coloboma causes the iris to appear keyhole-shaped."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline describes iris coloboma in the MAC spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chorioretinal-coloboma" data-dismech-node="Chorioretinal coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chorioretinal coloboma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000567</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5578,22 +5867,94 @@ This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a ph
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anophthalmia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anophthalmia refers to complete absence of the globe in the presence of ocular adnexa (eyelids, conjunctiva, and lacrimal apparatus)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline defines anophthalmia within the spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcornea" data-dismech-node="Microcornea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcornea
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.">
-                        Microcornea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp">HP:0000482</a>
-
-
+This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5614,7 +5975,9 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5646,16 +6009,20 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000505</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.">
-                        Visual impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp">HP:0000505</a>
-
-
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5676,7 +6043,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5717,16 +6086,22 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5747,7 +6122,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5758,139 +6135,6 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">Developmental delay is the leading systemic association in MAC patients with extraocular features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iris coloboma
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.">
-                        Iris coloboma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp">HP:0000612</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Iris coloboma causes the iris to appear keyhole-shaped."</div>
-
-
-                <div class="evidence-explanation">GeneReviews baseline describes iris coloboma in the MAC spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anophthalmia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.">
-                        Anophthalmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp">HP:0000528</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Anophthalmia refers to complete absence of the globe in the presence of ocular adnexa (eyelids, conjunctiva, and lacrimal apparatus)."</div>
-
-
-                <div class="evidence-explanation">GeneReviews baseline defines anophthalmia within the spectrum.</div>
 
 
 
@@ -5958,15 +6202,17 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX2
 
 
-    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11195</a>
+    <a href="https://bioregistry.io/hgnc:11195" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11195</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5988,7 +6234,9 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6025,15 +6273,17 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:8522</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6055,7 +6305,9 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6092,15 +6344,17 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX6
 
 
-    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8620</a>
+    <a href="https://bioregistry.io/hgnc:8620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:8620</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6122,7 +6376,9 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6159,15 +6415,17 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MAB21L2
 
 
-    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6758</a>
+    <a href="https://bioregistry.io/hgnc:6758" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6758</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6189,7 +6447,9 @@ This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39455595" target="_blank">PMID:39455595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6226,15 +6486,17 @@ This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FZD5
 
 
-    <a href="https://bioregistry.io/hgnc:4043" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4043</a>
+    <a href="https://bioregistry.io/hgnc:4043" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:4043</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6256,7 +6518,9 @@ This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39503780" target="_blank">PMID:39503780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6293,15 +6557,17 @@ This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FOXE3
 
 
-    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3808</a>
+    <a href="https://bioregistry.io/hgnc:3808" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:3808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6323,7 +6589,9 @@ This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6360,15 +6628,17 @@ This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALDH1A3
 
 
-    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:409</a>
+    <a href="https://bioregistry.io/hgnc:409" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:409</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6390,7 +6660,9 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6420,6 +6692,9 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6434,19 +6709,21 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
                     Genetic counseling
                 </div>
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">Counseling / Informational</span>
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6464,6 +6741,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6488,7 +6773,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40038803" target="_blank">PMID:40038803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6518,18 +6805,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6552,8 +6839,45 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Surgical interventions in colobomatous microphthalmia include cataract surgery / lensectomy and vitreoretinal surgery for coloboma-associated retinal detachment, with management individualized by visual potential.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Disrupted optic-cup and globe morphogenesis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Addresses the structural consequences of the morphogenetic defect, and in the anophthalmic socket supports orbital growth. It does not act on optic fissure closure, which has already failed in utero.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6571,7 +6895,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6601,18 +6927,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6635,8 +6961,34 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care includes prosthetic/conformer expansion of the orbit for severe microphthalmia/anophthalmia, low-vision aids and vision rehabilitation, and developmental/early-intervention support.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Disrupted optic-cup and globe morphogenesis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Addresses the visual impairment resulting from the malformed globe. Purely supportive.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6654,7 +7006,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6692,6 +7046,33 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-retinoid-pathway-teratogens" data-dismech-node="Retinoid pathway teratogens" data-dismech-type="environmental">
                 <div class="item-name">Retinoid pathway teratogens</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        retinoid teratogen exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001346" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-35">ECTO:9001346</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is retinoid teratogen exposure, annotated with exposure to retinoid (ECTO:9001346). ECTO:9001346 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Prenatal exposures that disrupt retinoid (vitamin A / retinoic acid) biology — including isotretinoin/retinoic-acid embryopathy and maternal vitamin A deficiency — are associated with microphthalmia and coloboma, acting as a phenocopy of genetic retinoid-pathway lesions (e.g. ALDH1A3).</div>
@@ -6710,7 +7091,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39296666" target="_blank">PMID:39296666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6759,7 +7142,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3162101" target="_blank">PMID:3162101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,6 +7176,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Thalidomide is a classic ocular teratogen, and additional environmental contributors to anophthalmia/microphthalmia include gestational infections, maternal vitamin A deficiency, X-ray exposure, and solvent misuse.</div>
 
 
@@ -6807,7 +7196,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40491727" target="_blank">PMID:40491727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6856,7 +7247,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40491727" target="_blank">PMID:40491727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6889,6 +7282,33 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -6904,7 +7324,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01778543">
                 <div class="item-name">
                     NCT01778543
 
@@ -6920,33 +7340,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coloboma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microphthalmia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6965,7 +7389,9 @@ This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenoty
                         <a href="https://clinicaltrials.gov/study/NCT01778543" target="_blank">clinicaltrials:NCT01778543</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6986,7 +7412,7 @@ This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenoty
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04833361">
                 <div class="item-name">
                     NCT04833361
 
@@ -7002,18 +7428,20 @@ This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenoty
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coloboma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7032,7 +7460,9 @@ This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype fro
                         <a href="https://clinicaltrials.gov/study/NCT04833361" target="_blank">clinicaltrials:NCT04833361</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7145,7 +7575,12 @@ has_subtypes:
   description: &gt;-
     Coding MAB21L2 variants and non-coding regulatory deletions upstream of
     MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding
-    regulatory pathogenesis in MAC.
+    regulatory pathogenesis in MAC. Note that the recurrent p.Arg51Cys allele
+    causes a distinct *syndromic* oculo-skeletal disorder with rhizomelic limb
+    shortening and intellectual disability, curated separately as
+    Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome and listed in the
+    ISDS skeletal nosology; this entry stays scoped to the isolated MAC
+    presentation and therefore carries no ISDS assignment.
 - name: FOXE3-MAC
   display_name: FOXE3-related microphthalmia with coloboma
   description: &gt;-
@@ -7212,7 +7647,7 @@ inheritance:
   evidence:
   - reference: PMID:36192130
     reference_title: &#34;Real-world clinical and molecular management of 50 prospective patients with microphthalmia, anophthalmia and/or ocular coloboma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;novel variants in six known MAC genes (SOX2, KMT2D, MAB21L2, ALDH1A3, BCOR and FOXE3)&#34;
     explanation: &gt;-
@@ -7726,6 +8161,11 @@ genetic:
     explanation: ALDH1A3 is among the solved MAC genes; links to the retinoid mechanism.
 environmental:
 - name: Retinoid pathway teratogens
+  exposure_term:
+    preferred_term: retinoid teratogen exposure
+    term:
+      id: ECTO:9001346
+      label: exposure to retinoid
   influences_mechanisms:
   - target: Retinoic acid signaling disruption
     environmental_effect: TRIGGERS
@@ -7795,6 +8235,7 @@ environmental:
       deficiency, X-rays, solvents, thalidomide) to A/M.
 treatments:
 - name: Genetic counseling
+  action_category: COUNSELING_INFORMATIONAL
   description: &gt;-
     Genetic counseling and diagnostic genetic testing (chromosomal microarray,
     clinical exome or whole-genome sequencing) guide recurrence-risk assessment
@@ -7822,6 +8263,12 @@ treatments:
     term:
       id: NCIT:C15329
       label: Surgical Procedure
+  target_mechanisms:
+  - target: Disrupted optic-cup and globe morphogenesis
+    description: &gt;-
+      Addresses the structural consequences of the morphogenetic defect, and in
+      the anophthalmic socket supports orbital growth. It does not act on optic
+      fissure closure, which has already failed in utero.
   evidence:
   - reference: PMID:20301552
     reference_title: &#34;Microphthalmia/Anophthalmia/Coloboma Spectrum – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -7841,6 +8288,11 @@ treatments:
     term:
       id: NCIT:C15747
       label: Supportive Care
+  target_mechanisms:
+  - target: Disrupted optic-cup and globe morphogenesis
+    description: &gt;-
+      Addresses the visual impairment resulting from the malformed globe.
+      Purely supportive.
   evidence:
   - reference: PMID:20301552
     reference_title: &#34;Microphthalmia/Anophthalmia/Coloboma Spectrum – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -8930,7 +9382,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Microphthalmia with Coloboma", "mondoId": "MONDO:0000170", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microphthalmia_with_Coloboma", "yamlRevision": "ade4e3b934ab"};
+        const OS_CONFIG = {"diseaseName": "Microphthalmia with Coloboma", "mondoId": "MONDO:0000170", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microphthalmia_with_Coloboma", "yamlRevision": "c7ce22a03db1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9349,5 +9801,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

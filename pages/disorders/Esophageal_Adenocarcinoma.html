@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Esophageal Adenocarcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Esophageal Adenocarcinoma</h1>
             <div class="header-meta">
 
@@ -3658,7 +3805,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Esophageal%20Adenocarcinoma"
@@ -3799,7 +3946,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3820,7 +3967,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3881,6 +4028,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3905,34 +4060,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Adenocarcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3967,7 +4209,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-her2-amplified">
 
                     <div class="item-name">
                         HER2-amplified esophageal adenocarcinoma
@@ -4001,7 +4243,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21267790" target="_blank">PMID:21267790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4043,7 +4287,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gerd-driven-esophageal-injury-and-inflammation" data-dismech-node="GERD-Driven Esophageal Injury and Inflammation" data-dismech-type="pathophysiology">
@@ -4056,18 +4300,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4098,18 +4344,20 @@ This pathophysiological event involves epithelial cell of esophagus (CL:0002252)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4147,7 +4395,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32119349" target="_blank">PMID:32119349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4169,7 +4419,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4202,18 +4454,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4244,18 +4498,20 @@ This pathophysiological event involves epithelial cell of esophagus (CL:0002252)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4293,7 +4549,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874980" target="_blank">PMID:40874980</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4315,7 +4573,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4348,18 +4608,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4381,6 +4643,26 @@ This pathophysiological event involves epithelial cell of esophagus (CL:0002252)
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -4390,18 +4672,20 @@ This pathophysiological event involves epithelial cell of esophagus (CL:0002252)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4439,7 +4723,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4472,18 +4758,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4511,18 +4799,20 @@ This pathophysiological event involves epithelial cell of esophagus (CL:0002252)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4550,18 +4840,20 @@ This pathophysiological event involves abnormal DNA damage response (GO:0006974)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4599,7 +4891,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37794034" target="_blank">PMID:37794034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4639,18 +4933,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4671,18 +4967,20 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased phosphatidylinositol 3-kinase signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phosphatidylinositol 3-kinase signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0043491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phosphatidylinositol 3-kinase signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4703,18 +5001,20 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4742,18 +5042,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4791,7 +5093,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4813,7 +5117,9 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21267790" target="_blank">PMID:21267790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4846,18 +5152,20 @@ This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:00010
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves myeloid cell (CL:0000763). CL:0000763 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         myeloid cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000763" target="_blank" class="curie-chip curie-chip-cl">CL:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000763" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000763</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myeloid cell (CL:0000763). CL:0000763 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4885,18 +5193,20 @@ This pathophysiological event involves myeloid cell (CL:0000763). CL:0000763 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased innate immune response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         innate immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go">GO:0045087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0045087</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased innate immune response (GO:0045087). GO:0045087 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4917,18 +5227,20 @@ This pathophysiological event involves increased innate immune response (GO:0045
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased chemokine production (GO:0032602). GO:0032602 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chemokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go">GO:0032602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0032602</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased chemokine production (GO:0032602). GO:0032602 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4986,7 +5298,9 @@ This pathophysiological event involves increased chemokine production (GO:003260
                         <a href="https://bioregistry.io/GEO:GSE316127" target="_blank">GEO:GSE316127</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5008,7 +5322,9 @@ This pathophysiological event involves increased chemokine production (GO:003260
                         <a href="https://bioregistry.io/GEO:GSE316062" target="_blank">GEO:GSE316062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5048,18 +5364,20 @@ This pathophysiological event involves increased chemokine production (GO:003260
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5111,13 +5429,15 @@ This pathophysiological event involves increased negative regulation of T cell m
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31724072" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31724072" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724072" target="_blank">PMID:31724072</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5127,7 +5447,7 @@ This pathophysiological event involves increased negative regulation of T cell m
                 <div class="evidence-snippet">"A higher prevalence of PD-L1-positive cases was observed among esophageal specimens compared with gastric ones (p = 0.0003), in high-grade and adenocarcinoma samples in comparison with low-grade dysplasia (p &lt; 0.0001), and in lesions with mismatch repair deficiency (p = 0.028)."</div>
 
 
-                <div class="evidence-explanation">This supports PD-L1 pathway activation across Barrett-associated dysplastic and adenocarcinoma lesions, although it does not by itself define the full immune state of all EACs.</div>
+                <div class="evidence-explanation">This supports PD-L1 pathway activation in esophageal dysplastic and adenocarcinoma lesions, although the series is a mixed gastroesophageal one that does not identify lesions as Barrett-associated and does not by itself define the full immune state of all EACs.</div>
 
 
 
@@ -5150,18 +5470,20 @@ This pathophysiological event involves increased negative regulation of T cell m
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves exhausted T cell (CL:0011025). CL:0011025 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         exhausted T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011025" target="_blank" class="curie-chip curie-chip-cl">CL:0011025</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011025" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0011025</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves exhausted T cell (CL:0011025). CL:0011025 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5189,18 +5511,20 @@ This pathophysiological event involves exhausted T cell (CL:0011025). CL:0011025
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased exhausted T cell differentiation (GO:0160083). GO:0160083 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         exhausted T cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0160083" target="_blank" class="curie-chip curie-chip-go">GO:0160083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0160083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0160083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased exhausted T cell differentiation (GO:0160083). GO:0160083 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5243,7 +5567,9 @@ This pathophysiological event involves increased exhausted T cell differentiatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26086965" target="_blank">PMID:26086965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5254,6 +5580,173 @@ This pathophysiological event involves increased exhausted T cell differentiatio
 
 
                 <div class="evidence-explanation">This review directly supports an exhausted intratumoral T-cell state as a mechanistic consequence of checkpoint-mediated immune escape.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chemotherapy-resistance" data-dismech-node="Chemotherapy Resistance" data-dismech-type="pathophysiology">
+                <div class="item-name">Chemotherapy Resistance</div>
+
+                <div class="item-desc">Inherent or acquired resistance to cytotoxic chemotherapy is the dominant determinant of poor outcome in esophageal adenocarcinoma, for which chemotherapy remains the only standard of care. Resistance is a property of the malignant epithelium together with its cancer-associated stroma rather than of the tumour cells alone, so it is reproduced more faithfully by systems that retain the patient-matched tumour-stroma interface than by epithelium-only culture.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        patient tumour epithelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002252</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient tumour epithelial cell, annotated with epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        patient-matched cancer-associated fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-matched cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-stroma-inclusive-esophageal-adenocarcinoma-organ-chip">Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip</a>
+
+                            <span class="crosslink-meta">ORGAN ON CHIP</span>
+
+
+                            <span class="crosslink-desc">The chip reproduces the individual patient&#39;s chemotherapy response well enough to predict it prospectively, and does so on the tumour-stroma interface that this node identifies as the seat of resistance. Because it is built from treatment-naive patient tumour organoids recombined with patient-matched cancer-associated fibroblasts, it carries the source tumour&#39;s genetic landscape and histological architecture into the model rather than selecting it away as long-passage cell lines do.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40410759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank">PMID:40410759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients with EAC experience poor outcomes because of the inherent or acquired resistance to chemotherapy."</div>
+
+
+                <div class="evidence-explanation">States that inherent or acquired chemotherapy resistance is what drives poor outcomes in EAC. Graded OTHER because this is the publication&#39;s background assertion about the disease rather than a result its own experiments produced.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40410759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank">PMID:40410759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EAC chips more accurately recapitulate inpatient pathological and objective responses than the corresponding static 3D-organoid-only cultures"</div>
+
+
+                <div class="evidence-explanation">Covers the second half of this node&#39;s description, that resistance is a property of the epithelium together with its stroma. Graded INDIRECT because the quoted result is a comparison between whole model systems rather than an isolation of the stromal contribution: the chip differs from the static organoid-only comparator by the presence of patient-matched fibroblasts, but also by perfusion and by preserved tumour architecture, so the improvement in agreement with the patient&#39;s own response cannot be attributed to stroma alone. The stromal contribution follows by an inference step rather than being asserted outright.</div>
 
 
 
@@ -5291,7 +5784,7 @@ This pathophysiological event involves increased exhausted T cell differentiatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of Barrett-associated dysplastic and invasive esophageal adenocarcinoma lesions expresses PD-L1 pathway markers, consistent with an adaptive immune-resistance state that can be therapeutically targeted.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"]}}, {\"id\": \"Adjuvant Nivolumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In resected esophageal or gastroesophageal junction cancer with residual pathologic disease after neoadjuvant chemoradiotherapy, adjuvant nivolumab prolongs disease-free survival.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"Barrett Esophagus Precursor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrett esophagus is the principal precursor lesion for esophageal adenocarcinoma and provides the metaplastic epithelial field from which most EAC develops.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chromosomal Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following TP53 loss, Barrett progression acquires multigenerational chromosomal instability with whole-genome duplication and complex copy-number rearrangements.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA damage response\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In chromosomally unstable EAC, innate immune sensing and chemokine signaling can recruit myeloid suppressor populations and create an immunosuppressive microenvironment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"innate immune response\", \"chemokine production\"]}}, {\"id\": \"Copy-Number Driven Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EAC carries a heavy burden of genomic rearrangements with amplifications and deletions, producing subsets with ERBB2 and other growth-pathway alterations that feed MAPK and PI3K-AKT signaling and tumor proliferation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"GERD-Driven Esophageal Injury and Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic gastroesophageal reflux exposes the esophageal mucosa to refluxate, producing mucosal inflammation and injury that sets the stage for Barrett metaplasia and later adenocarcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"T Cell Exhaustion and Immune Escape\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the immunosuppressive EAC microenvironment, chronically stimulated tumor-infiltrating T cells acquire an exhausted phenotype with impaired effector cytokine production and cytolytic activity, contributing to immune escape.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"exhausted T cell\"], \"biological_processes\": [\"exhausted T cell differentiation\"]}}, {\"id\": \"TP53 Somatic Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 is the dominant recurrent tumor suppressor alteration in EAC and is commonly acquired during progression from Barrett dysplasia toward carcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of esophagus\"], \"locations\": [\"esophagus\"]}}], \"edges\": [{\"source\": \"GERD-Driven Esophageal Injury and Inflammation\", \"target\": \"Barrett Esophagus Precursor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent reflux injury promotes Barrett metaplasia.\"}, {\"source\": \"Barrett Esophagus Precursor State\", \"target\": \"TP53 Somatic Mutation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrett progression acquires tumor suppressor loss and increasingly unstable genomes.\"}, {\"source\": \"TP53 Somatic Mutation\", \"target\": \"Chromosomal Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53 loss permits propagation of cell division errors as heritable chromosomal instability.\"}, {\"source\": \"Chromosomal Instability\", \"target\": \"Copy-Number Driven Oncogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing chromosomal instability generates amplifications and deletions that reinforce tumor growth signaling.\"}, {\"source\": \"Copy-Number Driven Oncogenic Signaling\", \"target\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing copy-number instability drives cGAS-linked inflammatory chemokine programs.\"}, {\"source\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myeloid-dominated inflammatory signaling reinforces checkpoint-mediated immune escape.\"}, {\"source\": \"Adaptive Immune Resistance\", \"target\": \"T Cell Exhaustion and Immune Escape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic checkpoint signaling drives tumor-infiltrating T cells into an exhausted, non-productive state.\"}, {\"source\": \"Adjuvant Nivolumab\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of Barrett-associated dysplastic and invasive esophageal adenocarcinoma lesions expresses PD-L1 pathway markers, consistent with an adaptive immune-resistance state that can be therapeutically targeted.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"]}}, {\"id\": \"Adjuvant Nivolumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In resected esophageal or gastroesophageal junction cancer with residual pathologic disease after neoadjuvant chemoradiotherapy, adjuvant nivolumab prolongs disease-free survival.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"Barrett Esophagus Precursor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrett esophagus is the principal precursor lesion for esophageal adenocarcinoma and provides the metaplastic epithelial field from which most EAC develops.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chemotherapy Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inherent or acquired resistance to cytotoxic chemotherapy is the dominant determinant of poor outcome in esophageal adenocarcinoma, for which chemotherapy remains the only standard of care. Resistance is a property of the malignant epithelium together with its cancer-associated stroma rather than of the tumour cells alone, so it is reproduced more faithfully by systems that retain the patient-matched tumour-stroma interface than by epithelium-only culture.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient tumour epithelial cell\", \"patient-matched cancer-associated fibroblast\"], \"experimental_models\": [{\"name\": \"Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The chip reproduces the individual patient\u0027s chemotherapy response well enough to predict it prospectively, and does so on the tumour-stroma interface that this node identifies as the seat of resistance. Because it is built from treatment-naive patient tumour organoids recombined with patient-matched cancer-associated fibroblasts, it carries the source tumour\u0027s genetic landscape and histological architecture into the model rather than selecting it away as long-passage cell lines do.\"}]}}, {\"id\": \"Chromosomal Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following TP53 loss, Barrett progression acquires multigenerational chromosomal instability with whole-genome duplication and complex copy-number rearrangements.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA damage response\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In chromosomally unstable EAC, innate immune sensing and chemokine signaling can recruit myeloid suppressor populations and create an immunosuppressive microenvironment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"innate immune response\", \"chemokine production\"]}}, {\"id\": \"Copy-Number Driven Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EAC carries a heavy burden of genomic rearrangements with amplifications and deletions, producing subsets with ERBB2 and other growth-pathway alterations that feed MAPK and PI3K-AKT signaling and tumor proliferation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"GERD-Driven Esophageal Injury and Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic gastroesophageal reflux exposes the esophageal mucosa to refluxate, producing mucosal inflammation and injury that sets the stage for Barrett metaplasia and later adenocarcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Microfluidic esophagus-on-a-chip built from organoids derived from treatment-naive patient tumours or adjacent normal tissue, recombined with patient-matched cancer-associated or normal fibroblasts. A non-animal New Approach Methodology that reconstructs the tumour-stroma interface of the source patient\u0027s own tumour and predicts that patient\u0027s response to neoadjuvant chemotherapy within a clinically useful timeframe.\", \"meta\": {\"cell_types\": [\"patient tumour epithelial cell\", \"patient-matched cancer-associated fibroblast\"], \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"conditions\": [\"esophageal adenocarcinoma tumour-stroma interface\", \"neoadjuvant chemotherapy response prediction\", \"docetaxel-based triplet chemotherapy perfusion\"], \"publication\": \"PMID:40410759\"}}, {\"id\": \"T Cell Exhaustion and Immune Escape\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the immunosuppressive EAC microenvironment, chronically stimulated tumor-infiltrating T cells acquire an exhausted phenotype with impaired effector cytokine production and cytolytic activity, contributing to immune escape.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"exhausted T cell\"], \"biological_processes\": [\"exhausted T cell differentiation\"]}}, {\"id\": \"TP53 Somatic Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 is the dominant recurrent tumor suppressor alteration in EAC and is commonly acquired during progression from Barrett dysplasia toward carcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of esophagus\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"locations\": [\"esophagus\"]}}], \"edges\": [{\"source\": \"GERD-Driven Esophageal Injury and Inflammation\", \"target\": \"Barrett Esophagus Precursor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent reflux injury promotes Barrett metaplasia.\"}, {\"source\": \"Barrett Esophagus Precursor State\", \"target\": \"TP53 Somatic Mutation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrett progression acquires tumor suppressor loss and increasingly unstable genomes.\"}, {\"source\": \"TP53 Somatic Mutation\", \"target\": \"Chromosomal Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53 loss permits propagation of cell division errors as heritable chromosomal instability.\"}, {\"source\": \"Chromosomal Instability\", \"target\": \"Copy-Number Driven Oncogenic Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing chromosomal instability generates amplifications and deletions that reinforce tumor growth signaling.\"}, {\"source\": \"Copy-Number Driven Oncogenic Signaling\", \"target\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing copy-number instability drives cGAS-linked inflammatory chemokine programs.\"}, {\"source\": \"Chromosomal Instability-Linked Innate Immune and Myeloid Signaling\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Myeloid-dominated inflammatory signaling reinforces checkpoint-mediated immune escape.\"}, {\"source\": \"Adaptive Immune Resistance\", \"target\": \"T Cell Exhaustion and Immune Escape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic checkpoint signaling drives tumor-infiltrating T cells into an exhausted, non-productive state.\"}, {\"source\": \"Adjuvant Nivolumab\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip\", \"target\": \"Chemotherapy Resistance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The chip reproduces the individual patient\u0027s chemotherapy response well enough to predict it prospectively, and does so on the tumour-stroma interface that this node identifies as the seat of resistance. Because it is built from treatment-naive patient tumour organoids recombined with patient-matched cancer-associated fibroblasts, it carries the source tumour\u0027s genetic landscape and histological architecture into the model rather than selecting it away as long-passage cell lines do.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Response is read out as a phenotypic endpoint; the publication does not resolve the molecular resistance mechanism, so which of epithelial-intrinsic and stroma-mediated resistance is being captured is not separated. The chip contains only epithelium and fibroblasts, so immune-mediated contributions to chemoresistance are structurally absent. The regimen perfused was a docetaxel-based triplet matched to the source patient, so the prediction is not established for other regimens, and the platform is explicitly low-throughput.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5333,16 +5826,20 @@ This pathophysiological event involves increased exhausted T cell differentiatio
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.">
-                        Gastrointestinal hemorrhage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp">HP:0002239</a>
-
-
+This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5357,13 +5854,15 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8012079" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8012079" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8012079" target="_blank">PMID:8012079</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5395,16 +5894,20 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001903</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.">
-                        Anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp">HP:0001903</a>
-
-
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5425,7 +5928,9 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5468,16 +5973,20 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5498,7 +6007,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,16 +6041,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0032043</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Odynophagia (HP:0032043). HP:0032043 is a phenotype from the Human Phenotype Ontology.">
-                        Odynophagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032043" target="_blank" class="curie-chip curie-chip-hp">HP:0032043</a>
-
-
+This clinical feature is Odynophagia (HP:0032043). HP:0032043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5554,13 +6069,15 @@ This clinical feature is Odynophagia (HP:0032043). HP:0032043 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27214976" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27214976" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27214976" target="_blank">PMID:27214976</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5592,16 +6109,20 @@ This clinical feature is Odynophagia (HP:0032043). HP:0032043 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
-                        Gastroesophageal reflux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
-
-
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5616,13 +6137,15 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25957861" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25957861" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5665,16 +6188,20 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5695,7 +6222,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5711,13 +6240,15 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40277743" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40277743" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40277743" target="_blank">PMID:40277743</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5795,15 +6326,17 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5825,7 +6358,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5862,15 +6397,17 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ERBB2
 
 
-    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3430</a>
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3430</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5892,7 +6429,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21267790" target="_blank">PMID:21267790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5929,15 +6468,17 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5959,7 +6500,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5996,15 +6539,17 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMAD4
 
 
-    <a href="https://bioregistry.io/hgnc:6770" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6770</a>
+    <a href="https://bioregistry.io/hgnc:6770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6770</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6026,7 +6571,9 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6056,6 +6603,9 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6072,18 +6622,18 @@ This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6101,6 +6651,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6125,7 +6694,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6155,18 +6726,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6184,6 +6755,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6208,7 +6798,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6238,18 +6830,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">chemotherapy</span>
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -6274,36 +6866,48 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         paclitaxel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:45863</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:45863</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6326,7 +6930,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33891478" target="_blank">PMID:33891478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6348,7 +6954,9 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank">PMID:40410759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6378,18 +6986,18 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -6414,21 +7022,31 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         nivolumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C68814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6467,7 +7085,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33789008" target="_blank">PMID:33789008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6499,6 +7119,216 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-upper-endoscopy-with-biopsy">
+                <div class="item-name">
+                    Upper endoscopy with biopsy
+
+                </div>
+
+                <div class="item-desc">Diagnostic evaluation of esophageal adenocarcinoma begins with upper endoscopy and tissue biopsy for histologic confirmation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        endoscopic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C16546</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25957861" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cross-sectional imaging analysis, such as with computed tomography (CT), does not accurately identify localized EAC. Barium esophagrams can identify irregular strictures or masses, but upper endoscopy with biopsy collection and histologic analysis is the standard for diagnosis."</div>
+
+
+                <div class="evidence-explanation">This directly supports upper endoscopy with biopsy as the diagnostic standard.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-endoscopic-ultrasonography">
+                <div class="item-name">
+                    Endoscopic ultrasonography
+
+                </div>
+
+                <div class="item-desc">Endoscopic ultrasonography helps define local tumor extent and regional nodal involvement after histologic diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        endoscopic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16546" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C16546</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25957861" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957861" target="_blank">PMID:25957861</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Endoscopic ultrasonography is useful to assess the local extent of disease as well as the involvement of regional lymph nodes."</div>
+
+
+                <div class="evidence-explanation">This directly supports endoscopic ultrasonography as a staging procedure in EAC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6513,7 +7343,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-barrett-esophagus">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Barrett esophagus</span>
@@ -6561,7 +7391,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874980" target="_blank">PMID:40874980</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6586,7 +7418,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-esophageal-squamous-cell-carcinoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Esophageal_Squamous_Cell_Carcinoma.html">Esophageal squamous cell carcinoma</a>
@@ -6633,7 +7465,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6668,7 +7502,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse316127">
                 <div class="item-name">
                     Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS-chemokine-myeloid axis
 
@@ -6721,17 +7555,19 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="https://bioregistry.io/GEO:GSE316127" target="_blank">GEO:GSE316127</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"RNA-seq was performed on isogenic CP-A cell lines exhibiting distinct inherent levels of chromosomal instability (CIN)."</div>
+                <div class="evidence-snippet">"To address this paradox, we interrogated multiple esophageal cancer models, discovering myeloid-attracting chemokines – with CXCL8 as a prominent hit – as conserved CIN-driven targets in EAC."</div>
 
 
-                <div class="evidence-explanation">This directly supports the experimental design and relevance of the dataset for CIN-driven EAC biology.</div>
+                <div class="evidence-explanation">Establishes the model-based finding this series reports — myeloid-attracting chemokines, CXCL8 foremost, as conserved CIN-driven targets in EAC — which is what makes it the transcriptomic evidence behind the CIN-chemokine axis.</div>
 
 
 
@@ -6744,9 +7580,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse316062">
                 <div class="item-name">
-                    Single-nucleus RNA sequencing of chromosomal-instability-linked immune states in esophageal adenocarcinoma
+                    Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS–chemokine–myeloid axis [snRNA-Seq]
 
                     <span class="dataset-accession">
                         <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE316062" target="_blank">geo:GSE316062</a>
@@ -6800,7 +7636,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02743494">
                 <div class="item-name">
                     NCT02743494
 
@@ -6828,7 +7664,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="https://clinicaltrials.gov/study/NCT02743494" target="_blank">clinicaltrials:NCT02743494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6851,7 +7689,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03189719">
                 <div class="item-name">
                     NCT03189719
 
@@ -6879,7 +7717,9 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                         <a href="https://clinicaltrials.gov/study/NCT03189719" target="_blank">clinicaltrials:NCT03189719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6907,6 +7747,292 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
         <!-- Experimental Models -->
 
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-stroma-inclusive-esophageal-adenocarcinoma-organ-chip" data-dismech-node="Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip
+
+                    <span class="tag tag-exp-model-type">ORGAN_ON_CHIP</span>
+
+
+                    <span class="tag tag-namo-type">
+
+
+
+    <a href="https://w3id.org/monarch-initiative/namo/OrganOnChip" target="_blank" class="curie-chip curie-chip-namo" title="Open namo:OrganOnChip">namo:OrganOnChip</a>
+
+
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Microfluidic esophagus-on-a-chip built from organoids derived from treatment-naive patient tumours or adjacent normal tissue, recombined with patient-matched cancer-associated or normal fibroblasts. A non-animal New Approach Methodology that reconstructs the tumour-stroma interface of the source patient&#39;s own tumour and predicts that patient&#39;s response to neoadjuvant chemotherapy within a clinically useful timeframe.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-condition">esophageal adenocarcinoma tumour-stroma interface</span>
+
+                    <span class="tag tag-condition">neoadjuvant chemotherapy response prediction</span>
+
+                    <span class="tag tag-condition">docetaxel-based triplet chemotherapy perfusion</span>
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+
+
+                    <span class="tag tag-cell">
+
+                        patient tumour epithelial cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0002252</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses patient tumour epithelial cell, annotated with epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-cell">
+
+                        patient-matched cancer-associated fibroblast
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0000057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses patient-matched cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-43">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-43">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+
+
+                        <div class="model-detail-value">
+
+                            esophagus
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0001043</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                        </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived: organoids from treatment-naive patient tumours or adjacent normal tissue plus patient-matched cancer-associated or normal fibroblasts</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Two-channel Emulate microfluidic organ chip with chemotherapy perfused through the interstitial space, assessed by histology, immunofluorescence, live/dead and LDH assays and ELISA detection of tumour biomarkers</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:40410759">PMID:40410759</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-chemotherapy-resistance">Chemotherapy Resistance</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">The chip reproduces the individual patient&#39;s chemotherapy response well enough to predict it prospectively, and does so on the tumour-stroma interface that this node identifies as the seat of resistance. Because it is built from treatment-naive patient tumour organoids recombined with patient-matched cancer-associated fibroblasts, it carries the source tumour&#39;s genetic landscape and histological architecture into the model rather than selecting it away as long-passage cell lines do.</span>
+
+
+                <div class="mapping-notes">Limitations: Response is read out as a phenotypic endpoint; the publication does not resolve the molecular resistance mechanism, so which of epithelial-intrinsic and stroma-mediated resistance is being captured is not separated. The chip contains only epithelium and fibroblasts, so immune-mediated contributions to chemoresistance are structurally absent. The regimen perfused was a docetaxel-based triplet matched to the source patient, so the prediction is not established for other regimens, and the platform is explicitly low-throughput.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Predicted versus observed neoadjuvant chemotherapy response</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+        <div class="mapping-notes">Interpretation: Chip response to the patient-matched regimen tracks that patient&#39;s pathological and objective response, and does so more accurately than organoid-only culture - the measurement that grounds this model as informative for chemoresistance.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40410759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank">PMID:40410759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EAC chips also accurately predict the response to neoadjuvant chemotherapy (NACT) within a clinically useful timeframe"</div>
+
+
+                <div class="evidence-explanation">Reports the prospective response-prediction measurement that this readout records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40410759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410759" target="_blank">PMID:40410759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EAC chips more accurately recapitulate inpatient pathological and objective responses than the corresponding static 3D-organoid-only cultures"</div>
+
+
+                <div class="evidence-explanation">Supports treating this model as informative for chemotherapy resistance, and establishes that the stroma-inclusive chip outperforms the organoid-only comparator on the same endpoint.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Curated from the NAMeRS 2026 symposium New Approach Methodology tracker (monarch-initiative/dismech#4873), Panel 1 organ-chip case study. The chip&#39;s principal result - accurate prediction of neoadjuvant chemotherapy response, outperforming organoid-only culture - is modeled as the Chemotherapy Resistance node and its readout, and remains separately cited on the Neoadjuvant CROSS Chemoradiotherapy Plus Surgery treatment as a treatment-level property; note that the regimen perfused was a docetaxel-based triplet matched to the source patient, not the CROSS carboplatin-paclitaxel regimen. The model is deliberately not linked to Chromosomal Instability: the publication reports that the source tumour&#39;s genetic landscape is preserved, which is substrate fidelity rather than reproduction of missegregation, whole-genome duplication or copy-number evolution, and the chip has no readout for any of them.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Animal Models -->
 
@@ -6927,7 +8053,6 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Esophageal Adenocarcinoma
 creation_date: &#34;2026-04-12T04:03:44Z&#34;
-updated_date: &#34;2026-04-21T13:35:41Z&#34;
 description: &gt;-
   Esophageal adenocarcinoma (EAC) is a gland-forming malignancy of the
   esophagus that usually arises in the distal esophagus from Barrett metaplastic
@@ -7026,6 +8151,8 @@ pathophysiology:
   - target: TP53 Somatic Mutation
     description: Barrett progression acquires tumor suppressor loss and increasingly unstable genomes.
 - name: TP53 Somatic Mutation
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     TP53 is the dominant recurrent tumor suppressor alteration in EAC and is
     commonly acquired during progression from Barrett dysplasia toward
@@ -7146,11 +8273,13 @@ pathophysiology:
       label: chemokine production
   evidence:
   - reference: GEO:GSE316127
+    reference_title: &#34;Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS–chemokine–myeloid axis&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Chromosomal instability (CIN), a pervasive feature of esophageal adenocarcinoma (EAC), drives tumor aggressiveness and metastasis.&#34;
     explanation: This GEO-linked study anchors CIN as a pervasive upstream driver in EAC.
   - reference: GEO:GSE316062
+    reference_title: &#34;Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS–chemokine–myeloid axis [snRNA-Seq]&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Coupling in situ CIN detection with single-nucleus RNA sequencing and multiplex immunophenotyping of human EAC, we link CIN to tumor-intrinsic innate immune activation, CXCL8 expression, and myeloid cell-mediated immunosuppression.&#34;
@@ -7173,10 +8302,10 @@ pathophysiology:
   evidence:
   - reference: PMID:31724072
     reference_title: &#34;PD-L1 expression in gastroesophageal dysplastic lesions.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A higher prevalence of PD-L1-positive cases was observed among esophageal specimens compared with gastric ones (p = 0.0003), in high-grade and adenocarcinoma samples in comparison with low-grade dysplasia (p &lt; 0.0001), and in lesions with mismatch repair deficiency (p = 0.028).&#34;
-    explanation: This supports PD-L1 pathway activation across Barrett-associated dysplastic and adenocarcinoma lesions, although it does not by itself define the full immune state of all EACs.
+    explanation: This supports PD-L1 pathway activation in esophageal dysplastic and adenocarcinoma lesions, although the series is a mixed gastroesophageal one that does not identify lesions as Barrett-associated and does not by itself define the full immune state of all EACs.
   downstream:
   - target: T Cell Exhaustion and Immune Escape
     description: Chronic checkpoint signaling drives tumor-infiltrating T cells into an exhausted, non-productive state.
@@ -7205,6 +8334,54 @@ pathophysiology:
     evidence_source: OTHER
     snippet: &#34;The exhausted T cells in the tumor microenvironment show overexpressed inhibitory receptors, decreased effector cytokine production and cytolytic activity, leading to the failure of cancer elimination.&#34;
     explanation: This review directly supports an exhausted intratumoral T-cell state as a mechanistic consequence of checkpoint-mediated immune escape.
+- name: Chemotherapy Resistance
+  biological_scale: TISSUE
+  description: &gt;-
+    Inherent or acquired resistance to cytotoxic chemotherapy is the dominant
+    determinant of poor outcome in esophageal adenocarcinoma, for which chemotherapy
+    remains the only standard of care. Resistance is a property of the malignant
+    epithelium together with its cancer-associated stroma rather than of the tumour
+    cells alone, so it is reproduced more faithfully by systems that retain the
+    patient-matched tumour-stroma interface than by epithelium-only culture.
+  cell_types:
+  - preferred_term: patient tumour epithelial cell
+    term:
+      id: CL:0002252
+      label: epithelial cell of esophagus
+  - preferred_term: patient-matched cancer-associated fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  evidence:
+  - reference: PMID:40410759
+    reference_title: &#34;Patient-derived esophageal adenocarcinoma organ chip: a physiologically relevant platform for functional precision oncology.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Most patients with EAC experience poor outcomes because of the inherent or acquired resistance to chemotherapy.
+    explanation: &gt;-
+      States that inherent or acquired chemotherapy resistance is what drives poor
+      outcomes in EAC. Graded OTHER because this is the publication&#39;s background
+      assertion about the disease rather than a result its own experiments produced.
+  - reference: PMID:40410759
+    reference_title: &#34;Patient-derived esophageal adenocarcinoma organ chip: a physiologically relevant platform for functional precision oncology.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: IN_VITRO
+    snippet: EAC chips more accurately recapitulate inpatient pathological and objective responses than the corresponding static 3D-organoid-only cultures
+    explanation: &gt;-
+      Covers the second half of this node&#39;s description, that resistance is a property
+      of the epithelium together with its stroma. Graded INDIRECT because the quoted
+      result is a comparison between whole model systems rather than an isolation of
+      the stromal contribution: the chip differs from the static organoid-only
+      comparator by the presence of patient-matched fibroblasts, but also by perfusion
+      and by preserved tumour architecture, so the improvement in agreement with the
+      patient&#39;s own response cannot be attributed to stroma alone. The stromal
+      contribution follows by an inference step rather than being asserted outright.
+  notes: &gt;-
+    No causal edge is asserted into or out of this node. The cited source establishes
+    that chemoresistance dominates EAC outcomes and that it is measurable in a
+    stroma-inclusive model, but does not establish which of the upstream nodes curated
+    here produces it, so an edge would over-assert.
 phenotypes:
 - name: Dysphagia
   category: Gastrointestinal
@@ -7237,7 +8414,7 @@ phenotypes:
   evidence:
   - reference: PMID:27214976
     reference_title: &#34;Early diagnosis of oesophageal cancer improves outcomes.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Oesophageal cancer commonly presents with dysphagia or odynophagia.&#34;
     explanation: This mixed esophageal cancer review supports odynophagia as a clinically recognized presentation, although it is not specific to EAC.
@@ -7254,7 +8431,7 @@ phenotypes:
   evidence:
   - reference: PMID:25957861
     reference_title: &#34;Epidemiology, Diagnosis, and Management of Esophageal Adenocarcinoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Several other risk factors for this cancer have been described, including chronic heartburn, tobacco use, white race, and obesity.&#34;
     explanation: The abstract frames chronic heartburn as a risk factor rather than a presenting symptom, but it supports frequent antecedent reflux symptoms in patients who develop EAC.
@@ -7278,7 +8455,7 @@ phenotypes:
     explanation: This supports weight loss as a recognized presentation feature of EAC.
   - reference: PMID:40277743
     reference_title: &#34;The Impact of Peri-Operative Nutritional Status on Survival in Gastroesophageal Adenocarcinoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Significant weight loss (&gt;10%) was ubiquitously observed in 54% (n = 64) of patients, and this group had shorter OS (HR: 2.2; 95%CI: 1.2-4.1; p = 0.009).&#34;
     explanation: 54% falls in the FREQUENT band, although this estimate comes from a mixed gastric, gastroesophageal junction, and esophageal adenocarcinoma surgical cohort rather than an EAC-only series.
@@ -7295,7 +8472,7 @@ phenotypes:
   evidence:
   - reference: PMID:8012079
     reference_title: &#34;Superficial and protruding type of esophageal adenocarcinoma mucocellulare and muconodulare confined mostly to the lamina propria mucosa and partly in the submucosal layer.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The patient, a 74-year-old man had the chief complaints of hematemesis and melena.&#34;
     explanation: This case report supports upper gastrointestinal bleeding as a possible presentation of esophageal adenocarcinoma.
@@ -7574,6 +8751,7 @@ clinical_trials:
     gastroesophageal junction cancer after neoadjuvant chemoradiotherapy.
   evidence:
   - reference: clinicaltrials:NCT02743494
+    reference_title: &#34;A Randomized, Multicenter, Double Blind, Phase III Study of Adjuvant Nivolumab or Placebo in Subjects With Resected Esophageal, or Gastroesophageal Junction Cancer&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The primary purpose of this study is to determine whether Nivolumab will improve disease-free survival compared with placebo.
@@ -7586,10 +8764,112 @@ clinical_trials:
     advanced or metastatic esophageal carcinoma, including adenocarcinoma.
   evidence:
   - reference: clinicaltrials:NCT03189719
+    reference_title: &#34;A Randomized, Double-Blind, Placebo-Controlled Phase III Clinical Trial of Pembrolizumab (MK-3475) in Combination With Cisplatin and 5-Fluorouracil Versus Placebo in Combination With Cisplatin and 5-Fluorouracil as First-Line Treatment in Subjects With Advanced/Metastatic Esophageal Carcinoma (KEYNOTE-590)&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The purpose of this trial is to evaluate efficacy and safety of pembrolizumab plus standard of care (SOC) chemotherapy with cisplatin and 5-fluorouracil (5-FU) versus placebo plus SOC chemotherapy with cisplatin and 5-FU as first-line treatment in participants with locally advanced or metastatic esophageal carcinoma.
     explanation: This supports active phase III evaluation of pembrolizumab-based first-line therapy in advanced esophageal carcinoma, including adenocarcinoma.
+experimental_models:
+- name: Patient-derived stroma-inclusive esophageal adenocarcinoma organ chip
+  description: &gt;-
+    Microfluidic esophagus-on-a-chip built from organoids derived from treatment-naive
+    patient tumours or adjacent normal tissue, recombined with patient-matched
+    cancer-associated or normal fibroblasts. A non-animal New Approach Methodology that
+    reconstructs the tumour-stroma interface of the source patient&#39;s own tumour and
+    predicts that patient&#39;s response to neoadjuvant chemotherapy within a clinically
+    useful timeframe.
+  experimental_model_type: ORGAN_ON_CHIP
+  namo_type: namo:OrganOnChip
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: esophagus
+    term:
+      id: UBERON:0001043
+      label: esophagus
+  cell_types:
+  - preferred_term: patient tumour epithelial cell
+    term:
+      id: CL:0002252
+      label: epithelial cell of esophagus
+  - preferred_term: patient-matched cancer-associated fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  conditions:
+  - esophageal adenocarcinoma tumour-stroma interface
+  - neoadjuvant chemotherapy response prediction
+  - docetaxel-based triplet chemotherapy perfusion
+  cell_source: &gt;-
+    Patient-derived: organoids from treatment-naive patient tumours or adjacent normal
+    tissue plus patient-matched cancer-associated or normal fibroblasts
+  culture_system: &gt;-
+    Two-channel Emulate microfluidic organ chip with chemotherapy perfused through the
+    interstitial space, assessed by histology, immunofluorescence, live/dead and LDH
+    assays and ELISA detection of tumour biomarkers
+  publication: PMID:40410759
+  modeled_mechanisms:
+  - target: Chemotherapy Resistance
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: &gt;-
+      The chip reproduces the individual patient&#39;s chemotherapy response well enough to
+      predict it prospectively, and does so on the tumour-stroma interface that this node
+      identifies as the seat of resistance. Because it is built from treatment-naive
+      patient tumour organoids recombined with patient-matched cancer-associated
+      fibroblasts, it carries the source tumour&#39;s genetic landscape and histological
+      architecture into the model rather than selecting it away as long-passage cell
+      lines do.
+    limitations: &gt;-
+      Response is read out as a phenotypic endpoint; the publication does not resolve the
+      molecular resistance mechanism, so which of epithelial-intrinsic and
+      stroma-mediated resistance is being captured is not separated. The chip contains
+      only epithelium and fibroblasts, so immune-mediated contributions to chemoresistance
+      are structurally absent. The regimen perfused was a docetaxel-based triplet matched
+      to the source patient, so the prediction is not established for other regimens, and
+      the platform is explicitly low-throughput.
+    readouts:
+    - name: Predicted versus observed neoadjuvant chemotherapy response
+      target: Chemotherapy Resistance
+      direction: ALTERED
+      interpretation: &gt;-
+        Chip response to the patient-matched regimen tracks that patient&#39;s pathological
+        and objective response, and does so more accurately than organoid-only culture -
+        the measurement that grounds this model as informative for chemoresistance.
+      evidence:
+      - reference: PMID:40410759
+        reference_title: &#34;Patient-derived esophageal adenocarcinoma organ chip: a physiologically relevant platform for functional precision oncology.&#34;
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: EAC chips also accurately predict the response to neoadjuvant chemotherapy (NACT) within a clinically useful timeframe
+        explanation: &gt;-
+          Reports the prospective response-prediction measurement that this readout records.
+    evidence:
+    - reference: PMID:40410759
+      reference_title: &#34;Patient-derived esophageal adenocarcinoma organ chip: a physiologically relevant platform for functional precision oncology.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: EAC chips more accurately recapitulate inpatient pathological and objective responses than the corresponding static 3D-organoid-only cultures
+      explanation: &gt;-
+        Supports treating this model as informative for chemotherapy resistance, and
+        establishes that the stroma-inclusive chip outperforms the organoid-only
+        comparator on the same endpoint.
+  notes: &gt;-
+    Curated from the NAMeRS 2026 symposium New Approach Methodology tracker
+    (monarch-initiative/dismech#4873), Panel 1 organ-chip case study. The chip&#39;s principal
+    result - accurate prediction of neoadjuvant chemotherapy response, outperforming
+    organoid-only culture - is modeled as the Chemotherapy Resistance node and its
+    readout, and remains separately cited on the Neoadjuvant CROSS Chemoradiotherapy Plus
+    Surgery treatment as a treatment-level property; note that the regimen perfused was a
+    docetaxel-based triplet matched to the source patient, not the CROSS
+    carboplatin-paclitaxel regimen. The model is deliberately not linked to Chromosomal
+    Instability: the publication reports that the source tumour&#39;s genetic landscape is
+    preserved, which is substrate fidelity rather than reproduction of missegregation,
+    whole-genome duplication or copy-number evolution, and the chip has no readout for
+    any of them.
 datasets:
 - accession: geo:GSE316127
   title: Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS-chemokine-myeloid axis
@@ -7608,12 +8888,16 @@ datasets:
   - control Barrett-derived epithelial model
   evidence:
   - reference: GEO:GSE316127
+    reference_title: &#34;Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS–chemokine–myeloid axis&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
-    snippet: &#34;RNA-seq was performed on isogenic CP-A cell lines exhibiting distinct inherent levels of chromosomal instability (CIN).&#34;
-    explanation: This directly supports the experimental design and relevance of the dataset for CIN-driven EAC biology.
+    snippet: &#34;To address this paradox, we interrogated multiple esophageal cancer models, discovering myeloid-attracting chemokines – with CXCL8 as a prominent hit – as conserved CIN-driven targets in EAC.&#34;
+    explanation: &gt;-
+      Establishes the model-based finding this series reports — myeloid-attracting
+      chemokines, CXCL8 foremost, as conserved CIN-driven targets in EAC — which is
+      what makes it the transcriptomic evidence behind the CIN-chemokine axis.
 - accession: geo:GSE316062
-  title: Single-nucleus RNA sequencing of chromosomal-instability-linked immune states in esophageal adenocarcinoma
+  title: Chromosomal instability shapes the tumor microenvironment of esophageal adenocarcinoma via a cGAS–chemokine–myeloid axis [snRNA-Seq]
   description: &gt;-
     Single-nucleus RNA-seq companion dataset from human EAC used to connect
     chromosomal instability to innate immune activation and myeloid-dominated
@@ -8315,7 +9599,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Esophageal Adenocarcinoma", "mondoId": "MONDO:0005028", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Esophageal_Adenocarcinoma", "yamlRevision": "4e3c48a0a27a"};
+        const OS_CONFIG = {"diseaseName": "Esophageal Adenocarcinoma", "mondoId": "MONDO:0005028", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Esophageal_Adenocarcinoma", "yamlRevision": "92d7e6f30662"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8734,5 +10018,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

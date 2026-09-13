@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Fibrodysplasia Ossificans Progressiva</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Fibrodysplasia Ossificans Progressiva</h1>
             <div class="header-meta">
 
@@ -3883,6 +4030,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3892,9 +4109,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 29 &#34;Disorganized development of skeletal components group&#34;; listed as &#34;Fibrodysplasia ossificans progressiva (FOP)&#34;.">disorganized development of skeletal components</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3944,18 +4177,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3972,18 +4207,20 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0001503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4053,7 +4290,9 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17572636" target="_blank">PMID:17572636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4084,18 +4323,20 @@ This pathophysiological event involves ossification (GO:0001503). GO:0001503 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4156,7 +4397,9 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20463014" target="_blank">PMID:20463014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4194,18 +4437,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4261,13 +4506,15 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4300,18 +4547,20 @@ This pathophysiological event involves BMP signaling pathway (GO:0030509). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4328,18 +4577,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4367,18 +4618,20 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4395,18 +4648,20 @@ This pathophysiological event involves Endochondral ossification (GO:0001958). G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cartilage development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cartilage development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0051216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cartilage development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4484,7 +4739,9 @@ This pathophysiological event involves Cartilage development (GO:0051216). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4517,18 +4774,20 @@ This pathophysiological event involves Cartilage development (GO:0051216). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4545,18 +4804,20 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4584,18 +4845,20 @@ This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a c
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4649,7 +4912,9 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4730,21 +4995,19 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(9)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4763,16 +5026,20 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000405</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
-                        Conductive hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
-
-
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4795,7 +5062,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499116" target="_blank">PMID:10499116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4827,8 +5096,78 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-neck-motion" data-dismech-node="Limitation of Neck Motion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limitation of Neck Motion
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005986" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0005986</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Neck stiffness and reduced cervical range of motion are often early manifestations of cervical involvement in FOP.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15959366" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15959366" target="_blank">PMID:15959366</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Generalized neck stiffness and decreased range of motion were noted in most children with FOP."</div>
+
+
+                <div class="evidence-explanation">Supports neck stiffness with limited cervical motion as an early musculoskeletal manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-restricted-mouth-opening" data-dismech-node="Restricted Mouth Opening" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4836,16 +5175,22 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Trismus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000211" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000211</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Restricted mouth opening, annotated with Trismus (HP:0000211). HP:0000211 is a phenotype from the Human Phenotype Ontology.">
-                        Trismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000211" target="_blank" class="curie-chip curie-chip-hp">HP:0000211</a>
-
-
+This clinical feature is Restricted mouth opening, annotated with Trismus (HP:0000211). HP:0000211 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4868,7 +5213,9 @@ This clinical feature is Restricted mouth opening, annotated with Trismus (HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28390760" target="_blank">PMID:28390760</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4911,16 +5258,20 @@ This clinical feature is Restricted mouth opening, annotated with Trismus (HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a phenotype from the Human Phenotype Ontology.">
-                        Subcutaneous nodule
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp">HP:0001482</a>
-
-
+This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4943,7 +5294,9 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
                         <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4975,7 +5328,7 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-great-toe-malformation" data-dismech-node="Congenital Great Toe Malformation" data-dismech-type="phenotype">
@@ -4984,16 +5337,22 @@ This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal hallux morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001844" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001844</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal hallux morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001844" target="_blank" class="curie-chip curie-chip-hp">HP:0001844</a>
-
-
+This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5016,7 +5375,9 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5087,7 +5448,9 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5121,16 +5484,20 @@ This clinical feature is Abnormal hallux morphology (HP:0001844). HP:0001844 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009778</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype from the Human Phenotype Ontology.">
-                        Short thumb
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009778" target="_blank" class="curie-chip curie-chip-hp">HP:0009778</a>
-
-
+This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5153,7 +5520,9 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25343126" target="_blank">PMID:25343126</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5164,6 +5533,198 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
 
 
                 <div class="evidence-explanation">Supports short thumb as part of the congenital skeletal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-first-metatarsal-bone" data-dismech-node="Abnormality of the First Metatarsal Bone" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the First Metatarsal Bone
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010054</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). HP:0010054 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Shortening and malformation of the first metatarsal bone accompanies the great toe malformation, contributing to the characteristic forefoot appearance in FOP.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0010054 | Abnormality of the first metatarsal bone | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists abnormality of the first metatarsal bone as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21116899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The metatarsal bone was also shortened and sharpened to the medial side, deviating the proximal phalanx laterally from the metatarsal axis."</div>
+
+
+                <div class="evidence-explanation">Systematic radiographic analysis of the first metatarsal in FOP patients documents consistent shortening and sharpening as part of the first-ray malformation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hallux-valgus" data-dismech-node="Hallux Valgus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hallux Valgus
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Source discrepancy: Orphanet annotates hallux valgus as occasional, whereas a dedicated radiographic study (PMID:21116899) found it in 71% of affected feet. The 71% figure is a per-foot radiographic measure in a small series, so the occasional band follows the more conservative Orphanet clinical annotation; the higher radiographic rate is captured in the literature evidence below.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001822 | Hallux valgus | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists hallux valgus as an occasional feature of fibrodysplasia ossificans progressiva.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21116899" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A shortened great toe and hallux valgus were frequently found in patients with FOP."</div>
+
+
+                <div class="evidence-explanation">Systematic study of 16 FOP patients found hallux valgus in 71% of feet by radiographic criteria.</div>
 
 
 
@@ -5194,16 +5755,22 @@ This clinical feature is Short thumb (HP:0009778). HP:0009778 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Edema</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000969</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Soft tissue swelling during flare-ups, annotated with Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.">
-                        Edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp">HP:0000969</a>
-
-
+This clinical feature is Soft tissue swelling during flare-ups, annotated with Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5226,7 +5793,9 @@ This clinical feature is Soft tissue swelling during flare-ups, annotated with E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27025942" target="_blank">PMID:27025942</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5258,724 +5827,7 @@ This clinical feature is Soft tissue swelling during flare-ups, annotated with E
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scoliosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Thoracolumbar or lumbar curves are common, may become rigid by early adulthood, and can impair sitting or standing balance.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Twenty-six (65 per cent) of the patients had scoliosis, which, according to the clinical records and the recollection of the patients, had been present during childhood."</div>
-
-
-                <div class="evidence-explanation">26/40 = 65%, which falls in the FREQUENT band; the same cohort report also indicates childhood onset.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                <span class="context-onset">Onset: CHILDHOOD</span>
-
-
-
-            </div>
-
-
-            <div class="context-notes">In the 40-patient series, scoliosis was already present in childhood.</div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Twenty-six (65 per cent) of the patients had scoliosis, which, according to the clinical records and the recollection of the patients, had been present during childhood."</div>
-
-
-                <div class="evidence-explanation">Supports childhood onset of scoliosis in the reported cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-malformations" data-dismech-node="Cervical Spine Malformations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cervical Spine Malformations
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital cervical spine malformations, annotated with Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.">
-                        Fused cervical vertebrae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp">HP:0002949</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Characteristic radiographic abnormalities include enlarged posterior elements, tall narrow vertebral bodies, and fusion of cervical facet joints.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15959366" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15959366" target="_blank">PMID:15959366</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In the FOP patient group, characteristic anomalies, including large posterior elements, tall narrow vertebral bodies,and fusion of the facet joints between C2 and C7, were observed."</div>
-
-
-                <div class="evidence-explanation">Supports characteristic congenital cervical spine malformations, including fusion involving the cervical vertebrae.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-    <details class="phenotype-contexts">
-        <summary class="phenotype-contexts-toggle">
-            Context-specific annotations (1)
-        </summary>
-
-        <div class="context-card">
-            <div class="context-header">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                <span class="context-onset">Onset: CONGENITAL</span>
-
-
-
-            </div>
-
-
-            <div class="context-notes">These cervical spine abnormalities are congenital skeletal defects.</div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15959366" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15959366" target="_blank">PMID:15959366</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"FOP patients exhibit a characteristic set of congenital spine malformations."</div>
-
-
-                <div class="evidence-explanation">Supports congenital onset of the cervical spine abnormalities.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-        </div>
-
-    </details>
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-rigidity" data-dismech-node="Spinal Rigidity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spinal Rigidity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.">
-                        Spinal rigidity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp">HP:0003306</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Progressive ossification of paravertebral muscles and fascia produces spinal rigidity. Heterotopic bone formation during the first decade of life limits normal thoracic kyphosis development and creates a rigid, deformed spine by early adulthood.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003306 | Spinal rigidity | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists spinal rigidity as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ossification of the paravertebral muscles and fascia during the first decade of life limited the development of a normal thoracic kyphosis in ten (42 per cent) of twenty-four patients for whom lateral roentgenograms of the spine were available."</div>
-
-
-                <div class="evidence-explanation">Early ossification of paravertebral soft tissues produces the spinal rigidity characteristic of FOP.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-joint-mobility" data-dismech-node="Limitation of Joint Mobility" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Limitation of Joint Mobility
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of joint mobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Progressive limitation of joint mobility is an overarching consequence of heterotopic ossification across all major joints. It encompasses the ankylosis and joint contractures seen in FOP.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001376 | Limitation of joint mobility | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists limitation of joint mobility as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27025942" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27025942" target="_blank">PMID:27025942</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common presenting symptoms of flare-ups were swelling (93%), pain (86%), or decreased mobility (79%)."</div>
-
-
-                <div class="evidence-explanation">Decreased mobility (79% of flare-ups) reflects the progressive limitation of joint mobility accumulating with each flare-up episode.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ectopic-ossification-in-muscle-tissue" data-dismech-node="Ectopic Ossification in Muscle Tissue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ectopic Ossification in Muscle Tissue
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:0011987 is a phenotype from the Human Phenotype Ontology.">
-                        Ectopic ossification in muscle tissue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011987" target="_blank" class="curie-chip curie-chip-hp">HP:0011987</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Heterotopic bone formation within skeletal muscle is the primary pathological process of FOP, proceeding through endochondral ossification.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0011987 | Ectopic ossification in muscle tissue | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists ectopic ossification in muscle tissue as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18245597" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18245597" target="_blank">PMID:18245597</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva is a rare autosomal dominant disorder characterized by congenital malformation of the great toes and by progressive heterotopic ossification of skeletal muscle and soft connective tissues."</div>
-
-
-                <div class="evidence-explanation">Supports heterotopic ossification in skeletal muscle as the defining tissue process in FOP.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive Ventilatory Defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Restrictive Ventilatory Defect
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.">
-                        Restrictive ventilatory defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp">HP:0002091</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Thoracic heterotopic ossification causes restrictive respiratory mechanics and underlies much of the cardiorespiratory mortality in FOP.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40597333" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40597333" target="_blank">PMID:40597333</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Spirometry showed a uniform pattern of restrictive physiology in all eight participants with no significant difference amongst the group."</div>
-
-
-                <div class="evidence-explanation">Supports restrictive ventilatory physiology in a modern FOP cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20194327" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20194327" target="_blank">PMID:20194327</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common causes of death in patients with fibrodysplasia ossificans progressiva were cardiorespiratory failure from thoracic insufficiency syndrome (54%; median age, forty-two years) and pneumonia (15%; median age, forty years)."</div>
-
-
-                <div class="evidence-explanation">Supports thoracic insufficiency syndrome as a major life-limiting respiratory complication of FOP.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-flare-up-pain" data-dismech-node="Acute Flare-up Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acute Flare-up Pain
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.">
-                        Pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp">HP:0012531</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Acute pain is a common presenting feature of flare-ups and contributes substantially to physical disability.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26564023" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26564023" target="_blank">PMID:26564023</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva (FOP) is a rare disorder characterized by episodes of acute pain and heterotopic ossification of soft tissue, and progressively limited physical function and social participation."</div>
-
-
-                <div class="evidence-explanation">Supports acute pain as a core clinical manifestation during FOP flare-ups.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">9</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-heterotopic-ossification" data-dismech-node="Heterotopic Ossification" data-dismech-type="phenotype">
@@ -5984,16 +5836,22 @@ This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ectopic ossification</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011986" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011986</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive heterotopic ossification, annotated with Ectopic ossification (HP:0011986). HP:0011986 is a phenotype from the Human Phenotype Ontology.">
-                        Ectopic ossification
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011986" target="_blank" class="curie-chip curie-chip-hp">HP:0011986</a>
-
-
+This clinical feature is Progressive heterotopic ossification, annotated with Ectopic ossification (HP:0011986). HP:0011986 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6016,7 +5874,9 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36152026" target="_blank">PMID:36152026</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6087,7 +5947,9 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17572636" target="_blank">PMID:17572636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6121,16 +5983,20 @@ This clinical feature is Progressive heterotopic ossification, annotated with Ec
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031013</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013). HP:0031013 is a phenotype from the Human Phenotype Ontology.">
-                        Ankylosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031013" target="_blank" class="curie-chip curie-chip-hp">HP:0031013</a>
-
-
+This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013). HP:0031013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6153,7 +6019,9 @@ This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28390760" target="_blank">PMID:28390760</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6179,28 +6047,181 @@ This clinical feature is Joint ankylosis, annotated with Ankylosis (HP:0031013).
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-neck-motion" data-dismech-node="Limitation of Neck Motion" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Limitation of Neck Motion
+                        Scoliosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of neck motion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005986" target="_blank" class="curie-chip curie-chip-hp">HP:0005986</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Neck stiffness and reduced cervical range of motion are often early manifestations of cervical involvement in FOP.</div>
+                    <div class="item-desc">Thoracolumbar or lumbar curves are common, may become rigid by early adulthood, and can impair sitting or standing balance.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-six (65 per cent) of the patients had scoliosis, which, according to the clinical records and the recollection of the patients, had been present during childhood."</div>
+
+
+                <div class="evidence-explanation">26/40 = 65%, which falls in the FREQUENT band; the same cohort report also indicates childhood onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <span class="context-onset">Onset: CHILDHOOD</span>
+
+
+
+            </div>
+
+
+            <div class="context-notes">In the 40-patient series, scoliosis was already present in childhood.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-six (65 per cent) of the patients had scoliosis, which, according to the clinical records and the recollection of the patients, had been present during childhood."</div>
+
+
+                <div class="evidence-explanation">Supports childhood onset of scoliosis in the reported cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-malformations" data-dismech-node="Cervical Spine Malformations" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cervical Spine Malformations
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Fused cervical vertebrae</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002949" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002949</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital cervical spine malformations, annotated with Fused cervical vertebrae (HP:0002949). HP:0002949 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Characteristic radiographic abnormalities include enlarged posterior elements, tall narrow vertebral bodies, and fusion of cervical facet joints.</div>
 
 
 
@@ -6217,17 +6238,19 @@ This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15959366" target="_blank">PMID:15959366</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Generalized neck stiffness and decreased range of motion were noted in most children with FOP."</div>
+                <div class="evidence-snippet">"In the FOP patient group, characteristic anomalies, including large posterior elements, tall narrow vertebral bodies,and fusion of the facet joints between C2 and C7, were observed."</div>
 
 
-                <div class="evidence-explanation">Supports neck stiffness with limited cervical motion as an early musculoskeletal manifestation.</div>
+                <div class="evidence-explanation">Supports characteristic congenital cervical spine malformations, including fusion involving the cervical vertebrae.</div>
 
 
 
@@ -6240,6 +6263,81 @@ This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a
 
 
 
+    <details class="phenotype-contexts">
+        <summary class="phenotype-contexts-toggle">
+            Context-specific annotations (1)
+        </summary>
+
+        <div class="context-card">
+            <div class="context-header">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <span class="context-onset">Onset: CONGENITAL</span>
+
+
+
+            </div>
+
+
+            <div class="context-notes">These cervical spine abnormalities are congenital skeletal defects.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15959366" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15959366" target="_blank">PMID:15959366</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FOP patients exhibit a characteristic set of congenital spine malformations."</div>
+
+
+                <div class="evidence-explanation">Supports congenital onset of the cervical spine abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </details>
+
 
                 </div>
 
@@ -6251,16 +6349,20 @@ This clinical feature is Limitation of neck motion (HP:0005986). HP:0005986 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proximal tibial osteochondromas, annotated with Osteochondroma (HP:0030431). HP:0030431 is a phenotype from the Human Phenotype Ontology.">
-                        Osteochondroma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030431" target="_blank" class="curie-chip curie-chip-hp">HP:0030431</a>
-
-
+This clinical feature is Proximal tibial osteochondromas, annotated with Osteochondroma (HP:0030431). HP:0030431 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6283,7 +6385,9 @@ This clinical feature is Proximal tibial osteochondromas, annotated with Osteoch
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18245597" target="_blank">PMID:18245597</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6309,30 +6413,34 @@ This clinical feature is Proximal tibial osteochondromas, annotated with Osteoch
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-first-metatarsal-bone" data-dismech-node="Abnormality of the First Metatarsal Bone" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-rigidity" data-dismech-node="Spinal Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormality of the First Metatarsal Bone
+                        Spinal Rigidity
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003306</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). HP:0010054 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the first metatarsal bone
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010054" target="_blank" class="curie-chip curie-chip-hp">HP:0010054</a>
-
-
+This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Shortening and malformation of the first metatarsal bone accompanies the great toe malformation, contributing to the characteristic forefoot appearance in FOP.</div>
+                    <div class="item-desc">Progressive ossification of paravertebral muscles and fascia produces spinal rigidity. Heterotopic bone formation during the first decade of life limits normal thoracic kyphosis development and creates a rigid, deformed spine by early adulthood.</div>
 
 
 
@@ -6349,39 +6457,235 @@ This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). 
                         <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0010054 | Abnormality of the first metatarsal bone | Very frequent (99-80%)"</div>
+                <div class="evidence-snippet">"HP:0003306 | Spinal rigidity | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists abnormality of the first metatarsal bone as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
+                <div class="evidence-explanation">Orphanet lists spinal rigidity as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21116899" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:7929490" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7929490" target="_blank">PMID:7929490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The metatarsal bone was also shortened and sharpened to the medial side, deviating the proximal phalanx laterally from the metatarsal axis."</div>
+                <div class="evidence-snippet">"Ossification of the paravertebral muscles and fascia during the first decade of life limited the development of a normal thoracic kyphosis in ten (42 per cent) of twenty-four patients for whom lateral roentgenograms of the spine were available."</div>
 
 
-                <div class="evidence-explanation">Systematic radiographic analysis of the first metatarsal in FOP patients documents consistent shortening and sharpening as part of the first-ray malformation.</div>
+                <div class="evidence-explanation">Early ossification of paravertebral soft tissues produces the spinal rigidity characteristic of FOP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-joint-mobility" data-dismech-node="Limitation of Joint Mobility" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limitation of Joint Mobility
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Progressive limitation of joint mobility is an overarching consequence of heterotopic ossification across all major joints. It encompasses the ankylosis and joint contractures seen in FOP.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001376 | Limitation of joint mobility | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists limitation of joint mobility as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27025942" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27025942" target="_blank">PMID:27025942</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common presenting symptoms of flare-ups were swelling (93%), pain (86%), or decreased mobility (79%)."</div>
+
+
+                <div class="evidence-explanation">Decreased mobility (79% of flare-ups) reflects the progressive limitation of joint mobility accumulating with each flare-up episode.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ectopic-ossification-in-muscle-tissue" data-dismech-node="Ectopic Ossification in Muscle Tissue" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ectopic Ossification in Muscle Tissue
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011987</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ectopic ossification in muscle tissue (HP:0011987). HP:0011987 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Heterotopic bone formation within skeletal muscle is the primary pathological process of FOP, proceeding through endochondral ossification.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0011987 | Ectopic ossification in muscle tissue | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists ectopic ossification in muscle tissue as a very frequent feature of fibrodysplasia ossificans progressiva.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18245597" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18245597" target="_blank">PMID:18245597</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva is a rare autosomal dominant disorder characterized by congenital malformation of the great toes and by progressive heterotopic ossification of skeletal muscle and soft connective tissues."</div>
+
+
+                <div class="evidence-explanation">Supports heterotopic ossification in skeletal muscle as the defining tissue process in FOP.</div>
 
 
 
@@ -6405,16 +6709,20 @@ This clinical feature is Abnormality of the first metatarsal bone (HP:0010054). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0011989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). HP:0011989 is a phenotype from the Human Phenotype Ontology.">
-                        Ectopic ossification in ligament tissue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011989" target="_blank" class="curie-chip curie-chip-hp">HP:0011989</a>
-
-
+This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). HP:0011989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6437,7 +6745,9 @@ This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). H
                         <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6463,6 +6773,188 @@ This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). H
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive Ventilatory Defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Restrictive Ventilatory Defect
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002091</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Thoracic heterotopic ossification causes restrictive respiratory mechanics and underlies much of the cardiorespiratory mortality in FOP.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40597333" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40597333" target="_blank">PMID:40597333</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spirometry showed a uniform pattern of restrictive physiology in all eight participants with no significant difference amongst the group."</div>
+
+
+                <div class="evidence-explanation">Supports restrictive ventilatory physiology in a modern FOP cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20194327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20194327" target="_blank">PMID:20194327</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common causes of death in patients with fibrodysplasia ossificans progressiva were cardiorespiratory failure from thoracic insufficiency syndrome (54%; median age, forty-two years) and pneumonia (15%; median age, forty years)."</div>
+
+
+                <div class="evidence-explanation">Supports thoracic insufficiency syndrome as a major life-limiting respiratory complication of FOP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-flare-up-pain" data-dismech-node="Acute Flare-up Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acute Flare-up Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012531</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute flare-up pain, annotated with Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Acute pain is a common presenting feature of flare-ups and contributes substantially to physical disability.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26564023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26564023" target="_blank">PMID:26564023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fibrodysplasia ossificans progressiva (FOP) is a rare disorder characterized by episodes of acute pain and heterotopic ossification of soft tissue, and progressively limited physical function and social participation."</div>
+
+
+                <div class="evidence-explanation">Supports acute pain as a core clinical manifestation during FOP flare-ups.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hip-pain" data-dismech-node="Hip Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hip Pain
@@ -6471,16 +6963,20 @@ This clinical feature is Ectopic ossification in ligament tissue (HP:0011989). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030838</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.">
-                        Hip pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030838" target="_blank" class="curie-chip curie-chip-hp">HP:0030838</a>
-
-
+This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6503,7 +6999,9 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6525,7 +7023,9 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27025942" target="_blank">PMID:27025942</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6536,94 +7036,6 @@ This clinical feature is Hip pain (HP:0030838). HP:0030838 is a phenotype from t
 
 
                 <div class="evidence-explanation">Hip flare-ups are among the most disabling in FOP, contributing to the high frequency of hip pain in this disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hallux-valgus" data-dismech-node="Hallux Valgus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hallux Valgus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype from the Human Phenotype Ontology.">
-                        Hallux valgus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001822" target="_blank" class="curie-chip curie-chip-hp">HP:0001822</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Source discrepancy: Orphanet annotates hallux valgus as occasional, whereas a dedicated radiographic study (PMID:21116899) found it in 71% of affected feet. The 71% figure is a per-foot radiographic measure in a small series, so the occasional band follows the more conservative Orphanet clinical annotation; the higher radiographic rate is captured in the literature evidence below.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:337" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:337" target="_blank">ORPHA:337</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001822 | Hallux valgus | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists hallux valgus as an occasional feature of fibrodysplasia ossificans progressiva.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21116899" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21116899" target="_blank">PMID:21116899</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A shortened great toe and hallux valgus were frequently found in patients with FOP."</div>
-
-
-                <div class="evidence-explanation">Systematic study of 16 FOP patients found hallux valgus in 71% of feet by radiographic criteria.</div>
 
 
 
@@ -6686,6 +7098,28 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ACVR1
+
+
+    <a href="https://bioregistry.io/hgnc:171" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:171</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACVR1 (hgnc:171). hgnc:171 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6707,7 +7141,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17572636" target="_blank">PMID:17572636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6727,7 +7163,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097342" target="_blank">PMID:29097342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6747,7 +7185,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
                         <a href="https://bioregistry.io/CGGV:assertion_0439e75f-fc1b-4841-8c9a-17f3568ce8a4-2023-03-01T170000.000Z" target="_blank">CGGV:assertion_0439e75f-fc1b-4841-8c9a-17f3568ce8a4-2023-03-01T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6777,6 +7217,9 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6793,17 +7236,17 @@ This clinical feature is Hallux valgus (HP:0001822). HP:0001822 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6828,21 +7271,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         palovarotene
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_188559" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:188559</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_188559" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:188559</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6859,13 +7312,15 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6881,13 +7336,15 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6917,18 +7374,18 @@ This treatment uses palovarotene (CHEBI:188559). CHEBI:188559 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">systemic corticosteroid therapy</span>
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.">NCIT:C122080</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122080" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122080">NCIT:C122080</a>
 
 
 
@@ -6951,6 +7408,14 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used during acute flare-ups to reduce inflammation, though efficacy in preventing ossification is limited. Must be administered early in flare-ups for potential benefit.</div>
 
 
@@ -6964,13 +7429,15 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7002,6 +7469,14 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Primary preventive strategy including avoidance of intramuscular injections, falls, and surgical procedures that may trigger flare-ups. Represents a key component of supportive care.</div>
 
 
@@ -7015,13 +7490,15 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7051,17 +7528,17 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7084,6 +7561,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Essential for affected individuals and families given the autosomal dominant inheritance pattern and severe disease burden.</div>
 
 
@@ -7097,13 +7582,15 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17572636" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17572636" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17572636" target="_blank">PMID:17572636</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7131,17 +7618,17 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7166,21 +7653,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         garetosmab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170022" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C170022</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170022" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C170022</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7197,13 +7694,15 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7242,6 +7741,10 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
                 <div class="item-name">Trauma</div>
 
 
+
+
+
+
                 <div class="item-desc">Physical trauma, including minor injuries, intramuscular injections, and surgical procedures, can trigger flare-ups leading to new heterotopic ossification. Avoidance of trauma is a key management strategy.</div>
 
 
@@ -7253,13 +7756,15 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7308,7 +7813,9 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41970064" target="_blank">PMID:41970064</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7324,13 +7831,15 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26896819" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7360,6 +7869,33 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
             <div class="item-box environmental-box anchor-target" id="environmental-viral-illness" data-dismech-node="Viral Illness" data-dismech-type="environmental">
                 <div class="item-name">Viral Illness</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        viral infection
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:3000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is viral infection, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Viral infections may trigger inflammatory flare-ups and subsequent heterotopic ossification episodes.</div>
 
@@ -7378,7 +7914,9 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26896819" target="_blank">PMID:26896819</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7421,13 +7959,15 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41970064" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41970064" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41970064" target="_blank">PMID:41970064</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7460,6 +8000,158 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-residents">
+                <div class="item-name">United States residents</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.088 per 100,000
+                    </span>
+
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">A 2021 U.S. ascertainment study across major treatment centers and a patient organization estimated prevalence at 0.88 per million residents.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34353327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34353327" target="_blank">PMID:34353327</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An adjusted prevalence of 0.88 per million US residents was calculated using either an average survival rate estimate of 98.4% or a conservative survival rate estimate of 92.3% (based on the Kaplan-Meier survival curve from a previous study) and the US Census 2020 estimate of 329,992,681 on..."</div>
+
+
+                <div class="evidence-explanation">This is a direct population-based U.S. prevalence estimate for FOP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-france-residents">
+                <div class="item-name">France residents</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.136 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">French national database linkage estimated FOP prevalence at 1.36 per million inhabitants.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28666455" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28666455" target="_blank">PMID:28666455</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using a capture-recapture methodology to adjust the crude number of patients identified in both data sources, 89 FOP patients were identified, which results in a prevalence of 1.36 per million inhabitants (CI95% = [1.10; 1.68])."</div>
+
+
+                <div class="evidence-explanation">This national French record-linkage study provides an independent population prevalence estimate for FOP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7472,7 +8164,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse220725">
                 <div class="item-name">
                     Oxidative phosphorylation is a pivotal therapeutic target of fibrodysplasia ossificans progressiva
 
@@ -7515,7 +8207,7 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse228522">
                 <div class="item-name">
                     Transcriptomic differences underlying the Activin-A induced large osteoclast formation in both healthy control and Fibrodysplasia Ossificans Progressiva osteoclasts
 
@@ -7586,7 +8278,6 @@ This treatment uses garetosmab (NCIT:C170022). NCIT:C170022 is a therapeutic age
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Fibrodysplasia Ossificans Progressiva
 creation_date: &#39;2025-12-19T01:18:09Z&#39;
-updated_date: &#39;2026-04-19T07:29:40Z&#39;
 category: Genetic
 parents:
 - Musculoskeletal Disease
@@ -7616,6 +8307,7 @@ prevalence:
     patient organization estimated prevalence at 0.88 per million residents.
   evidence:
   - reference: PMID:34353327
+    reference_title: &#34;Prevalence of fibrodysplasia ossificans progressiva (FOP) in the United States: estimate from three treatment centers and a patient organization&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7636,6 +8328,7 @@ prevalence:
     million inhabitants.
   evidence:
   - reference: PMID:28666455
+    reference_title: &#34;Prevalence of fibrodysplasia ossificans progressiva (FOP) in France: an estimate based on a record linkage of two national databases&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7733,7 +8426,7 @@ pathophysiology:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Most FOP patients carry an activating mutation in a bone morphogenetic
@@ -8191,6 +8884,7 @@ phenotypes:
     spine by early adulthood.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0003306 | Spinal rigidity | Very frequent (99-80%)&#34;
@@ -8223,6 +8917,7 @@ phenotypes:
     ankylosis and joint contractures seen in FOP.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001376 | Limitation of joint mobility | Very frequent (99-80%)&#34;
@@ -8252,6 +8947,7 @@ phenotypes:
     a FOP flare-up before heterotopic ossification is visible radiographically.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001482 | Subcutaneous nodule | Very frequent (99-80%)&#34;
@@ -8272,6 +8968,7 @@ phenotypes:
     appearance in FOP.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0010054 | Abnormality of the first metatarsal bone | Very frequent (99-80%)&#34;
@@ -8303,6 +9000,7 @@ phenotypes:
     ossification.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0011987 | Ectopic ossification in muscle tissue | Very frequent (99-80%)&#34;
@@ -8334,6 +9032,7 @@ phenotypes:
     of heterotopic bone formation in FOP, alongside muscle and fascia.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0011989 | Ectopic ossification in ligament tissue | Very frequent (99-80%)&#34;
@@ -8354,6 +9053,7 @@ phenotypes:
     around the hip joint.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0030838 | Hip pain | Frequent (79-30%)&#34;
@@ -8385,6 +9085,7 @@ phenotypes:
     the higher radiographic rate is captured in the literature evidence below.
   evidence:
   - reference: ORPHA:337
+    reference_title: &#34;Fibrodysplasia ossificans progressiva&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001822 | Hallux valgus | Occasional (29-5%)&#34;
@@ -8408,6 +9109,11 @@ phenotypes:
       label: Hallux valgus
 genetic:
 - name: ACVR1
+  gene_term:
+    preferred_term: ACVR1
+    term:
+      id: hgnc:171
+      label: ACVR1
   association: Causative
   inheritance:
   - name: Autosomal Dominant
@@ -8467,7 +9173,7 @@ environmental:
         sentence, in human disease.
     - reference: PMID:26896819
       reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;palovarotene effectively inhibited HO in injury-induced and genetic mouse models of the disease&#34;
       explanation: &gt;-
@@ -8482,7 +9188,7 @@ environmental:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene effectively inhibited HO in injury-induced and genetic
@@ -8491,6 +9197,11 @@ environmental:
       The use of injury-induced models demonstrates trauma as a key trigger
       for heterotopic ossification in FOP.
 - name: Viral Illness
+  exposure_term:
+    preferred_term: viral infection
+    term:
+      id: ECTO:3000001
+      label: exposure to virus
   influences_mechanisms:
   - target: Inflammatory Triggering of Flare-ups
     environmental_effect: TRIGGERS
@@ -8506,7 +9217,7 @@ environmental:
     evidence:
     - reference: PMID:41970064
       reference_title: &#34;Fibrodysplasia Ossificans Progressiva: A Case Report From the UAE.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;She initially presented in infancy with painful shoulder restriction, followed by recurrent trauma- and infection-triggered flare-ups&#34;
       explanation: &gt;-
@@ -8536,7 +9247,7 @@ treatments:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene maintained joint, limb, and body motion, providing clear
@@ -8546,7 +9257,7 @@ treatments:
       preserving mobility in FOP mouse models.
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene restored long bone growth, maintained growth plate function,
@@ -8572,7 +9283,7 @@ treatments:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Fibrodysplasia ossificans progressiva (FOP), a rare and as yet untreatable
@@ -8593,7 +9304,7 @@ treatments:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       palovarotene effectively inhibited HO in injury-induced and genetic
@@ -8608,7 +9319,7 @@ treatments:
   evidence:
   - reference: PMID:17572636
     reference_title: &#34;Functional modeling of the ACVR1 (R206H) mutation in FOP.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       Individuals with fibrodysplasia ossificans progressiva are born with
       malformations of the great toes and develop a heterotopic skeleton during
@@ -8630,7 +9341,7 @@ treatments:
   evidence:
   - reference: PMID:26896819
     reference_title: &#34;Palovarotene Inhibits Heterotopic Ossification and Maintains Limb Mobility and Growth in Mice With the Human ACVR1(R206H) Fibrodysplasia Ossificans Progressiva (FOP) Mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Most FOP patients carry an activating mutation in a bone morphogenetic
@@ -9389,7 +10100,7 @@ This is a comprehensive request for a disease pathophysiology research report on
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibrodysplasia Ossificans Progressiva", "mondoId": "MONDO:0007606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrodysplasia_Ossificans_Progressiva", "yamlRevision": "c604bf56d055"};
+        const OS_CONFIG = {"diseaseName": "Fibrodysplasia Ossificans Progressiva", "mondoId": "MONDO:0007606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrodysplasia_Ossificans_Progressiva", "yamlRevision": "cf304ec3227d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9808,5 +10519,73 @@ This is a comprehensive request for a disease pathophysiology research report on
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

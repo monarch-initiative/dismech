@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency</h1>
             <div class="header-meta">
 
@@ -3968,7 +4115,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4013,7 +4160,9 @@
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4035,7 +4184,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4099,17 +4250,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SRD5A2 (hgnc:11285). hgnc:11285 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SRD5A2
 
 
-    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11285</a>
+    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11285</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SRD5A2 (hgnc:11285). hgnc:11285 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4138,18 +4293,20 @@ This pathophysiological event involves SRD5A2 (hgnc:11285). hgnc:11285 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         androgen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go">GO:0006702</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4207,7 +4364,9 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4229,7 +4388,9 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4269,18 +4430,20 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         androgen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go">GO:0006702</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4338,7 +4501,9 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4378,18 +4543,20 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         androgen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go">GO:0006702</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006702" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased androgen biosynthetic process (GO:0006702). GO:0006702 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4479,7 +4646,9 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4519,18 +4688,20 @@ This pathophysiological event involves decreased androgen biosynthetic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased androgen receptor signaling pathway (GO:0030521). GO:0030521 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         androgen receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go">GO:0030521</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030521</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased androgen receptor signaling pathway (GO:0030521). GO:0030521 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4596,7 +4767,9 @@ This pathophysiological event involves decreased androgen receptor signaling pat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4741,7 +4914,9 @@ This pathophysiological event involves decreased androgen receptor signaling pat
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4763,7 +4938,9 @@ This pathophysiological event involves decreased androgen receptor signaling pat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4803,18 +4980,20 @@ This pathophysiological event involves decreased androgen receptor signaling pat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased androgen receptor signaling pathway (GO:0030521). GO:0030521 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         androgen receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go">GO:0030521</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030521" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030521</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased androgen receptor signaling pathway (GO:0030521). GO:0030521 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4872,7 +5051,9 @@ This pathophysiological event involves increased androgen receptor signaling pat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36216557" target="_blank">PMID:36216557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4953,7 +5134,9 @@ This pathophysiological event involves increased androgen receptor signaling pat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4975,7 +5158,9 @@ This pathophysiological event involves increased androgen receptor signaling pat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5042,9 +5227,15 @@ This pathophysiological event involves increased androgen receptor signaling pat
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(12)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(10)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Voice<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5053,28 +5244,34 @@ This pathophysiological event involves increased androgen receptor signaling pat
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">2</span>
+                    Endocrine
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-endocrine-abnormality" data-dismech-node="Endocrine abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cryptorchidism
+                        Endocrine abnormality
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the endocrine system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000818</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.">
-                        Cryptorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp">HP:0000028</a>
-
-
+This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:0000818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5095,7 +5292,88 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000818 | Abnormality of the endocrine system | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records endocrine abnormality as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">10</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cryptorchidism
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5121,77 +5399,6 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-micropenis" data-dismech-node="Micropenis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Micropenis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.">
-                        Micropenis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp">HP:0000054</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pseudovaginal posterior hypospadias and micropenis."</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s definition explicitly includes micropenis in the phenotypic range.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">12</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia-male" data-dismech-node="Ambiguous genitalia, male" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ambiguous genitalia, male
@@ -5200,16 +5407,20 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000033</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a phenotype from the Human Phenotype Ontology.">
-                        Ambiguous genitalia, male
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000033" target="_blank" class="curie-chip curie-chip-hp">HP:0000033</a>
-
-
+This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5230,7 +5441,9 @@ This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5264,16 +5477,20 @@ This clinical feature is Ambiguous genitalia, male (HP:0000033). HP:0000033 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000046</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype from the Human Phenotype Ontology.">
-                        Small scrotum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000046" target="_blank" class="curie-chip curie-chip-hp">HP:0000046</a>
-
-
+This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5294,7 +5511,9 @@ This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5328,16 +5547,20 @@ This clinical feature is Small scrotum (HP:0000046). HP:0000046 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000048</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype from the Human Phenotype Ontology.">
-                        Bifid scrotum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000048" target="_blank" class="curie-chip curie-chip-hp">HP:0000048</a>
-
-
+This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5358,7 +5581,9 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5392,16 +5617,20 @@ This clinical feature is Bifid scrotum (HP:0000048). HP:0000048 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000051</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phenotype from the Human Phenotype Ontology.">
-                        Perineal hypospadias
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000051" target="_blank" class="curie-chip curie-chip-hp">HP:0000051</a>
-
-
+This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5422,7 +5651,9 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5448,6 +5679,74 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-micropenis" data-dismech-node="Micropenis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Micropenis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000054</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pseudovaginal posterior hypospadias and micropenis."</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition explicitly includes micropenis in the phenotypic range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous genitalia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ambiguous genitalia
@@ -5456,16 +5755,20 @@ This clinical feature is Perineal hypospadias (HP:0000051). HP:0000051 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000062</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.">
-                        Ambiguous genitalia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp">HP:0000062</a>
-
-
+This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5486,7 +5789,9 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5508,7 +5813,9 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37180321" target="_blank">PMID:37180321</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5542,16 +5849,20 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000144" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000144</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased fertility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000144" target="_blank" class="curie-chip curie-chip-hp">HP:0000144</a>
-
-
+This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5572,7 +5883,9 @@ This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a pheno
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5598,132 +5911,6 @@ This clinical feature is Decreased fertility (HP:0000144). HP:0000144 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-endocrine-abnormality" data-dismech-node="Endocrine abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Endocrine abnormality
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:0000818 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the endocrine system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank" class="curie-chip curie-chip-hp">HP:0000818</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000818 | Abnormality of the endocrine system | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records endocrine abnormality as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-metabolism-homeostasis" data-dismech-node="Abnormality of metabolism/homeostasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of metabolism/homeostasis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of metabolism/homeostasis (HP:0001939). HP:0001939 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of metabolism/homeostasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001939" target="_blank" class="curie-chip curie-chip-hp">HP:0001939</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"defect in metabolizing testosterone to dihydrotestosterone"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s definition describes the impaired steroid conversion that supports the broad HPO metabolism/homeostasis phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplasia-of-penis" data-dismech-node="Hypoplasia of penis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoplasia of penis
@@ -5732,16 +5919,20 @@ This clinical feature is Abnormality of metabolism/homeostasis (HP:0001939). HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008736</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of penis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp">HP:0008736</a>
-
-
+This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5762,7 +5953,9 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5796,16 +5989,20 @@ This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100779" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100779</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a phenotype from the Human Phenotype Ontology.">
-                        Urogenital sinus anomaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100779" target="_blank" class="curie-chip curie-chip-hp">HP:0100779</a>
-
-
+This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5826,7 +6023,9 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5852,6 +6051,169 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-metabolism-homeostasis" data-dismech-node="Abnormality of metabolism/homeostasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of metabolism/homeostasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001939</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of metabolism/homeostasis (HP:0001939). HP:0001939 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"defect in metabolizing testosterone to dihydrotestosterone"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition describes the impaired steroid conversion that supports the broad HPO metabolism/homeostasis phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Voice
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-voice" data-dismech-node="Abnormality of the voice" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the voice
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001608</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28690896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"virilisation at puberty, including deepening of the vocal tone"</div>
+
+
+                <div class="evidence-explanation">This case report supports voice deepening during pubertal virilization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pubertal-virilization" data-dismech-node="Pubertal virilization" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pubertal virilization
@@ -5875,7 +6237,9 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5897,7 +6261,9 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5908,68 +6274,6 @@ This clinical feature is Urogenital sinus anomaly (HP:0100779). HP:0100779 is a 
 
 
                 <div class="evidence-explanation">The worldwide review supports pubertal virilization as a characteristic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-voice" data-dismech-node="Abnormality of the voice" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of the voice
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the voice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001608" target="_blank" class="curie-chip curie-chip-hp">HP:0001608</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28690896" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28690896" target="_blank">PMID:28690896</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"virilisation at puberty, including deepening of the vocal tone"</div>
-
-
-                <div class="evidence-explanation">This case report supports voice deepening during pubertal virilization.</div>
 
 
 
@@ -6037,15 +6341,17 @@ This clinical feature is Abnormality of the voice (HP:0001608). HP:0001608 is a 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SRD5A2
 
 
-    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11285</a>
+    <a href="https://bioregistry.io/hgnc:11285" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11285</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6071,7 +6377,9 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
                         <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6093,7 +6401,9 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6123,6 +6433,9 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6139,18 +6452,18 @@ This disease-associated gene is SRD5A2 (hgnc:11285). hgnc:11285 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">hormone therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hormone therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">hormone therapy</span>
+This treatment is hormone therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hormone therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">NCIT:C15445</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15445">NCIT:C15445</a>
 
 
 
@@ -6175,36 +6488,59 @@ This treatment is hormone therapy (NCIT:C15445). NCIT:C15445 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses dihydrotestosterone, annotated with 17beta-hydroxy-5alpha-androstan-3-one (CHEBI:16330). CHEBI:16330 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         dihydrotestosterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16330" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:16330</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16330" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:16330</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dihydrotestosterone, annotated with 17beta-hydroxy-5alpha-androstan-3-one (CHEBI:16330). CHEBI:16330 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         testosterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17347" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17347</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17347" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:17347</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6236,7 +6572,9 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36216557" target="_blank">PMID:36216557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6266,18 +6604,20 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Micropenis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000054</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6297,7 +6637,9 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36216557" target="_blank">PMID:36216557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6319,7 +6661,9 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178538" target="_blank">PMID:31178538</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6335,13 +6679,15 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31178538" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31178538" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178538" target="_blank">PMID:31178538</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6371,18 +6717,18 @@ This treatment targets Micropenis (HP:0000054). HP:0000054 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">gonadectomy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">gonadectomy</span>
+This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6405,6 +6751,25 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">One case report proposed early gonadectomy or testis descent after finding Ki67-positive germ cells in excised testes. This limited evidence does not establish a general gonadectomy recommendation; decisions require individualized multidisciplinary counseling and the patient&#39;s goals.</div>
 
 
@@ -6418,13 +6783,15 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29643321" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29643321" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6454,18 +6821,18 @@ This treatment is gonadectomy, annotated with Surgical Procedure (NCIT:C15329). 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">orchiopexy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.">orchiopexy</span>
+This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orchiopexy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C111066" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical intervention from the NCI Thesaurus.">NCIT:C111066</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C111066" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C111066">NCIT:C111066</a>
 
 
 
@@ -6488,6 +6855,25 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">For patients managed with retained testes, orchiopexy or testis descent may be considered to reposition testes and reduce risks from persistent maldescent.</div>
 
 
@@ -6496,18 +6882,20 @@ This treatment is orchiopexy (NCIT:C111066). NCIT:C111066 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cryptorchidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000028</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6527,7 +6915,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6613,7 +7003,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6653,7 +7045,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32346305" target="_blank">PMID:32346305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6724,7 +7118,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6764,7 +7160,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6786,7 +7184,9 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6810,6 +7210,419 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-testosterone-to-dihydrotestosterone-ratio">
+                <div class="item-name">
+                    Testosterone-to-dihydrotestosterone ratio
+
+                </div>
+
+                <div class="item-desc">Hormonal testing assesses testosterone and DHT; an elevated T/DHT ratio supports 5-alpha-reductase type 2 deficiency, although sensitivity can be lower in mild cases and prepubertal children.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical laboratory procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Elevated testosterone-to-dihydrotestosterone ratio.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31885560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We examined results from testosterone/dihydrotestosterone (T/DHT) and urinary"</div>
+
+
+                <div class="evidence-explanation">The Indonesian cohort evaluated T/DHT and urinary steroid ratios diagnostically.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31885560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"5ARD2 cases using T/DHT (cutoff: 10) and urinary Et/An ratios (cutoff: 0.95)"</div>
+
+
+                <div class="evidence-explanation">This provides exact diagnostic cutoffs used in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urinary-steroid-metabolite-ratio">
+                <div class="item-name">
+                    Urinary steroid metabolite ratio
+
+                </div>
+
+                <div class="item-desc">Urinary steroid profiling can assess the etiocholanolone-to-androsterone ratio as an additional biochemical route to diagnosis. In the cited cohort, the urinary ratio was more sensitive than T/DHT for severe cases, while both tests had limited sensitivity for mild disease.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical laboratory procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Elevated urinary etiocholanolone-to-androsterone ratio.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31885560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31885560" target="_blank">PMID:31885560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the respective sensitivities for detecting severe 5ARD2 cases using T/DHT (cutoff: 10) and urinary Et/An ratios (cutoff: 0.95) were 85% and 90%, whereas mild cases were only identified with 64.7% and 47.1% sensitivity, respectively."</div>
+
+
+                <div class="evidence-explanation">The cohort provides the urinary Et/An cutoff and documents sensitivity limitations in severe and mild disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-srd5a2-molecular-genetic-testing">
+                <div class="item-name">
+                    SRD5A2 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing for biallelic SRD5A2 pathogenic variants confirms the diagnosis and helps distinguish the disorder from other 46,XY DSD causes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic SRD5A2 variants.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29643321" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29643321" target="_blank">PMID:29643321</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"analysis for the 5α-reductase type 2 (SRD5A2) gene is the golden standard for"</div>
+
+
+                <div class="evidence-explanation">This case report states that SRD5A2 mutation analysis is the diagnostic standard.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41210722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41210722" target="_blank">PMID:41210722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"WES identified a pathogenic homozygous variant, c.737G &gt; A(p.Arg246Gln) in the"</div>
+
+
+                <div class="evidence-explanation">The sibling report supports comprehensive molecular testing for diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records worldwide point prevalence as unknown.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:753" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:753" target="_blank">ORPHA:753</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unknown | Worldwide | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">Orphanet records worldwide point prevalence as unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6843,7 +7656,6 @@ This treatment targets Cryptorchidism (HP:0000028). HP:0000028 is a phenotype fr
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: 46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency
 creation_date: &#34;2026-05-11T04:00:08Z&#34;
-updated_date: &#34;2026-05-19T15:00:32Z&#34;
 category: Mendelian
 description: &gt;-
   46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency is an
@@ -7767,7 +8579,7 @@ treatments:
     explanation: The case series quantifies prepubertal penile growth after transdermal DHT.
   - reference: PMID:31178538
     reference_title: Effects of pre- and post-pubertal dihydrotestosterone treatment on penile length in 5α-reductase type 2 deficiency.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the retarded penile growth and a risk of prostate overgrowth may complicate the post-pubertal management with DHT for 5αRD2 males.&#34;
     explanation: The same small series supplies the post-pubertal efficacy and prostate-growth caveat.
@@ -7786,7 +8598,7 @@ treatments:
   evidence:
   - reference: PMID:29643321
     reference_title: Clinical and molecular characterization of 5α-reductase type 2 deficiency due to mutations (p.Q6X, p.R246Q) in SRD5A2 gene.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Immunohistochemical staining for the excised testes showed that 30%-50% of the germ cells were Ki67 positive, which indicated the early neoplastic potential.&#34;
     explanation: The single-patient pathology finding is the limited evidence underlying the paper&#39;s proposed gonadal management options.
@@ -8567,7 +9379,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency", "mondoId": "MONDO:0009923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XY_disorder_of_sex_development_due_to_5-alpha-reductase_2_deficiency", "yamlRevision": "e2f7d44f7a94"};
+        const OS_CONFIG = {"diseaseName": "46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency", "mondoId": "MONDO:0009923", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XY_disorder_of_sex_development_due_to_5-alpha-reductase_2_deficiency", "yamlRevision": "878877284dc6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8986,5 +9798,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

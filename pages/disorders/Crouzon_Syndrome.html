@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Crouzon Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Crouzon Syndrome</h1>
             <div class="header-meta">
 
@@ -3818,7 +3965,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3882,6 +4029,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3891,9 +4108,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 33 &#34;Craniosynostosis syndromes&#34;; listed as &#34;Crouzon syndrome&#34;.">craniosynostosis syndromes</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3911,7 +4144,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3933,13 +4166,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8528214" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8528214" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3961,7 +4196,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29085273" target="_blank">PMID:29085273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4019,18 +4256,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4058,18 +4297,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves FGFR Signaling, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         FGFR Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves FGFR Signaling, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4086,18 +4327,20 @@ This pathophysiological event involves FGFR Signaling, annotated with fibroblast
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cranial Suture Morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cranial Suture Morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cranial Suture Morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4145,13 +4388,15 @@ This pathophysiological event involves Cranial Suture Morphogenesis (GO:0060363)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4173,7 +4418,9 @@ This pathophysiological event involves Cranial Suture Morphogenesis (GO:0060363)
                         <a href="https://bioregistry.io/DOI:10.1002/dvdy.22314" target="_blank">DOI:10.1002/dvdy.22314</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4207,18 +4454,20 @@ This pathophysiological event involves Cranial Suture Morphogenesis (GO:0060363)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4235,18 +4484,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Epithelial Cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial Cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4274,18 +4525,20 @@ This pathophysiological event involves Epithelial Cell (CL:0000066). CL:0000066 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves FGFR Signaling, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         FGFR Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves FGFR Signaling, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4324,7 +4577,9 @@ This pathophysiological event involves FGFR Signaling, annotated with fibroblast
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4340,13 +4595,15 @@ This pathophysiological event involves FGFR Signaling, annotated with fibroblast
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/dvdy.22314" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/dvdy.22314" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/dvdy.22314" target="_blank">DOI:10.1002/dvdy.22314</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4380,18 +4637,20 @@ This pathophysiological event involves FGFR Signaling, annotated with fibroblast
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4419,18 +4678,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4451,18 +4712,20 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4520,7 +4783,9 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4554,18 +4819,20 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4593,18 +4860,20 @@ This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4625,18 +4894,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4664,18 +4935,20 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4713,7 +4986,9 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4735,7 +5010,9 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19117954" target="_blank">PMID:19117954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4776,18 +5053,20 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cranial suture morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4808,18 +5087,20 @@ This pathophysiological event involves dysregulated cranial suture morphogenesis
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4847,18 +5128,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cranial suture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0003685</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003685" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0003685</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:0003685 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4944,7 +5227,9 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5005,7 +5290,7 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">12</span>
+                <span class="card-count">14</span>
             </div>
 
 
@@ -5013,13 +5298,11 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5038,16 +5321,22 @@ This pathophysiological event occurs in cranial suture (UBERON:0003685). UBERON:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pinna morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000377</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal external ear morphology, annotated with Abnormal pinna morphology (HP:0000377). HP:0000377 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pinna morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" class="curie-chip curie-chip-hp">HP:0000377</a>
-
-
+This clinical feature is Abnormal external ear morphology, annotated with Abnormal pinna morphology (HP:0000377). HP:0000377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5070,16 +5359,22 @@ This clinical feature is Abnormal external ear morphology, annotated with Abnorm
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Conductive hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000405</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.">
-                        Conductive hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp">HP:0000405</a>
-
-
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5100,7 +5395,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5132,7 +5429,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proptosis" data-dismech-node="Proptosis" data-dismech-type="phenotype">
@@ -5143,16 +5440,20 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000520</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.">
-                        Proptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp">HP:0000520</a>
-
-
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5173,7 +5474,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5195,7 +5498,9 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5229,16 +5534,20 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000316</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertelorism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp">HP:0000316</a>
-
-
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5259,7 +5568,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5293,16 +5604,20 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
-                        Strabismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
-
-
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5323,7 +5638,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5349,13 +5666,197 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papilledema" data-dismech-node="Papilledema" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Papilledema
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001085</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42091709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42091709" target="_blank">PMID:42091709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Optic nerve involvement was reported in 140 patients (44 papers) and included papilledema (69 patients), optic nerve atrophy (69 patients), and optic nerve hypoplasia (5 patients)."</div>
+
+
+                <div class="evidence-explanation">Establishes papilledema as a documented optic-nerve manifestation in craniosynostosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42091709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42091709" target="_blank">PMID:42091709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In sixty-eight patients (49%) an underlying syndrome was specified, most commonly Crouzon syndrome (27/68, 39.7%) and Apert syndrome (23/68, 33.8%)."</div>
+
+
+                <div class="evidence-explanation">Identifies Crouzon syndrome as the most frequent syndrome among reported optic-nerve cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000648</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42091709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42091709" target="_blank">PMID:42091709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Visual function was reduced in 65 patients, normal in 9."</div>
+
+
+                <div class="evidence-explanation">Quantifies the visual consequence of optic-nerve involvement in the reviewed cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42091709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42091709" target="_blank">PMID:42091709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cranial nerve involvement is common; it presents differences among syndromes and specific suture involvement but is still under-investigated in craniosynostosis."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own caveat that this literature is case-series based and under-investigated, so these are not frequency estimates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-suture-craniosynostosis" data-dismech-node="Multiple Suture Craniosynostosis" data-dismech-type="phenotype">
@@ -5366,16 +5867,20 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multiple suture craniosynostosis (HP:0011324). HP:0011324 is a phenotype from the Human Phenotype Ontology.">
-                        Multiple suture craniosynostosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011324" target="_blank" class="curie-chip curie-chip-hp">HP:0011324</a>
-
-
+This clinical feature is Multiple suture craniosynostosis (HP:0011324). HP:0011324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5396,7 +5901,9 @@ This clinical feature is Multiple suture craniosynostosis (HP:0011324). HP:00113
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5412,13 +5919,15 @@ This clinical feature is Multiple suture craniosynostosis (HP:0011324). HP:00113
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5452,16 +5961,20 @@ This clinical feature is Multiple suture craniosynostosis (HP:0011324). HP:00113
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000248</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype from the Human Phenotype Ontology.">
-                        Brachycephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp">HP:0000248</a>
-
-
+This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5482,7 +5995,9 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5516,16 +6031,20 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011800</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.">
-                        Midface retrusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp">HP:0011800</a>
-
-
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5546,7 +6065,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5568,7 +6089,9 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5594,152 +6117,6 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-intracranial-pressure" data-dismech-node="Increased intracranial pressure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased intracranial pressure
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.">
-                        Increased intracranial pressure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp">HP:0002516</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:207" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002516 | Increased intracranial pressure | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet phenotype table lists increased intracranial pressure as frequent in Crouzon syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hydrocephalus" data-dismech-node="Hydrocephalus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hydrocephalus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.">
-                        Hydrocephalus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp">HP:0000238</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:207" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000238 | Hydrocephalus | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet phenotype table lists hydrocephalus as an occasional feature of Crouzon syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-beaked-nose" data-dismech-node="Beaked Nose" data-dismech-type="phenotype">
                     <div class="item-name">
                         Beaked Nose
@@ -5748,16 +6125,22 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Convex nasal ridge</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Convex nasal ridge (HP:0000444). HP:0000444 is a phenotype from the Human Phenotype Ontology.">
-                        Convex nasal ridge
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000444" target="_blank" class="curie-chip curie-chip-hp">HP:0000444</a>
-
-
+This clinical feature is Convex nasal ridge (HP:0000444). HP:0000444 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5778,7 +6161,9 @@ This clinical feature is Convex nasal ridge (HP:0000444). HP:0000444 is a phenot
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5804,24 +6189,37 @@ This clinical feature is Convex nasal ridge (HP:0000444). HP:0000444 is a phenot
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-malformation" data-dismech-node="Chiari malformation" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-intracranial-pressure" data-dismech-node="Increased intracranial pressure" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Chiari malformation
+                        Increased intracranial pressure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002516</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a phenotype from the Human Phenotype Ontology.">
-                        Chiari malformation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002308" target="_blank" class="curie-chip curie-chip-hp">HP:0002308</a>
-
-
+This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5842,7 +6240,79 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
                         <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002516 | Increased intracranial pressure | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet phenotype table lists increased intracranial pressure as frequent in Crouzon syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-malformation" data-dismech-node="Chiari malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chiari malformation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002308</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:207" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5853,6 +6323,76 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
 
                 <div class="evidence-explanation">Orphanet phenotype table lists Chiari malformation as frequent in Crouzon syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydrocephalus" data-dismech-node="Hydrocephalus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hydrocephalus
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:207" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:207" target="_blank">ORPHA:207</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000238 | Hydrocephalus | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet phenotype table lists hydrocephalus as an occasional feature of Crouzon syndrome.</div>
 
 
 
@@ -5930,7 +6470,9 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5946,13 +6488,15 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7493034" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7493034" target="_blank">PMID:7493034</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5989,15 +6533,17 @@ This clinical feature is Chiari malformation (HP:0002308). HP:0002308 is a pheno
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:3689</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6019,7 +6565,9 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_c2cfa70a-750f-4357-98b9-f5c30ca4dc26-2021-12-23T165345.170Z" target="_blank">CGGV:assertion_c2cfa70a-750f-4357-98b9-f5c30ca4dc26-2021-12-23T165345.170Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6070,15 +6618,17 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3689</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6106,6 +6656,8 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6118,7 +6670,9 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6158,15 +6712,17 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: FGFR2
 
 
-    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3689</a>
+    <a href="https://bioregistry.io/hgnc:3689" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:3689</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6194,6 +6750,8 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6206,7 +6764,9 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8528214" target="_blank">PMID:8528214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6234,6 +6794,9 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
         </div>
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6250,18 +6813,18 @@ This variant is in FGFR2 (hgnc:3689). hgnc:3689 is a gene from the HUGO Gene Nom
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Craniofacial surgery<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Craniofacial surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Craniofacial surgery</span>
+This treatment is Craniofacial surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Craniofacial surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6279,6 +6842,25 @@ This treatment is Craniofacial surgery, annotated with Surgical Procedure (NCIT:
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6302,18 +6884,18 @@ This treatment is Craniofacial surgery, annotated with Surgical Procedure (NCIT:
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Midface surgery<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Midface surgery</span>
+This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6331,6 +6913,25 @@ This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C1532
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6354,6 +6955,124 @@ This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C1532
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-birth-prevalence">
+                <div class="item-name">Birth prevalence</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.65 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Published epidemiological work estimated the birth prevalence of Crouzon syndrome at 16.5 per 1,000,000, equivalent to about 1 in 60,600 births. Review literature also notes that Crouzon syndrome accounts for about 4.8% of all craniosynostosis cases.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1633640" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1633640" target="_blank">PMID:1633640</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Crouzon syndrome makes up approximately 4.8% of all cases of craniosynostosis. Using a weighted average estimate, birth prevalence was calculated to be 16.5/1,000,000."</div>
+
+
+                <div class="evidence-explanation">This epidemiological study directly reports the estimated birth prevalence of Crouzon syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29085273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29085273" target="_blank">PMID:29085273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Crouzon syndrome accounts for about 4.8% of all of them."</div>
+
+
+                <div class="evidence-explanation">This later clinical report reproduces the standard estimate that Crouzon syndrome comprises about 4.8% of craniosynostosis cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6389,7 +7108,6 @@ This treatment is Midface surgery, annotated with Surgical Procedure (NCIT:C1532
 synonyms:
 - Crouzon syndrome, FGFR2-related
 creation_date: &#39;2026-02-06T03:25:37Z&#39;
-updated_date: &#39;2026-03-27T16:32:18Z&#39;
 category: Mendelian
 description: &gt;
   Crouzon syndrome is a craniosynostosis syndrome caused by heterozygous mutations in
@@ -6443,7 +7161,7 @@ inheritance:
   evidence:
   - reference: PMID:8528214
     reference_title: &#34;Novel FGFR2 mutations in Crouzon and Jackson-Weiss syndromes show allelic heterogeneity and phenotypic variability.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These results underscore the allelic heterogeneity of these conditions
@@ -6487,7 +7205,7 @@ pathophysiology:
   evidence:
   - reference: PMID:7493034
     reference_title: &#34;Fibroblast growth factor receptor 3 (FGFR3) transmembrane mutation in Crouzon syndrome with acanthosis nigricans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       we have identified 10 different mutations in the FGFR2 extracellular
@@ -6498,7 +7216,7 @@ pathophysiology:
       proportion of Crouzon syndrome patients, supporting the pathophysiology
       centered on FGFR2 dysfunction.
   - reference: DOI:10.1002/dvdy.22314
-    reference_title: &#34;The missense mutation W290R in Fgfr2 causes developmental defects from aberrant IIIb and IIIc signaling&#34;
+    reference_title: &#34;The missense mutation W290R in &lt;i&gt;Fgfr2&lt;/i&gt; causes developmental defects from aberrant IIIb and IIIc signaling&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -6547,8 +7265,8 @@ pathophysiology:
       FGFR2 splice forms and a broader epithelial phenotype than classic
       cranial-only disease.
   - reference: DOI:10.1002/dvdy.22314
-    reference_title: &#34;The missense mutation W290R in Fgfr2 causes developmental defects from aberrant IIIb and IIIc signaling&#34;
-    supports: PARTIAL
+    reference_title: &#34;The missense mutation W290R in &lt;i&gt;Fgfr2&lt;/i&gt; causes developmental defects from aberrant IIIb and IIIc signaling&#34;
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       The defects in W290R mutants are suggestive of disruption of signalling in both IIIb and IIIc isoforms of the Fgfr2 gene.
@@ -6684,7 +7402,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0011324 | Multiple suture craniosynostosis | Very frequent (99-80%)&#34;
@@ -6694,7 +7412,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0011800 | Midface retrusion | Frequent (79-30%)&#34;
@@ -6704,7 +7422,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000520 | Proptosis | Frequent (79-30%)&#34;
@@ -6714,7 +7432,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000316 | Hypertelorism | Frequent (79-30%)&#34;
@@ -6724,7 +7442,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000486 | Strabismus | Frequent (79-30%)&#34;
@@ -6734,7 +7452,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002516 | Increased intracranial pressure | Frequent (79-30%)&#34;
@@ -6744,7 +7462,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:207
-      reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Crouzon syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002308 | Chiari malformation | Frequent (79-30%)&#34;
@@ -6776,7 +7494,7 @@ genetic:
       causing Crouzon syndrome, including mutations in exon IIIa and IIIc.
   - reference: PMID:7493034
     reference_title: &#34;Fibroblast growth factor receptor 3 (FGFR3) transmembrane mutation in Crouzon syndrome with acanthosis nigricans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       All mutations described so far for other craniosynostotic syndromes with
@@ -6868,14 +7586,14 @@ phenotypes:
       label: Multiple suture craniosynostosis
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0011324 | Multiple suture craniosynostosis | Very frequent (99-80%)&#34;
     explanation: Orphanet phenotype table lists multiple suture craniosynostosis as very frequent in Crouzon syndrome.
   - reference: PMID:7493034
     reference_title: &#34;Fibroblast growth factor receptor 3 (FGFR3) transmembrane mutation in Crouzon syndrome with acanthosis nigricans.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Crouzon syndrome, an autosomal dominant condition characterized by
@@ -6896,7 +7614,7 @@ phenotypes:
       label: Brachycephaly
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000248 | Brachycephaly | Frequent (79-30%)&#34;
@@ -6913,7 +7631,7 @@ phenotypes:
       label: Midface retrusion
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0011800 | Midface retrusion | Frequent (79-30%)&#34;
@@ -6940,7 +7658,7 @@ phenotypes:
       label: Proptosis
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000520 | Proptosis | Frequent (79-30%)&#34;
@@ -6966,7 +7684,7 @@ phenotypes:
       label: Hypertelorism
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000316 | Hypertelorism | Frequent (79-30%)&#34;
@@ -6983,7 +7701,7 @@ phenotypes:
       label: Convex nasal ridge
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000444 | Convex nasal ridge | Occasional (29-5%)&#34;
@@ -7008,7 +7726,7 @@ phenotypes:
       label: Conductive hearing impairment
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000405 | Conductive hearing impairment | Frequent (79-30%)&#34;
@@ -7024,7 +7742,7 @@ phenotypes:
       label: Strabismus
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000486 | Strabismus | Frequent (79-30%)&#34;
@@ -7040,7 +7758,7 @@ phenotypes:
       label: Increased intracranial pressure
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002516 | Increased intracranial pressure | Frequent (79-30%)&#34;
@@ -7057,7 +7775,7 @@ phenotypes:
       label: Chiari malformation
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002308 | Chiari malformation | Frequent (79-30%)&#34;
@@ -7074,11 +7792,66 @@ phenotypes:
       label: Hydrocephalus
   evidence:
   - reference: ORPHA:207
-    reference_title: &#34;Crouzon syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Crouzon syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000238 | Hydrocephalus | Occasional (29-5%)&#34;
     explanation: Orphanet phenotype table lists hydrocephalus as an occasional feature of Crouzon syndrome.
+- name: Papilledema
+  description: &gt;
+    Optic disc swelling from raised intracranial pressure. In a 2026 systematic
+    review of cranial-nerve involvement in craniosynostosis, optic nerve
+    involvement was the only nerve with enough published data to analyse
+    statistically, and Crouzon syndrome was the single most frequently named
+    underlying syndrome (39.7% of the 68 patients whose syndrome was specified).
+    Involvement was bilateral in the large majority and associated with
+    multisutural fusion, which is the Crouzon pattern.
+  phenotype_term:
+    preferred_term: Papilledema
+    term:
+      id: HP:0001085
+      label: Papilledema
+  evidence:
+  - reference: PMID:42091709
+    reference_title: &#34;Cranial nerves involvement in craniosynostosis: a systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Optic nerve involvement was reported in 140 patients (44 papers) and included papilledema (69 patients), optic nerve atrophy (69 patients), and optic nerve hypoplasia (5 patients).&#34;
+    explanation: Establishes papilledema as a documented optic-nerve manifestation in craniosynostosis.
+  - reference: PMID:42091709
+    reference_title: &#34;Cranial nerves involvement in craniosynostosis: a systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In sixty-eight patients (49%) an underlying syndrome was specified, most commonly Crouzon syndrome (27/68, 39.7%) and Apert syndrome (23/68, 33.8%).&#34;
+    explanation: Identifies Crouzon syndrome as the most frequent syndrome among reported optic-nerve cases.
+- name: Optic atrophy
+  description: &gt;
+    Optic nerve atrophy is reported as often as papilledema in the
+    craniosynostosis optic-nerve literature and represents the irreversible end
+    of the same pathway — chronically raised intracranial pressure and/or optic
+    canal stenosis. Visual function was reduced in 65 of the 140 reported
+    patients and normal in only 9, which is the argument for pressure
+    surveillance rather than symptom-triggered assessment.
+  phenotype_term:
+    preferred_term: Optic atrophy
+    term:
+      id: HP:0000648
+      label: Optic atrophy
+  evidence:
+  - reference: PMID:42091709
+    reference_title: &#34;Cranial nerves involvement in craniosynostosis: a systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Visual function was reduced in 65 patients, normal in 9.&#34;
+    explanation: Quantifies the visual consequence of optic-nerve involvement in the reviewed cases.
+  - reference: PMID:42091709
+    reference_title: &#34;Cranial nerves involvement in craniosynostosis: a systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cranial nerve involvement is common; it presents differences among syndromes and specific suture involvement but is still under-investigated in craniosynostosis.&#34;
+    explanation: &gt;-
+      The authors&#39; own caveat that this literature is case-series based and
+      under-investigated, so these are not frequency estimates.
 treatments:
 - name: Cranial Vault Remodeling
   description: &gt;
@@ -7315,7 +8088,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Crouzon Syndrome", "mondoId": "MONDO:0007405", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crouzon_Syndrome", "yamlRevision": "e9d2a6d633ad"};
+        const OS_CONFIG = {"diseaseName": "Crouzon Syndrome", "mondoId": "MONDO:0007405", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crouzon_Syndrome", "yamlRevision": "ef2febe38d8c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7734,5 +8507,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

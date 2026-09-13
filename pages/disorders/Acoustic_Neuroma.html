@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Acoustic Neuroma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acoustic Neuroma</h1>
             <div class="header-meta">
 
@@ -3918,7 +4065,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-vestibular-schwannoma-disease-definition">
                 <div class="item-name">Vestibular schwannoma disease definition</div>
 
                 <div class="item-desc">A benign tumor formed by neoplastic Schwann cells on the eighth cranial nerve, usually arising from a vestibular nerve division.</div>
@@ -3964,7 +4111,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38892775" target="_blank">PMID:38892775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4021,7 +4170,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sporadic-unilateral">
 
                     <div class="item-name">
                         Sporadic Unilateral Vestibular Schwannoma
@@ -4055,7 +4204,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28710469" target="_blank">PMID:28710469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4081,7 +4232,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nf2-related">
 
                     <div class="item-name">
                         NF2-Related Vestibular Schwannoma
@@ -4115,7 +4266,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301380" target="_blank">PMID:20301380</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4212,11 +4365,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type human multicellular tumor-neural co-culture perturbation assay.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         human multicellular tumor-neural co-culture perturbation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type human multicellular tumor-neural co-culture perturbation assay.</span>
     </span>
 
 
@@ -4259,6 +4416,7 @@ This experiment is of type human multicellular tumor-neural co-culture perturbat
 
 
 
+
         </div>
 
         <div class="item-meta">
@@ -4267,17 +4425,21 @@ This experiment is of type human multicellular tumor-neural co-culture perturbat
 
 
 
-    <span class="tag tag-organism" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+
+
+    <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4322,6 +4484,12 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4345,7 +4513,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4367,7 +4537,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26690506" target="_blank">PMID:26690506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4446,7 +4618,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22377650" target="_blank">PMID:22377650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4490,21 +4664,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="entity-ref-chip">treatments#Observation with Serial MRI and Audiometry</span>
+    <a class="entity-ref-chip" href="#treatment-observation-with-serial-mri-and-audiometry">treatments#Observation with Serial MRI and Audiometry</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Microsurgical Resection</span>
+    <a class="entity-ref-chip" href="#treatment-microsurgical-resection">treatments#Microsurgical Resection</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Stereotactic Radiosurgery or Fractionated Radiotherapy</span>
+    <a class="entity-ref-chip" href="#treatment-stereotactic-radiosurgery-or-fractionated-radiotherapy">treatments#Stereotactic Radiosurgery or Fractionated Radiotherapy</a>
 
 
 
@@ -4532,7 +4706,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4554,7 +4730,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39627752" target="_blank">PMID:39627752</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4599,18 +4777,20 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4638,17 +4818,21 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4718,7 +4902,9 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39941762" target="_blank">PMID:39941762</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4740,7 +4926,9 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40295009" target="_blank">PMID:40295009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4762,7 +4950,9 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28710469" target="_blank">PMID:28710469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4795,18 +4985,20 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4834,18 +5026,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased contact inhibition (GO:0060242). GO:0060242 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         contact inhibition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060242" target="_blank" class="curie-chip curie-chip-go">GO:0060242</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060242" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060242</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased contact inhibition (GO:0060242). GO:0060242 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4903,7 +5097,9 @@ This pathophysiological event involves decreased contact inhibition (GO:0060242)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19029950" target="_blank">PMID:19029950</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4936,18 +5132,20 @@ This pathophysiological event involves decreased contact inhibition (GO:0060242)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4975,18 +5173,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of Schwann cell proliferation (GO:0010625). GO:0010625 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of Schwann cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010625" target="_blank" class="curie-chip curie-chip-go">GO:0010625</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010625" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0010625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of Schwann cell proliferation (GO:0010625). GO:0010625 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5061,7 +5261,9 @@ This pathophysiological event involves increased positive regulation of Schwann 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5083,7 +5285,9 @@ This pathophysiological event involves increased positive regulation of Schwann 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5116,18 +5320,20 @@ This pathophysiological event involves increased positive regulation of Schwann 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Schwann cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5155,18 +5361,20 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of Schwann cell proliferation (GO:0010625). GO:0010625 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of Schwann cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010625" target="_blank" class="curie-chip curie-chip-go">GO:0010625</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010625" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0010625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of Schwann cell proliferation (GO:0010625). GO:0010625 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5194,33 +5402,37 @@ This pathophysiological event involves increased positive regulation of Schwann 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648). UBERON:0001648 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vestibulocochlear nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001648</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001648</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648). UBERON:0001648 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859). UBERON:0011859 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         internal acoustic meatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0011859" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0011859</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0011859" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0011859</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859). UBERON:0011859 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5274,7 +5486,9 @@ This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28710469" target="_blank">PMID:28710469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5317,18 +5531,20 @@ This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5383,7 +5599,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26690506" target="_blank">PMID:26690506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5405,7 +5623,9 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22377650" target="_blank">PMID:22377650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5448,18 +5668,20 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648). UBERON:0001648 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vestibulocochlear nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001648</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001648</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648). UBERON:0001648 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5513,7 +5735,9 @@ This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25794859" target="_blank">PMID:25794859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5556,18 +5780,20 @@ This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908). UBERON:0014908 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellopontine angle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014908" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0014908</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014908" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0014908</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908). UBERON:0014908 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5599,13 +5825,15 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8971818" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8971818" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8971818" target="_blank">PMID:8971818</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5672,9 +5900,9 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5684,7 +5912,7 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural Hearing Impairment" data-dismech-type="phenotype">
@@ -5693,16 +5921,20 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5723,7 +5955,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22377650" target="_blank">PMID:22377650</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5755,16 +5989,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.">
-                        Tinnitus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp">HP:0000360</a>
-
-
+This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5785,7 +6023,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38892775" target="_blank">PMID:38892775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5811,31 +6051,26 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vestibular-function" data-dismech-node="Abnormal Vestibular Function" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Vestibular Function
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001751</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal vestibular function
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001751" target="_blank" class="curie-chip curie-chip-hp">HP:0001751</a>
-
-
+This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5856,7 +6091,9 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25794859" target="_blank">PMID:25794859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5882,6 +6119,15 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-trigeminal-sensory-disturbance" data-dismech-node="Trigeminal Sensory Disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Trigeminal Sensory Disturbance
@@ -5905,7 +6151,9 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8971818" target="_blank">PMID:8971818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5983,15 +6231,17 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6017,7 +6267,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39941762" target="_blank">PMID:39941762</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6039,7 +6291,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40295009" target="_blank">PMID:40295009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6061,7 +6315,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40295009" target="_blank">PMID:40295009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6098,15 +6354,17 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:7773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6132,7 +6390,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301380" target="_blank">PMID:20301380</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6162,6 +6422,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6180,18 +6443,18 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">observation<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is observation, annotated with Observation Activity (NCIT:C25598). NCIT:C25598 is a clinical intervention from the NCI Thesaurus.">observation</span>
+This treatment is observation, annotated with Observation Activity (NCIT:C25598). NCIT:C25598 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Observation Activity</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C25598" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is observation, annotated with Observation Activity (NCIT:C25598). NCIT:C25598 is a clinical intervention from the NCI Thesaurus.">NCIT:C25598</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25598" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C25598">NCIT:C25598</a>
 
 
 
@@ -6209,6 +6472,14 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6233,7 +6504,9 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6255,7 +6528,9 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34121081" target="_blank">PMID:34121081</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6287,18 +6562,18 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6316,6 +6591,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6349,7 +6643,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6390,7 +6686,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40470965" target="_blank">PMID:40470965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6422,18 +6720,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -6451,6 +6749,25 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6478,13 +6795,15 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39627752" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39627752" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39627752" target="_blank">PMID:39627752</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6525,7 +6844,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6557,17 +6878,17 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6592,21 +6913,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         bevacizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2039</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C2039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6638,7 +6980,9 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19587327" target="_blank">PMID:19587327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6679,7 +7023,9 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19587327" target="_blank">PMID:19587327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6709,6 +7055,657 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Magnetic resonance imaging
+
+                </div>
+
+                <div class="item-desc">MRI establishes the radiologic diagnosis, characterizes intrameatal and cerebellopontine-angle extent, and provides the baseline for subsequent growth surveillance. Histologic verification is not always required.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> MRI demonstrates a lesion compatible with vestibular schwannoma on cranial nerve VIII.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31504802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The radiological diagnosis of vestibular schwannoma is made by magnetic resonance imaging. Histological verification of the diagnosis is not always required."</div>
+
+
+                <div class="evidence-explanation">The guideline directly supports MRI-based diagnosis without mandatory tissue confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-audiologic-assessment">
+                <div class="item-name">
+                    Audiologic assessment
+
+                </div>
+
+                <div class="item-desc">Pure-tone and speech audiometry characterize asymmetric hearing loss and provide a functional baseline. Audiologic symptoms prompt MRI screening but are not specific for vestibular schwannoma.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        hearing examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C38036</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Quantifies hearing thresholds and speech discrimination and identifies asymmetric or unilateral sensorineural hearing loss.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40470968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40470968" target="_blank">PMID:40470968</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We aim to assess the diagnostic yield of MRI in the detection of VS in patients presenting with asymmetric sensorineural hearing loss (SNHL), unilateral tinnitus, and sudden SNHL."</div>
+
+
+                <div class="evidence-explanation">The current CNS guideline connects audiologic presentations to diagnostic MRI screening for vestibular schwannoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19587327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19587327" target="_blank">PMID:19587327</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hearing response was monitored with the use of serial audiologic evaluations, including determination of pure-tone thresholds and word-recognition scores"</div>
+
+
+                <div class="evidence-explanation">A vestibular-schwannoma clinical study directly documents the pure-tone and word-recognition measures named in this assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-vestibular-schwannoma-visible-on-mri">
+                <div class="item-name">
+                    Vestibular schwannoma visible on MRI
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Vestibular schwannoma
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        vestibulocochlear nerve
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001648</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Vestibular schwannoma
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0009588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">MRI defines the radiologic diagnosis. The lesion arises on a vestibular division of cranial nerve VIII and may extend from the internal acoustic meatus into the cerebellopontine angle.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31504802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The radiological diagnosis of vestibular schwannoma is made by magnetic resonance imaging."</div>
+
+
+                <div class="evidence-explanation">The EANO guideline identifies MRI as the radiologic diagnostic method.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28710469" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28710469" target="_blank">PMID:28710469</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vestibular schwannomas (VSs) are benign tumours that originate from myelin-forming schwann cells that surround the vestibular branches of the 8th (auditory) cranial nerve."</div>
+
+
+                <div class="evidence-explanation">Human tumor data supply the anatomic origin represented by the imaging finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-variable-growth-during-imaging-observation">
+                <div class="item-name">Variable growth during imaging observation</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Growth is not uniform. In a prospective national cohort, most detected growth occurred in the first five years, and extrameatal tumors grew more often than intrameatal tumors. Continued observation can remain reasonable in selected patients, even after limited initial growth.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33068429" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33068429" target="_blank">PMID:33068429</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"5 years after diagnosis, 21% of the intrameatal tumors exhibited growth during observation, whereas 37% of extrameatal tumors had grown, increasing to 25% intrameatal and 42% extrameatal after 10 years."</div>
+
+
+                <div class="evidence-explanation">Prospective national data quantify the variable natural history by tumor location.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34121081" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34121081" target="_blank">PMID:34121081</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Growth detected during observation does not necessarily portend future growth, especially for slowly growing tumors."</div>
+
+
+                <div class="evidence-explanation">This multi-institutional cohort supports individualized surveillance rather than assuming continuous growth.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-modern-population-based-studies-in-denmark-the-netherlands-taiwan-and-the-united-states">
+                <div class="item-name">Modern population-based studies in Denmark, the Netherlands, Taiwan, and the United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">3.0&ndash;5.2 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+                </div>
+
+                <div class="item-notes">Range of recent all-age incidence estimates for sporadic vestibular schwannoma.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34464224" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34464224" target="_blank">PMID:34464224</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most recent incidence rates of among all ages ranged between 3.0 and 5.2 per 100,000 person-years."</div>
+
+
+                <div class="evidence-explanation">The systematic review reports a modern international annual-incidence range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-olmsted-county-minnesota-residents-on-january-1-2017">
+                <div class="item-name">Olmsted County, Minnesota residents on January 1, 2017</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        42.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000</span>
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+                </div>
+
+                <div class="item-notes">Point prevalence of confirmed sporadic vestibular schwannoma in a population-linked medical-record cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30688755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30688755" target="_blank">PMID:30688755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sixty-seven persons from a population of nearly 160,000 were living with VS on January 1, 2017, resulting in a point prevalence of 42.0 per 100,000 persons."</div>
+
+
+                <div class="evidence-explanation">The population-based cohort supplies the date-specific point-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6754,17 +7751,19 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         Schwann cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -6775,17 +7774,19 @@ This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell typ
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-32">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-32">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -6829,7 +7830,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6882,7 +7885,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6923,7 +7928,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6971,17 +7978,19 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-33">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-33">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7025,7 +8034,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26690506" target="_blank">PMID:26690506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7078,7 +8089,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26690506" target="_blank">PMID:26690506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7119,7 +8132,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26690506" target="_blank">PMID:26690506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7202,17 +8217,21 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7257,7 +8276,9 @@ This experimental model concerns NF2 (hgnc:7773). hgnc:7773 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36148553" target="_blank">PMID:36148553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7518,7 +8539,7 @@ pathophysiology:
     evidence:
     - reference: PMID:36148553
       reference_title: Inhibition of YAP/TAZ-driven TEAD activity prevents growth of NF2-null schwannoma and meningioma.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;driven by the TAZ protein in human and mouse NF2-null schwannoma cells&#34;
       explanation: TAZ activity in NF2-null schwannoma cells supports the downstream relationship, while the intervening merlin-to-Hippo steps are not represented in this graph.
@@ -7556,13 +8577,13 @@ pathophysiology:
     evidence:
     - reference: PMID:19029950
       reference_title: Merlin regulates transmembrane receptor accumulation and signaling at the plasma membrane in primary mouse Schwann cells and in human schwannomas.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We also observed accumulation of growth factor receptors such as ErbB2 and 3, insulin-like growth factor 1 receptor and platelet-derived growth factor receptor in peripheral nerves of Nf2-mutant mice&#34;
       explanation: Nf2-mutant mouse nerves show receptor accumulation, supporting this candidate route without isolating the intervening mitogenic steps.
     - reference: PMID:19029950
       reference_title: Merlin regulates transmembrane receptor accumulation and signaling at the plasma membrane in primary mouse Schwann cells and in human schwannomas.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;in human NF2 schwannomas, suggesting that this mechanism could play an important role in tumorigenesis.&#34;
       explanation: Human NF2 schwannomas provide corroborating tumor evidence, while the source explicitly frames the mechanistic interpretation as suggestive.
@@ -7658,7 +8679,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25794859
       reference_title: Prevalence of vestibular dysfunction in patients with vestibular schwannoma using video head-impulses and vestibular-evoked potentials.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The sensitivity of the 5-item battery increased with tumour size and all patients with medium to large (&gt;14 mm) schwannoma had at least two abnormal vestibular test result.&#34;
       explanation: Objective vestibular abnormalities increase with tumor size, supporting a clinical tumor-to-nerve dysfunction link without proving a single molecular intermediary.
@@ -7668,7 +8689,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The large clinical series links advanced tumor extension and brainstem compression to adjacent-nerve symptoms.
@@ -7734,7 +8755,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22377650
       reference_title: &#34;Dysfunction of the cochlea contributing to hearing loss in acoustic neuromas: an underappreciated entity.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Clinical and histologic observations have suggested that the hearing loss may be caused by both retrocochlear and cochlear mechanisms.&#34;
       explanation: Human observations suggest a retrocochlear contribution in parallel with cochlear injury but do not isolate a single nerve-to-hearing-loss route.
@@ -7744,7 +8765,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The clinical series links tinnitus to small vestibular schwannomas but does not establish a single causal pathway.
@@ -7772,7 +8793,7 @@ pathophysiology:
   evidence:
   - reference: PMID:8971818
     reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
     explanation: A 1,000-patient clinical series associates large tumors and brainstem compression with trigeminal symptoms without proving every local mass-effect step.
@@ -7785,7 +8806,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The clinical series specifically links trigeminal disturbance to large tumors with brainstem compression.
@@ -8057,7 +9078,7 @@ treatments:
     evidence:
     - reference: PMID:39627752
       reference_title: &#34;Treatment options for unilateral vestibular schwannoma: a network meta-analysis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We found the MS, and different SRS all had better tumor local control rates.&#34;
       explanation: The network meta-analysis supports local tumor control, with partial support because almost all included studies were nonrandomized.
@@ -9150,7 +10171,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acoustic Neuroma", "mondoId": "MONDO:0001569", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acoustic_Neuroma", "yamlRevision": "cae47f6af27e"};
+        const OS_CONFIG = {"diseaseName": "Acoustic Neuroma", "mondoId": "MONDO:0001569", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acoustic_Neuroma", "yamlRevision": "e7abd1c79b68"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9569,5 +10590,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

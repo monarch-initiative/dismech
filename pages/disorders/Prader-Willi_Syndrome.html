@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Prader-Willi Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Prader-Willi Syndrome</h1>
             <div class="header-meta">
 
@@ -3865,6 +4012,14 @@
             </a>
 
 
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#datasets">
@@ -3925,7 +4080,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3968,7 +4123,9 @@
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -3989,7 +4146,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-sporadic">
                 <div class="item-name">
                     Sporadic
 
@@ -4032,7 +4189,9 @@
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4057,6 +4216,519 @@
 
 
         <!-- Subtypes -->
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-type-i-deletion">
+
+                    <div class="item-name">
+                        Type I Deletion (BP1-BP3)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+                        <span class="subtype-freq-badge">OCCASIONAL</span>
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SNRPN
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11164</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SNRPN (hgnc:11164). hgnc:11164 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                MAGEL2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6814</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                TUBGCP5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:18600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:18600</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TUBGCP5 (hgnc:18600). hgnc:18600 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                CYFIP1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:13759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:13759</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYFIP1 (hgnc:13759). hgnc:13759 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                NIPA1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:17043" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:17043</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NIPA1 (hgnc:17043). hgnc:17043 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                NIPA2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:17044" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:17044</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NIPA2 (hgnc:17044). hgnc:17044 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Paternal 15q11-q13 deletion spanning the larger BP1-BP3 interval. Beyond the imprinted PWS critical region it also removes the four non-imprinted 15q11.2 BP1-BP2 genes (TUBGCP5, CYFIP1, NIPA1, NIPA2) that a Type II deletion leaves intact; this is the molecular difference between the two deletion classes. In a consecutive microarray-typed series of 154 individuals with PWS, Type I accounted for 35 of 87 deletions (40.2%), so roughly a fifth to a quarter of all PWS. During rhGH therapy no significant longitudinal change in total or obstructive apnea-hypopnea index (AHI) was detected in this subtype over the first 3-6 months of treatment. That absent signal is not evidence of respiratory safety: the longitudinal polysomnography subgroup is small (Type I n = 12 against Type II n = 10), the Type I obstructive-AHI change is a non-significant trend rather than a flat result (p = 0.093), and baseline obstructive AHI was significantly higher in Type I than in Type II (1.47 +/- 0.54 against 0.26 +/- 0.20 events/h, p = 0.001), so Type II&#39;s rise starts from a much lower floor. The contrast is between a high-baseline group that did not move detectably and a low-baseline group that did.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36901699" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36901699" target="_blank">PMID:36901699</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Those with the larger 15q11-q13 Type I deletion with the absence of four non-imprinted genes (NIPA1, NIPA2, CYFIP1, TUBGCP5) from the 15q11.2 BP1-BP2 region are more severely affected compared with those with PWS having a smaller Type II deletion."</div>
+
+
+                <div class="evidence-explanation">States the molecular definition this subtype records - Type I is the larger deletion, and is the one that additionally removes TUBGCP5, CYFIP1, NIPA1 and NIPA2 - which is why those four genes are listed here and not on Type II.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36674736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36674736" target="_blank">PMID:36674736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty-five (40.2%) of 87 individuals showed typical larger 15q11-q13 Type I deletion and 52 individuals (59.8%) showed typical smaller Type II deletion."</div>
+
+
+                <div class="evidence-explanation">Source of the subtype_frequency band. Type I is 40.2% of deletions in a consecutively enrolled, microarray-typed series in which deletions were 87 of 154 participants, putting Type I at about 23% of all PWS - the OCCASIONAL (5-29%) band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1289133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1289133" target="_blank">PPR:PPR1289133</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"whereas no significant longitudinal deterioration was observed in patients with type I deletions"</div>
+
+
+                <div class="evidence-explanation">Reports the null longitudinal AHI result for Type I over the first 3-6 months of rhGH therapy. Bounded as this subtype&#39;s description records: n = 12, obstructive AHI p = 0.093, and a higher Type I baseline.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-type-ii-deletion">
+
+                    <div class="item-name">
+                        Type II Deletion (BP2-BP3)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+                        <span class="subtype-freq-badge">FREQUENT</span>
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                SNRPN
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:11164</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SNRPN (hgnc:11164). hgnc:11164 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                MAGEL2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:6814</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Paternal 15q11-q13 deletion spanning the smaller BP2-BP3 interval, which retains the four non-imprinted BP1-BP2 genes that a Type I deletion removes. It is the more common of the two deletion classes - 52 of 87 deletions (59.8%) in a consecutive microarray-typed PWS series. During rhGH therapy this subtype showed significant early increases in both total and obstructive apnea-hypopnea index over the first 3-6 months, supporting close polysomnographic monitoring across that window. That subgroup is small (n = 10) and started from a much lower baseline obstructive AHI than Type I (0.26 +/- 0.20 against 1.47 +/- 0.54 events/h, p = 0.001), so part of the Type II-specific rise may reflect that floor rather than a subtype-specific susceptibility.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36901699" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36901699" target="_blank">PMID:36901699</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Those with the larger 15q11-q13 Type I deletion with the absence of four non-imprinted genes (NIPA1, NIPA2, CYFIP1, TUBGCP5) from the 15q11.2 BP1-BP2 region are more severely affected compared with those with PWS having a smaller Type II deletion."</div>
+
+
+                <div class="evidence-explanation">Defines Type II as the smaller deletion that retains the four BP1-BP2 genes, which is why this subtype lists only the imprinted-region genes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36674736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36674736" target="_blank">PMID:36674736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty-five (40.2%) of 87 individuals showed typical larger 15q11-q13 Type I deletion and 52 individuals (59.8%) showed typical smaller Type II deletion."</div>
+
+
+                <div class="evidence-explanation">Source of the subtype_frequency band. Type II is 59.8% of deletions in a series where deletions were 87 of 154 participants, putting Type II at about 34% of all PWS - the FREQUENT (30-79%) band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1289133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1289133" target="_blank">PPR:PPR1289133</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients with type II deletions demonstrated significant increases in both total and obstructive AHI"</div>
+
+
+                <div class="evidence-explanation">Reports the Type II-specific early respiratory deterioration on rhGH. The comparison rests on 10 patients with paired polysomnography; see this subtype&#39;s description for the baseline caveat.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-mupd">
+
+                    <div class="item-name">
+                        Maternal Uniparental Disomy (mUPD15)
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+                        <span class="subtype-freq-badge">FREQUENT</span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Maternal uniparental disomy of chromosome 15: two maternal copies are inherited in place of one maternal and one paternal copy, so every paternally expressed imprinted gene at 15q11-q13 is silenced without any deletion. Reported at 20-30% of PWS in clinical review and at 40.3% in a consecutive microarray-typed trial cohort. Shows less respiratory sensitivity to rhGH therapy than the deletion classes.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22237428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22237428" target="_blank">PMID:22237428</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"maternal uniparental disomy 15 (20-30%)"</div>
+
+
+                <div class="evidence-explanation">Clinical review confirms mUPD accounts for 20-30% of PWS cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36674736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36674736" target="_blank">PMID:36674736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"87 (56.5%) showed the typical 15q11-q13 deletion subtypes, 62 (40.3%) showed non-deletion maternal disomy 15"</div>
+
+
+                <div class="evidence-explanation">Gives the higher, consecutively ascertained mUPD share that puts this subtype in the FREQUENT (30-79%) band rather than the review&#39;s 20-30% figure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1289133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1289133" target="_blank">PPR:PPR1289133</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"both total AHI and obstructive AHI increased significantly during the first 3-6 months of treatment, primarily among patients with deletions rather than those with mUPD"</div>
+
+
+                <div class="evidence-explanation">Preprint demonstrates that mUPD cases show fewer AHI increases during rhGH therapy compared to deletion cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
 
 
         <!-- Comorbidities -->
@@ -4133,7 +4805,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708003" target="_blank">PMID:40708003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4156,7 +4830,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22237428" target="_blank">PMID:22237428</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4206,18 +4882,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4245,18 +4923,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Genomic Imprinting
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go">GO:0071514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0071514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:0071514 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4338,7 +5018,9 @@ This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:00715
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920975" target="_blank">PMID:31920975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4360,7 +5042,9 @@ This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:00715
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37386011" target="_blank">PMID:37386011</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4382,7 +5066,9 @@ This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:00715
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4416,18 +5102,20 @@ This pathophysiological event involves Genomic Imprinting (GO:0071514). GO:00715
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4455,18 +5143,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Neuropeptide Signaling Pathway (GO:0007218). GO:0007218 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Neuropeptide Signaling Pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007218" target="_blank" class="curie-chip curie-chip-go">GO:0007218</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007218</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neuropeptide Signaling Pathway (GO:0007218). GO:0007218 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4524,7 +5214,9 @@ This pathophysiological event involves Neuropeptide Signaling Pathway (GO:000721
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33856031" target="_blank">PMID:33856031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4546,7 +5238,9 @@ This pathophysiological event involves Neuropeptide Signaling Pathway (GO:000721
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920975" target="_blank">PMID:31920975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4580,18 +5274,20 @@ This pathophysiological event involves Neuropeptide Signaling Pathway (GO:000721
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuroendocrine Cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuroendocrine Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuroendocrine Cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4608,18 +5304,20 @@ This pathophysiological event involves Neuroendocrine Cell (CL:0000165). CL:0000
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Oxytocin-Secreting Magnocellular Cell (CL:4023108). CL:4023108 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Oxytocin-Secreting Magnocellular Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023108" target="_blank" class="curie-chip curie-chip-cl">CL:4023108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:4023108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Oxytocin-Secreting Magnocellular Cell (CL:4023108). CL:4023108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4647,18 +5345,20 @@ This pathophysiological event involves Oxytocin-Secreting Magnocellular Cell (CL
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Regulation of Appetite (GO:0032098). GO:0032098 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regulation of Appetite
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032098" target="_blank" class="curie-chip curie-chip-go">GO:0032098</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032098" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0032098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Regulation of Appetite (GO:0032098). GO:0032098 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4675,18 +5375,20 @@ This pathophysiological event involves Regulation of Appetite (GO:0032098). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Regulation of Growth Hormone Secretion (GO:0060123). GO:0060123 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regulation of Growth Hormone Secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060123" target="_blank" class="curie-chip curie-chip-go">GO:0060123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0060123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Regulation of Growth Hormone Secretion (GO:0060123). GO:0060123 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4804,7 +5506,9 @@ This pathophysiological event involves Regulation of Growth Hormone Secretion (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40136445" target="_blank">PMID:40136445</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4826,7 +5530,9 @@ This pathophysiological event involves Regulation of Growth Hormone Secretion (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9861478" target="_blank">PMID:9861478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4848,17 +5554,19 @@ This pathophysiological event involves Regulation of Growth Hormone Secretion (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37685915" target="_blank">PMID:37685915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Hormonal Imbalances in Prader-Willi and Schaaf-Yang Syndromes Imply the Evolution of Specific Regulation of Hypothalamic Neuroendocrine Function in Mammals."</div>
+                <div class="evidence-snippet">"The hypothalamus regulates fundamental aspects of physiological homeostasis and behavior, including stress response, reproduction, growth, sleep, and feeding, several of which are affected in patients with Prader-Willi (PWS) and Schaaf-Yang syndrome (SYS)."</div>
 
 
-                <div class="evidence-explanation">Comparative neuroendocrine analysis of hormonal imbalances in PWS.</div>
+                <div class="evidence-explanation">Review connecting PWS-gene loss to hypothalamic neuroendocrine dysfunction affecting feeding, growth, and reproduction.</div>
 
 
 
@@ -4882,18 +5590,20 @@ This pathophysiological event involves Regulation of Growth Hormone Secretion (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4921,18 +5631,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Circadian Rhythm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go">GO:0007623</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5038,7 +5750,9 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691382" target="_blank">PMID:29691382</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5086,7 +5800,7 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Temper Tantrums\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal temper tantrums are a very frequent behavioral feature of PWS, often triggered by changes in routine, food-related frustrations, or inability to complete activities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025160\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety is a very frequent behavioral feature of PWS, contributing to the characteristic behavioral phenotype alongside temper tantrums and obsessive-compulsive tendencies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD symptoms are frequent in PWS, contributing to difficulties with attention, impulsivity, and hyperactivity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Behavioral Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic behavioral phenotype including temper tantrums, stubbornness, skin picking, obsessive-compulsive features, and emotional lability. Patients with deletions tend to have more pronounced behavioral issues, while UPD patients show increased risk of psychotic illness in adulthood.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Circadian and Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNORD116 exhibits diurnal rhythms of DNA methylation in mouse cortex. Loss of Snord116 disrupts these rhythmic methylation patterns, with more than 23,000 diurnally rhythmic CpGs lost or phase-shifted. This may contribute to the sleep and circadian disturbances observed in PWS.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Circadian Rhythm\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cryptorchidism is a frequent finding in males with PWS, reflecting the hypogonadotropic hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is a frequent feature of PWS, contributing to the overall neurodevelopmental profile.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia is a very frequent feature in PWS, particularly in infancy, contributing to the characteristic neonatal feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Feeding Difficulties in Infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are a very frequent feature of PWS, with poor suck reflex and failure to thrive necessitating nasogastric tube feeding in many cases.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay is a very frequent feature of PWS, reflecting underlying growth hormone deficiency and contributing to short stature if untreated.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hyperphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insatiable appetite typically emerging between ages 2-8, leading to severe obesity if food intake is not externally controlled. Driven by hypothalamic dysfunction in appetite regulation. High levels of ghrelin have consistently been reported in PWS.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadotropic hypogonadism with genital hypoplasia, cryptorchidism in males, delayed or incomplete puberty, and infertility in most cases. Driven by deficient GnRH pulsatility.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypopigmentation of the Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypopigmentation of the skin is a frequent feature in PWS, particularly in patients with the deletion subtype, attributed to haploinsufficiency of the OCA2 gene in the 15q11-q13 region.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Hypothalamic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of 15q11.2-q13 gene products leads to hypothalamic dysfunction affecting multiple neuroendocrine axes. This includes growth hormone deficiency, hypogonadism, dysregulated appetite signaling (particularly involving ghrelin and oxytocin pathways), impaired temperature regulation, and sleep abnormalities. The arcuate nucleus is of central importance for controlling metabolism, hunger, and satiety in PWS.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuroendocrine Cell\", \"Oxytocin-Secreting Magnocellular Cell\"], \"biological_processes\": [\"Regulation of Appetite\", \"Regulation of Growth Hormone Secretion\"]}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infertility is very frequent in PWS, resulting from hypogonadotropic hypogonadism. Rare pregnancies have been reported in females.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild to moderate intellectual disability with mean IQ around 60-70. Characteristic cognitive profile includes relative strengths in visual-spatial processing and weaknesses in arithmetic and sequential processing.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prader-Willi syndrome results from loss of function of paternally expressed imprinted genes in the 15q11.2-q13 region. The critical genes include SNRPN, SNORD116 cluster, MAGEL2, MKRN3, and NDN. These genes are normally expressed only from the paternal allele due to genomic imprinting; the maternal copies are silenced by methylation. Loss occurs through paternal deletion (~65-75%), maternal uniparental disomy (~20-30%), or imprinting center defects (~1-3%).\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Genomic Imprinting\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is a very frequent developmental feature of PWS, with delayed acquisition of gross and fine motor milestones secondary to neonatal hypotonia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe muscular hypotonia present at birth, often with poor suck reflex and feeding difficulties requiring assisted feeding. Nearly all neonates with PWS require specialized feeding support.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Morbid obesity develops secondary to uncontrolled hyperphagia. Prevalence up to 80-90% in unmanaged cases. Leading cause of morbidity and mortality in PWS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a frequent complication of PWS, related to both obesity and central hypothalamic dysfunction. Both central and obstructive forms of sleep apnea occur in PWS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoporosis is a frequent complication in PWS, associated with hypogonadism and growth hormone deficiency. Both osteopenia and osteoporosis are observed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychosis is an occasional but clinically important behavioral feature of PWS, particularly in patients with the maternal UPD genetic subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"SNORD116 as Minimal Critical Region\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SNORD116 (HBII-85) small nucleolar RNA gene cluster has been identified as the single locus whose loss is sufficient to produce the cardinal features of PWS. SNORD116 post-transcriptionally increases the mRNA stability of NHLH2, a transcription factor involved in processing prohormone convertase 1 (PC1). Loss of SNORD116 leads to downstream deficiencies in prohormone maturation, contributing to the pleiotropic endocrine phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Neuropeptide Signaling Pathway\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a common musculoskeletal complication in PWS, occurring in a significant proportion of patients and sometimes requiring surgical intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are an occasional neurological complication of PWS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth hormone deficiency leads to short stature if untreated. Growth hormone therapy is standard of care, significantly improving height-SDS compared to untreated patients.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a frequent feature in PWS, often presenting in early childhood alongside other ophthalmological findings.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Type II Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Type II diabetes mellitus is an occasional but significant metabolic complication in PWS, with risk increasing with age and severity of obesity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"SNORD116 as Minimal Critical Region\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Hypothalamic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Circadian and Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Hypopigmentation of the Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SNORD116 as Minimal Critical Region\", \"target\": \"Hypothalamic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SNORD116 as Minimal Critical Region\", \"target\": \"Circadian and Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Hyperphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Type II Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Behavioral Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Abnormal Temper Tantrums\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Temper Tantrums\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal temper tantrums are a very frequent behavioral feature of PWS, often triggered by changes in routine, food-related frustrations, or inability to complete activities.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0025160\"}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anxiety is a very frequent behavioral feature of PWS, contributing to the characteristic behavioral phenotype alongside temper tantrums and obsessive-compulsive tendencies.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Attention Deficit Hyperactivity Disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADHD symptoms are frequent in PWS, contributing to difficulties with attention, impulsivity, and hyperactivity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007018\"}}, {\"id\": \"Behavioral Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic behavioral phenotype including temper tantrums, stubbornness, skin picking, obsessive-compulsive features, and emotional lability. Patients with deletions tend to have more pronounced behavioral issues, while UPD patients show increased risk of psychotic illness in adulthood.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"Circadian and Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNORD116 exhibits diurnal rhythms of DNA methylation in mouse cortex. Loss of Snord116 disrupts these rhythmic methylation patterns, with more than 23,000 diurnally rhythmic CpGs lost or phase-shifted. This may contribute to the sleep and circadian disturbances observed in PWS.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Circadian Rhythm\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cryptorchidism is a frequent finding in males with PWS, reflecting the hypogonadotropic hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed speech and language development is a frequent feature of PWS, contributing to the overall neurodevelopmental profile.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysphagia is a very frequent feature in PWS, particularly in infancy, contributing to the characteristic neonatal feeding difficulties.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Feeding Difficulties in Infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are a very frequent feature of PWS, with poor suck reflex and failure to thrive necessitating nasogastric tube feeding in many cases.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay is a very frequent feature of PWS, reflecting underlying growth hormone deficiency and contributing to short stature if untreated.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hyperphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Insatiable appetite typically emerging between ages 2-8, leading to severe obesity if food intake is not externally controlled. Driven by hypothalamic dysfunction in appetite regulation. High levels of ghrelin have consistently been reported in PWS.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Hypogonadotropic Hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadotropic hypogonadism with genital hypoplasia, cryptorchidism in males, delayed or incomplete puberty, and infertility in most cases. Driven by deficient GnRH pulsatility.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypopigmentation of the Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypopigmentation of the skin is a frequent feature in PWS, particularly in patients with the deletion subtype, attributed to haploinsufficiency of the OCA2 gene in the 15q11-q13 region.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Hypothalamic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of 15q11.2-q13 gene products leads to hypothalamic dysfunction affecting multiple neuroendocrine axes. This includes growth hormone deficiency, hypogonadism, dysregulated appetite signaling (particularly involving ghrelin and oxytocin pathways), impaired temperature regulation, and sleep abnormalities. The arcuate nucleus is of central importance for controlling metabolism, hunger, and satiety in PWS.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuroendocrine Cell\", \"Oxytocin-Secreting Magnocellular Cell\"], \"biological_processes\": [\"Regulation of Appetite\", \"Regulation of Growth Hormone Secretion\"]}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infertility is very frequent in PWS, resulting from hypogonadotropic hypogonadism. Rare pregnancies have been reported in females.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild to moderate intellectual disability with mean IQ around 60-70. Characteristic cognitive profile includes relative strengths in visual-spatial processing and weaknesses in arithmetic and sequential processing.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prader-Willi syndrome results from loss of function of paternally expressed imprinted genes in the 15q11.2-q13 region. The critical genes include SNRPN, SNORD116 cluster, MAGEL2, MKRN3, and NDN. These genes are normally expressed only from the paternal allele due to genomic imprinting; the maternal copies are silenced by methylation. Loss occurs through paternal deletion (~65-75%), maternal uniparental disomy (~20-30%), or imprinting center defects (~1-3%).\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Genomic Imprinting\"]}}, {\"id\": \"Motor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor delay is a very frequent developmental feature of PWS, with delayed acquisition of gross and fine motor milestones secondary to neonatal hypotonia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Neonatal Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe muscular hypotonia present at birth, often with poor suck reflex and feeding difficulties requiring assisted feeding. Nearly all neonates with PWS require specialized feeding support.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Morbid obesity develops secondary to uncontrolled hyperphagia. Prevalence up to 80-90% in unmanaged cases. Leading cause of morbidity and mortality in PWS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a frequent complication of PWS, related to both obesity and central hypothalamic dysfunction. Both central and obstructive forms of sleep apnea occur in PWS.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoporosis is a frequent complication in PWS, associated with hypogonadism and growth hormone deficiency. Both osteopenia and osteoporosis are observed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Psychosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychosis is an occasional but clinically important behavioral feature of PWS, particularly in patients with the maternal UPD genetic subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000709\"}}, {\"id\": \"SNORD116 as Minimal Critical Region\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The SNORD116 (HBII-85) small nucleolar RNA gene cluster has been identified as the single locus whose loss is sufficient to produce the cardinal features of PWS. SNORD116 post-transcriptionally increases the mRNA stability of NHLH2, a transcription factor involved in processing prohormone convertase 1 (PC1). Loss of SNORD116 leads to downstream deficiencies in prohormone maturation, contributing to the pleiotropic endocrine phenotype.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Neuropeptide Signaling Pathway\"]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a common musculoskeletal complication in PWS, occurring in a significant proportion of patients and sometimes requiring surgical intervention.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are an occasional neurological complication of PWS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth hormone deficiency leads to short stature if untreated. Growth hormone therapy is standard of care, significantly improving height-SDS compared to untreated patients.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is a frequent feature in PWS, often presenting in early childhood alongside other ophthalmological findings.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Type II Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Type II diabetes mellitus is an occasional but significant metabolic complication in PWS, with risk increasing with age and severity of obesity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"SNORD116 as Minimal Critical Region\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Hypothalamic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Circadian and Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Paternally Expressed Genes at 15q11.2-q13\", \"target\": \"Hypopigmentation of the Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SNORD116 as Minimal Critical Region\", \"target\": \"Hypothalamic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"SNORD116 as Minimal Critical Region\", \"target\": \"Circadian and Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Neonatal Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Hyperphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Hypogonadotropic Hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Feeding Difficulties in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypothalamic Dysfunction\", \"target\": \"Type II Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Behavioral Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Motor Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Abnormal Temper Tantrums\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Psychosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Circadian and Epigenetic Dysregulation\", \"target\": \"Attention Deficit Hyperactivity Disorder\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5117,11 +5831,9 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5142,16 +5854,20 @@ This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008872</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties in infancy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp">HP:0008872</a>
-
-
+This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5174,7 +5890,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5194,7 +5912,9 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659150" target="_blank">PMID:28659150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5228,16 +5948,20 @@ This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:000887
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5260,7 +5984,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5301,16 +6027,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000044</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.">
-                        Hypogonadotropic hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp">HP:0000044</a>
-
-
+This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5333,7 +6063,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41683698" target="_blank">PMID:41683698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5355,7 +6087,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920975" target="_blank">PMID:31920975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5377,7 +6111,9 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5409,16 +6145,20 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005978</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.">
-                        Type II diabetes mellitus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp">HP:0005978</a>
-
-
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5441,7 +6181,9 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5482,16 +6224,20 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.">
-                        Strabismus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp">HP:0000486</a>
-
-
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5514,7 +6260,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5555,16 +6303,20 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.">
-                        Cryptorchidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp">HP:0000028</a>
-
-
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5587,7 +6339,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41683698" target="_blank">PMID:41683698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5609,7 +6363,9 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5641,16 +6397,20 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000789</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.">
-                        Infertility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp">HP:0000789</a>
-
-
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5673,7 +6433,9 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5714,16 +6476,20 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001010</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.">
-                        Hypopigmentation of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp">HP:0001010</a>
-
-
+This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5746,7 +6512,9 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5787,16 +6555,20 @@ This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotype from the Human Phenotype Ontology.">
-                        Neonatal hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp">HP:0001319</a>
-
-
+This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5819,7 +6591,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40409799" target="_blank">PMID:40409799</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5841,7 +6615,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41683698" target="_blank">PMID:41683698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5863,7 +6639,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5895,16 +6673,20 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5927,7 +6709,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301505" target="_blank">PMID:20301505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5949,7 +6733,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5981,16 +6767,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000939</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.">
-                        Osteoporosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp">HP:0000939</a>
-
-
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6013,7 +6803,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6043,7 +6835,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">10</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphagia" data-dismech-node="Hyperphagia" data-dismech-type="phenotype">
@@ -6054,16 +6846,22 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Polyphagia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002591</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from the Human Phenotype Ontology.">
-                        Polyphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp">HP:0002591</a>
-
-
+This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6086,7 +6884,9 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40136445" target="_blank">PMID:40136445</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6108,7 +6908,9 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708003" target="_blank">PMID:40708003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6130,7 +6932,9 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6162,16 +6966,20 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6194,7 +7002,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40409799" target="_blank">PMID:40409799</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6216,7 +7026,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6248,16 +7060,22 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6280,7 +7098,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41677631" target="_blank">PMID:41677631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6302,7 +7122,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004838" target="_blank">PMID:40004838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6324,7 +7146,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6356,16 +7180,20 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.">
-                        Obstructive sleep apnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp">HP:0002870</a>
-
-
+This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6378,7 +7206,7 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6388,7 +7216,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41574892" target="_blank">PMID:41574892</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6410,7 +7240,9 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6419,6 +7251,32 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
                 <div class="evidence-explanation">Orphanet lists obstructive sleep apnea as frequent (79-30%) in PWS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1289133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1289133" target="_blank">PPR:PPR1289133</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients with type II deletions demonstrated significant increases in both total and obstructive AHI, whereas no significant longitudinal deterioration was observed in patients with type I deletions"</div>
+
+
+                <div class="evidence-explanation">Preprint demonstrates that obstructive sleep apnea severity (measured by AHI) can worsen during early rhGH therapy in Type II deletion cases, requiring close polysomnographic monitoring in the first 6 months of treatment.</div>
 
 
 
@@ -6442,16 +7300,20 @@ This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000739</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
-                        Anxiety
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
-
-
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6474,7 +7336,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6506,16 +7370,20 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
-                        Motor delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
-
-
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6538,7 +7406,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6562,6 +7432,76 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-temper-tantrums" data-dismech-node="Abnormal Temper Tantrums" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Temper Tantrums
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025160</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Temper tantrums are a hallmark of the PWS behavioral phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0025160 | Abnormal temper tantrums | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists abnormal temper tantrums as very frequent (99-80%) in PWS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Speech and Language Development
@@ -6570,16 +7510,20 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed speech and language development
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp">HP:0000750</a>
-
-
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6602,7 +7546,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6634,16 +7580,20 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6666,7 +7616,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6698,16 +7650,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000709</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.">
-                        Psychosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp">HP:0000709</a>
-
-
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6730,7 +7686,9 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6762,16 +7720,20 @@ This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.">
-                        Attention deficit hyperactivity disorder
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp">HP:0007018</a>
-
-
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6792,7 +7754,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6829,26 +7793,30 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
                     <div class="item-name">
                         Obesity
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.">
-                        Obesity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp">HP:0001513</a>
-
-
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Develops secondary to hyperphagia if food intake is not strictly controlled.</div>
+                    <div class="item-desc">Develops secondary to hyperphagia if food intake is not strictly controlled; can reach 80-90% in unmanaged cases, but early diagnosis and dietary control lower observed prevalence, and Orphanet codes it in the Frequent (79-30%) band.</div>
 
 
 
@@ -6865,7 +7833,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004838" target="_blank">PMID:40004838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6887,7 +7857,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6895,7 +7867,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                 <div class="evidence-snippet">"HP:0012743 | Abdominal obesity | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists abdominal obesity as frequent (79-30%) in PWS.</div>
+                <div class="evidence-explanation">Orphanet codes obesity (as abdominal obesity, HP:0012743) in the Frequent (79-30%) band in PWS, anchoring the FREQUENT frequency assignment.</div>
 
 
 
@@ -6919,16 +7891,20 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6951,7 +7927,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41224350" target="_blank">PMID:41224350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6973,7 +7951,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40409799" target="_blank">PMID:40409799</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6995,7 +7975,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7027,16 +8009,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.">
-                        Growth delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp">HP:0001510</a>
-
-
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7059,7 +8045,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7068,79 +8056,6 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                 <div class="evidence-explanation">Orphanet lists growth delay as very frequent (99-80%) in PWS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-temper-tantrums" data-dismech-node="Abnormal Temper Tantrums" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Temper Tantrums
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal temper tantrums
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025160" target="_blank" class="curie-chip curie-chip-hp">HP:0025160</a>
-
-
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Temper tantrums are a hallmark of the PWS behavioral phenotype.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0025160 | Abnormal temper tantrums | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists abnormal temper tantrums as very frequent (99-80%) in PWS.</div>
 
 
 
@@ -7203,6 +8118,28 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SNRPN
+
+
+    <a href="https://bioregistry.io/hgnc:11164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:11164</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SNRPN (hgnc:11164). hgnc:11164 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7218,7 +8155,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41683698" target="_blank">PMID:41683698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7265,7 +8204,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33856031" target="_blank">PMID:33856031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7287,7 +8228,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920975" target="_blank">PMID:31920975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7319,6 +8262,28 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MAGEL2
+
+
+    <a href="https://bioregistry.io/hgnc:6814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:6814</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAGEL2 (hgnc:6814). hgnc:6814 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7334,7 +8299,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41683698" target="_blank">PMID:41683698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7366,6 +8333,28 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NDN
+
+
+    <a href="https://bioregistry.io/hgnc:7675" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:7675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NDN (hgnc:7675). hgnc:7675 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7381,7 +8370,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41677631" target="_blank">PMID:41677631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7413,6 +8404,28 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MKRN3
+
+
+    <a href="https://bioregistry.io/hgnc:7114" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:7114</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MKRN3 (hgnc:7114). hgnc:7114 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7428,7 +8441,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31920975" target="_blank">PMID:31920975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7458,6 +8473,9 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7474,18 +8492,18 @@ This clinical feature is Abnormal temper tantrums (HP:0025160). HP:0025160 is a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">human growth hormone replacement therapy</span>
+This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">NCIT:C15599</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15599">NCIT:C15599</a>
 
 
 
@@ -7508,6 +8526,14 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recombinant human growth hormone is standard of care, improving growth, body composition, muscle strength, and exercise capacity. Typically initiated in infancy or early childhood. Meta-analysis shows significant improvements in height-SDS and BMI-SDS.
 </div>
 
@@ -7518,7 +8544,7 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -7528,7 +8554,9 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41224350" target="_blank">PMID:41224350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7550,7 +8578,9 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40917343" target="_blank">PMID:40917343</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7566,6 +8596,34 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PPR:PPR1289133" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/PPR:PPR1289133" target="_blank">PPR:PPR1289133</a>
+                    </span>
+
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After 12 months, the height standard deviation score increased significantly (P &lt; 0.001), while weight and body mass index standard deviation scores did not change significantly. Glucose and lipid parameters remained stable."</div>
+
+
+                <div class="evidence-explanation">Preprint of 66 children documents that 12 months of rhGH therapy significantly improves height without metabolic adverse effects or BMI increases.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -7580,18 +8638,18 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7609,6 +8667,25 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7634,7 +8711,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708003" target="_blank">PMID:40708003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7664,18 +8743,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">hormone modifying therapy</span>
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.">NCIT:C15445</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15445" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15445">NCIT:C15445</a>
 
 
 
@@ -7693,6 +8772,14 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7718,7 +8805,9 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004838" target="_blank">PMID:40004838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7748,17 +8837,17 @@ This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCI
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7776,6 +8865,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7801,7 +8898,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37919617" target="_blank">PMID:37919617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7831,17 +8930,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7864,6 +8963,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Aimed at replacing deficient hypothalamic oxytocin. Double-blind crossover study showed trends toward improvement in social behavior but no statistically significant effects at day 6.
 </div>
 
@@ -7878,13 +8985,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28371242" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28371242" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28371242" target="_blank">PMID:28371242</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7914,17 +9023,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7947,6 +9056,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Incretin-mediated appetite suppression using agents such as semaglutide and dulaglutide. Emerging as potential treatment for PWS-associated obesity and hyperphagia based on case reports and general pediatric obesity data. Clinical trials ongoing in PWS populations.
 </div>
 
@@ -7961,13 +9078,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38321079" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38321079" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38321079" target="_blank">PMID:38321079</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7997,17 +9116,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8030,7 +9149,15 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-                <div class="item-desc">Potentially curative approaches aiming to reactivate the silenced maternal copy of SNORD116 and other PWS-region genes. Strategies include antisense oligonucleotides targeting UBE3A-ATS, CRISPR epigenome editing with dCas9 fused to transcriptional activators, and small molecule epigenetic modulators. Currently in preclinical or early-phase development.
+
+
+
+
+
+
+
+
+                <div class="item-desc">Potentially curative approaches aiming to unsilence the maternal (imprinted-off) copy of SNORD116 and other paternally expressed PWS-region genes. Strategies target the repressive machinery that keeps the maternal PWS locus silent — for example inhibition of SETDB1, EHMT2/G9a, or the ZNF274/SETDB1 complex — together with CRISPR epigenome editing (dCas9 fused to transcriptional activators) and small-molecule epigenetic modulators. (Note: silencing UBE3A-ATS is the Angelman-syndrome reactivation strategy and is not applicable to PWS.) Currently in preclinical or early-phase development.
 </div>
 
 
@@ -8050,7 +9177,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40409799" target="_blank">PMID:40409799</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8072,7 +9201,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41677631" target="_blank">PMID:41677631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8102,17 +9233,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8130,6 +9261,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8155,7 +9294,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37051256" target="_blank">PMID:37051256</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8187,6 +9328,445 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">3.0&ndash;10.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Estimated prevalence of 1 in 10,000 to 1 in 30,000 live births across studied populations, with no significant ethnic predilection.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40708003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708003" target="_blank">PMID:40708003</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prader-Willi syndrome (PWS) is a rare, genetic neurobehavioral and metabolic disorder marked by hyperphagia, behavioral challenges, and significant comorbidities, requiring a multidisciplinary approach for effective management."</div>
+
+
+                <div class="evidence-explanation">Systematic literature review confirming PWS as a rare genetic disorder with significant disease burden.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Worldwide | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports worldwide point prevalence of 1-9 per 100,000.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-australia">
+                <div class="item-name">Australia</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        4.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Birth prevalence of approximately 1 in 25,000 live births based on population-based surveillance study.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12598399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12598399" target="_blank">PMID:12598399</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty infants were reported to the Australian Paediatric Surveillance Unit between 1998 and 2000, a prevalence of 4 per 100,000 live births or approximately 1/25,000 live births per annum."</div>
+
+
+                <div class="evidence-explanation">First population-based study estimating birth prevalence of DNA-proven PWS in Australia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Australia | Prevalence at birth | PMID:12598399"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology table cites Australian birth prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-france">
+                <div class="item-name">France</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        5.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Birth incidence of approximately 1 in 21,000 births based on molecular diagnosis data from 2013.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28659150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28659150" target="_blank">PMID:28659150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Birth incidence calculated for 2013 was 1/21,000 births."</div>
+
+
+                <div class="evidence-explanation">French national study calculating PWS birth incidence from molecular diagnosis data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | France | Prevalence at birth | PMID:28659150"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology table cites French birth prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-japan">
+                <div class="item-name">Japan</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        7.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Birth incidence of approximately 1 in 15,000 live births in the San-in district of western Japan.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8579217" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8579217" target="_blank">PMID:8579217</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence among live-births was estimated to be 6.64 x 10(-5) (1 in 15,060 live-births) in 1980-1989"</div>
+
+
+                <div class="evidence-explanation">Epidemiological study estimating PWS birth incidence in western Japan.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Japan | Prevalence at birth | PMID:8579217"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology table cites Japanese birth prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        6.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Prevalence of approximately 1 in 16,000 in North Dakota based on statewide survey.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2240051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2240051" target="_blank">PMID:2240051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventeen patients were identified, 8 males, 8 females, and one patient whose sex was not specified. This suggests a prevalence rate of 1 per 16,062 in North Dakota."</div>
+
+
+                <div class="evidence-explanation">State-wide prevalence study of PWS in North Dakota.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:739" target="_blank">ORPHA:739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | United States | Point prevalence | PMID:2240051"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology table cites US prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8199,7 +9779,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002901">
                 <div class="item-name">
                     Hypothalamic transcriptome in Prader-Willi syndrome
 
@@ -8262,7 +9842,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Prader-Willi Syndrome
 creation_date: &#34;2026-04-06T23:00:00Z&#34;
-updated_date: &#34;2026-04-28T00:00:00Z&#34;
 category: Mendelian
 disease_term:
   preferred_term: Prader-Willi syndrome
@@ -8410,6 +9989,162 @@ prevalence:
     supports: SUPPORT
     snippet: &#34;1-9 / 100 000 | United States | Point prevalence | PMID:2240051&#34;
     explanation: Orphanet epidemiology table cites US prevalence.
+has_subtypes:
+- name: Type I Deletion
+  display_name: Type I Deletion (BP1-BP3)
+  description: &gt;-
+    Paternal 15q11-q13 deletion spanning the larger BP1-BP3 interval. Beyond the imprinted PWS
+    critical region it also removes the four non-imprinted 15q11.2 BP1-BP2 genes (TUBGCP5, CYFIP1,
+    NIPA1, NIPA2) that a Type II deletion leaves intact; this is the molecular difference between the
+    two deletion classes. In a consecutive microarray-typed series of 154 individuals with PWS, Type I
+    accounted for 35 of 87 deletions (40.2%), so roughly a fifth to a quarter of all PWS. During rhGH
+    therapy no significant longitudinal change in total or obstructive apnea-hypopnea index (AHI) was
+    detected in this subtype over the first 3-6 months of treatment. That absent signal is not
+    evidence of respiratory safety: the longitudinal polysomnography subgroup is small (Type I n = 12
+    against Type II n = 10), the Type I obstructive-AHI change is a non-significant trend rather than
+    a flat result (p = 0.093), and baseline obstructive AHI was significantly higher in Type I than in
+    Type II (1.47 +/- 0.54 against 0.26 +/- 0.20 events/h, p = 0.001), so Type II&#39;s rise starts from a
+    much lower floor. The contrast is between a high-baseline group that did not move detectably and a
+    low-baseline group that did.
+  genes:
+  - preferred_term: SNRPN
+    term:
+      id: hgnc:11164
+      label: SNRPN
+  - preferred_term: MAGEL2
+    term:
+      id: hgnc:6814
+      label: MAGEL2
+  - preferred_term: TUBGCP5
+    term:
+      id: hgnc:18600
+      label: TUBGCP5
+  - preferred_term: CYFIP1
+    term:
+      id: hgnc:13759
+      label: CYFIP1
+  - preferred_term: NIPA1
+    term:
+      id: hgnc:17043
+      label: NIPA1
+  - preferred_term: NIPA2
+    term:
+      id: hgnc:17044
+      label: NIPA2
+  subtype_frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:36901699
+    reference_title: &#34;Prader-Willi Syndrome and Chromosome 15q11.2 BP1-BP2 Region: A Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Those with the larger 15q11-q13 Type I deletion with the absence of four non-imprinted genes (NIPA1, NIPA2, CYFIP1, TUBGCP5) from the 15q11.2 BP1-BP2 region are more severely affected compared with those with PWS having a smaller Type II deletion.&#34;
+    explanation: &gt;-
+      States the molecular definition this subtype records - Type I is the larger deletion, and is the
+      one that additionally removes TUBGCP5, CYFIP1, NIPA1 and NIPA2 - which is why those four genes
+      are listed here and not on Type II.
+  - reference: PMID:36674736
+    reference_title: &#34;Chromosomal Microarray Study in Prader-Willi Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thirty-five (40.2%) of 87 individuals showed typical larger 15q11-q13 Type I deletion and 52 individuals (59.8%) showed typical smaller Type II deletion.&#34;
+    explanation: &gt;-
+      Source of the subtype_frequency band. Type I is 40.2% of deletions in a consecutively enrolled,
+      microarray-typed series in which deletions were 87 of 154 participants, putting Type I at about
+      23% of all PWS - the OCCASIONAL (5-29%) band.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader-Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;whereas no significant longitudinal deterioration was observed in patients with type I deletions&#34;
+    explanation: &gt;-
+      Reports the null longitudinal AHI result for Type I over the first 3-6 months of rhGH therapy.
+      Bounded as this subtype&#39;s description records: n = 12, obstructive AHI p = 0.093, and a
+      higher Type I baseline.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader-Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;higher in patients with type I deletions than in those with type II deletions&#34;
+    explanation: &gt;-
+      Records the baseline asymmetry that bounds the null above: Type I entered the study with a
+      significantly higher obstructive AHI than Type II, so the two subtypes were not comparable at
+      baseline.
+- name: Type II Deletion
+  display_name: Type II Deletion (BP2-BP3)
+  description: &gt;-
+    Paternal 15q11-q13 deletion spanning the smaller BP2-BP3 interval, which retains the four
+    non-imprinted BP1-BP2 genes that a Type I deletion removes. It is the more common of the two
+    deletion classes - 52 of 87 deletions (59.8%) in a consecutive microarray-typed PWS series. During
+    rhGH therapy this subtype showed significant early increases in both total and obstructive
+    apnea-hypopnea index over the first 3-6 months, supporting close polysomnographic monitoring
+    across that window. That subgroup is small (n = 10) and started from a much lower baseline
+    obstructive AHI than Type I (0.26 +/- 0.20 against 1.47 +/- 0.54 events/h, p = 0.001), so part of
+    the Type II-specific rise may reflect that floor rather than a subtype-specific susceptibility.
+  genes:
+  - preferred_term: SNRPN
+    term:
+      id: hgnc:11164
+      label: SNRPN
+  - preferred_term: MAGEL2
+    term:
+      id: hgnc:6814
+      label: MAGEL2
+  subtype_frequency: FREQUENT
+  evidence:
+  - reference: PMID:36901699
+    reference_title: &#34;Prader-Willi Syndrome and Chromosome 15q11.2 BP1-BP2 Region: A Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Those with the larger 15q11-q13 Type I deletion with the absence of four non-imprinted genes (NIPA1, NIPA2, CYFIP1, TUBGCP5) from the 15q11.2 BP1-BP2 region are more severely affected compared with those with PWS having a smaller Type II deletion.&#34;
+    explanation: &gt;-
+      Defines Type II as the smaller deletion that retains the four BP1-BP2 genes, which is why this
+      subtype lists only the imprinted-region genes.
+  - reference: PMID:36674736
+    reference_title: &#34;Chromosomal Microarray Study in Prader-Willi Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thirty-five (40.2%) of 87 individuals showed typical larger 15q11-q13 Type I deletion and 52 individuals (59.8%) showed typical smaller Type II deletion.&#34;
+    explanation: &gt;-
+      Source of the subtype_frequency band. Type II is 59.8% of deletions in a series where deletions
+      were 87 of 154 participants, putting Type II at about 34% of all PWS - the FREQUENT (30-79%) band.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader-Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;patients with type II deletions demonstrated significant increases in both total and obstructive AHI&#34;
+    explanation: &gt;-
+      Reports the Type II-specific early respiratory deterioration on rhGH. The comparison rests on 10
+      patients with paired polysomnography; see this subtype&#39;s description for the baseline caveat.
+- name: mUPD
+  display_name: Maternal Uniparental Disomy (mUPD15)
+  description: &gt;-
+    Maternal uniparental disomy of chromosome 15: two maternal copies are inherited in place of one
+    maternal and one paternal copy, so every paternally expressed imprinted gene at 15q11-q13 is
+    silenced without any deletion. Reported at 20-30% of PWS in clinical review and at 40.3% in a
+    consecutive microarray-typed trial cohort. Shows less respiratory sensitivity to rhGH therapy than
+    the deletion classes.
+  subtype_frequency: FREQUENT
+  evidence:
+  - reference: PMID:22237428
+    reference_title: &#34;Prader-Willi syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;maternal uniparental disomy 15 (20-30%)&#34;
+    explanation: Clinical review confirms mUPD accounts for 20-30% of PWS cases.
+  - reference: PMID:36674736
+    reference_title: &#34;Chromosomal Microarray Study in Prader-Willi Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;87 (56.5%) showed the typical 15q11-q13 deletion subtypes, 62 (40.3%) showed non-deletion maternal disomy 15&#34;
+    explanation: &gt;-
+      Gives the higher, consecutively ascertained mUPD share that puts this subtype in the FREQUENT
+      (30-79%) band rather than the review&#39;s 20-30% figure.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader-Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;both total AHI and obstructive AHI increased significantly during the first 3-6 months of treatment, primarily among patients with deletions rather than those with mUPD&#34;
+    explanation: Preprint demonstrates that mUPD cases show fewer AHI increases during rhGH therapy compared to deletion cases.
 mechanistic_hypotheses:
 - hypothesis_group_id: canonical_pws_imprinted_15q_loss_hypothalamic_model
   hypothesis_label: Canonical 15q11.2-q13 Paternal Imprinted Locus Loss / Hypothalamic Dysfunction Model
@@ -8601,9 +10336,9 @@ pathophysiology:
   - reference: PMID:37685915
     reference_title: &#39;Hormonal Imbalances in Prader-Willi and Schaaf-Yang Syndromes Imply the Evolution of Specific Regulation of Hypothalamic Neuroendocrine Function in Mammals.&#39;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hormonal Imbalances in Prader-Willi and Schaaf-Yang Syndromes Imply the Evolution of Specific Regulation of Hypothalamic Neuroendocrine Function in Mammals.&#34;
-    explanation: Comparative neuroendocrine analysis of hormonal imbalances in PWS.
+    evidence_source: OTHER
+    snippet: &#34;The hypothalamus regulates fundamental aspects of physiological homeostasis and behavior, including stress response, reproduction, growth, sleep, and feeding, several of which are affected in patients with Prader-Willi (PWS) and Schaaf-Yang syndrome (SYS).&#34;
+    explanation: Review connecting PWS-gene loss to hypothalamic neuroendocrine dysfunction affecting feeding, growth, and reproduction.
   downstream:
   - target: Neonatal Hypotonia
   - target: Hyperphagia
@@ -8719,8 +10454,11 @@ phenotypes:
     explanation: Orphanet lists polyphagia as frequent (79-30%) in PWS.
 - name: Obesity
   category: Metabolic
-  frequency: VERY_FREQUENT
-  notes: Develops secondary to hyperphagia if food intake is not strictly controlled.
+  frequency: FREQUENT
+  notes: &gt;-
+    Develops secondary to hyperphagia if food intake is not strictly controlled;
+    can reach 80-90% in unmanaged cases, but early diagnosis and dietary control
+    lower observed prevalence, and Orphanet codes it in the Frequent (79-30%) band.
   description: &gt;
     Morbid obesity develops secondary to uncontrolled hyperphagia.
     Prevalence up to 80-90% in unmanaged cases. Leading cause of
@@ -8741,7 +10479,7 @@ phenotypes:
     reference_title: &#39;Prader-Willi syndrome&#39;
     supports: SUPPORT
     snippet: &#34;HP:0012743 | Abdominal obesity | Frequent (79-30%)&#34;
-    explanation: Orphanet lists abdominal obesity as frequent (79-30%) in PWS.
+    explanation: Orphanet codes obesity (as abdominal obesity, HP:0012743) in the Frequent (79-30%) band in PWS, anchoring the FREQUENT frequency assignment.
 - name: Intellectual Disability
   category: Neurological
   frequency: FREQUENT
@@ -8937,6 +10675,12 @@ phenotypes:
     supports: SUPPORT
     snippet: &#34;HP:0002870 | Obstructive sleep apnea | Frequent (79-30%)&#34;
     explanation: Orphanet lists obstructive sleep apnea as frequent (79-30%) in PWS.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader–Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;patients with type II deletions demonstrated significant increases in both total and obstructive AHI, whereas no significant longitudinal deterioration was observed in patients with type I deletions&#34;
+    explanation: Preprint demonstrates that obstructive sleep apnea severity (measured by AHI) can worsen during early rhGH therapy in Type II deletion cases, requiring close polysomnographic monitoring in the first 6 months of treatment.
 - name: Anxiety
   category: Behavioral
   frequency: VERY_FREQUENT
@@ -9222,6 +10966,11 @@ phenotypes:
     explanation: Orphanet lists ADHD as frequent (79-30%) in PWS.
 genetic:
 - name: SNRPN
+  gene_term:
+    preferred_term: SNRPN
+    term:
+      id: hgnc:11164
+      label: SNRPN
   association: Causative
   notes: &gt;
     Loss of paternally expressed SNRPN and the SNORD116 snoRNA cluster at 15q11.2-q13
@@ -9254,6 +11003,11 @@ genetic:
     snippet: &#34;SNORD116 has emerged as a critical, and possibly, a determinant candidate in PWS, in the recent years.&#34;
     explanation: Review confirms SNORD116 as a critical determinant gene in PWS.
 - name: MAGEL2
+  gene_term:
+    preferred_term: MAGEL2
+    term:
+      id: hgnc:6814
+      label: MAGEL2
   association: Causative
   notes: &gt;
     Paternally expressed gene in the PWS critical region. Loss contributes to
@@ -9267,6 +11021,11 @@ genetic:
     snippet: &#34;The MAGEL2 gene is involved with the regulation of retrograde transport and promotion of endosomal assembly, oxytocin and reproduction, as well as circadian rhythm, transcriptional activity control, and appetite.&#34;
     explanation: Review details MAGEL2 gene functions relevant to PWS phenotype.
 - name: NDN
+  gene_term:
+    preferred_term: NDN
+    term:
+      id: hgnc:7675
+      label: NDN
   association: Causative
   notes: &gt;
     Necdin, a paternally expressed gene in the PWS region. Involved in neuronal
@@ -9279,6 +11038,11 @@ genetic:
     snippet: &#34;Prader-Willi syndrome (PWS) is a rare imprinting-related neurodevelopmental disorder caused by loss of paternally expressed genes within the chromosome 15q11-q13 region, including SNORD116, MAGEL2, and NDN.&#34;
     explanation: Review confirms NDN as one of the key paternally expressed genes lost in PWS.
 - name: MKRN3
+  gene_term:
+    preferred_term: MKRN3
+    term:
+      id: hgnc:7114
+      label: MKRN3
   association: Causative
   notes: &gt;
     Paternally expressed gene in the PWS region involved in regulating puberty
@@ -9315,6 +11079,24 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;GHT was not a direct predictor of mortality in PWS, which was instead influenced by comorbidities. However, its prolonged use was linked to increased T2DM.&#34;
     explanation: Nationwide cohort study shows GH therapy does not increase mortality but requires metabolic monitoring.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader–Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;After 12 months, the height standard deviation score increased significantly (P &lt; 0.001), while weight and body mass index standard deviation scores did not change significantly. Glucose and lipid parameters remained stable.&#34;
+    explanation: Preprint of 66 children documents that 12 months of rhGH therapy significantly improves height without metabolic adverse effects or BMI increases.
+  - reference: PPR:PPR1289133
+    reference_title: &#39;Effects of Growth Hormone Therapy on Sleep-Disordered Breathing and Metabolic Parameters in Patients with Prader–Willi Syndrome According to Genetic Subtype&#39;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;both total AHI and obstructive AHI increased significantly during the first 3–6 months of treatment, primarily among patients with deletions rather than those with mUPD&#34;
+    explanation: &gt;-
+      Supports the polysomnographic-monitoring caveat attached to rhGH therapy. Marked INDIRECT
+      because the quote reports the measured AHI rise, while the monitoring recommendation follows
+      from it by an inference step rather than being asserted. The signal is concentrated in the
+      deletion classes and, within them, in Type II; the Type I and Type II subtype descriptions
+      record the small subgroup sizes and baseline-AHI asymmetry that bound it.
 - name: Dietary Management
   description: &gt;
     Strict environmental control of food access is essential to prevent
@@ -9380,7 +11162,7 @@ treatments:
   evidence:
   - reference: PMID:28371242
     reference_title: &#39;Oxytocin treatment in children with Prader-Willi syndrome: A double-blind, placebo-controlled, crossover study.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The results from this study suggest that low dose intranasal oxytocin is safe for individuals with PWS and may result in reduction in appetite drive, and improvements in socialization, anxiety, and repetitive behaviors.&#34;
     explanation: Double-blind crossover RCT shows trends toward improvement with intranasal oxytocin but no statistically significant effects.
@@ -9398,17 +11180,20 @@ treatments:
   evidence:
   - reference: PMID:38321079
     reference_title: &#39;Current and future state of pharmacological management of pediatric obesity.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This report additionally includes RCTs examining AOM for special populations of pediatric obesity including monogenic obesity, Bardet Biedl syndrome, Prader Willi syndrome, and hypothalamic obesity.&#34;
     explanation: Review of anti-obesity medications includes PWS as a special population, with GLP-1 agonists among the agents discussed.
 - name: Gene Reactivation Strategies
   description: &gt;
-    Potentially curative approaches aiming to reactivate the silenced maternal
-    copy of SNORD116 and other PWS-region genes. Strategies include antisense
-    oligonucleotides targeting UBE3A-ATS, CRISPR epigenome editing with dCas9
-    fused to transcriptional activators, and small molecule epigenetic modulators.
-    Currently in preclinical or early-phase development.
+    Potentially curative approaches aiming to unsilence the maternal (imprinted-off)
+    copy of SNORD116 and other paternally expressed PWS-region genes. Strategies
+    target the repressive machinery that keeps the maternal PWS locus silent —
+    for example inhibition of SETDB1, EHMT2/G9a, or the ZNF274/SETDB1 complex —
+    together with CRISPR epigenome editing (dCas9 fused to transcriptional
+    activators) and small-molecule epigenetic modulators. (Note: silencing
+    UBE3A-ATS is the Angelman-syndrome reactivation strategy and is not applicable
+    to PWS.) Currently in preclinical or early-phase development.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -10006,7 +11791,7 @@ Loss of paternal 15q11.2-q13 genes
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Prader-Willi Syndrome", "mondoId": "MONDO:0008300", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Prader-Willi_Syndrome", "yamlRevision": "e13156444d46"};
+        const OS_CONFIG = {"diseaseName": "Prader-Willi Syndrome", "mondoId": "MONDO:0008300", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Prader-Willi_Syndrome", "yamlRevision": "bb80a7af4178"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10425,5 +12210,73 @@ Loss of paternal 15q11.2-q13 genes
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

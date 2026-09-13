@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Transient Neonatal Pustular Melanosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Transient Neonatal Pustular Melanosis</h1>
             <div class="header-meta">
 
@@ -3900,18 +4047,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3939,18 +4088,20 @@ This pathophysiological event involves Melanocyte (CL:0000148). CL:0000148 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves pigmentation (GO:0043473). GO:0043473 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         pigmentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go">GO:0043473</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043473" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0043473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves pigmentation (GO:0043473). GO:0043473 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4013,18 +4164,20 @@ This pathophysiological event involves pigmentation (GO:0043473). GO:0043473 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Epidermis, annotated with skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Epidermis, annotated with skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4060,7 +4213,9 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                 </div>
@@ -4080,7 +4235,9 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32092380" target="_blank">PMID:32092380</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                 </div>
@@ -4100,7 +4257,9 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18633434" target="_blank">PMID:18633434</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4133,18 +4292,20 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4161,18 +4322,20 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4200,18 +4363,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves neutrophil chemotaxis (GO:0030593). GO:0030593 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neutrophil chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go">GO:0030593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil chemotaxis (GO:0030593). GO:0030593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4228,18 +4393,20 @@ This pathophysiological event involves neutrophil chemotaxis (GO:0030593). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves epidermis development (GO:0008544). GO:0008544 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         epidermis development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go">GO:0008544</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves epidermis development (GO:0008544). GO:0008544 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4256,18 +4423,20 @@ This pathophysiological event involves epidermis development (GO:0008544). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0031424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4291,18 +4460,20 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Epidermis, annotated with skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Epidermis, annotated with skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4344,7 +4515,9 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                 </div>
@@ -4385,63 +4558,71 @@ This pathophysiological event occurs in Epidermis, annotated with skin epidermis
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Skin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skin of face (UBERON:1000021). UBERON:1000021 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skin of face
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_1000021" target="_blank" class="curie-chip curie-chip-uberon">UBERON:1000021</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_1000021" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:1000021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of face (UBERON:1000021). UBERON:1000021 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in neck (UBERON:0000974). UBERON:0000974 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         neck
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000974</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000974" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in neck (UBERON:0000974). UBERON:0000974 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001137). UBERON:0001137 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         back
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001137" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001137</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001137" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001137). UBERON:0001137 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4464,7 +4645,9 @@ This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1271148" target="_blank">PMID:1271148</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4484,7 +4667,9 @@ This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33397568" target="_blank">PMID:33397568</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4498,13 +4683,15 @@ This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15095913" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15095913" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15095913" target="_blank">PMID:15095913</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4545,18 +4732,20 @@ This pathophysiological event occurs in back, annotated with dorsum (UBERON:0001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Skin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4573,13 +4762,15 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15095913" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15095913" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15095913" target="_blank">PMID:15095913</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4599,7 +4790,9 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21793881" target="_blank">PMID:21793881</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4619,7 +4812,9 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24318488" target="_blank">PMID:24318488</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4675,7 +4870,9 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4695,7 +4892,9 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33397568" target="_blank">PMID:33397568</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4766,7 +4965,9 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21146802" target="_blank">PMID:21146802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4780,13 +4981,15 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33386313" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33386313" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33386313" target="_blank">PMID:33386313</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4800,13 +5003,15 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16281619" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16281619" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16281619" target="_blank">PMID:16281619</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4908,16 +5113,20 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200039</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.">
-                        Pustule
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp">HP:0200039</a>
-
-
+This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4938,7 +5147,9 @@ This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:02000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7091064" target="_blank">PMID:7091064</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -4958,7 +5169,9 @@ This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:02000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12113648" target="_blank">PMID:12113648</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4978,7 +5191,9 @@ This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:02000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27192509" target="_blank">PMID:27192509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5012,16 +5227,22 @@ This clinical feature is Pustules, annotated with Pustule (HP:0200039). HP:02000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Skin rash</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scaling skin, annotated with Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.">
-                        Skin rash
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp">HP:0000988</a>
-
-
+This clinical feature is Scaling skin, annotated with Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5055,16 +5276,22 @@ This clinical feature is Scaling skin, annotated with Skin rash (HP:0000988). HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hyperpigmentation of the skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperpigmentation of the skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp">HP:0000953</a>
-
-
+This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5079,13 +5306,15 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:511427" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:511427" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/511427" target="_blank">PMID:511427</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5105,7 +5334,9 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22884507" target="_blank">PMID:22884507</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -5159,13 +5390,15 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37900709" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37900709" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37900709" target="_blank">PMID:37900709</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5210,13 +5443,15 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37900709" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37900709" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37900709" target="_blank">PMID:37900709</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5300,6 +5535,9 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5316,18 +5554,18 @@ This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5345,6 +5583,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5369,7 +5615,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7091064" target="_blank">PMID:7091064</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -5389,7 +5637,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27192509" target="_blank">PMID:27192509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5413,22 +5663,141 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
         <!-- Environmental Factors -->
 
-        <div class="card">
+
+        <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
             <div class="card-header">
-                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
-                <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-not-applicable" data-dismech-node="Not Applicable" data-dismech-type="environmental">
-                <div class="item-name">Not Applicable</div>
+            <div class="item-box anchor-target" id="diagnosis-dermatologic-examination">
+                <div class="item-name">
+                    Dermatologic Examination
+
+                </div>
 
 
-                <div class="item-desc">No known environmental factors are associated with this condition.</div>
 
 
 
 
+
+
+                <div class="item-notes">Observation of typical pustules, ruptured lesions, and resultant hyperpigmented macules.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24318488" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24318488" target="_blank">PMID:24318488</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical aspect and time of onset are generally sufficient to make the correct diagnosis. Nevertheless, peculiar clinical presentations may require additional work-up to rule out life-threatening conditions, and dermatological consultation and histological examination are required for the..."</div>
+
+
+                <div class="evidence-explanation">The literature mentions that clinical recognition through observation of typical skin changes can be sufficient for diagnosis, suggesting that a dermatological examination is key in diagnosing Transient Neonatal Pustular Melanosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-skin-smear">
+                <div class="item-name">
+                    Skin Smear
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">May reveal neutrophils and absence of microorganisms.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:511427" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/511427" target="_blank">PMID:511427</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Gram stains of the pustules showed numerous neutrophils but no bacteria."</div>
+
+
+                <div class="evidence-explanation">The use of skin smears in diagnosing transient neonatal pustular melanosis is supported as it reveals neutrophils and an absence of bacteria.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9144701" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9144701" target="_blank">PMID:9144701</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The Tzanck smear is a very easy, rapid, and sensitive test for detection of a herpetic infection (multinucleated giant cells) as well as noninfectious pustular eruptions (eosinophils, neutrophils). Therefore the Tzanck smear should be the first test performed."</div>
+
+
+                <div class="evidence-explanation">The statement is supported as the use of skin smears to detect neutrophils in noninfectious pustular eruptions is recommended.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5436,7 +5805,261 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </div>
 
 
-        <!-- Biochemical Markers -->
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33609325" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33609325" target="_blank">PMID:33609325</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"In this study, newborns born between 2018 and 2019 were evaluated prospectively. Along with demographic findings, temporary neonatal skin manifestations, congenital spots, benign neonatal pustulosis, congenital anomalies and other lesions were statistically evaluated."</div>
+
+
+                <div class="evidence-explanation">The reference specifies the evaluation of neonatal skin manifestations in newborns, including Transient Neonatal Pustular Melanosis, thus supporting the statement about its onset phase at birth.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11422167" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11422167" target="_blank">PMID:11422167</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"It must be distinguished from other causes of a pustular eruption in neonates, including infection and erythema toxicum neonatorum, and rare disorders such as transient neonatal pustular melanosis..."</div>
+
+
+                <div class="evidence-explanation">The article includes transient neonatal pustular melanosis in the differential diagnosis of pustular eruptions in neonates, indicating its occurrence from birth.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-resolution">
+                <div class="item-name">Resolution</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Weeks</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22884507" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22884507" target="_blank">PMID:22884507</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Transient neonatal pustular melanosis."</div>
+
+
+                <div class="evidence-explanation">The reference title mentions the condition transient neonatal pustular melanosis, but it does not provide any specific information about its progression, age range, or resolution phase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37340913" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37340913" target="_blank">PMID:37340913</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A Neonate With a Rash."</div>
+
+
+                <div class="evidence-explanation">Though discussing various neonatal conditions involving rashes, the abstract does not mention specific details about transient neonatal pustular melanosis or its progression and resolution age range.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29974501" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29974501" target="_blank">PMID:29974501</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Management of afebrile neonates with pustules and vesicles in a pediatric emergency department."</div>
+
+
+                <div class="evidence-explanation">The study mentions vesicles and pustules in afebrile neonates but doesn&#39;t provide information specifically about transient neonatal pustular melanosis and its progression or resolution phase.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-newborns">
+                <div class="item-name">Newborns</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22037857" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22037857" target="_blank">PMID:22037857</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">" ...one case each of transient neonatal pustular melanosis... (2.3% each) were enrolled in this study..."</div>
+
+
+                <div class="evidence-explanation">The literature indicates that transient neonatal pustular melanosis is quite rare with only one case identified out of a cohort, supporting the statement that it has a rare prevalence in newborns.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5470,7 +6093,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Transient Neonatal Pustular Melanosis
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
 description: &gt;-
   Transient neonatal pustular melanosis is a benign, self-limited pustular
   eruption present at birth, more common in neonates with darker skin. It
@@ -5501,12 +6123,12 @@ progression:
   evidence:
   - reference: PMID:33609325
     reference_title: &#34;Oral mucosal and skin lesions observed in the first 48 hr in newborns.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: In this study, newborns born between 2018 and 2019 were evaluated prospectively. Along with demographic findings, temporary neonatal skin manifestations, congenital spots, benign neonatal pustulosis, congenital anomalies and other lesions were statistically evaluated.
     explanation: The reference specifies the evaluation of neonatal skin manifestations in newborns, including Transient Neonatal Pustular Melanosis, thus supporting the statement about its onset phase at birth.
   - reference: PMID:11422167
     reference_title: &#34;Neonatal eosinophilic pustular folliculitis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: It must be distinguished from other causes of a pustular eruption in neonates, including infection and erythema toxicum neonatorum, and rare disorders such as transient neonatal pustular melanosis...
     explanation: The article includes transient neonatal pustular melanosis in the differential diagnosis of pustular eruptions in neonates, indicating its occurrence from birth.
 - phase: Resolution
@@ -5657,7 +6279,7 @@ pathophysiology:
     explanation: Although the reference title confirms the focus on Transient Neonatal Pustular Melanosis, it does not provide a detailed enough snippet to fully confirm details about the resultant hyperpigmentation. However, it does support the occurrence of the condition.
   - reference: PMID:15095913
     reference_title: &#34;The pustular disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The pustular disorders constitute a subgroup of the vesiculobullous disorders defined by the presence of eosinophils or neutrophils.
     explanation: While the reference discusses pustular disorders generally, it does not provide specific details on the resultant hyperpigmentation associated with Transient Neonatal Pustular Melanosis.
 - name: Desquamation
@@ -5670,7 +6292,7 @@ pathophysiology:
   evidence:
   - reference: PMID:15095913
     reference_title: &#34;The pustular disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The pustular disorders constitute a subgroup of the vesiculobullous disorders defined by the presence of eosinophils or neutrophils with prominent accompanying intercellular edema or a canthelysis involving various levels of the epithelium.
     explanation: While this reference explains the general characteristics of pustular disorders, it doesn&#39;t clearly support or refute the specific statement regarding desquamation following the resolution of pustules in Transient Neonatal Pustular Melanosis.
   - reference: PMID:21793881
@@ -5715,12 +6337,12 @@ pathophysiology:
     explanation: The abstract indicates that Transient Neonatal Pustular Melanosis is a benign and self-limited condition.
   - reference: PMID:33386313
     reference_title: &#34;Neonatal Dermatology: The Normal, the Common, and the Serious.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: This article will discuss normal neonatal skin care and benign and common rashes.
     explanation: Although this sentence is more general, the review covers benign neonatal conditions, which aligns with the statement.
   - reference: PMID:16281619
     reference_title: &#34;[Pustular diseases of the newborn].&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: In the newborn, there exists a wide spectrum of pustular skin diseases. These range from transitory, benign adaptation disorders up to systemic, life threatening illnesses.
     explanation: The reference mentions a range of conditions including benign pustular diseases, which supports the statement, but does not specifically mention Transient Neonatal Pustular Melanosis.
   - reference: PMID:28543629
@@ -5770,7 +6392,7 @@ phenotypes:
   evidence:
   - reference: PMID:511427
     reference_title: &#34;Transient neonatal pustular melanosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: A Mexican-American boy presented at birth with an extensive eruption consisting of 0.5 to 1.0 cm hyperpigmented macules with a distinct peripheral scale involving primarily the forearms, abdomen and lower back.
     explanation: The reference supports the presence of hyperpigmented macules as a phenotype of transient neonatal pustular melanosis. However, it does not provide support for the frequency being &#39;High&#39;.
   - reference: PMID:22884507
@@ -5799,7 +6421,7 @@ phenotypes:
   evidence:
   - reference: PMID:37900709
     reference_title: &#34;Transient neonatal pustular melanosis: An unusual and challenging eruption.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: TNPM is a benign, transient, neonatal pustulosis requiring no active treatment. Diagnosis is clinical, characterized by a vesiculopustular eruption, healing with residual hyperpigmented macules.
     explanation: The reference supports that TNPM is benign and self-limited, but does not provide evidence about it being a systemic condition or its frequency.
 - category: Systemic
@@ -5809,7 +6431,7 @@ phenotypes:
   evidence:
   - reference: PMID:37900709
     reference_title: &#34;Transient neonatal pustular melanosis: An unusual and challenging eruption.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: TNPM is a benign, transient, neonatal pustulosis requiring no active treatment. Diagnosis is clinical, characterized by a vesiculopustular eruption, healing with residual hyperpigmented macules.
     explanation: The abstract confirms that TNPM is a benign condition without systemic symptoms, supporting the statement that infants with TNPM are otherwise healthy and do not have any associated fever, irritability, or other systemic symptoms.
 diagnosis:
@@ -5831,7 +6453,7 @@ diagnosis:
     explanation: The use of skin smears in diagnosing transient neonatal pustular melanosis is supported as it reveals neutrophils and an absence of bacteria.
   - reference: PMID:9144701
     reference_title: &#34;Diagnosis and treatment of pustular disorders in the neonate.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The Tzanck smear is a very easy, rapid, and sensitive test for detection of a herpetic infection (multinucleated giant cells) as well as noninfectious pustular eruptions (eosinophils, neutrophils). Therefore the Tzanck smear should be the first test performed.
     explanation: The statement is supported as the use of skin smears to detect neutrophils in noninfectious pustular eruptions is recommended.
 treatments:
@@ -5856,9 +6478,12 @@ genetic:
 - name: No specific genes identified
   association: None
   notes: No monogenic basis or specific causal genes have been identified for TNPM. The etiology remains unclear and is considered possibly a variant of erythema toxicum neonatorum involving innate immune responses.
-environmental:
-- name: Not Applicable
-  notes: No known environmental factors are associated with this condition.
+review_notes: &gt;-
+  The environmental section was removed. It held a single entry named &#34;Not
+  Applicable&#34; whose only content was that no environmental factors are known,
+  which is the absence of an exposure rather than an exposure. No environmental
+  factor is documented for this condition; an empty section says that more
+  honestly than a placeholder row does. See dismech#8296 and dismech#8551.
 disease_term:
   preferred_term: transient neonatal pustular melanosis
 </pre>
@@ -6255,7 +6880,7 @@ disease_term:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Transient Neonatal Pustular Melanosis", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Transient_Neonatal_Pustular_Melanosis", "yamlRevision": "155f5aad6e09"};
+        const OS_CONFIG = {"diseaseName": "Transient Neonatal Pustular Melanosis", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Transient_Neonatal_Pustular_Melanosis", "yamlRevision": "f080697dcdf7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6674,5 +7299,73 @@ disease_term:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
