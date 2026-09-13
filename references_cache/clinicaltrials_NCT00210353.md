@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00210353"
+reference_id: clinicaltrials:NCT00210353
 title: Multicenter Randomized Trial of Chlorambucil Versus Chlorambucil Plus Rituximab Versus Rituximab in Extranodal Marginal Zone B-cell Lymphoma of Mucosa Associated Lymphoid Tissue (MALT Lymphoma)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multicenter Randomized Trial of Chlorambucil Versus Chlorambucil Plus Rituximab Versus Rituximab in Extranodal Marginal Zone B-cell Lymphoma of Mucosa Associated Lymphoid Tissue (MALT Lymphoma)

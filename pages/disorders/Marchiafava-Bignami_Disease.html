@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Marchiafava-Bignami Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Marchiafava-Bignami Disease</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Marchiafava-Bignami%20Disease"
@@ -3820,7 +3967,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3910,7 +4057,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-heinrich-type-a-acute-marchiafava-bignami-disease">
 
                     <div class="item-name">
                         Heinrich type A acute Marchiafava-Bignami disease
@@ -3944,7 +4091,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-023-45431-6" target="_blank">DOI:10.1038/s41598-023-45431-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3966,7 +4115,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-023-45431-6" target="_blank">DOI:10.1038/s41598-023-45431-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3992,7 +4143,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-heinrich-type-b-acute-marchiafava-bignami-disease">
 
                     <div class="item-name">
                         Heinrich type B acute Marchiafava-Bignami disease
@@ -4026,7 +4177,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-023-45431-6" target="_blank">DOI:10.1038/s41598-023-45431-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4048,7 +4201,9 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-023-45431-6" target="_blank">DOI:10.1038/s41598-023-45431-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4110,18 +4265,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4179,7 +4336,9 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4219,18 +4378,20 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased axon ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         axon ensheathment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go">GO:0008366</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased axon ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4257,18 +4418,20 @@ This pathophysiological event involves decreased axon ensheathment (GO:0008366).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4277,18 +4440,20 @@ This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corpus callosum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4326,7 +4491,9 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4369,18 +4536,20 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corpus callosum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4418,7 +4587,9 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                         <a href="https://bioregistry.io/DOI:10.15744/2454-4981.3.201" target="_blank">DOI:10.15744/2454-4981.3.201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4434,13 +4605,15 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4473,18 +4646,20 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4514,18 +4689,20 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0043209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4534,18 +4711,20 @@ This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corpus callosum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4591,7 +4770,9 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4613,7 +4794,9 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4655,18 +4838,20 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4675,18 +4860,20 @@ This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in central nervous system white matter, annotated with central nervous system white matter layer (UBERON:0016549). UBERON:0016549 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         central nervous system white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0016549" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0016549</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0016549" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0016549</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system white matter, annotated with central nervous system white matter layer (UBERON:0016549). UBERON:0016549 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4709,7 +4896,9 @@ This pathophysiological event occurs in central nervous system white matter, ann
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4742,18 +4931,20 @@ This pathophysiological event occurs in central nervous system white matter, ann
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4784,18 +4975,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corpus callosum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002336</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON:0002336 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4818,7 +5011,9 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4866,7 +5061,7 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunct corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corticosteroids are sometimes used as adjunctive therapy for edema, demyelination, and inflammation, but evidence is heterogeneous and often confounded by concurrent vitamin treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Alcohol-related thiamine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic alcohol exposure and malnutrition can deplete thiamine and disrupt metabolic pathways required for maintaining callosal myelin.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Callosal myelin degeneration and necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelin degeneration and necrosis preferentially affect the corpus callosum, producing the characteristic lesion of Marchiafava-Bignami disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Cytotoxic edema in callosal white matter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute metabolic injury can produce restricted diffusion consistent with cytotoxic edema in corpus callosum white matter before progression to demyelination and necrosis.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Extracallosal white matter involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesions may extend outside the corpus callosum into adjacent or distant central nervous system white matter, and a broader lesion burden is a poor prognostic sign.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"central nervous system white matter\"]}}, {\"id\": \"Impaired myelin synthesis and signal transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metabolic disruption hinders myelin synthesis and impairs signal transmission through affected callosal fibers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"axon ensheathment\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Interhemispheric disconnection syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to corpus callosum fibers can impair interhemispheric transfer and contribute to disconnection signs, language disturbance, cognition changes, and motor manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Parenteral thiamine and B-vitamin repletion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prompt high-dose thiamine and B-vitamin replacement is the primary disease-directed treatment because thiamine depletion is a central mechanism and delayed therapy worsens outcomes.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vitamin B1\"]}}, {\"id\": \"Rehabilitation therapy and multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation and multidisciplinary supportive care may be used alongside vitamin repletion and pharmacotherapy to address gait, speech, and functional deficits during recovery.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Alcohol-related thiamine depletion\", \"target\": \"Impaired myelin synthesis and signal transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine depletion and metabolic disruption reduce myelin synthesis and signal transmission.\"}, {\"source\": \"Impaired myelin synthesis and signal transmission\", \"target\": \"Cytotoxic edema in callosal white matter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired myelin and energy metabolism contribute to acute callosal cytotoxic edema.\"}, {\"source\": \"Cytotoxic edema in callosal white matter\", \"target\": \"Callosal myelin degeneration and necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent cytotoxic edema and metabolic injury can progress to demyelination and necrosis.\"}, {\"source\": \"Callosal myelin degeneration and necrosis\", \"target\": \"Extracallosal white matter involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More extensive toxic-metabolic injury can extend beyond the corpus callosum.\"}, {\"source\": \"Callosal myelin degeneration and necrosis\", \"target\": \"Interhemispheric disconnection syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal fiber injury can produce interhemispheric disconnection signs.\"}, {\"source\": \"Parenteral thiamine and B-vitamin repletion\", \"target\": \"Alcohol-related thiamine depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parenteral thiamine and B-vitamin repletion\", \"target\": \"Impaired myelin synthesis and signal transmission\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct corticosteroid therapy\", \"target\": \"Callosal myelin degeneration and necrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct corticosteroid therapy\", \"target\": \"Cytotoxic edema in callosal white matter\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rehabilitation therapy and multidisciplinary supportive care\", \"target\": \"Interhemispheric disconnection syndrome\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunct corticosteroid therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corticosteroids are sometimes used as adjunctive therapy for edema, demyelination, and inflammation, but evidence is heterogeneous and often confounded by concurrent vitamin treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Alcohol-related thiamine depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic alcohol exposure and malnutrition can deplete thiamine and disrupt metabolic pathways required for maintaining callosal myelin.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Callosal myelin degeneration and necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Myelin degeneration and necrosis preferentially affect the corpus callosum, producing the characteristic lesion of Marchiafava-Bignami disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Chronic alcohol use and malnutrition\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic alcohol exposure and malnutrition are the major recurring clinical contexts for Marchiafava-Bignami disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cytotoxic edema in callosal white matter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute metabolic injury can produce restricted diffusion consistent with cytotoxic edema in corpus callosum white matter before progression to demyelination and necrosis.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Extracallosal white matter involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesions may extend outside the corpus callosum into adjacent or distant central nervous system white matter, and a broader lesion burden is a poor prognostic sign.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"central nervous system white matter\"]}}, {\"id\": \"Impaired myelin synthesis and signal transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metabolic disruption hinders myelin synthesis and impairs signal transmission through affected callosal fibers.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"axon ensheathment\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Interhemispheric disconnection syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to corpus callosum fibers can impair interhemispheric transfer and contribute to disconnection signs, language disturbance, cognition changes, and motor manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"locations\": [\"corpus callosum\"]}}, {\"id\": \"Parenteral thiamine and B-vitamin repletion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prompt high-dose thiamine and B-vitamin replacement is the primary disease-directed treatment because thiamine depletion is a central mechanism and delayed therapy worsens outcomes.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"vitamin B1\"]}}, {\"id\": \"Rehabilitation therapy and multidisciplinary supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation and multidisciplinary supportive care may be used alongside vitamin repletion and pharmacotherapy to address gait, speech, and functional deficits during recovery.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Alcohol-related thiamine depletion\", \"target\": \"Impaired myelin synthesis and signal transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine depletion and metabolic disruption reduce myelin synthesis and signal transmission.\"}, {\"source\": \"Impaired myelin synthesis and signal transmission\", \"target\": \"Cytotoxic edema in callosal white matter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired myelin and energy metabolism contribute to acute callosal cytotoxic edema.\"}, {\"source\": \"Cytotoxic edema in callosal white matter\", \"target\": \"Callosal myelin degeneration and necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent cytotoxic edema and metabolic injury can progress to demyelination and necrosis.\"}, {\"source\": \"Callosal myelin degeneration and necrosis\", \"target\": \"Extracallosal white matter involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More extensive toxic-metabolic injury can extend beyond the corpus callosum.\"}, {\"source\": \"Callosal myelin degeneration and necrosis\", \"target\": \"Interhemispheric disconnection syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Callosal fiber injury can produce interhemispheric disconnection signs.\"}, {\"source\": \"Chronic alcohol use and malnutrition\", \"target\": \"Alcohol-related thiamine depletion\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The carried sentence names alcohol consumption leading to thiamine depletion, which is this node stated as an edge. The exposure entry bundles alcohol with malnutrition and the quote covers the alcohol half only, so malnutrition stays an unquantified co-factor in the entry\u0027s prose rather than a second link.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenteral thiamine and B-vitamin repletion\", \"target\": \"Alcohol-related thiamine depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parenteral thiamine and B-vitamin repletion\", \"target\": \"Impaired myelin synthesis and signal transmission\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct corticosteroid therapy\", \"target\": \"Callosal myelin degeneration and necrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunct corticosteroid therapy\", \"target\": \"Cytotoxic edema in callosal white matter\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rehabilitation therapy and multidisciplinary supportive care\", \"target\": \"Interhemispheric disconnection syndrome\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4883,42 +5078,30 @@ This pathophysiological event occurs in corpus callosum (UBERON:0002336). UBERON
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reduced consciousness
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-speech-disorder" data-dismech-node="Speech disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Speech disorder
+                    <span class="phenotype-category">Neurologic</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0004372</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
 
@@ -4936,578 +5119,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
-
-
-                <div class="evidence-explanation">The case synthesis identifies speech disorders as a primary clinical manifestation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
-                    </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract specifically lists dysarthria.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aphasia" data-dismech-node="Aphasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aphasia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.">
-                        Aphasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp">HP:0002381</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39650996" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650996" target="_blank">PMID:39650996</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report a case of MDB that was diagnosed in a 43-year-old woman with a history of chronic alcohol use and a 15-day history of progressive neurological symptoms, including impaired speech, confusion, and inability to walk independently."</div>
-
-
-                <div class="evidence-explanation">The abstract supports impaired speech, which may include aphasic or dysarthric presentations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive impairment
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-                        Cognitive impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
-
-
-                <div class="evidence-explanation">The case synthesis identifies cognitive impairment as a primary manifestation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39650996" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650996" target="_blank">PMID:39650996</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The condition often presents with cognitive dysfunction, motor deficits, and altered consciousness, which can range from mild confusion to severe stupor."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract describes cognitive dysfunction as a common presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-psychiatric-or-behavioral-abnormality" data-dismech-node="Psychiatric or behavioral abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Psychiatric or behavioral abnormality
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Psychiatric or behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
-
-
-                <div class="evidence-explanation">The case synthesis directly identifies psychiatric or behavioral abnormalities.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ataxia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-                        Ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract lists ataxia among MBD manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hemiparesis" data-dismech-node="Hemiparesis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hemiparesis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.">
-                        Hemiparesis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp">HP:0001269</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract lists hemiparesis among MBD manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract lists seizure activity among MBD manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-apraxia" data-dismech-node="Apraxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Apraxia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Apraxia (HP:0002186). HP:0002186 is a phenotype from the Human Phenotype Ontology.">
-                        Apraxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002186" target="_blank" class="curie-chip curie-chip-hp">HP:0002186</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12883-024-03901-y" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1186/s12883-024-03901-y" target="_blank">DOI:10.1186/s12883-024-03901-y</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other clinical manifestations included emotional or personality changes (10 cases, 30.3%), seizures (4 cases, 12.1%), sensory disturbances (3 cases), neglect (2 cases), corpus callosum disconnection (2 cases), apraxia (4 cases), and combined neglect and apraxia (1 case)."</div>
-
-
-                <div class="evidence-explanation">The 33-case synthesis reports apraxia in 4 cases and combined neglect/apraxia in 1 additional case.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34473675" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34473675" target="_blank">PMID:34473675</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Here, we report a man with probable MBD with callosal and right medial paracentral lesions who presented with abnormal reaching behavior and ideomotor apraxia of the left hand."</div>
-
-
-                <div class="evidence-explanation">The case-report abstract directly documents ideomotor apraxia in probable MBD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-consciousness" data-dismech-node="Reduced consciousness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced consciousness
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced consciousness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp">HP:0004372</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5529,7 +5143,9 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39791092" target="_blank">PMID:39791092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5553,34 +5169,624 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-speech-disorder" data-dismech-node="Speech disorder" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Speech disorder
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
+
+
+                <div class="evidence-explanation">The case synthesis identifies speech disorders as a primary clinical manifestation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract specifically lists dysarthria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-aphasia" data-dismech-node="Aphasia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Aphasia
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39650996" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650996" target="_blank">PMID:39650996</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a case of MDB that was diagnosed in a 43-year-old woman with a history of chronic alcohol use and a 15-day history of progressive neurological symptoms, including impaired speech, confusion, and inability to walk independently."</div>
+
+
+                <div class="evidence-explanation">The abstract supports impaired speech, which may include aphasic or dysarthric presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Cognitive impairment
+
+
+                    <span class="phenotype-category">Neuropsychiatric</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
+
+
+                <div class="evidence-explanation">The case synthesis identifies cognitive impairment as a primary manifestation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39650996" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650996" target="_blank">PMID:39650996</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The condition often presents with cognitive dysfunction, motor deficits, and altered consciousness, which can range from mild confusion to severe stupor."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract describes cognitive dysfunction as a common presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-psychiatric-or-behavioral-abnormality" data-dismech-node="Psychiatric or behavioral abnormality" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Psychiatric or behavioral abnormality
+
+
+                    <span class="phenotype-category">Neuropsychiatric</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychiatric or behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39402444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Based on our analysis, we found that MBD primarily affects middle-aged men and typically has an acute or subacute onset, with the primary clinical manifestations being disturbances of consciousness, speech disorders, cognitive impairment, and psychiatric or behavioral abnormalities, often..."</div>
+
+
+                <div class="evidence-explanation">The case synthesis directly identifies psychiatric or behavioral abnormalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Ataxia
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract lists ataxia among MBD manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-hemiparesis" data-dismech-node="Hemiparesis" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Hemiparesis
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract lists hemiparesis among MBD manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Seizure
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical presentation is varied and non-specific, including symptoms of acute dementia, impaired consciousness, dysarthria, hemiparesis, pyramidal tract signs, seizure activity, ataxia and signs of interhemispheric disconnection."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract lists seizure activity among MBD manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-apraxia" data-dismech-node="Apraxia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Apraxia
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002186</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apraxia (HP:0002186). HP:0002186 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12883-024-03901-y" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12883-024-03901-y" target="_blank">DOI:10.1186/s12883-024-03901-y</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other clinical manifestations included emotional or personality changes (10 cases, 30.3%), seizures (4 cases, 12.1%), sensory disturbances (3 cases), neglect (2 cases), corpus callosum disconnection (2 cases), apraxia (4 cases), and combined neglect and apraxia (1 case)."</div>
+
+
+                <div class="evidence-explanation">The 33-case synthesis reports apraxia in 4 cases and combined neglect/apraxia in 1 additional case.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34473675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34473675" target="_blank">PMID:34473675</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a man with probable MBD with callosal and right medial paracentral lesions who presented with abnormal reaching behavior and ideomotor apraxia of the left hand."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract directly documents ideomotor apraxia in probable MBD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -5589,6 +5795,9 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5607,17 +5816,17 @@ This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phe
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5642,21 +5851,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         vitamin B1
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_26948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:26948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_26948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:26948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5710,7 +5929,9 @@ This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5732,7 +5953,9 @@ This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650996" target="_blank">PMID:39650996</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5754,7 +5977,9 @@ This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5784,17 +6009,17 @@ This treatment uses vitamin B1 (CHEBI:26948). CHEBI:26948 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5819,21 +6044,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5881,13 +6116,15 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5903,13 +6140,15 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39791092" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39791092" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39791092" target="_blank">PMID:39791092</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5939,18 +6178,18 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5968,6 +6207,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6010,7 +6257,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://bioregistry.io/DOI:10.51338/rppsm.2020.v6.i1.120" target="_blank">DOI:10.51338/rppsm.2020.v6.i1.120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6050,6 +6299,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Chronic alcohol exposure and malnutrition are the major recurring clinical contexts for Marchiafava-Bignami disease.</div>
 
 
@@ -6066,7 +6319,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39402444" target="_blank">PMID:39402444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6088,7 +6343,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6110,12 +6367,269 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Alcohol-related thiamine depletion</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The carried sentence names alcohol consumption leading to thiamine depletion, which is this node stated as an edge. The exposure entry bundles alcohol with malnutrition and the quote covers the alcohol half only, so malnutrition stays an unquantified co-factor in the entry&#39;s prose rather than a second link.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main pathophysiological mechanisms involve alcohol consumption, which leads to thiamine depletion and disrupts various metabolic pathways."</div>
+
+
+                <div class="evidence-explanation">States that alcohol consumption leads to thiamine depletion and disrupts metabolic pathways, which is this node given as a causal step from the exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri-with-diffusion-weighted-imaging">
+                <div class="item-name">
+                    Brain MRI with diffusion-weighted imaging
+
+                </div>
+
+                <div class="item-desc">MRI, especially diffusion-weighted imaging, is used to detect corpus callosum lesions and support early diagnosis.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> T2/FLAIR hyperintensity, diffusion-restricted corpus callosum lesions, or a central callosal signal abnormality with peripheral rim sparing (&#34;sandwich sign&#34;) support the diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI is considered the gold standard for visualizing lesions in the corpus callosum and other affected areas."</div>
+
+
+                <div class="evidence-explanation">The review identifies MRI as the gold-standard imaging modality for MBD lesions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37559750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37559750" target="_blank">PMID:37559750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI-diffusion-weighted imaging (DWI) detects early lesions, while diffusion tensor imaging (DTI) investigates clinical manifestations and recovery."</div>
+
+
+                <div class="evidence-explanation">The review supports DWI for early lesion detection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33303506" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303506" target="_blank">PMID:33303506</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of MBD is dependent on MRI findings of hyperintensity of the corpus callosum on T2 and fluid-attenuated inversion recovery T2 sequences, with or without extracallosal lesions."</div>
+
+
+                <div class="evidence-explanation">The case-report abstract describes the MRI signal pattern used for diagnosis.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute-subacute-or-chronic-onset">
+                <div class="item-name">Acute, subacute, or chronic onset</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Contemporary case synthesis supports acute, subacute, and chronic onset patterns, with acute onset most common among the 33 analyzed cases.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1186/s12883-024-03901-y" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12883-024-03901-y" target="_blank">DOI:10.1186/s12883-024-03901-y</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were 18 cases (54.5%) with acute onset, 7 cases (21.2%) with subacute onset, and 8 cases (24.2%) with chronic onset."</div>
+
+
+                <div class="evidence-explanation">The 33-case synthesis provides the acute, subacute, and chronic onset distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6149,7 +6663,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Marchiafava-Bignami Disease
 creation_date: &#34;2026-05-06T17:23:56Z&#34;
-updated_date: &#34;2026-05-06T17:48:08Z&#34;
 description: &gt;-
   Marchiafava-Bignami disease is a rare acquired toxic-metabolic neurologic
   disorder, usually associated with chronic alcohol use and malnutrition, in
@@ -6335,7 +6848,7 @@ pathophysiology:
     explanation: The imaging-pathophysiology table maps acute DWI restricted diffusion to cytotoxic edema.
   - reference: PMID:37559750
     reference_title: &#34;Diagnosis and Management of Marchiafava-Bignami Disease, a Rare Neurological Complication of Long-term Alcohol Abuse.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       MRI-diffusion-weighted imaging (DWI) detects early lesions, while diffusion tensor imaging (DTI) investigates clinical manifestations and recovery.
@@ -6487,7 +7000,7 @@ phenotypes:
   evidence:
   - reference: PMID:39650996
     reference_title: &#34;Marchiafava-Bignami Disease: A Case Report of a Reversible Cause of Dementia.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We report a case of MDB that was diagnosed in a 43-year-old woman with a history of chronic alcohol use and a 15-day history of progressive neurological symptoms, including impaired speech, confusion, and inability to walk independently.
@@ -6617,6 +7130,27 @@ environmental:
     snippet: &gt;-
       This condition predominantly afflicts individuals with chronic alcohol abuse and malnutrition.
     explanation: The review identifies chronic alcohol abuse and malnutrition as the dominant clinical context.
+  influences_mechanisms:
+  - target: Alcohol-related thiamine depletion
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The carried sentence names alcohol consumption leading to thiamine
+      depletion, which is this node stated as an edge. The exposure entry
+      bundles alcohol with malnutrition and the quote covers the alcohol half
+      only, so malnutrition stays an unquantified co-factor in the entry&#39;s prose
+      rather than a second link.
+    evidence:
+    - reference: PMID:37559750
+      reference_title: &#34;Diagnosis and Management of Marchiafava-Bignami Disease, a Rare Neurological Complication of Long-term Alcohol Abuse.&#34;
+      supports: SUPPORT
+      directness: DIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The main pathophysiological mechanisms involve alcohol consumption, which leads to thiamine depletion and disrupts various metabolic pathways.&#34;
+      explanation: &gt;-
+        States that alcohol consumption leads to thiamine depletion and disrupts
+        metabolic pathways, which is this node given as a causal step from the
+        exposure.
 diagnosis:
 - name: Brain MRI with diffusion-weighted imaging
   description: &gt;-
@@ -6721,14 +7255,14 @@ treatments:
   evidence:
   - reference: PMID:37559750
     reference_title: &#34;Diagnosis and Management of Marchiafava-Bignami Disease, a Rare Neurological Complication of Long-term Alcohol Abuse.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Corticosteroids offer prospective advantages in addressing brain edema, demyelination, and inflammation; research findings present a heterogeneous outcome pattern.
     explanation: The review supports a plausible adjunctive role but explicitly notes heterogeneous outcomes.
   - reference: PMID:39791092
     reference_title: &#34;An Atypical Case of Marchiafava-Bignami Disease in a Young Chronic Alcoholic: Challenges in Diagnosis and Prognosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Despite prompt initiation of intensive treatment with high-dose thiamine and corticosteroids, the patient only partially recovered, remaining disoriented and exhibiting persistent neurological deficits during follow-up.
@@ -7898,7 +8432,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Marchiafava-Bignami Disease", "mondoId": "MONDO:0016370", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marchiafava-Bignami_Disease", "yamlRevision": "66c88621774b"};
+        const OS_CONFIG = {"diseaseName": "Marchiafava-Bignami Disease", "mondoId": "MONDO:0016370", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marchiafava-Bignami_Disease", "yamlRevision": "b783c5bc7908"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8317,5 +8851,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

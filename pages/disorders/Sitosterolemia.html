@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Sitosterolemia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Sitosterolemia</h1>
             <div class="header-meta">
 
@@ -3903,29 +4050,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3998,7 +4223,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4043,7 +4268,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4065,7 +4292,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4165,7 +4394,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4187,7 +4418,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33807969" target="_blank">PMID:33807969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4238,7 +4471,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Thrombocytopenia</span>
+    <a class="entity-ref-chip" href="#phenotype-thrombocytopenia">phenotypes#Thrombocytopenia</a>
 
 
 
@@ -4266,7 +4499,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4288,7 +4523,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4392,6 +4629,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4408,6 +4651,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Correlate platelet-membrane free-sterol content with platelet size, hyperreactivity, and bleeding phenotype across a human patient cohort to establish the human dose-response between membrane sterol loading and platelet dysfunction.</div>
+
+
+
+
+
+
 
 
 
@@ -4449,7 +4698,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23926302" target="_blank">PMID:23926302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4494,18 +4745,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4522,18 +4775,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4561,17 +4816,21 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABCG5 (hgnc:13886). hgnc:13886 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABCG5
 
 
-    <a href="https://bioregistry.io/hgnc:13886" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13886</a>
+    <a href="https://bioregistry.io/hgnc:13886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:13886</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCG5 (hgnc:13886). hgnc:13886 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4596,17 +4855,21 @@ This pathophysiological event involves ABCG5 (hgnc:13886). hgnc:13886 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABCG8 (hgnc:13887). hgnc:13887 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABCG8
 
 
-    <a href="https://bioregistry.io/hgnc:13887" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13887</a>
+    <a href="https://bioregistry.io/hgnc:13887" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:13887</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCG8 (hgnc:13887). hgnc:13887 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4635,18 +4898,20 @@ This pathophysiological event involves ABCG8 (hgnc:13887). hgnc:13887 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased sterol transport (GO:0015918). GO:0015918 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         sterol transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015918" target="_blank" class="curie-chip curie-chip-go">GO:0015918</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015918" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0015918</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sterol transport (GO:0015918). GO:0015918 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4672,18 +4937,20 @@ This pathophysiological event involves decreased sterol transport (GO:0015918). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased ABC-type sterol transporter activity (GO:0034041). GO:0034041 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ABC-type sterol transporter activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034041" target="_blank" class="curie-chip curie-chip-go">GO:0034041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0034041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ABC-type sterol transporter activity (GO:0034041). GO:0034041 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4748,7 +5015,9 @@ This pathophysiological event involves decreased ABC-type sterol transporter act
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33807969" target="_blank">PMID:33807969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4781,18 +5050,20 @@ This pathophysiological event involves decreased ABC-type sterol transporter act
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4853,7 +5124,9 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4886,18 +5159,20 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4958,7 +5233,9 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5047,7 +5324,9 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33807969" target="_blank">PMID:33807969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5069,7 +5348,9 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5091,7 +5372,9 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5124,18 +5407,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5152,18 +5437,20 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5232,7 +5519,9 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23926302" target="_blank">PMID:23926302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5265,18 +5554,20 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         megakaryocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000556" target="_blank" class="curie-chip curie-chip-cl">CL:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000556" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5337,7 +5628,9 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18156627" target="_blank">PMID:18156627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5359,7 +5652,9 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18156627" target="_blank">PMID:18156627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5392,18 +5687,20 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5449,7 +5746,9 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18156627" target="_blank">PMID:18156627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5471,7 +5770,9 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5493,7 +5794,9 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23926302" target="_blank">PMID:23926302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5526,18 +5829,20 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5583,7 +5888,9 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5616,18 +5923,20 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5673,7 +5982,9 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5706,18 +6017,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5763,7 +6076,9 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5830,17 +6145,15 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5850,7 +6163,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-anemia" data-dismech-node="Hemolytic anemia" data-dismech-type="phenotype">
@@ -5861,16 +6174,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.">
-                        Hemolytic anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp">HP:0001878</a>
-
-
+This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5891,7 +6208,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5913,7 +6232,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5939,6 +6260,74 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stomatocytosis" data-dismech-node="Stomatocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stomatocytosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004446</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16029460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"combines stomatocytic haemolysis with the presence of very large platelets"</div>
+
+
+                <div class="evidence-explanation">Stomatocytes on smear are the erythrocyte-morphology component of the hematologic syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thrombocytopenia
@@ -5947,16 +6336,20 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.">
-                        Thrombocytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp">HP:0001873</a>
-
-
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5977,7 +6370,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6003,22 +6398,120 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Giant platelets
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001902</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the peripheral blood smear is essential and reveals giant platelets and stomatocytes."</div>
+
+
+                <div class="evidence-explanation">Giant platelets are the platelet-morphology component of macrothrombocytopenia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients, in whom it is usually associated with the main clinical features, as occurs in the 70% of the cases."</div>
+
+
+                <div class="evidence-explanation">The 25-35% figure covers macrothrombocytopenia (giant platelets + low count), supporting the frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-bleeding" data-dismech-node="Abnormal bleeding" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal bleeding
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal bleeding
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp">HP:0001892</a>
-
-
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6039,7 +6532,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6080,16 +6575,22 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Premature coronary artery atherosclerosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005181</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature coronary artery atherosclerosis (HP:0005181). HP:0005181 is a phenotype from the Human Phenotype Ontology.">
-                        Premature coronary artery atherosclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005181" target="_blank" class="curie-chip curie-chip-hp">HP:0005181</a>
-
-
+This clinical feature is Premature coronary artery atherosclerosis (HP:0005181). HP:0005181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6110,7 +6611,9 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6132,7 +6635,9 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6166,16 +6671,20 @@ This clinical feature is Premature coronary artery atherosclerosis (HP:0005181).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.">
-                        Splenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp">HP:0001744</a>
-
-
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6196,7 +6705,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6218,7 +6729,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6250,7 +6763,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tendon-and-cutaneous-xanthomas" data-dismech-node="Tendon and cutaneous xanthomas" data-dismech-type="phenotype">
@@ -6259,16 +6772,22 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tendon xanthomatosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010874" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010874</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthomatosis (HP:0010874), qualified as childhood onset. HP:0010874 is a phenotype from the Human Phenotype Ontology.">
-                        Tendon xanthomatosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010874" target="_blank" class="curie-chip curie-chip-hp">HP:0010874</a>
-
-
+This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthomatosis (HP:0010874), qualified as childhood onset. HP:0010874 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6318,7 +6837,9 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6340,7 +6861,9 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6351,6 +6874,105 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
                 <div class="evidence-explanation">GeneReviews documents childhood-onset tendon xanthomas.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberous-planar-xanthomas" data-dismech-node="Tuberous (planar) xanthomas" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tuberous (planar) xanthomas
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Tuberous xanthoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tuberous xanthoma (HP:0031290), qualified as childhood onset. HP:0031290 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CHILDHOOD</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23556150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tendon xanthomas or tuberous (i.e., planar) xanthomas that can occur in childhood and in unusual locations (heels, knees, elbows, and buttocks)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents tuberous (planar) xanthomas in childhood and in unusual locations.</div>
 
 
 
@@ -6381,16 +7003,20 @@ This clinical feature is Tendinous xanthomatosis, annotated with Tendon xanthoma
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003124</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phenotype from the Human Phenotype Ontology.">
-                        Hypercholesterolemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" class="curie-chip curie-chip-hp">HP:0003124</a>
-
-
+This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6411,7 +7037,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6443,16 +7071,22 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
-
-
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6473,7 +7107,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6516,16 +7152,20 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6546,7 +7186,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6568,7 +7210,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6579,254 +7223,6 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                 <div class="evidence-explanation">GeneReviews notes arthritis/arthralgias are seen only sometimes, supporting an OCCASIONAL rather than FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tuberous-planar-xanthomas" data-dismech-node="Tuberous (planar) xanthomas" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tuberous (planar) xanthomas
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tuberous xanthoma (HP:0031290), qualified as childhood onset. HP:0031290 is a phenotype from the Human Phenotype Ontology.">
-                        Tuberous xanthoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031290" target="_blank" class="curie-chip curie-chip-hp">HP:0031290</a>
-
-
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: CHILDHOOD</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23556150" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Tendon xanthomas or tuberous (i.e., planar) xanthomas that can occur in childhood and in unusual locations (heels, knees, elbows, and buttocks)"</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents tuberous (planar) xanthomas in childhood and in unusual locations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stomatocytosis" data-dismech-node="Stomatocytosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stomatocytosis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.">
-                        Stomatocytosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp">HP:0004446</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16029460" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"combines stomatocytic haemolysis with the presence of very large platelets"</div>
-
-
-                <div class="evidence-explanation">Stomatocytes on smear are the erythrocyte-morphology component of the hematologic syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-giant-platelets" data-dismech-node="Giant platelets" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Giant platelets
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype from the Human Phenotype Ontology.">
-                        Giant platelets
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001902" target="_blank" class="curie-chip curie-chip-hp">HP:0001902</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the peripheral blood smear is essential and reveals giant platelets and stomatocytes."</div>
-
-
-                <div class="evidence-explanation">Giant platelets are the platelet-morphology component of macrothrombocytopenia.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients, in whom it is usually associated with the main clinical features, as occurs in the 70% of the cases."</div>
-
-
-                <div class="evidence-explanation">The 25-35% figure covers macrothrombocytopenia (giant platelets + low count), supporting the frequency band.</div>
 
 
 
@@ -6892,15 +7288,17 @@ This clinical feature is Giant platelets (HP:0001902). HP:0001902 is a phenotype
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCG5
 
 
-    <a href="https://bioregistry.io/hgnc:13886" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13886</a>
+    <a href="https://bioregistry.io/hgnc:13886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:13886</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6924,7 +7322,9 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33807969" target="_blank">PMID:33807969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6959,15 +7359,17 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCG8
 
 
-    <a href="https://bioregistry.io/hgnc:13887" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13887</a>
+    <a href="https://bioregistry.io/hgnc:13887" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:13887</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6991,7 +7393,9 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33807969" target="_blank">PMID:33807969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7013,7 +7417,9 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7043,6 +7449,9 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7059,17 +7468,17 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7094,21 +7503,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         ezetimibe
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_49040" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:49040</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_49040" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:49040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7149,7 +7579,9 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7171,7 +7603,9 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18156627" target="_blank">PMID:18156627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7201,18 +7635,18 @@ This treatment uses ezetimibe (CHEBI:49040). CHEBI:49040 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7230,6 +7664,25 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7272,7 +7725,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7294,7 +7749,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7324,18 +7781,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7353,6 +7810,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7377,7 +7853,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7407,17 +7885,17 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7442,21 +7920,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         bile acid sequestrant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C98148" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C98148</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98148" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C98148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7479,7 +7978,9 @@ This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therap
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7509,17 +8010,17 @@ This treatment uses bile acid sequestrant (NCIT:C98148). NCIT:C98148 is a therap
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7537,6 +8038,25 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7561,7 +8081,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16029460" target="_blank">PMID:16029460</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7591,18 +8113,18 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">clinical chemistry assessment<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is clinical chemistry assessment, annotated with Blood Chemistry Measurement (NCIT:C47868). NCIT:C47868 is a clinical intervention from the NCI Thesaurus.">clinical chemistry assessment</span>
+This treatment is clinical chemistry assessment, annotated with Blood Chemistry Measurement (NCIT:C47868). NCIT:C47868 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Chemistry Measurement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47868" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is clinical chemistry assessment, annotated with Blood Chemistry Measurement (NCIT:C47868). NCIT:C47868 is a clinical intervention from the NCI Thesaurus.">NCIT:C47868</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47868" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47868">NCIT:C47868</a>
 
 
 
@@ -7620,6 +8142,25 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7644,7 +8185,9 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7666,7 +8209,9 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7806,7 +8351,9 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7846,7 +8393,9 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14769702" target="_blank">PMID:14769702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7870,6 +8419,302 @@ This treatment is clinical chemistry assessment, annotated with Blood Chemistry 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-plasma-phytosterol-plant-sterol-assay">
+                <div class="item-name">
+                    Plasma Phytosterol (Plant Sterol) Assay
+
+                </div>
+
+                <div class="item-desc">Diagnosis rests on demonstrating grossly elevated plasma plant sterols (sitosterol, campesterol) by gas chromatography/mass spectrometry, which separates plant sterols from cholesterol. A plant-sterol assay should be performed in patients with normolipemic xanthomas, hypercholesterolemia responding unexpectedly well to diet or cholesterol-absorption inhibitors or poorly to statins, or unexplained hemolytic anemia with macrothrombocytopenia.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical chemistry assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47868" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C47868</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27104173" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27104173" target="_blank">PMID:27104173</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Plant sterol assay should be performed in patients with normocholesterolemic xanthomas, hypercholesterolemia with unexpectedly good response to dietary modifications or to cholesterol absorption inhibitors, or hypercholesterolemia with poor response to statins, or those with unexplained..."</div>
+
+
+                <div class="evidence-explanation">States the clinical indications for the diagnostic plant-sterol assay.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23556150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23556150" target="_blank">PMID:23556150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of sitosterolemia is established in a proband with greatly increased plant sterol concentrations in plasma and/or by identification of biallelic pathogenic (or likely pathogenic) variants in ABCG5 and/or ABCG8."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the diagnostic criteria (elevated plasma plant sterols and/or biallelic ABCG5/ABCG8 variants).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-abcg5-abcg8-molecular-genetic-testing">
+                <div class="item-name">
+                    ABCG5/ABCG8 Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Biallelic pathogenic variants in ABCG5 or ABCG8 confirm the diagnosis. Targeted or high-throughput sequencing of the two genes is increasingly used as a first-line diagnostic approach.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"recent advances in high-throughput sequencing, especially in the use of targeted sequencing of pre-specified genes, have begun to be incorporated in the first-line approach in the field of genetic disorders."</div>
+
+
+                <div class="evidence-explanation">Supports targeted/high-throughput sequencing of the causal genes as a first-line diagnostic route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Sitosterolemia is of unknown, likely markedly under-estimated prevalence: it is widely under-recognized because patients are misclassified as familial hypercholesterolemia or immune thrombocytopenia. Population allele-frequency analyses suggest true prevalence is much higher than the ~100 molecularly confirmed cases historically reported, but published point estimates are inconsistent across sources and are therefore not asserted here.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29984642" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29984642" target="_blank">PMID:29984642</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sitosterolemia is a recessive inherited metabolic disorder of unknown prevalence, characterized by increased levels of plasma plant sterols."</div>
+
+
+                <div class="evidence-explanation">States that the prevalence of sitosterolemia is unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8958,7 +9803,7 @@ discussions:
   status: OPEN
   attaches_to:
   - pathophysiology#Plasma and Tissue Plant Sterol Accumulation
-  - phenotype#Thrombocytopenia
+  - phenotypes#Thrombocytopenia
   rationale: &gt;-
     Because sitosterolemia shares hypercholesterolemia and xanthomas with
     familial hypercholesterolemia and shares low platelet counts with immune
@@ -9505,7 +10350,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sitosterolemia", "mondoId": "MONDO:0008863", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sitosterolemia", "yamlRevision": "92992a8c107b"};
+        const OS_CONFIG = {"diseaseName": "Sitosterolemia", "mondoId": "MONDO:0008863", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sitosterolemia", "yamlRevision": "4bccb4a66ae2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9924,5 +10769,73 @@ datasets: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Autosomal Dominant Cerebellar Ataxia Type I</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Dominant Cerebellar Ataxia Type I</h1>
             <div class="header-meta">
 
@@ -4011,7 +4158,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-harding-type-i-clinical-definition">
                 <div class="item-name">Harding type I clinical definition</div>
 
                 <div class="item-desc">A dominantly inherited cerebellar ataxia in which ataxia occurs with one or more additional neurologic signs. The class is defined clinically and spans multiple molecularly distinct spinocerebellar ataxias.</div>
@@ -4055,7 +4202,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4091,7 +4240,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4136,7 +4285,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4152,13 +4303,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4215,7 +4368,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-coding-repeat-expansion-adca-i">
 
                     <div class="item-name">
                         Coding repeat-expansion forms
@@ -4249,7 +4402,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4275,7 +4430,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-noncoding-repeat-expansion-adca-i">
 
                     <div class="item-name">
                         Noncoding repeat-expansion forms
@@ -4309,7 +4464,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4335,7 +4492,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-conventional-variant-adca-i">
 
                     <div class="item-name">
                         Sequence-variant and copy-number forms
@@ -4369,7 +4526,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4432,7 +4591,7 @@
 
 
 
-    <span class="entity-ref-chip">definitions#Harding type I clinical definition</span>
+    <a class="entity-ref-chip" href="#definition-harding-type-i-clinical-definition">definitions#Harding type I clinical definition</a>
 
 
 
@@ -4467,7 +4626,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4489,7 +4650,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684900" target="_blank">PMID:38684900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4590,7 +4753,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4623,18 +4788,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4662,17 +4829,21 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATXN1 (hgnc:10548). hgnc:10548 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATXN1
 
 
-    <a href="https://bioregistry.io/hgnc:10548" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10548</a>
+    <a href="https://bioregistry.io/hgnc:10548" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10548</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATXN1 (hgnc:10548). hgnc:10548 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4697,17 +4868,21 @@ This pathophysiological event involves ATXN1 (hgnc:10548). hgnc:10548 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATXN2
 
 
-    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10555</a>
+    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10555</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4732,17 +4907,21 @@ This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ATXN3 (hgnc:7106). hgnc:7106 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ATXN3
 
 
-    <a href="https://bioregistry.io/hgnc:7106" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7106</a>
+    <a href="https://bioregistry.io/hgnc:7106" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7106</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATXN3 (hgnc:7106). hgnc:7106 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4767,17 +4946,21 @@ This pathophysiological event involves ATXN3 (hgnc:7106). hgnc:7106 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TBP (hgnc:11588). hgnc:11588 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TBP
 
 
-    <a href="https://bioregistry.io/hgnc:11588" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11588</a>
+    <a href="https://bioregistry.io/hgnc:11588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11588</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBP (hgnc:11588). hgnc:11588 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4806,18 +4989,20 @@ This pathophysiological event involves TBP (hgnc:11588). hgnc:11588 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to misfolded protein (GO:0051788). GO:0051788 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to misfolded protein
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051788" target="_blank" class="curie-chip curie-chip-go">GO:0051788</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051788" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0051788</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to misfolded protein (GO:0051788). GO:0051788 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4845,18 +5030,20 @@ This pathophysiological event involves increased response to misfolded protein (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4902,7 +5089,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4924,7 +5113,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4957,18 +5148,20 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4996,17 +5189,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ZFHX3 (hgnc:777). hgnc:777 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ZFHX3
 
 
-    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:777</a>
+    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:777</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZFHX3 (hgnc:777). hgnc:777 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5031,17 +5228,21 @@ This pathophysiological event involves ZFHX3 (hgnc:777). hgnc:777 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOP56
 
 
-    <a href="https://bioregistry.io/hgnc:15911" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15911</a>
+    <a href="https://bioregistry.io/hgnc:15911" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:15911</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5073,18 +5274,20 @@ This pathophysiological event involves NOP56 (hgnc:15911). hgnc:15911 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5130,7 +5333,9 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5152,7 +5357,9 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684900" target="_blank">PMID:38684900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5174,7 +5381,9 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684900" target="_blank">PMID:38684900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5207,18 +5416,20 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5246,17 +5457,21 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRKCG (hgnc:9402). hgnc:9402 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRKCG
 
 
-    <a href="https://bioregistry.io/hgnc:9402" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9402</a>
+    <a href="https://bioregistry.io/hgnc:9402" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:9402</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKCG (hgnc:9402). hgnc:9402 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5281,17 +5496,21 @@ This pathophysiological event involves PRKCG (hgnc:9402). hgnc:9402 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ITPR1
 
 
-    <a href="https://bioregistry.io/hgnc:6180" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6180</a>
+    <a href="https://bioregistry.io/hgnc:6180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:6180</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5320,18 +5539,20 @@ This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0055074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5359,18 +5580,20 @@ This pathophysiological event involves decreased calcium ion homeostasis (GO:005
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5416,7 +5639,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5438,7 +5663,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28554312" target="_blank">PMID:28554312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5471,18 +5698,20 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5510,18 +5739,20 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0070841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5542,18 +5773,20 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5581,18 +5814,20 @@ This pathophysiological event involves decreased protein folding (GO:0006457). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5655,7 +5890,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17417937" target="_blank">PMID:17417937</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5688,18 +5925,20 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5727,18 +5966,20 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5766,18 +6007,20 @@ This pathophysiological event involves decreased regulation of transcription by 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5823,7 +6066,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5856,18 +6101,20 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebellar Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5895,18 +6142,20 @@ This pathophysiological event involves cerebellar Purkinje cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5934,18 +6183,20 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellar cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBERON:0002129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5991,7 +6242,9 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6024,18 +6277,20 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6063,18 +6318,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6102,18 +6359,20 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brainstem
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6183,7 +6442,9 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6250,9 +6511,9 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(6)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6261,26 +6522,30 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">4</span>
+                    Eye
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebellar-ataxia" data-dismech-node="Progressive Cerebellar Ataxia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-slow-saccadic-eye-movements" data-dismech-node="Slow saccadic eye movements" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Progressive Cerebellar Ataxia
+                        Slow saccadic eye movements
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000514" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000514</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive cerebellar ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
-
-
+This clinical feature is Slow saccadic eye movements (HP:0000514). HP:0000514 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6301,7 +6566,86 @@ This clinical feature is progressive cerebellar ataxia (HP:0002073). HP:0002073 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"slowing of saccades in SCA2"</div>
+
+
+                <div class="evidence-explanation">This supports slow saccades as a subtype-specific ADCA-I manifestation, especially in SCA2, without implying it is universal across the parent class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebellar-ataxia" data-dismech-node="Progressive Cerebellar Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Cerebellar Ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15895552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6333,16 +6677,20 @@ This clinical feature is progressive cerebellar ataxia (HP:0002073). HP:0002073 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6363,7 +6711,9 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6389,155 +6739,26 @@ This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive impairment
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.">
-                        Cognitive impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp">HP:0100543</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30532692" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"SCA17 is characterized by ataxia, pyramidal and extrapyramidal signs, cognitive impairments, psychosis, and seizures as well as involuntary movements including chorea and dystonia"</div>
-
-
-                <div class="evidence-explanation">SCA17, one of the ADCA-I subtypes, explicitly includes cognitive impairment among its extracerebellar manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral neuropathy
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15895552" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"peripheral neuropathy in SCA1, SCA2, SCA3, SCA4, SCA8, SCA18 and SCA25."</div>
-
-
-                <div class="evidence-explanation">The review documents peripheral neuropathy across multiple SCA subtypes that overlap the ADCA-I clinical class.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-pyramidal-sign" data-dismech-node="Abnormal pyramidal sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal pyramidal sign
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0007256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pyramidal sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp">HP:0007256</a>
-
-
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6558,7 +6779,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6590,16 +6813,20 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of extrapyramidal motor function
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp">HP:0002071</a>
-
-
+This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6620,7 +6847,9 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6646,22 +6875,26 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-slow-saccadic-eye-movements" data-dismech-node="Slow saccadic eye movements" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Slow saccadic eye movements
+                        Cognitive impairment
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Slow saccadic eye movements (HP:0000514). HP:0000514 is a phenotype from the Human Phenotype Ontology.">
-                        Slow saccadic eye movements
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000514" target="_blank" class="curie-chip curie-chip-hp">HP:0000514</a>
-
-
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6676,23 +6909,93 @@ This clinical feature is Slow saccadic eye movements (HP:0000514). HP:0000514 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15895552" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30532692" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"slowing of saccades in SCA2"</div>
+                <div class="evidence-snippet">"SCA17 is characterized by ataxia, pyramidal and extrapyramidal signs, cognitive impairments, psychosis, and seizures as well as involuntary movements including chorea and dystonia"</div>
 
 
-                <div class="evidence-explanation">This supports slow saccades as a subtype-specific ADCA-I manifestation, especially in SCA2, without implying it is universal across the parent class.</div>
+                <div class="evidence-explanation">SCA17, one of the ADCA-I subtypes, explicitly includes cognitive impairment among its extracerebellar manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral neuropathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15895552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15895552" target="_blank">PMID:15895552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"peripheral neuropathy in SCA1, SCA2, SCA3, SCA4, SCA8, SCA18 and SCA25."</div>
+
+
+                <div class="evidence-explanation">The review documents peripheral neuropathy across multiple SCA subtypes that overlap the ADCA-I clinical class.</div>
 
 
 
@@ -6760,15 +7063,17 @@ This clinical feature is Slow saccadic eye movements (HP:0000514). HP:0000514 is
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATXN1
 
 
-    <a href="https://bioregistry.io/hgnc:10548" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10548</a>
+    <a href="https://bioregistry.io/hgnc:10548" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10548</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6790,7 +7095,9 @@ This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37863037" target="_blank">PMID:37863037</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6812,7 +7119,9 @@ This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37863037" target="_blank">PMID:37863037</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6849,15 +7158,17 @@ This disease-associated gene is ATXN1 (hgnc:10548). hgnc:10548 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATXN2
 
 
-    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10555</a>
+    <a href="https://bioregistry.io/hgnc:10555" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:10555</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6879,7 +7190,9 @@ This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30109264" target="_blank">PMID:30109264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6916,15 +7229,17 @@ This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ATXN3 (hgnc:7106). hgnc:7106 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATXN3
 
 
-    <a href="https://bioregistry.io/hgnc:7106" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7106</a>
+    <a href="https://bioregistry.io/hgnc:7106" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:7106</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATXN3 (hgnc:7106). hgnc:7106 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6946,7 +7261,9 @@ This disease-associated gene is ATXN3 (hgnc:7106). hgnc:7106 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31374463" target="_blank">PMID:31374463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6983,15 +7300,17 @@ This disease-associated gene is ATXN3 (hgnc:7106). hgnc:7106 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBP
 
 
-    <a href="https://bioregistry.io/hgnc:11588" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11588</a>
+    <a href="https://bioregistry.io/hgnc:11588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11588</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7013,7 +7332,9 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30532692" target="_blank">PMID:30532692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7050,15 +7371,17 @@ This disease-associated gene is TBP (hgnc:11588). hgnc:11588 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZFHX3
 
 
-    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:777</a>
+    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:777</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7080,7 +7403,9 @@ This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684900" target="_blank">PMID:38684900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7117,15 +7442,17 @@ This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOP56
 
 
-    <a href="https://bioregistry.io/hgnc:15911" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15911</a>
+    <a href="https://bioregistry.io/hgnc:15911" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:15911</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7147,7 +7474,9 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30109264" target="_blank">PMID:30109264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7184,15 +7513,17 @@ This disease-associated gene is NOP56 (hgnc:15911). hgnc:15911 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRKCG (hgnc:9402). hgnc:9402 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRKCG
 
 
-    <a href="https://bioregistry.io/hgnc:9402" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9402</a>
+    <a href="https://bioregistry.io/hgnc:9402" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:9402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRKCG (hgnc:9402). hgnc:9402 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7214,7 +7545,9 @@ This disease-associated gene is PRKCG (hgnc:9402). hgnc:9402 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28554312" target="_blank">PMID:28554312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7244,6 +7577,9 @@ This disease-associated gene is PRKCG (hgnc:9402). hgnc:9402 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7260,18 +7596,18 @@ This disease-associated gene is PRKCG (hgnc:9402). hgnc:9402 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7294,6 +7630,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subtype-aware supportive management addresses gait and falls, speech and swallowing, mobility and activities of daily living, nutrition, extrapyramidal manifestations, seizures, mood, cognition, and family needs. No intervention is established as disease-modifying across the entire class.</div>
 
 
@@ -7302,33 +7646,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         progressive cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         dysarthria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7348,7 +7696,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7378,18 +7728,18 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -7412,6 +7762,14 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Balance, coordination, strengthening, gait, fall-prevention, and adaptive exercise programs are individualized. A 24-week randomized SCA2 study improved motor cerebellar scores, supporting rehabilitation as palliative care without implying molecular disease modification.</div>
 
 
@@ -7420,18 +7778,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         progressive cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7451,7 +7811,9 @@ This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30132999" target="_blank">PMID:30132999</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7481,18 +7843,18 @@ This treatment targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -7515,6 +7877,14 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech-language therapy addresses cerebellar dysarthria and communication; swallowing assessment and compensatory strategies are added when bulbar involvement is present.</div>
 
 
@@ -7523,18 +7893,20 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         dysarthria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7554,7 +7926,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7586,6 +7960,475 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-family-history-assessment">
+                <div class="item-name">
+                    Clinical and family-history assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">Establish the progressive ataxia-plus phenotype, document a three-generation pedigree where possible, and characterize oculomotor, pyramidal, extrapyramidal, bulbar, cognitive, seizure, and peripheral-nerve findings. Phenotype can prioritize testing but cannot reliably determine the genotype.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is based on clinical history, physical examination, genetic molecular testing, and exclusion of other diseases."</div>
+
+
+                <div class="evidence-explanation">Supports a combined clinical, pedigree, molecular, and exclusionary evaluation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-parallel-repeat-expansion-and-sequence-variant-testing">
+                <div class="item-name">
+                    Parallel repeat-expansion and sequence-variant testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">Testing must cover variant classes that conventional exome-only analysis can miss. A practical workup combines targeted repeat-expansion assays with a sequence/CNV panel, exome, or genome approach and escalates to long-read methods when the phenotype remains unexplained.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38760634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38760634" target="_blank">PMID:38760634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Testing methods include targeted evaluation of STR expansions (e.g. SCAs, Friedreich ataxia, fragile X-associated tremor/ataxia syndrome, dentatorubral-pallidoluysian atrophy), next generation sequencing for conventional variants, which may include targeted gene panels, whole exome, or whole..."</div>
+
+
+                <div class="evidence-explanation">Supports combined repeat-expansion and conventional-variant testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38684900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38684900" target="_blank">PMID:38684900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The coding GGC-repeat expansion in an extremely G+C-rich region was not detectable by short-read whole-exome sequencing, which demonstrates the power of LR-GS for variant discovery."</div>
+
+
+                <div class="evidence-explanation">Shows why a negative short-read exome cannot exclude all ADCA-I repeat lesions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri-for-pattern-assessment-and-exclusion">
+                <div class="item-name">
+                    Brain MRI for pattern assessment and exclusion
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(May show cerebellar with or without brainstem or cortical atrophy)</span>
+
+                </div>
+
+                <div class="item-desc">MRI supports neuroanatomic assessment and excludes structural mimics, but atrophy patterns alone generally do not establish a particular ADCA-I genotype.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"no pattern of atrophy on MRI is specific for a particular genotype of ADCA Type I"</div>
+
+
+                <div class="evidence-explanation">Supports MRI as supportive/exclusionary rather than genotype-defining.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Usually adulthood; childhood onset can occur</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The onset range and initial extracerebellar manifestations vary by subtype. Earlier onset can accompany longer expansions in several unstable-repeat diseases, while conventional-variant forms have their own genotype-specific natural histories.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Onset is usually in adulthood but cases of presentation in childhood have been reported."</div>
+
+
+                <div class="evidence-explanation">Supports the broad onset interval of the parent phenotype class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-manifest-disease">
+                <div class="item-name">Progressive manifest disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Years to decades after onset</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Gait, limb, speech, and oculomotor impairment generally worsen, while the rate and burden of non-ataxia signs remain subtype-dependent. EUROSCA quantified different annual progression rates across SCA1, SCA2, and SCA3.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21832228" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21832228" target="_blank">PMID:21832228</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The annual increase of the SARA score was greatest in SCA1 (2.18 ± 0.17, mean ± SE) followed by SCA3 (1.61 ± 0.12) and SCA2 (1.40 ± 0.11)."</div>
+
+
+                <div class="evidence-explanation">Provides comparative longitudinal progression estimates for three major ADCA-I molecular subtypes rather than assuming one class-wide rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Unknown</span>
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">The global prevalence of the historical ADCA-I class is not known. Frequencies vary substantially by founder effects and molecular subtype; the 2011 review identified SCA3 as the most common ADCA-I subtype, followed by SCA2, SCA1, and SCA8.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21619691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The global prevalence of this disease is not known. The most common type I ADCA is SCA3 followed by SCA2, SCA1, and SCA8, in descending order."</div>
+
+
+                <div class="evidence-explanation">Directly supports unknown class-level prevalence and the relative ordering reported for common ADCA-I subtypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7600,7 +8443,7 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-toxic-nutritional-endocrine-infectious-and-post-infectious-ataxias">
                 <div class="item-name">
 
                     Toxic, nutritional, endocrine, infectious, and post-infectious ataxias
@@ -7641,7 +8484,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7666,7 +8511,7 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-structural-paraneoplastic-and-other-neurodegenerative-ataxias">
                 <div class="item-name">
 
                     Structural, paraneoplastic, and other neurodegenerative ataxias
@@ -7707,7 +8552,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21619691" target="_blank">PMID:21619691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7742,7 +8589,7 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-clinicaltrials-nct02440763">
                 <div class="item-name">
                     The EUROSCA Natural History Study
 
@@ -7804,7 +8651,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21832228" target="_blank">PMID:21832228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7850,7 +8699,9 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                         <a href="https://clinicaltrials.gov/study/NCT02440763" target="_blank">clinicaltrials:NCT02440763</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7885,7 +8736,7 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05822908">
                 <div class="item-name">
                     NCT05822908
 
@@ -7903,18 +8754,20 @@ This treatment targets dysarthria (HP:0001260). HP:0001260 is a phenotype from t
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         progressive cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7933,7 +8786,9 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                         <a href="https://clinicaltrials.gov/study/NCT05822908" target="_blank">clinicaltrials:NCT05822908</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7956,7 +8811,7 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06672445">
                 <div class="item-name">
                     NCT06672445
 
@@ -7974,18 +8829,20 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         progressive cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8004,7 +8861,9 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                         <a href="https://clinicaltrials.gov/study/NCT06672445" target="_blank">clinicaltrials:NCT06672445</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8027,7 +8886,7 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03701399">
                 <div class="item-name">
                     NCT03701399
 
@@ -8045,18 +8904,20 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         progressive cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8075,7 +8936,9 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                         <a href="https://clinicaltrials.gov/study/NCT03701399" target="_blank">clinicaltrials:NCT03701399</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8098,7 +8961,7 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02440763">
                 <div class="item-name">
                     NCT02440763
 
@@ -8126,7 +8989,9 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                         <a href="https://clinicaltrials.gov/study/NCT02440763" target="_blank">clinicaltrials:NCT02440763</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8189,17 +9054,19 @@ This clinical trial targets progressive cerebellar ataxia (HP:0002073). HP:00020
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-56">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-56">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8255,7 +9122,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31374463" target="_blank">PMID:31374463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8308,7 +9177,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31374463" target="_blank">PMID:31374463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8349,7 +9220,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31374463" target="_blank">PMID:31374463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8443,7 +9316,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462098" target="_blank">PMID:24462098</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8465,7 +9340,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462098" target="_blank">PMID:24462098</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8507,7 +9384,6 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autosomal Dominant Cerebellar Ataxia Type I
 creation_date: &#34;2026-05-16T00:00:00Z&#34;
-updated_date: &#34;2026-05-18T00:00:00Z&#34;
 category: Mendelian
 synonyms:
 - ADCA-I
@@ -8582,7 +9458,7 @@ inheritance:
       the ADCA-I class.
   - reference: PMID:21619691
     reference_title: &#34;Autosomal dominant cerebellar ataxia type I: a review of the phenotypic and genotypic characteristics.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       of anticipation that results from trinucleotide repeat
@@ -8842,7 +9718,7 @@ phenotypes:
   evidence:
   - reference: PMID:15895552
     reference_title: The wide spectrum of spinocerebellar ataxias (SCAs).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       slowing of saccades in SCA2
@@ -9046,7 +9922,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38684900
       reference_title: A GGC-repeat expansion in ZFHX3 encoding polyglycine causes spinocerebellar ataxia type 4 and impairs autophagy.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         spinocerebellar ataxia type 4 (SCA4), a late-onset sensory and
@@ -9154,7 +10030,7 @@ pathophysiology:
     evidence:
     - reference: PMID:21619691
       reference_title: &#34;Autosomal dominant cerebellar ataxia type I: a review of the phenotypic and genotypic characteristics.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Subclass 3 contains disorders caused by specific gene deletions,
@@ -9238,7 +10114,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31374463
       reference_title: Antisense oligonucleotide therapy rescues aggresome formation in a novel spinocerebellar ataxia type 3 human embryonic stem cell line.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         polyQ-expanded ATXN3 inflicts neuronal dysfunction and loss in discrete
@@ -9309,7 +10185,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30532692
       reference_title: &#34;Complexity of the Genetics and Clinical Presentation of Spinocerebellar Ataxia 17.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         SCA17 is characterized by ataxia, pyramidal and extrapyramidal signs,
@@ -9507,7 +10383,7 @@ pathophysiology:
     evidence:
     - reference: PMID:15895552
       reference_title: The wide spectrum of spinocerebellar ataxias (SCAs).
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         slowing of saccades in SCA2
@@ -10492,7 +11368,7 @@ subtype-scoped.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type I", "mondoId": "MONDO:0019792", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_I", "yamlRevision": "a64d80678c9c"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Cerebellar Ataxia Type I", "mondoId": "MONDO:0019792", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Cerebellar_Ataxia_Type_I", "yamlRevision": "696273eb5937"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10911,5 +11787,73 @@ subtype-scoped.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

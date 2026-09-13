@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Dextro-Transposition of the Great Arteries</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Dextro-Transposition of the Great Arteries</h1>
             <div class="header-meta">
 
@@ -3797,6 +3944,14 @@
 
 
 
+            <a class="stat-link" href="#inheritance">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">👪</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Inheritance</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
@@ -3884,6 +4039,85 @@
 
         <!-- Inheritance -->
 
+        <div class="card" id="inheritance">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
+                <h2 class="card-title">Inheritance</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box inheritance-box anchor-target" id="inheritance-oligogenic-complex-familial-laterality-gene-stratum">
+                <div class="item-name">
+                    Oligogenic / complex (familial laterality-gene stratum)
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0010983" target="_blank">
+                            HP:0010983
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Scoped deliberately to the familial stratum. Most d-TGA is sporadic with multifactorial pathogenesis and no identified locus; this block records the minority of familial or isolated cases in which multiple laterality-gene mutations segregate together, which is what places d-TGA in the same disease spectrum as heterotaxy. Because the Inheritance class has no genes slot, the loci are named here: ZIC3, NODAL, FOXH1, CFC1 and GDF1, plus the cardiac transcription factor NKX2-5; all are covered by the genetic section&#39;s laterality and transcription-factor record.</div>
+
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification">
+            Oligogenic inheritance
+        </span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19933292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19933292" target="_blank">PMID:19933292</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The present study provides evidence that some cases of familial TGA are caused by mutations in laterality genes and therefore are part of the same disease spectrum of heterotaxy syndrome, and argues for an oligogenic or complex mode of inheritance in these pedigrees."</div>
+
+
+                <div class="evidence-explanation">States the oligogenic mode of inheritance for the familial pedigrees directly, and scopes it to those pedigrees rather than to all d-TGA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Subtypes -->
 
@@ -3916,7 +4150,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tga-ivs">
 
                     <div class="item-name">
                         d-TGA with intact ventricular septum
@@ -3950,7 +4184,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3976,7 +4212,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tga-vsd">
 
                     <div class="item-name">
                         d-TGA with ventricular septal defect
@@ -4010,7 +4246,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4036,7 +4274,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tga-vsd-lvoto">
 
                     <div class="item-name">
                         d-TGA with VSD and left ventricular outflow tract obstruction
@@ -4070,7 +4308,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4125,18 +4365,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves migratory cardiac neural crest cell (CL:2000073). CL:2000073 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         migratory cardiac neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000073" target="_blank" class="curie-chip curie-chip-cl">CL:2000073</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000073" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:2000073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cardiac neural crest cell (CL:2000073). CL:2000073 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4164,18 +4406,20 @@ This pathophysiological event involves migratory cardiac neural crest cell (CL:2
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal heart looping (GO:0001947). GO:0001947 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         heart looping
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001947" target="_blank" class="curie-chip curie-chip-go">GO:0001947</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001947" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0001947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart looping (GO:0001947). GO:0001947 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4196,18 +4440,20 @@ This pathophysiological event involves abnormal heart looping (GO:0001947). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal outflow tract septum morphogenesis (GO:0003148). GO:0003148 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         outflow tract septum morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go">GO:0003148</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal outflow tract septum morphogenesis (GO:0003148). GO:0003148 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4228,18 +4474,20 @@ This pathophysiological event involves abnormal outflow tract septum morphogenes
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal cardiac neural crest cell development involved in outflow tract morphogenesis (GO:0061309). GO:0061309 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac neural crest cell development involved in outflow tract morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go">GO:0061309</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0061309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac neural crest cell development involved in outflow tract morphogenesis (GO:0061309). GO:0061309 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4321,7 +4569,9 @@ This pathophysiological event involves abnormal cardiac neural crest cell develo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4343,7 +4593,9 @@ This pathophysiological event involves abnormal cardiac neural crest cell develo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39000221" target="_blank">PMID:39000221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4365,7 +4617,9 @@ This pathophysiological event involves abnormal cardiac neural crest cell develo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39000221" target="_blank">PMID:39000221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4405,18 +4659,20 @@ This pathophysiological event involves abnormal cardiac neural crest cell develo
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal blood circulation (GO:0008015). GO:0008015 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         blood circulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go">GO:0008015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal blood circulation (GO:0008015). GO:0008015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4444,63 +4700,71 @@ This pathophysiological event involves abnormal blood circulation (GO:0008015). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002080</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4554,7 +4818,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4576,7 +4842,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4657,7 +4925,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4724,11 +4994,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4738,25 +5006,99 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent ductus arteriosus" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transposition-of-the-great-arteries" data-dismech-node="Transposition of the great arteries" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Patent ductus arteriosus
+                        Transposition of the great arteries
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Dextrotransposition of the great arteries</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0031348</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.">
-                        Patent ductus arteriosus
+This clinical feature is Dextrotransposition of the great arteries (HP:0031348). HP:0031348 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp">HP:0001643</a>
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39200964" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is characterized by ventriculoarterial (VA) connection discordance, atrioventricular (AV) concordance, and a parallel relationship with D-TGA."</div>
+
+
+                <div class="evidence-explanation">Defines d-TGA by ventriculoarterial discordance with atrioventricular concordance, the anatomic hallmark of the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent foramen ovale" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Patent foramen ovale
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4777,7 +5119,77 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Completely parallel circulatory circuits are incompatible with life and require a patent ductus arteriosus (PDA) or an atrial (ASD) or ventricular septal defect (VSD) to allow the mixing of oxygenated and deoxygenated blood"</div>
+
+
+                <div class="evidence-explanation">Identifies atrial-level communication (alongside PDA/VSD) as required for the mixing that sustains life in d-TGA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent ductus arteriosus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Patent ductus arteriosus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30860704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4809,16 +5221,20 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp">HP:0001629</a>
-
-
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4839,7 +5255,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4865,22 +5283,26 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-failure" data-dismech-node="Heart failure" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left ventricular outflow tract obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Heart failure
+                        Left ventricular outflow tract obstruction
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032092</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Left ventricular outflow tract obstruction (HP:0032092). HP:0032092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4901,7 +5323,79 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The typical concomitant cardiac anomalies that may occur in patients with D-TGA include ventriculoseptal defects, patent ductus arteriosus, left ventricular outflow tract obstruction (LVOTO), mitral and tricuspid valve abnormalities, and coronary artery variations."</div>
+
+
+                <div class="evidence-explanation">Lists LVOTO among the typical concomitant anomalies, supporting the TGA-VSD-LVOTO subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-failure" data-dismech-node="Heart failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Heart failure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congestive heart failure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39200964" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4942,16 +5436,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000961</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.">
-                        Cyanosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp">HP:0000961</a>
-
-
+This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4972,7 +5470,9 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4983,201 +5483,6 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
 
 
                 <div class="evidence-explanation">Directly documents neonatal cyanosis as the characteristic presenting phenotype of d-TGA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-transposition-of-the-great-arteries" data-dismech-node="Transposition of the great arteries" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Transposition of the great arteries
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dextrotransposition of the great arteries (HP:0031348). HP:0031348 is a phenotype from the Human Phenotype Ontology.">
-                        Dextrotransposition of the great arteries
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031348" target="_blank" class="curie-chip curie-chip-hp">HP:0031348</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39200964" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is characterized by ventriculoarterial (VA) connection discordance, atrioventricular (AV) concordance, and a parallel relationship with D-TGA."</div>
-
-
-                <div class="evidence-explanation">Defines d-TGA by ventriculoarterial discordance with atrioventricular concordance, the anatomic hallmark of the disease.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent foramen ovale" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Patent foramen ovale
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.">
-                        Patent foramen ovale
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp">HP:0001655</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30860704" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Completely parallel circulatory circuits are incompatible with life and require a patent ductus arteriosus (PDA) or an atrial (ASD) or ventricular septal defect (VSD) to allow the mixing of oxygenated and deoxygenated blood"</div>
-
-
-                <div class="evidence-explanation">Identifies atrial-level communication (alongside PDA/VSD) as required for the mixing that sustains life in d-TGA.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left ventricular outflow tract obstruction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Left ventricular outflow tract obstruction
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular outflow tract obstruction (HP:0032092). HP:0032092 is a phenotype from the Human Phenotype Ontology.">
-                        Left ventricular outflow tract obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032092" target="_blank" class="curie-chip curie-chip-hp">HP:0032092</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39200964" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The typical concomitant cardiac anomalies that may occur in patients with D-TGA include ventriculoseptal defects, patent ductus arteriosus, left ventricular outflow tract obstruction (LVOTO), mitral and tricuspid valve abnormalities, and coronary artery variations."</div>
-
-
-                <div class="evidence-explanation">Lists LVOTO among the typical concomitant anomalies, supporting the TGA-VSD-LVOTO subtype.</div>
 
 
 
@@ -5263,7 +5568,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19933292" target="_blank">PMID:19933292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5285,7 +5592,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19933292" target="_blank">PMID:19933292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5340,7 +5649,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34886679" target="_blank">PMID:34886679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5362,7 +5673,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34886679" target="_blank">PMID:34886679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5384,7 +5697,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34886679" target="_blank">PMID:34886679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5414,6 +5729,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5430,17 +5748,17 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5465,21 +5783,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prostaglandin E1
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15544" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15544</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15544" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:15544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5502,7 +5830,9 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30860704" target="_blank">PMID:30860704</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5532,17 +5862,17 @@ This treatment uses prostaglandin E1 (CHEBI:15544). CHEBI:15544 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">Therapeutic Procedure</span>
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
 
 
 
@@ -5560,6 +5890,14 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5584,7 +5922,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5614,17 +5954,17 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5642,6 +5982,25 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5666,7 +6025,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5688,7 +6049,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39200964" target="_blank">PMID:39200964</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5728,6 +6091,10 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Maternal type 1 diabetes is strongly associated with congenital heart defects in offspring, with transposition of the great arteries showing one of the highest risk estimates among CHD subgroups, supporting a teratogenic contribution to d-TGA.</div>
 
 
@@ -5744,7 +6111,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38180757" target="_blank">PMID:38180757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5772,6 +6141,33 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5895,6 +6291,36 @@ has_subtypes:
     explanation: &gt;-
       LVOTO combined with a VSD shifts repair away from a simple arterial switch
       toward Rastelli/Nikaidoh-type procedures, distinguishing this subtype.
+inheritance:
+- name: Oligogenic / complex (familial laterality-gene stratum)
+  inheritance_term:
+    preferred_term: Oligogenic inheritance
+    term:
+      id: HP:0010983
+      label: Oligogenic inheritance
+  description: &gt;-
+    Scoped deliberately to the familial stratum. Most d-TGA is sporadic with
+    multifactorial pathogenesis and no identified locus; this block records the
+    minority of familial or isolated cases in which multiple laterality-gene
+    mutations segregate together, which is what places d-TGA in the same
+    disease spectrum as heterotaxy. Because the Inheritance class has no genes
+    slot, the loci are named here: ZIC3, NODAL, FOXH1, CFC1 and GDF1, plus the
+    cardiac transcription factor NKX2-5; all are covered by the genetic
+    section&#39;s laterality and transcription-factor record.
+  evidence:
+  - reference: PMID:19933292
+    reference_title: &#34;Familial transposition of the great arteries caused by multiple mutations in laterality genes.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The present study provides evidence that some cases of familial TGA are
+      caused by mutations in laterality genes and therefore are part of the same
+      disease spectrum of heterotaxy syndrome, and argues for an oligogenic or
+      complex mode of inheritance in these pedigrees.
+    explanation: &gt;-
+      States the oligogenic mode of inheritance for the familial pedigrees
+      directly, and scopes it to those pedigrees rather than to all d-TGA.
+
 pathophysiology:
 - name: Abnormal conotruncal septation and cardiac looping
   description: &gt;-
@@ -7554,7 +7980,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dextro-Transposition of the Great Arteries", "mondoId": "MONDO:0019443", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dextro-Transposition_of_the_Great_Arteries", "yamlRevision": "9317e83f9268"};
+        const OS_CONFIG = {"diseaseName": "Dextro-Transposition of the Great Arteries", "mondoId": "MONDO:0019443", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dextro-Transposition_of_the_Great_Arteries", "yamlRevision": "8be30c532307"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7973,5 +8399,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

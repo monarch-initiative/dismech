@@ -85,6 +85,97 @@ enums:
       SILENT:
         description: The report does not address the finding.
 
+  ProviderRunStatusEnum:
+    description: >-
+      Outcome of the provider run itself, as distinct from the scientific quality
+      of what it produced. A synthesis should record attempted-but-unproductive
+      runs so that absent provider coverage is legible as a run failure rather
+      than as a curator's choice not to consult that provider.
+    permissible_values:
+      COMPLETED:
+        description: The run finished and produced a usable report.
+      FAILED:
+        description: >-
+          The run did not produce a report (API error, auth/credit failure,
+          timeout). No report file exists.
+      UNUSABLE:
+        description: >-
+          The run produced a report file, but its content was off-topic,
+          empty, or otherwise unfit to curate from. The file may still be
+          committed for provenance.
+
+  NecPreflightVerdictEnum:
+    description: >-
+      Verdict from the Named Entity Confusion preflight (`just preflight-dr`),
+      which checks whether the report is actually about the intended MONDO
+      entity. See CLAUDE.md section 2b.
+    permissible_values:
+      PASS:
+        description: The canonical gene dominates the report's gene mentions.
+      WARN:
+        description: >-
+          A rival entity is discussed substantively, the OMIM IDs disagree, the
+          canonical-gene signal is weak, or a lookup the verdict depends on
+          failed.
+      FAIL:
+        description: >-
+          The canonical gene is absent while another gene is discussed
+          substantively. The report should be discarded entirely, not
+          cherry-picked from.
+      SKIP:
+        description: >-
+          MONDO records no causal gene for the entity, so the automated check
+          cannot discriminate; manual checks apply.
+      NOT_RUN:
+        description: The preflight was not run against this report.
+
+  IdentifierIssueKindEnum:
+    description: >-
+      Class of identifier- or quote-level defect found in a provider report.
+      Mirrors the three hallucination categories and the Named Entity Confusion
+      failure mode enumerated in CLAUDE.md sections 2a and 2b. These are defects
+      of the *report*, recorded so that a later reader does not re-trust a
+      citation an earlier curator already disproved.
+    permissible_values:
+      NONEXISTENT_IDENTIFIER:
+        description: >-
+          The cited identifier does not resolve at all (fabricated PMID, DOI,
+          NCT, or accession).
+      MISATTRIBUTED_IDENTIFIER:
+        description: >-
+          The identifier resolves, but to a different work than the report
+          claims — the citation is real but attached to the wrong paper.
+      FABRICATED_QUOTE:
+        description: >-
+          A quoted snippet is not present in the cited source (paraphrased or
+          invented rather than quoted).
+      NONEXISTENT_ONTOLOGY_TERM:
+        description: An ontology CURIE (HP, GO, CL, CHEBI, NCIT, MONDO) does not exist.
+      MISMATCHED_ONTOLOGY_LABEL:
+        description: >-
+          The ontology CURIE exists but the label the report gives it does not
+          match the canonical label.
+      NAMED_ENTITY_CONFUSION:
+        description: >-
+          The identifier or the passage citing it belongs to a different disease
+          entity than the one being curated (CLAUDE.md section 2b).
+      OTHER:
+        description: A defect that does not fit the above classes.
+
+  IdentifierIssueDispositionEnum:
+    description: What curation did about the identifier issue.
+    permissible_values:
+      DISCARDED:
+        description: The citation and any claim resting on it were dropped.
+      CORRECTED:
+        description: >-
+          The claim was retained but re-anchored to a different, verified
+          source.
+      RETAINED_WITH_CAVEAT:
+        description: >-
+          The claim was kept with the defect explicitly flagged in the curated
+          entry.
+
 slots:
   disease:
     description: Disorder name / slug this synthesis is about (matches a Disease.name).
@@ -138,6 +229,66 @@ slots:
   citation_count:
     description: Number of citations in the provider's report.
     range: integer
+  run_status:
+    description: >-
+      Outcome of the provider run. Omit for ordinary completed runs; set
+      explicitly to record an attempted run that failed or produced an unusable
+      report.
+    range: ProviderRunStatusEnum
+  status_detail:
+    description: >-
+      Why a run FAILED or was judged UNUSABLE (e.g. the HTTP status returned, or
+      what the off-topic report actually retrieved).
+  nec_preflight_verdict:
+    description: >-
+      Verdict of `just preflight-dr <report> <mondo>` for this report. Recording
+      PASS is as useful as recording FAIL — it tells a later reader the Named
+      Entity Confusion check was actually performed.
+    range: NecPreflightVerdictEnum
+  nec_preflight_detail:
+    description: >-
+      Supporting detail for the preflight verdict (e.g. the gene-mention counts
+      and the OMIM comparison the tool printed).
+  identifier_issues:
+    description: >-
+      Identifier- or quote-level defects found in this provider's report:
+      fabricated or misattributed citations, invented ontology terms, fabricated
+      quotes, or Named Entity Confusion. Recorded per report so a later curator
+      does not re-trust a citation this review already disproved.
+    multivalued: true
+    range: IdentifierIssue
+    inlined_as_list: true
+
+  # IdentifierIssue slots
+  identifier:
+    description: >-
+      The identifier as cited in the report (e.g. PMID:20040488, HP:0000857,
+      DOI:10.1000/xyz).
+    required: true
+  issue_kind:
+    description: Class of defect.
+    range: IdentifierIssueKindEnum
+    required: true
+  cited_as:
+    description: >-
+      What the report claimed this identifier was — the title, term label, or
+      claim it was attached to.
+  resolves_to:
+    description: >-
+      What the identifier actually is, on checking (real title, canonical
+      ontology label), or a statement that it does not resolve.
+  report_quote:
+    description: >-
+      Verbatim excerpt from the provider report showing the identifier in use.
+      Unlike best_matching_text this is not machine-verified as a substring,
+      because a defect may be recorded for a report that was never committed.
+  verified_with:
+    description: >-
+      How the defect was established (e.g. "PubMed esummary", "just
+      validate-terms", "just preflight-dr").
+  disposition:
+    description: What curation did about the issue.
+    range: IdentifierIssueDispositionEnum
 
   # HarmonizedFinding slots
   statement:
@@ -215,17 +366,45 @@ classes:
       - not_integrated
 
   ProviderReport:
-    description: One deep-research report compared in the synthesis.
+    description: >-
+      One deep-research report compared in the synthesis, or one attempted
+      provider run that produced no usable report.
     slots:
       - name
       - report
       - model
       - citation_count
+      - run_status
+      - status_detail
+      - nec_preflight_verdict
+      - nec_preflight_detail
+      - identifier_issues
+      - notes
     slot_usage:
       name:
         required: true
       report:
-        required: true
+        description: >-
+          Path to the provider's deep-research report file, relative to repo
+          root. Expected for any run that produced one; legitimately absent only
+          when run_status is FAILED.
+
+  IdentifierIssue:
+    description: >-
+      An identifier- or quote-level defect in a provider report — a fabricated or
+      misattributed citation, an invented or mislabelled ontology term, a
+      fabricated quote, or Named Entity Confusion. This records a property of the
+      *report*, not of a harmonized finding, so it survives even when the
+      affected claim was dropped and therefore appears nowhere else.
+    slots:
+      - identifier
+      - issue_kind
+      - cited_as
+      - resolves_to
+      - report_quote
+      - verified_with
+      - disposition
+      - notes
 
   HarmonizedFinding:
     description: A canonical cross-provider claim tagged to dismech section(s).

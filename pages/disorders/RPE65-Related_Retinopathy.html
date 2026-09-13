@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>RPE65-Related Retinopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>RPE65-Related Retinopathy</h1>
             <div class="header-meta">
 
@@ -3901,29 +4048,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3941,7 +4166,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3986,7 +4211,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4009,7 +4236,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4048,13 +4275,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28712537" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28712537" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4103,7 +4332,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-rpe65-related-dominant-retinopathy">
 
                     <div class="item-name">
                         RPE65-related dominant retinopathy
@@ -4133,13 +4362,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28712537" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28712537" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4194,18 +4425,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4231,17 +4464,21 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves decreased RPE65 (hgnc:10294). hgnc:10294 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RPE65
 
 
-    <a href="https://bioregistry.io/hgnc:10294" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10294</a>
+    <a href="https://bioregistry.io/hgnc:10294" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10294</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased RPE65 (hgnc:10294). hgnc:10294 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4274,18 +4511,20 @@ This pathophysiological event involves decreased RPE65 (hgnc:10294). hgnc:10294 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retinol metabolic process (GO:0042572). GO:0042572 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retinol metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042572" target="_blank" class="curie-chip curie-chip-go">GO:0042572</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042572" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042572</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retinol metabolic process (GO:0042572). GO:0042572 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4306,18 +4545,20 @@ This pathophysiological event involves decreased retinol metabolic process (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retinoid metabolic process (GO:0001523). GO:0001523 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retinoid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001523" target="_blank" class="curie-chip curie-chip-go">GO:0001523</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001523" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001523</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retinoid metabolic process (GO:0001523). GO:0001523 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4375,7 +4616,9 @@ This pathophysiological event involves decreased retinoid metabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4397,7 +4640,9 @@ This pathophysiological event involves decreased retinoid metabolic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24732759" target="_blank">PMID:24732759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4430,18 +4675,20 @@ This pathophysiological event involves decreased retinoid metabolic process (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4458,18 +4705,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal rod cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4486,18 +4735,20 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4525,18 +4776,20 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased retinoid metabolic process (GO:0001523). GO:0001523 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         retinoid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001523" target="_blank" class="curie-chip curie-chip-go">GO:0001523</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001523" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001523</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retinoid metabolic process (GO:0001523). GO:0001523 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4557,18 +4810,20 @@ This pathophysiological event involves decreased retinoid metabolic process (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4626,7 +4881,9 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4648,7 +4905,9 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4681,18 +4940,20 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal rod cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4709,18 +4970,20 @@ This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4737,18 +5000,20 @@ This pathophysiological event involves retinal cone cell (CL:0000573). CL:000057
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4776,18 +5041,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4808,18 +5075,20 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4853,7 +5122,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Severely reduced visual function and legal blindness</span>
+	                            <span class="crosslink-meta">Severely reduced visual acuity</span>
 
 	                            <span class="crosslink-desc">Progressive rod then cone loss produces night blindness, peripheral field constriction, and ultimately loss of central vision; most LCA2 individuals are legally blind by the fourth decade.</span>
 
@@ -4877,7 +5146,9 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4899,7 +5170,9 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4937,16 +5210,6 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
-            <div class="graph-warning">
-                <strong>Referential integrity issues (1):</strong>
-                <ul>
-
-                    <li>Target &#39;Severely reduced visual function and legal blindness&#39; (from &#39;Progressive Photoreceptor Degeneration&#39;) not found in named elements</li>
-
-
-                </ul>
-            </div>
-
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -4957,7 +5220,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electroretinography typically shows markedly reduced or absent rod responses on dark-adapted testing and impaired cone responses on light-adapted testing, consistent with the panretinal visual cycle defect affecting both rod and cone photoreceptors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The reduced rod and cone ERG responses measure the panretinal visual-cycle defect impairing phototransduction.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Progressive Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic visual cycle arrest drives progressive rod photoreceptor apoptosis followed by secondary cone degeneration and outer retinal atrophy. The slow rate of degeneration reflects the ability of photoreceptors to survive for years or decades without adequate 11-cis-retinal, but the trajectory is inexorably toward complete blindness without intervention. Gene therapy can interrupt this cascade by restoring enzymatic activity in residual viable RPE.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"neuron apoptotic process\"]}}, {\"id\": \"RPE65 Isomerohydrolase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RPE65 reduce or abolish the enzymatic activity of all-trans-retinyl ester isomerohydrolase in RPE cells. RPE65 normally catalyzes the conversion of all-trans-retinyl esters to 11-cis-retinol in the retinoid (visual) cycle; loss of this activity depletes the supply of 11-cis-retinal available for photopigment regeneration in adjacent rod and cone photoreceptors. The RPE cell is the primary site of defect; photoreceptors themselves do not express RPE65.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"retinol metabolic process\", \"retinoid metabolic process\"], \"genes\": [\"RPE65\"], \"gene_terms\": [{\"label\": \"RPE65\", \"id\": \"hgnc:10294\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"RPE65 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RPE65\"], \"gene_terms\": [{\"label\": \"RPE65\", \"id\": \"hgnc:10294\"}], \"association\": \"Causative\"}}, {\"id\": \"Severely reduced visual function and legal blindness\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absent or severely reduced RPE65 activity arrests the retinoid cycle at the all-trans-retinyl ester stage, preventing regeneration of 11-cis-retinol and ultimately 11-cis-retinal. Without this chromophore, opsin proteins in rod and cone outer segments remain in an unliganded (apo-opsin) state. Apo-opsin cannot form functional photopigment and may signal constitutively, generating abnormal phototransduction cascade activity and metabolic stress in photoreceptor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"retinoid metabolic process\", \"photoreceptor cell maintenance\"]}}], \"edges\": [{\"source\": \"RPE65 Isomerohydrolase Deficiency\", \"target\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to regenerate 11-cis-retinol from all-trans-retinyl esters prevents supply of the photopigment chromophore 11-cis-retinal to rod and cone photoreceptors, arresting the visual cycle.\"}, {\"source\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"target\": \"Progressive Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic 11-cis-retinal depletion produces ongoing rod and cone metabolic stress and drives progressive photoreceptor loss, starting with rod-dominant degeneration that eventually extends to cone loss and outer retinal atrophy.\"}, {\"source\": \"Progressive Photoreceptor Degeneration\", \"target\": \"Severely reduced visual function and legal blindness\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Progressive rod then cone loss produces night blindness, peripheral field constriction, and ultimately loss of central vision; most LCA2 individuals are legally blind by the fourth decade.\"}, {\"source\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The reduced rod and cone ERG responses measure the panretinal visual-cycle defect impairing phototransduction.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"RPE65 pathogenic variants\", \"target\": \"RPE65 Isomerohydrolase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Severely reduced visual function and legal blindness\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal electroretinogram\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electroretinography typically shows markedly reduced or absent rod responses on dark-adapted testing and impaired cone responses on light-adapted testing, consistent with the panretinal visual cycle defect affecting both rod and cone photoreceptors.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The reduced rod and cone ERG responses measure the panretinal visual-cycle defect impairing phototransduction.\"}], \"term_id\": \"HP:0000512\"}}, {\"id\": \"Progressive Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic visual cycle arrest drives progressive rod photoreceptor apoptosis followed by secondary cone degeneration and outer retinal atrophy. The slow rate of degeneration reflects the ability of photoreceptors to survive for years or decades without adequate 11-cis-retinal, but the trajectory is inexorably toward complete blindness without intervention. Gene therapy can interrupt this cascade by restoring enzymatic activity in residual viable RPE.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"neuron apoptotic process\"]}}, {\"id\": \"RPE65 Isomerohydrolase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RPE65 reduce or abolish the enzymatic activity of all-trans-retinyl ester isomerohydrolase in RPE cells. RPE65 normally catalyzes the conversion of all-trans-retinyl esters to 11-cis-retinol in the retinoid (visual) cycle; loss of this activity depletes the supply of 11-cis-retinal available for photopigment regeneration in adjacent rod and cone photoreceptors. The RPE cell is the primary site of defect; photoreceptors themselves do not express RPE65.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"retinol metabolic process\", \"retinoid metabolic process\"], \"genes\": [\"RPE65\"], \"gene_terms\": [{\"label\": \"RPE65\", \"id\": \"hgnc:10294\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"RPE65 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RPE65\"], \"gene_terms\": [{\"label\": \"RPE65\", \"id\": \"hgnc:10294\"}], \"association\": \"Causative\"}}, {\"id\": \"Severely reduced visual acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual acuity is typically severely impaired from early life in LCA2/EOSRD and progressively declines to legal blindness in the second to fourth decade.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absent or severely reduced RPE65 activity arrests the retinoid cycle at the all-trans-retinyl ester stage, preventing regeneration of 11-cis-retinol and ultimately 11-cis-retinal. Without this chromophore, opsin proteins in rod and cone outer segments remain in an unliganded (apo-opsin) state. Apo-opsin cannot form functional photopigment and may signal constitutively, generating abnormal phototransduction cascade activity and metabolic stress in photoreceptor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\", \"retinal rod cell\", \"retinal cone cell\"], \"biological_processes\": [\"retinoid metabolic process\", \"photoreceptor cell maintenance\"]}}], \"edges\": [{\"source\": \"RPE65 Isomerohydrolase Deficiency\", \"target\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to regenerate 11-cis-retinol from all-trans-retinyl esters prevents supply of the photopigment chromophore 11-cis-retinal to rod and cone photoreceptors, arresting the visual cycle.\"}, {\"source\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"target\": \"Progressive Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic 11-cis-retinal depletion produces ongoing rod and cone metabolic stress and drives progressive photoreceptor loss, starting with rod-dominant degeneration that eventually extends to cone loss and outer retinal atrophy.\"}, {\"source\": \"Progressive Photoreceptor Degeneration\", \"target\": \"Severely reduced visual acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive rod then cone loss produces night blindness, peripheral field constriction, and ultimately loss of central vision; most LCA2 individuals are legally blind by the fourth decade.\"}, {\"source\": \"Visual Cycle Arrest and 11-cis-Retinal Depletion\", \"target\": \"Abnormal electroretinogram\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The reduced rod and cone ERG responses measure the panretinal visual-cycle defect impairing phototransduction.\", \"relationship\": \"READOUT_OF\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"RPE65 pathogenic variants\", \"target\": \"RPE65 Isomerohydrolase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4986,15 +5249,17 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000662</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp">HP:0000662</a>
-
-
+This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5015,7 +5280,9 @@ This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5037,7 +5304,9 @@ This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662)
                         <a href="https://bioregistry.io/DOI:10.3341/kjo.2023.0008" target="_blank">DOI:10.3341/kjo.2023.0008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5074,15 +5343,17 @@ This clinical feature is Night blindness, annotated with Nyctalopia (HP:0000662)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007663</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
-
-
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5103,7 +5374,9 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5140,15 +5413,17 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp">HP:0000639</a>
-
-
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5169,7 +5444,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5206,15 +5483,17 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000512</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp">HP:0000512</a>
-
-
+This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5235,7 +5514,9 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24732759" target="_blank">PMID:24732759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5272,15 +5553,17 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001133</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral visual field constriction, annotated with Constriction of peripheral visual field (HP:0001133). HP:0001133 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp">HP:0001133</a>
-
-
+This clinical feature is Peripheral visual field constriction, annotated with Constriction of peripheral visual field (HP:0001133). HP:0001133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5301,7 +5584,9 @@ This clinical feature is Peripheral visual field constriction, annotated with Co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5336,15 +5621,17 @@ This clinical feature is Peripheral visual field constriction, annotated with Co
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000613</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.">
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp">HP:0000613</a>
-
-
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5365,7 +5652,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24732759" target="_blank">PMID:24732759</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5381,13 +5670,15 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35129589" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35129589" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35129589" target="_blank">PMID:35129589</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5437,15 +5728,17 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPE65
 
 
-    <a href="https://bioregistry.io/hgnc:10294" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10294</a>
+    <a href="https://bioregistry.io/hgnc:10294" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:10294</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5473,7 +5766,9 @@ This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5495,7 +5790,9 @@ This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5525,6 +5822,9 @@ This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5541,18 +5841,18 @@ This disease-associated gene is RPE65 (hgnc:10294). hgnc:10294 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -5570,6 +5870,25 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5594,7 +5913,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5616,7 +5937,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5638,7 +5961,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5670,18 +5995,18 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5699,6 +6024,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5723,7 +6067,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5753,18 +6099,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5782,6 +6128,25 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5806,7 +6171,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5838,6 +6205,391 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation of biallelic pathogenic RPE65 variants is required to establish the diagnosis, guide prognosis, and determine eligibility for voretigene neparvovec gene therapy (which requires confirmed biallelic RPE65 mutations). Next-generation sequencing panels covering inherited retinal disease genes or whole exome/genome sequencing are the primary diagnostic tools.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of biallelic pathogenic RPE65 variants confirms the diagnosis and qualifies the patient for gene therapy evaluation; detection of a single heterozygous variant in a clinically affected patient should prompt consideration of a dominant form (MONDO:0100452) or a missed second allele.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31725251" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of autosomal recessive RPE65-related retinal degeneration is established in a proband with suggestive findings and biallelic pathogenic variants in RPE65 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">The GeneReview specifies that molecular genetic testing confirming biallelic RPE65 variants is the standard for establishing the diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-functional-visual-assessment-and-retinal-imaging">
+                <div class="item-name">
+                    Functional visual assessment and retinal imaging
+
+                </div>
+
+                <div class="item-desc">Full-field light sensitivity threshold (FST) testing, Goldmann visual field perimetry, electroretinography (ERG), and optical coherence tomography (OCT) together characterize the degree of photoreceptor dysfunction and remaining viable retinal tissue, both for diagnosis and for assessing gene therapy eligibility (minimum retinal thickness on OCT is required).</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Dark-adapted ERG shows severely reduced or absent rod responses; light-adapted ERG is also impaired. FST demonstrates markedly elevated light sensitivity thresholds. OCT shows outer retinal layer preservation in gene-therapy-eligible patients. Improvement in FST after voretigene neparvovec is an established biomarker of restored RPE65 enzymatic activity.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28712537" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28712537" target="_blank">PMID:28712537</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"in the intervention group showed a rapid, greater than 2 log units improvement by day 30 in light sensitivity that remained stable over 1 year"</div>
+
+
+                <div class="evidence-explanation">The phase 3 trial establishes that FST improvement of more than 2 log units after gene therapy directly reflects restoration of RPE65 enzymatic activity in the RPE, validating FST as a key functional biomarker for this disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-onset-severe-visual-impairment-with-relative-stability-in-first-decade">
+                <div class="item-name">Early-onset severe visual impairment with relative stability in first decade</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy to age 10</span>
+
+
+
+                </div>
+
+                <div class="item-notes">In the LCA2 form, visual manifestations arise in infancy or the first year. Children aged 4–10 have severe mean visual acuity (20/126). Vision is relatively stable through the first decade but already severely impaired.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31725251" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In RPE65-related LCA, onset of visual manifestations frequently occurs in infancy during the first year of life. Central vision can be variable, but children ages four to ten years in the largest case series had severe visual impairment (mean visual acuity: 20/126). While vision is relatively..."</div>
+
+
+                <div class="evidence-explanation">The GeneReview documents the natural history of RPE65-LCA: early-onset severe impairment with relative plateau in the first decade before the accelerating teenage decline.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-accelerating-decline-leading-to-legal-blindness-in-second-and-third-decade">
+                <div class="item-name">Accelerating decline leading to legal blindness in second and third decade</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Age 10–40</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Vision loss accelerates from the teenage years onward. By age 20, 50% of LCA2 individuals meet legal blindness criteria. After age 20, progressive loss leads to complete blindness by the fourth decade in virtually all cases. Gene therapy can interrupt this trajectory when viable retina remains.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31725251" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31725251" target="_blank">PMID:31725251</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with 50% of individuals being legally blind (visual acuity of 20/200 and/or visual fields extending &lt;20 degrees from fixation) by age 20 years. After age 20 years, vision loss is more rapidly progressive: all affected individuals are legally blind by the fourth decade and many have complete loss..."</div>
+
+
+                <div class="evidence-explanation">The GeneReview natural history data establish the biphasic decline pattern with the critical therapeutic window — the decades before complete photoreceptor loss — in which gene therapy can restore function.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-prevalence-among-inherited-retinal-dystrophy-subtypes">
+                <div class="item-name">Prevalence among inherited retinal dystrophy subtypes</div>
+
+                <div class="item-desc">Biallelic RPE65 mutations account for approximately 8% of Leber congenital amaurosis cases and 2% of retinitis pigmentosa cases, making it one of the more common single-gene causes within these rare inherited retinal dystrophy categories. Absolute prevalence is rare; the gene therapy approval has made genetic diagnosis of greater clinical relevance.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41433-024-03065-6" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41433-024-03065-6" target="_blank">DOI:10.1038/s41433-024-03065-6</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic mutations in the RPE65 gene affect nearly 8% of Leber Congenital Amaurosis and 2% of Retinitis Pigmentosa cases."</div>
+
+
+                <div class="evidence-explanation">This scoping review of voretigene neparvovec eligibility provides the prevalence figures for RPE65 mutations among the LCA and RP subtypes, establishing the relative frequency of this treatable genetic cause.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5853,7 +6605,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00999609">
                 <div class="item-name">
                     NCT00999609
 
@@ -5871,33 +6623,37 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced visual acuity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007663</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Constriction of peripheral visual field (HP:0001133). HP:0001133 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Constriction of peripheral visual field
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp">HP:0001133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001133</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Constriction of peripheral visual field (HP:0001133). HP:0001133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5916,7 +6672,9 @@ This clinical trial targets Constriction of peripheral visual field (HP:0001133)
                         <a href="https://clinicaltrials.gov/study/NCT00999609" target="_blank">clinicaltrials:NCT00999609</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6027,7 +6785,7 @@ has_subtypes:
   evidence:
   - reference: PMID:28712537
     reference_title: &#34;Efficacy and safety of voretigene neparvovec (AAV2-hRPE65v2) in patients with RPE65-mediated inherited retinal dystrophy: a randomised, controlled, open-label, phase 3 trial.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Biallelic mutations in this gene, which disrupt the visual cyde, can be described as Leber congenital amaurosis type 2, retinitis pigmentosa type 20, early-onset retinal dystrophy, and other clinical labels for severe rod-mediated inherited retinal dystrophies, which all eventually progress to complete blindness.&#34;
     explanation: &gt;-
@@ -6070,7 +6828,7 @@ inheritance:
   evidence:
   - reference: PMID:28712537
     reference_title: &#34;Efficacy and safety of voretigene neparvovec (AAV2-hRPE65v2) in patients with RPE65-mediated inherited retinal dystrophy: a randomised, controlled, open-label, phase 3 trial.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Biallelic mutations in this gene, which disrupt the visual cyde, can be described as Leber congenital amaurosis type 2, retinitis pigmentosa type 20, early-onset retinal dystrophy, and other clinical labels for severe rod-mediated inherited retinal dystrophies, which all eventually progress to complete blindness.&#34;
     explanation: &gt;-
@@ -6079,6 +6837,7 @@ inheritance:
       heterozygous pathogenic RPE65 variants cause RP-like disease.
 pathophysiology:
 - name: RPE65 Isomerohydrolase Deficiency
+  conforms_to: &#34;retinoid_visual_cycle_disruption#Visual Cycle Enzyme or Transporter Defect&#34;
   description: &gt;-
     Pathogenic variants in RPE65 reduce or abolish the enzymatic activity of
     all-trans-retinyl ester isomerohydrolase in RPE cells. RPE65 normally
@@ -6144,6 +6903,7 @@ pathophysiology:
       localizing the primary defect to the RPE rather than the photoreceptors
       themselves.
 - name: Visual Cycle Arrest and 11-cis-Retinal Depletion
+  conforms_to: &#34;retinoid_visual_cycle_disruption#Chromophore Insufficiency and Retinoid Intermediate Accumulation&#34;
   description: &gt;-
     Absent or severely reduced RPE65 activity arrests the retinoid cycle at the
     all-trans-retinyl ester stage, preventing regeneration of 11-cis-retinol and
@@ -6245,7 +7005,7 @@ pathophysiology:
       id: GO:0051402
       label: neuron apoptotic process
   downstream:
-  - target: Severely reduced visual function and legal blindness
+  - target: Severely reduced visual acuity
     description: &gt;-
       Progressive rod then cone loss produces night blindness, peripheral field
       constriction, and ultimately loss of central vision; most LCA2 individuals
@@ -6430,7 +7190,7 @@ phenotypes:
       RPE65-associated retinopathy.
   - reference: PMID:35129589
     reference_title: &#34;RPE65-Associated Retinopathies in the Italian Population: A Longitudinal Natural History Study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     explanation: &gt;-
       Testa et al. 2022 is a multicenter Italian natural history study of 43 patients
@@ -7400,7 +8160,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "RPE65-Related Retinopathy", "mondoId": "MONDO:0100368", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RPE65-Related_Retinopathy", "yamlRevision": "98e88903045a"};
+        const OS_CONFIG = {"diseaseName": "RPE65-Related Retinopathy", "mondoId": "MONDO:0100368", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RPE65-Related_Retinopathy", "yamlRevision": "ff99b5dfa74e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7819,5 +8579,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

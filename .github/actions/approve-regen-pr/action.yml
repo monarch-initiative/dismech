@@ -1,22 +1,19 @@
-name: Approve regen PR
+name: Approve generated-artifact PR
 description: >-
-  Deterministically approve an automated page-build regen PR as the
-  ai4c-reviewer app. Used by the generate-pages / generate-grouping-pages /
-  generate-project-pages workflows as their final step: regen PRs deliberately
-  get no agentic review (claude-code-review.yml declines them — an LLM review
-  of thousands of regenerated HTML files is cost without signal), but branch
-  protection still requires one approving review before their armed auto-merge
-  can fire. The approval lives in the regen workflows because their jobs are
-  guaranteed to execute — pull_request-triggered runs on the GITHUB_TOKEN-pushed
-  auto/generate-* branches sit gated at conclusion=action_required with zero
-  jobs executed. Running here also re-arms the approval after every force-push,
-  each of which dismisses the previous one (main has dismiss_stale_reviews
-  enabled).
+  Deterministically approve an automated generated-artifact PR as the
+  ai4c-reviewer app. Used by the page-generation and QC-baseline refresh
+  workflows as their final step: these PRs deliberately get no agentic review
+  (an LLM review of generated HTML or baseline metadata is cost without signal),
+  but branch protection still requires one approving review before their armed
+  auto-merge can fire. The approval lives in the generating workflows so it
+  deterministically vouches for the output they just produced. Running here
+  also re-arms the approval after every force-push, each of which dismisses the
+  previous one (main has dismiss_stale_reviews enabled).
 
-  The approval must come from the ai4c-reviewer app because GITHUB_TOKEN is
-  github-actions[bot], the PR author, and GitHub forbids approving your own PR.
-  A token-minting failure fails the calling job red on purpose — the approval
-  is load-bearing for the PR ever merging.
+  The approval must come from the separate ai4c-reviewer app because new PRs are
+  authored by ai4c-agent (and legacy open PRs by github-actions[bot]); GitHub
+  forbids approving your own PR. A token-minting failure fails the calling job
+  red on purpose — the approval is load-bearing for the PR ever merging.
 
   Only the exact commit the calling run built and pushed (the checkout's HEAD)
   is ever approved: if the PR tip differs after retries, nothing is vouched
@@ -73,15 +70,14 @@ runs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --author "app/github-actions" \
-            --json number,headRefOid \
-            --limit 1)" || read_rc=$?
+            --json number,headRefOid,author \
+            --limit 100)" || read_rc=$?
 
           if [ "$read_rc" -eq 0 ]; then
             read_ok=true
             successful_reads=$((successful_reads + 1))
-            pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
-            pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
+            pr_number="$(jq -r '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty' <<<"$pr_json")"
+            pr_head="$(jq -r '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].headRefOid // empty' <<<"$pr_json")"
             if [ -n "$pr_number" ] && [ "$pr_head" = "$head_sha" ]; then
               break
             fi
@@ -117,15 +113,21 @@ runs:
           exit 0
         fi
 
-        gh pr review "$pr_number" \
-          --repo "$GITHUB_REPOSITORY" \
-          --approve \
-          --body "$(cat <<EOF
-        ✅ **Automated approval — page-build regeneration PR**
+        review_body="$(cat <<EOF
+        ✅ **Automated approval — generated-artifact PR**
 
         Deterministic approval of \`$head_sha\`, the commit this regen workflow run
-        just built from \`main\` and force-pushed (derived static assets only).
+        just built from \`main\` and force-pushed (generated artifacts only).
         Agentic review is intentionally skipped for these PRs; to force a full
         review anyway, comment \`/review\` on this PR.
         EOF
         )"
+
+        # Pin the review to the generated commit. If another push wins the race
+        # after the read above, GitHub either rejects this stale commit_id or
+        # records a review that cannot approve the newer head.
+        gh api --method POST \
+          "repos/$GITHUB_REPOSITORY/pulls/$pr_number/reviews" \
+          --field event=APPROVE \
+          --field commit_id="$head_sha" \
+          --field body="$review_body"

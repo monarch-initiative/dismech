@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Trimethylaminuria</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Trimethylaminuria</h1>
             <div class="header-meta">
 
@@ -4001,7 +4148,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4044,7 +4191,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4109,17 +4258,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FMO3 (hgnc:3771). hgnc:3771 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FMO3
 
 
-    <a href="https://bioregistry.io/hgnc:3771" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3771</a>
+    <a href="https://bioregistry.io/hgnc:3771" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3771</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FMO3 (hgnc:3771). hgnc:3771 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4148,18 +4301,20 @@ This pathophysiological event involves FMO3 (hgnc:3771). hgnc:3771 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased amine (trimethylamine) metabolic process, annotated with amine metabolic process (GO:0009308). GO:0009308 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         amine (trimethylamine) metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009308" target="_blank" class="curie-chip curie-chip-go">GO:0009308</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009308" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0009308</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased amine (trimethylamine) metabolic process, annotated with amine metabolic process (GO:0009308). GO:0009308 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4185,18 +4340,20 @@ This pathophysiological event involves decreased amine (trimethylamine) metaboli
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased flavin-containing monooxygenase (N-oxidation) activity, annotated with N,N-dimethylaniline monooxygenase activity (GO:0004499). GO:0004499 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         flavin-containing monooxygenase (N-oxidation) activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004499" target="_blank" class="curie-chip curie-chip-go">GO:0004499</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004499" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004499</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased flavin-containing monooxygenase (N-oxidation) activity, annotated with N,N-dimethylaniline monooxygenase activity (GO:0004499). GO:0004499 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4253,7 +4410,9 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4275,7 +4434,9 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4349,7 +4510,9 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4371,7 +4534,9 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4430,7 +4595,9 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4497,15 +4664,94 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-trimethylaminuria-urinary-trimethylamine-excretion" data-dismech-node="Trimethylaminuria (urinary trimethylamine excretion)" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Trimethylaminuria (urinary trimethylamine excretion)
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003614" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0003614</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Trimethylaminuria (HP:0003614). HP:0003614 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21451776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"trimethylamine (TMA) accumulates and is excreted in the urine, but is also found"</div>
+
+
+                <div class="evidence-explanation">Documents excretion of TMA in the urine.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -4518,16 +4764,20 @@ This pathophysiological event involves decreased flavin-containing monooxygenase
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
-                        Depression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
-
-
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4548,7 +4798,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4576,11 +4828,11 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Constitutional
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fish-like-body-odour" data-dismech-node="Fish-like body odour" data-dismech-type="phenotype">
@@ -4589,16 +4841,22 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Fish odor</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0410020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.">
-                        Fish odor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp">HP:0410020</a>
-
-
+This clinical feature is Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4619,7 +4877,9 @@ This clinical feature is Fish odor (HP:0410020). HP:0410020 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4630,68 +4890,6 @@ This clinical feature is Fish odor (HP:0410020). HP:0410020 is a phenotype from 
 
 
                 <div class="evidence-explanation">Describes the fish-like body odour that defines the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-trimethylaminuria-urinary-trimethylamine-excretion" data-dismech-node="Trimethylaminuria (urinary trimethylamine excretion)" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Trimethylaminuria (urinary trimethylamine excretion)
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Trimethylaminuria (HP:0003614). HP:0003614 is a phenotype from the Human Phenotype Ontology.">
-                        Trimethylaminuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003614" target="_blank" class="curie-chip curie-chip-hp">HP:0003614</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21451776" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"trimethylamine (TMA) accumulates and is excreted in the urine, but is also found"</div>
-
-
-                <div class="evidence-explanation">Documents excretion of TMA in the urine.</div>
 
 
 
@@ -4757,15 +4955,17 @@ This clinical feature is Trimethylaminuria (HP:0003614). HP:0003614 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FMO3
 
 
-    <a href="https://bioregistry.io/hgnc:3771" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3771</a>
+    <a href="https://bioregistry.io/hgnc:3771" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3771</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4793,7 +4993,9 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9398858" target="_blank">PMID:9398858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4836,6 +5038,8 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4848,7 +5052,9 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4870,7 +5076,9 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4905,6 +5113,9 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4921,18 +5132,18 @@ This disease-associated gene is FMO3 (hgnc:3771). hgnc:3771 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-8">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-8">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -4955,6 +5166,25 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">First-line management is dietary restriction of TMA precursors, especially trimethylamine-N-oxide (concentrated in marine fish) and choline-rich foods, to reduce the gut-derived substrate load presented to the impaired liver.
 </div>
 
@@ -4964,18 +5194,20 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fish odor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp">HP:0410020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0410020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4995,7 +5227,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5025,17 +5259,17 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5060,36 +5294,48 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         metronidazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6909</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-11">CHEBI:6909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses neomycin (CHEBI:7507). CHEBI:7507 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         neomycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7507" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7507</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7507" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:7507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses neomycin (CHEBI:7507). CHEBI:7507 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5102,18 +5348,20 @@ This treatment uses neomycin (CHEBI:7507). CHEBI:7507 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fish odor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp">HP:0410020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0410020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5133,7 +5381,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5163,18 +5413,18 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5197,6 +5447,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral sequestrants such as activated charcoal bind intestinal trimethylamine, reducing its absorption and systemic load as an adjunct to dietary measures.
 </div>
 
@@ -5206,18 +5464,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fish odor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp">HP:0410020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0410020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5237,7 +5497,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5332,7 +5594,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5412,7 +5676,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5434,7 +5700,9 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5458,6 +5726,156 @@ This treatment targets Fish odor (HP:0410020). HP:0410020 is a phenotype from th
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severity-spectrum-mild-transient-to-severe-primary">
+                <div class="item-name">Severity spectrum (mild/transient to severe primary)</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Clinical severity ranges from mild or intermittent odour (unmasked by hormonal changes, menstruation, or a high substrate/precursor load, often on a background of common hypomorphic FMO3 haplotypes) to severe, constant malodour in individuals homozygous or compound heterozygous for inactivating FMO3 variants. In milder or intermittent cases the biochemical abnormality may only be demonstrable after a high-substrate (marine-fish) challenge meal.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21451776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21451776" target="_blank">PMID:21451776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"or intermittent cases, most simply, a marine-fish meal. The symptoms of"</div>
+
+
+                <div class="evidence-explanation">Notes intermittent/milder cases requiring a high-substrate challenge for detection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">A rare, almost certainly under-diagnosed disorder known predominantly from case reports and small cohorts; population-based rates are not established. Mild and transient presentations linked to common hypomorphic FMO3 haplotypes are more frequent than the severe primary form.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31240165" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31240165" target="_blank">PMID:31240165</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Inherited trimethylaminuria (TMAU), a rare genetic disorder of"</div>
+
+
+                <div class="evidence-explanation">Characterises inherited TMAU as a rare genetic disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6411,5 +6829,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
