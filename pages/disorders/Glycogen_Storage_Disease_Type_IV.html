@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Glycogen Storage Disease Type IV</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Glycogen Storage Disease Type IV</h1>
             <div class="header-meta">
 
@@ -3989,7 +4136,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-gsd-iv-definition">
                 <div class="item-name">Orphanet GSD IV definition</div>
 
                 <div class="item-desc">Orphanet defines GSD IV as a rare glycogen storage disease with variable hepatic, neuromuscular, and cardiac involvement.
@@ -4034,7 +4181,9 @@
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4070,7 +4219,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4116,7 +4265,9 @@
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4138,7 +4289,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4207,7 +4360,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fatal-perinatal">
 
                     <div class="item-name">
                         Fatal perinatal neuromuscular subtype
@@ -4242,7 +4395,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4268,7 +4423,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-congenital-neuromuscular">
 
                     <div class="item-name">
                         Congenital neuromuscular subtype
@@ -4303,7 +4458,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4329,7 +4486,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-progressive-hepatic">
 
                     <div class="item-name">
                         Classic progressive hepatic subtype
@@ -4364,7 +4521,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4390,7 +4549,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-non-progressive-hepatic">
 
                     <div class="item-name">
                         Non-progressive hepatic subtype
@@ -4425,7 +4584,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4451,7 +4612,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-childhood-neuromuscular">
 
                     <div class="item-name">
                         Childhood neuromuscular subtype
@@ -4486,7 +4647,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4512,7 +4675,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-apbd">
 
                     <div class="item-name">
                         Adult polyglucosan body disease
@@ -4549,7 +4712,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4612,17 +4777,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves GBE1 (hgnc:4180). hgnc:4180 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GBE1
 
 
-    <a href="https://bioregistry.io/hgnc:4180" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4180</a>
+    <a href="https://bioregistry.io/hgnc:4180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4180</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GBE1 (hgnc:4180). hgnc:4180 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4651,18 +4820,20 @@ This pathophysiological event involves GBE1 (hgnc:4180). hgnc:4180 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycogen biosynthetic process (GO:0005978). GO:0005978 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycogen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005978" target="_blank" class="curie-chip curie-chip-go">GO:0005978</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005978" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005978</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycogen biosynthetic process (GO:0005978). GO:0005978 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4688,18 +4859,20 @@ This pathophysiological event involves decreased glycogen biosynthetic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 1,4-alpha-glucan branching enzyme activity (GO:0003844). GO:0003844 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         1,4-alpha-glucan branching enzyme activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003844" target="_blank" class="curie-chip curie-chip-go">GO:0003844</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003844" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 1,4-alpha-glucan branching enzyme activity (GO:0003844). GO:0003844 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4757,7 +4930,9 @@ This pathophysiological event involves decreased 1,4-alpha-glucan branching enzy
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4779,7 +4954,9 @@ This pathophysiological event involves decreased 1,4-alpha-glucan branching enzy
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4820,18 +4997,20 @@ This pathophysiological event involves decreased 1,4-alpha-glucan branching enzy
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycogen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go">GO:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4926,7 +5105,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4948,7 +5129,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4982,18 +5165,20 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5021,18 +5206,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycogen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go">GO:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5166,7 +5353,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5188,7 +5377,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5222,18 +5413,20 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5261,18 +5454,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycogen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go">GO:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5340,7 +5535,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5362,7 +5559,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5396,18 +5595,20 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5424,18 +5625,20 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5463,18 +5666,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycogen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go">GO:0005977</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005977" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0005977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glycogen metabolic process (GO:0005977). GO:0005977 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5626,7 +5831,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5648,7 +5855,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33141444" target="_blank">PMID:33141444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5683,7 +5892,7 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-pas-positive-partially-diastase-resistant-glycogen-inclusions">
                 <div class="item-name">
                     PAS-positive partially diastase-resistant glycogen inclusions
 
@@ -5706,7 +5915,9 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5770,27 +5981,27 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Prenatal and Birth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Prenatal and Birth<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5800,27 +6011,31 @@ This pathophysiological event involves abnormal glycogen metabolic process (GO:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-partial-thromboplastin-time" data-dismech-node="Prolonged partial thromboplastin time" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-prothrombin-time" data-dismech-node="Prolonged prothrombin time" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Prolonged partial thromboplastin time
+                        Prolonged prothrombin time
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0008151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:0003645 is a phenotype from the Human Phenotype Ontology.">
-                        Prolonged partial thromboplastin time
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003645" target="_blank" class="curie-chip curie-chip-hp">HP:0003645</a>
-
-
+This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5841,7 +6056,79 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0008151 | Prolonged prothrombin time | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records prolonged prothrombin time as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-partial-thromboplastin-time" data-dismech-node="Prolonged partial thromboplastin time" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prolonged partial thromboplastin time
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003645</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:0003645 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5873,7 +6160,7 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hepatosplenomegaly" data-dismech-node="Hepatosplenomegaly" data-dismech-type="phenotype">
@@ -5884,16 +6171,20 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5914,7 +6205,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5940,6 +6233,76 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-cardiomyocyte-morphology" data-dismech-node="Abnormal cardiomyocyte morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal cardiomyocyte morphology
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031331" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0031331</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cardiomyocyte morphology (HP:0031331). HP:0031331 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0031331 | Abnormal cardiomyocyte morphology | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records abnormal cardiomyocyte morphology as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dilated-cardiomyopathy" data-dismech-node="Dilated cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dilated cardiomyopathy
@@ -5948,16 +6311,20 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001644</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
-                        Dilated cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
-
-
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5978,7 +6345,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6000,7 +6369,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6034,16 +6405,20 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001409</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.">
-                        Portal hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp">HP:0001409</a>
-
-
+This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6064,7 +6439,9 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6098,16 +6475,20 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6128,7 +6509,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6171,16 +6554,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6201,7 +6588,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6223,7 +6612,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6257,16 +6648,20 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001410</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased liver function
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp">HP:0001410</a>
-
-
+This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6287,7 +6682,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6309,7 +6706,9 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6343,16 +6742,20 @@ This clinical feature is Decreased liver function (HP:0001410). HP:0001410 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.">
-                        Cirrhosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
-
-
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6373,7 +6776,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6395,7 +6800,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6429,16 +6836,20 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001399</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatic failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp">HP:0001399</a>
-
-
+This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6459,7 +6870,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6481,7 +6894,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6515,16 +6930,20 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.">
-                        Ascites
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp">HP:0001541</a>
-
-
+This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6545,7 +6964,9 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6579,16 +7000,20 @@ This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002040</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotype from the Human Phenotype Ontology.">
-                        Esophageal varix
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002040" target="_blank" class="curie-chip curie-chip-hp">HP:0002040</a>
-
-
+This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6609,7 +7034,9 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6650,16 +7077,20 @@ This clinical feature is Esophageal varix (HP:0002040). HP:0002040 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000011</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenotype from the Human Phenotype Ontology.">
-                        Neurogenic bladder
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp">HP:0000011</a>
-
-
+This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6680,7 +7111,9 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6711,28 +7144,111 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">3</span>
+                    Integument
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-hepatic-transaminase-concentration" data-dismech-node="Elevated circulating hepatic transaminase concentration" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-abnormality-of-skin" data-dismech-node="Generalized abnormality of skin" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Elevated circulating hepatic transaminase concentration
+                        Generalized abnormality of skin
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011354</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
+This clinical feature is Generalized abnormality of skin (HP:0011354). HP:0011354 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0011354 | Generalized abnormality of skin | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records generalized abnormality of skin as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-glycogen-content" data-dismech-node="Abnormal muscle glycogen content" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal muscle glycogen content
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal muscle glycogen content (HP:0012269). HP:0012269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6753,7 +7269,103 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012269 | Abnormal muscle glycogen content | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records abnormal muscle glycogen content as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30228975" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is characterized by the accumulation of an amylopectin-like glycogen (polyglucosan) in multiple organs"</div>
+
+
+                <div class="evidence-explanation">Human clinical review evidence supports abnormal glycogen storage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-hepatic-transaminase-concentration" data-dismech-node="Elevated circulating hepatic transaminase concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6775,7 +7387,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6809,16 +7423,20 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoalbuminemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp">HP:0003073</a>
-
-
+This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6839,7 +7457,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6873,16 +7493,20 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001790</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a phenotype from the Human Phenotype Ontology.">
-                        Nonimmune hydrops fetalis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001790" target="_blank" class="curie-chip curie-chip-hp">HP:0001790</a>
-
-
+This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6903,7 +7527,9 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6925,7 +7551,9 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6953,11 +7581,11 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized hypotonia" data-dismech-type="phenotype">
@@ -6968,16 +7596,20 @@ This clinical feature is Nonimmune hydrops fetalis (HP:0001790). HP:0001790 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
-
-
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6998,7 +7630,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7020,7 +7654,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7046,6 +7682,76 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-muscular-hypotonia" data-dismech-node="Severe muscular hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe muscular hypotonia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0006829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe muscular hypotonia (HP:0006829). HP:0006829 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0006829 | Severe muscular hypotonia | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records severe muscular hypotonia as occasional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myopathy" data-dismech-node="Myopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myopathy
@@ -7054,16 +7760,20 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003198</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.">
-                        Myopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp">HP:0003198</a>
-
-
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7084,7 +7794,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7106,7 +7818,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7140,16 +7854,20 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003202</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.">
-                        Skeletal muscle atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp">HP:0003202</a>
-
-
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7170,7 +7888,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7204,16 +7924,20 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001371</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
-                        Flexion contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
-
-
+This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7234,7 +7958,9 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7266,16 +7992,22 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Spastic paraplegia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001258</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spastic paraparesis, annotated with Spastic paraplegia (HP:0001258). HP:0001258 is a phenotype from the Human Phenotype Ontology.">
-                        Spastic paraplegia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp">HP:0001258</a>
-
-
+This clinical feature is Spastic paraparesis, annotated with Spastic paraplegia (HP:0001258). HP:0001258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7296,7 +8028,9 @@ This clinical feature is Spastic paraparesis, annotated with Spastic paraplegia 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7324,31 +8058,35 @@ This clinical feature is Spastic paraparesis, annotated with Spastic paraplegia 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor delay" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-neuron-branching" data-dismech-node="Abnormal neuron branching" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Motor delay
+                        Abnormal neuron branching
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0500032</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
-                        Motor delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
-
-
+This clinical feature is Abnormal neuron branching (HP:0500032). HP:0500032 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7369,7 +8107,79 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0500032 | Abnormal neuron branching | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records abnormal neuron branching as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor delay
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7401,16 +8211,20 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7431,7 +8245,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7459,31 +8275,35 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Prenatal and Birth
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-akinesia-sequence" data-dismech-node="Fetal akinesia sequence" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Polyhydramnios
+                        Fetal akinesia sequence
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.">
-                        Polyhydramnios
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp">HP:0001561</a>
-
-
+This clinical feature is Fetal akinesia sequence (HP:0001989). HP:0001989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7504,7 +8324,103 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001989 | Fetal akinesia sequence | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records fetal akinesia sequence as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23285490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"presents in utero with fetal akinesia deformation sequence"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports fetal akinesia in the fatal perinatal subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyhydramnios" data-dismech-node="Polyhydramnios" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polyhydramnios
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7526,7 +8442,9 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7554,7 +8472,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -7569,16 +8487,20 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory distress
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp">HP:0002098</a>
-
-
+This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7599,7 +8521,9 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7621,7 +8545,9 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7655,16 +8581,20 @@ This clinical feature is Respiratory distress (HP:0002098). HP:0002098 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
-
-
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7685,7 +8615,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7713,7 +8645,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -7728,16 +8660,20 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7758,7 +8694,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7780,7 +8718,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7791,507 +8731,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">GeneReviews lists failure to thrive in the progressive hepatic subtype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-glycogen-content" data-dismech-node="Abnormal muscle glycogen content" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal muscle glycogen content
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal muscle glycogen content (HP:0012269). HP:0012269 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal muscle glycogen content
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012269" target="_blank" class="curie-chip curie-chip-hp">HP:0012269</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012269 | Abnormal muscle glycogen content | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records abnormal muscle glycogen content as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30228975" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is characterized by the accumulation of an amylopectin-like glycogen (polyglucosan) in multiple organs"</div>
-
-
-                <div class="evidence-explanation">Human clinical review evidence supports abnormal glycogen storage.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-cardiomyocyte-morphology" data-dismech-node="Abnormal cardiomyocyte morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal cardiomyocyte morphology
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal cardiomyocyte morphology (HP:0031331). HP:0031331 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal cardiomyocyte morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031331" target="_blank" class="curie-chip curie-chip-hp">HP:0031331</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0031331 | Abnormal cardiomyocyte morphology | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records abnormal cardiomyocyte morphology as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-neuron-branching" data-dismech-node="Abnormal neuron branching" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal neuron branching
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal neuron branching (HP:0500032). HP:0500032 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal neuron branching
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500032" target="_blank" class="curie-chip curie-chip-hp">HP:0500032</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0500032 | Abnormal neuron branching | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records abnormal neuron branching as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-abnormality-of-skin" data-dismech-node="Generalized abnormality of skin" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Generalized abnormality of skin
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Generalized abnormality of skin (HP:0011354). HP:0011354 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized abnormality of skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011354" target="_blank" class="curie-chip curie-chip-hp">HP:0011354</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0011354 | Generalized abnormality of skin | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records generalized abnormality of skin as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-muscular-hypotonia" data-dismech-node="Severe muscular hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe muscular hypotonia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe muscular hypotonia (HP:0006829). HP:0006829 is a phenotype from the Human Phenotype Ontology.">
-                        Severe muscular hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006829" target="_blank" class="curie-chip curie-chip-hp">HP:0006829</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0006829 | Severe muscular hypotonia | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records severe muscular hypotonia as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prolonged-prothrombin-time" data-dismech-node="Prolonged prothrombin time" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prolonged prothrombin time
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is a phenotype from the Human Phenotype Ontology.">
-                        Prolonged prothrombin time
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp">HP:0008151</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0008151 | Prolonged prothrombin time | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records prolonged prothrombin time as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-akinesia-sequence" data-dismech-node="Fetal akinesia sequence" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fetal akinesia sequence
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fetal akinesia sequence (HP:0001989). HP:0001989 is a phenotype from the Human Phenotype Ontology.">
-                        Fetal akinesia sequence
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001989" target="_blank" class="curie-chip curie-chip-hp">HP:0001989</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001989 | Fetal akinesia sequence | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records fetal akinesia sequence as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23285490" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"presents in utero with fetal akinesia deformation sequence"</div>
-
-
-                <div class="evidence-explanation">GeneReviews supports fetal akinesia in the fatal perinatal subtype.</div>
 
 
 
@@ -8359,15 +8798,17 @@ This clinical feature is Fetal akinesia sequence (HP:0001989). HP:0001989 is a p
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GBE1
 
 
-    <a href="https://bioregistry.io/hgnc:4180" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4180</a>
+    <a href="https://bioregistry.io/hgnc:4180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:4180</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8399,7 +8840,9 @@ This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8421,7 +8864,9 @@ This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8443,7 +8888,9 @@ This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_3f01d412-0f6d-4a0f-88db-b55b2af4a0a2-2023-09-21T160000.000Z" target="_blank">CGGV:assertion_3f01d412-0f6d-4a0f-88db-b55b2af4a0a2-2023-09-21T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8473,6 +8920,84 @@ This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-glycogen-storage-disease-due-to-glycogen-branching-enzyme-deficiency-record">
+
+
+    <div class="item-name">Orphanet Glycogen storage disease due to glycogen branching enzyme deficiency record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=367" target="_blank" rel="noopener noreferrer" title="Open ORPHA:367">ORPHA:367</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:367 structured record provides the disease definition, autosomal recessive inheritance, prevalence-at-birth estimate, HPO phenotype frequency annotations, and exact MONDO cross-reference used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0009292 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:367 to the same MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8489,18 +9014,18 @@ This disease-associated gene is GBE1 (hgnc:4180). hgnc:4180 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">liver transplantation<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">liver transplantation</span>
+This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Liver Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
 
 
 
@@ -8518,6 +9043,14 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8553,7 +9086,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8584,18 +9119,20 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hepatic failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp">HP:0001399</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8615,7 +9152,9 @@ This treatment targets Hepatic failure (HP:0001399). HP:0001399 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8645,18 +9184,18 @@ This treatment targets Hepatic failure (HP:0001399). HP:0001399 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">cardiac transplantation<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cardiac transplantation, annotated with Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">cardiac transplantation</span>
+This treatment is cardiac transplantation, annotated with Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Heart Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cardiac transplantation, annotated with Heart Transplantation (NCIT:C15246). NCIT:C15246 is a clinical intervention from the NCI Thesaurus.">NCIT:C15246</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15246" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15246">NCIT:C15246</a>
 
 
 
@@ -8674,6 +9213,14 @@ This treatment is cardiac transplantation, annotated with Heart Transplantation 
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8709,7 +9256,9 @@ This treatment is cardiac transplantation, annotated with Heart Transplantation 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8740,18 +9289,20 @@ This treatment is cardiac transplantation, annotated with Heart Transplantation 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dilated cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001644</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8771,7 +9322,9 @@ This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8801,18 +9354,18 @@ This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8835,6 +9388,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Children with skeletal myopathy or hypotonia should receive developmental evaluation and physical therapy as needed.
 </div>
 
@@ -8844,33 +9416,37 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0003198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Generalized hypotonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001290</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8890,7 +9466,9 @@ This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8920,18 +9498,18 @@ This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a pheno
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8954,6 +9532,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive care includes hepatology, neurology, cardiology, nutrition, metabolic genetics, functional assessment, imaging, laboratory monitoring, and long-term follow-up tailored to disease severity.
 </div>
 
@@ -8963,48 +9549,54 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Decreased liver function
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp">HP:0001410</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dilated cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001644</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0003198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9024,7 +9616,9 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9119,7 +9713,9 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9141,7 +9737,9 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9221,7 +9819,9 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9245,6 +9845,486 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-gbe1-molecular-genetic-testing">
+                <div class="item-name">
+                    GBE1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing confirms GSD IV by identifying biallelic pathogenic GBE1 variants.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic GBE1 variants support the diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23285490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the identification of biallelic pathogenic variants in GBE1 on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports GBE1 molecular genetic testing as confirmatory.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-glycogen-branching-enzyme-activity-testing">
+                <div class="item-name">
+                    Glycogen branching enzyme activity testing
+
+                </div>
+
+                <div class="item-desc">Measurement of glycogen branching enzyme activity in liver, muscle, skin fibroblasts, or blood-derived cells can establish or support the diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Deficient glycogen branching enzyme activity supports the diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23285490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is established in a proband by the demonstration of glycogen branching enzyme (GBE) deficiency in liver, muscle, or skin fibroblasts"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports enzyme activity testing in multiple tissues.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30228975" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Erythrocyte GBE activity in the patient was lower"</div>
+
+
+                <div class="evidence-explanation">The case report supports erythrocyte GBE activity as a diagnostic biochemical test.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-liver-biopsy">
+                <div class="item-name">
+                    Liver biopsy
+
+                </div>
+
+                <div class="item-desc">Liver biopsy can identify PAS-positive, partially diastase-resistant cytoplasmic inclusions in hepatic presentations.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        biopsy of liver
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51677" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C51677</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> PAS-positive partially diastase-resistant inclusions support GSD IV.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30228975" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30228975" target="_blank">PMID:30228975</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Upon liver biopsy, periodic acid-Schiff-positive cytoplasmic inclusions were reported with partial resistance to diastase digestion"</div>
+
+
+                <div class="evidence-explanation">The patient report supports liver biopsy as a diagnostic histopathology procedure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-multisystem-clinical-continuum">
+                <div class="item-name">Multisystem clinical continuum</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">GSD IV spans perinatal, neonatal, infantile, childhood, adolescent, and adult-onset presentations with variable hepatic, cardiac, muscular, and neurologic severity.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23285490" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23285490" target="_blank">PMID:23285490</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical manifestations of glycogen storage disease type IV (GSD IV) discussed in this entry span a continuum of different subtypes with variable ages of onset, severity, and clinical features."</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly describes the variable subtype continuum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36796138" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36796138" target="_blank">PMID:36796138</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GSD IV is characterized by a remarkable degree of phenotypic heterogeneity with presentations in utero, during infancy, early childhood, adolescence, or middle to late adulthood."</div>
+
+
+                <div class="evidence-explanation">Clinical practice recommendations support the broad age-of-onset continuum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports a worldwide prevalence at birth of 1-9 per 1,000,000 and cites GeneReviews as the source for that estimate.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:367" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:367" target="_blank">ORPHA:367</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Worldwide | Prevalence at birth | PMID:23285490"</div>
+
+
+                <div class="evidence-explanation">Orphanet records the worldwide prevalence-at-birth range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9279,7 +10359,6 @@ This treatment targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the
                 <pre class="yaml-preview">name: Glycogen Storage Disease Type IV
 category: Mendelian
 creation_date: &#34;2026-05-08T02:54:48Z&#34;
-updated_date: &#34;2026-05-21T08:44:13Z&#34;
 synonyms:
 - Andersen disease
 - Amylopectinosis
@@ -9328,7 +10407,7 @@ external_assertions:
     this entry.
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0009292 | Exact&#34;
@@ -9341,7 +10420,7 @@ definitions:
     hepatic, neuromuscular, and cardiac involvement.
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare form of glycogen storage disease characterized by a continuum of clinical manifestations of variable presentation and severity, involving hepatic, neuromuscular and/or cardiac symptoms.&#34;
@@ -9358,7 +10437,7 @@ prevalence:
     cites GeneReviews as the source for that estimate.
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 1 000 000 | Worldwide | Prevalence at birth | PMID:23285490&#34;
@@ -9495,7 +10574,7 @@ inheritance:
     biallelic pathogenic variants in GBE1.
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9586,7 +10665,7 @@ pathophysiology:
       abnormal muscle glycogen content.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0012269 | Abnormal muscle glycogen content | Very frequent (99-80%)&#34;
@@ -9654,8 +10733,8 @@ pathophysiology:
       intermediate mechanism from systemic polyglucosan storage is unresolved.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0011354 | Generalized abnormality of skin | Very frequent (99-80%)&#34;
       explanation: &gt;
@@ -9723,8 +10802,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003073 | Hypoalbuminemia | Frequent (79-30%)&#34;
       explanation: &gt;
@@ -9756,8 +10835,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001409 | Portal hypertension | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9768,8 +10847,8 @@ pathophysiology:
     description: Hepatic storage disease can produce combined liver and spleen enlargement.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001433 | Hepatosplenomegaly | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9792,8 +10871,8 @@ pathophysiology:
     description: Hepatic dysfunction can impair coagulation factor synthesis and prolong prothrombin time.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008151 | Prolonged prothrombin time | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9804,8 +10883,8 @@ pathophysiology:
     description: Hepatic dysfunction can produce broader coagulation abnormalities, including prolonged partial thromboplastin time.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003645 | Prolonged partial thromboplastin time | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9816,8 +10895,8 @@ pathophysiology:
     description: Portal-hypertension and liver-failure complications can include ascites.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001541 | Ascites | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9828,8 +10907,8 @@ pathophysiology:
     description: Portal-hypertension complications can include esophageal varices.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002040 | Esophageal varix | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9872,8 +10951,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0031331 | Abnormal cardiomyocyte morphology | Very frequent (99-80%)&#34;
       explanation: &gt;
@@ -9894,8 +10973,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001635 | Congestive heart failure | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -9965,8 +11044,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001270 | Motor delay | Frequent (79-30%)&#34;
       explanation: &gt;
@@ -9987,8 +11066,8 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002093 | Respiratory insufficiency | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -10009,8 +11088,8 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0500032 | Abnormal neuron branching | Very frequent (99-80%)&#34;
       explanation: &gt;
@@ -10050,8 +11129,8 @@ pathophysiology:
     description: Severe neuromuscular involvement can manifest as severe muscular hypotonia.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0006829 | Severe muscular hypotonia | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -10062,8 +11141,8 @@ pathophysiology:
     description: Chronic skeletal-muscle polyglucosan storage can manifest with skeletal muscle atrophy.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003202 | Skeletal muscle atrophy | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -10074,8 +11153,8 @@ pathophysiology:
     description: Severe fetal or neuromuscular involvement can be accompanied by flexion contractures.
     evidence:
     - reference: ORPHA:367
-      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001371 | Flexion contracture | Occasional (29-5%)&#34;
       explanation: &gt;
@@ -10173,7 +11252,7 @@ phenotypes:
       label: Hepatomegaly
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002240 | Hepatomegaly | Very frequent (99-80%)&#34;
@@ -10196,7 +11275,7 @@ phenotypes:
       label: Hepatosplenomegaly
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001433 | Hepatosplenomegaly | Occasional (29-5%)&#34;
@@ -10214,7 +11293,7 @@ phenotypes:
       label: Decreased liver function
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001410 | Decreased liver function | Very frequent (99-80%)&#34;
@@ -10238,7 +11317,7 @@ phenotypes:
       label: Abnormal muscle glycogen content
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012269 | Abnormal muscle glycogen content | Very frequent (99-80%)&#34;
@@ -10264,7 +11343,7 @@ phenotypes:
       label: Abnormal cardiomyocyte morphology
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0031331 | Abnormal cardiomyocyte morphology | Very frequent (99-80%)&#34;
@@ -10283,7 +11362,7 @@ phenotypes:
       label: Abnormal neuron branching
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0500032 | Abnormal neuron branching | Very frequent (99-80%)&#34;
@@ -10301,7 +11380,7 @@ phenotypes:
       label: Generalized abnormality of skin
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0011354 | Generalized abnormality of skin | Very frequent (99-80%)&#34;
@@ -10319,7 +11398,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -10343,7 +11422,7 @@ phenotypes:
       label: Motor delay
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001270 | Motor delay | Frequent (79-30%)&#34;
@@ -10361,7 +11440,7 @@ phenotypes:
       label: Generalized hypotonia
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001290 | Generalized hypotonia | Frequent (79-30%)&#34;
@@ -10385,7 +11464,7 @@ phenotypes:
       label: Severe muscular hypotonia
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006829 | Severe muscular hypotonia | Occasional (29-5%)&#34;
@@ -10403,7 +11482,7 @@ phenotypes:
       label: Myopathy
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003198 | Myopathy | Frequent (79-30%)&#34;
@@ -10428,7 +11507,7 @@ phenotypes:
       label: Skeletal muscle atrophy
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003202 | Skeletal muscle atrophy | Occasional (29-5%)&#34;
@@ -10446,7 +11525,7 @@ phenotypes:
       label: Flexion contracture
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001371 | Flexion contracture | Occasional (29-5%)&#34;
@@ -10464,7 +11543,7 @@ phenotypes:
       label: Dilated cardiomyopathy
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001644 | Dilated cardiomyopathy | Frequent (79-30%)&#34;
@@ -10488,7 +11567,7 @@ phenotypes:
       label: Elevated circulating hepatic transaminase concentration
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002910 | Elevated circulating hepatic transaminase concentration | Frequent (79-30%)&#34;
@@ -10526,7 +11605,7 @@ phenotypes:
       label: Hypoalbuminemia
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003073 | Hypoalbuminemia | Frequent (79-30%)&#34;
@@ -10544,7 +11623,7 @@ phenotypes:
       label: Prolonged prothrombin time
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008151 | Prolonged prothrombin time | Occasional (29-5%)&#34;
@@ -10562,7 +11641,7 @@ phenotypes:
       label: Prolonged partial thromboplastin time
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003645 | Prolonged partial thromboplastin time | Occasional (29-5%)&#34;
@@ -10580,7 +11659,7 @@ phenotypes:
       label: Cirrhosis
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001394 | Cirrhosis | Occasional (29-5%)&#34;
@@ -10604,7 +11683,7 @@ phenotypes:
       label: Hepatic failure
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001399 | Hepatic failure | Occasional (29-5%)&#34;
@@ -10628,7 +11707,7 @@ phenotypes:
       label: Portal hypertension
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001409 | Portal hypertension | Occasional (29-5%)&#34;
@@ -10645,7 +11724,7 @@ phenotypes:
       label: Ascites
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001541 | Ascites | Occasional (29-5%)&#34;
@@ -10662,7 +11741,7 @@ phenotypes:
       label: Esophageal varix
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002040 | Esophageal varix | Occasional (29-5%)&#34;
@@ -10680,7 +11759,7 @@ phenotypes:
       label: Congestive heart failure
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001635 | Congestive heart failure | Occasional (29-5%)&#34;
@@ -10698,7 +11777,7 @@ phenotypes:
       label: Respiratory distress
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002098 | Respiratory distress | Occasional (29-5%)&#34;
@@ -10721,7 +11800,7 @@ phenotypes:
       label: Respiratory insufficiency
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002093 | Respiratory insufficiency | Occasional (29-5%)&#34;
@@ -10739,7 +11818,7 @@ phenotypes:
       label: Fetal akinesia sequence
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001989 | Fetal akinesia sequence | Occasional (29-5%)&#34;
@@ -10763,7 +11842,7 @@ phenotypes:
       label: Polyhydramnios
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001561 | Polyhydramnios | Occasional (29-5%)&#34;
@@ -10786,7 +11865,7 @@ phenotypes:
       label: Nonimmune hydrops fetalis
   evidence:
   - reference: ORPHA:367
-    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to glycogen branching enzyme deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001790 | Nonimmune hydrops fetalis | Occasional (29-5%)&#34;
@@ -11527,7 +12606,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type IV", "mondoId": "MONDO:0009292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_IV", "yamlRevision": "e23024f02b84"};
+        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type IV", "mondoId": "MONDO:0009292", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_IV", "yamlRevision": "1ec5db4486b2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11946,5 +13025,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

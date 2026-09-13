@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>ALG12-congenital disorder of glycosylation</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>ALG12-congenital disorder of glycosylation</h1>
             <div class="header-meta">
 
@@ -3915,7 +4062,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3960,7 +4107,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3982,7 +4131,9 @@
                         <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4346,7 +4497,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12217961" target="_blank">PMID:12217961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4467,7 +4620,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4489,7 +4644,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4528,7 +4685,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4604,13 +4761,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4676,17 +4835,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ALG12 (hgnc:19358). hgnc:19358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ALG12
 
 
-    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19358</a>
+    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:19358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALG12 (hgnc:19358). hgnc:19358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4715,18 +4878,20 @@ This pathophysiological event involves ALG12 (hgnc:19358). hgnc:19358 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased dolichol-linked oligosaccharide biosynthetic process (GO:0006488). GO:0006488 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         dolichol-linked oligosaccharide biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006488" target="_blank" class="curie-chip curie-chip-go">GO:0006488</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006488" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006488</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dolichol-linked oligosaccharide biosynthetic process (GO:0006488). GO:0006488 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4752,18 +4917,20 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased mannosyltransferase activity (GO:0000030). GO:0000030 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mannosyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000030" target="_blank" class="curie-chip curie-chip-go">GO:0000030</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000030" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0000030</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased mannosyltransferase activity (GO:0000030). GO:0000030 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4789,18 +4956,20 @@ This pathophysiological event involves decreased mannosyltransferase activity (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4850,7 +5019,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4872,7 +5043,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4894,7 +5067,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12217961" target="_blank">PMID:12217961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4945,18 +5120,20 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5044,7 +5221,9 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5066,7 +5245,9 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5131,18 +5312,20 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5287,7 +5470,9 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5309,7 +5494,9 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5360,18 +5547,20 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5478,7 +5667,9 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5500,7 +5691,9 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5551,18 +5744,20 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5590,18 +5785,20 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5688,7 +5885,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5710,7 +5909,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5824,7 +6025,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12217961" target="_blank">PMID:12217961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5846,7 +6049,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5960,7 +6165,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5982,7 +6189,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6033,18 +6242,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal kidney development (GO:0001822). GO:0001822 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         kidney development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001822" target="_blank" class="curie-chip curie-chip-go">GO:0001822</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001822" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001822</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal kidney development (GO:0001822). GO:0001822 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6065,18 +6276,20 @@ This pathophysiological event involves abnormal kidney development (GO:0001822).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal skeletal system development (GO:0001501). GO:0001501 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         skeletal system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go">GO:0001501</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal skeletal system development (GO:0001501). GO:0001501 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6104,33 +6317,37 @@ This pathophysiological event involves abnormal skeletal system development (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON:0001434 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skeletal system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001434</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001434</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON:0001434 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6198,7 +6415,9 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6220,7 +6439,9 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6274,33 +6495,37 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON:0001434 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         skeletal system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001434</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0001434</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON:0001434 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6362,13 +6587,15 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6439,17 +6666,17 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6468,16 +6695,20 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004313</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased circulating immunoglobulin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp">HP:0004313</a>
-
-
+This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6498,7 +6729,9 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6530,16 +6763,20 @@ This clinical feature is Hypogammaglobulinemia, annotated with Decreased circula
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001928</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coagulation abnormalities, annotated with Abnormality of coagulation (HP:0001928). HP:0001928 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of coagulation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" class="curie-chip curie-chip-hp">HP:0001928</a>
-
-
+This clinical feature is Coagulation abnormalities, annotated with Abnormality of coagulation (HP:0001928). HP:0001928 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6560,7 +6797,9 @@ This clinical feature is Coagulation abnormalities, annotated with Abnormality o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6582,7 +6821,9 @@ This clinical feature is Coagulation abnormalities, annotated with Abnormality o
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6623,16 +6864,20 @@ This clinical feature is Coagulation abnormalities, annotated with Abnormality o
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp">HP:0001629</a>
-
-
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6647,13 +6892,15 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6669,13 +6916,15 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6706,676 +6955,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-dysmorphism" data-dismech-node="Facial dysmorphism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Facial dysmorphism
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal facial shape
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp">HP:0001999</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31481313" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ALG12-congenital disorder of glycosylation (ALG12-CDG) is a rare disorder caused by a deficiency of dolichol-P-mannose:Man7GlcNAc2-PP-dolichyl-α-6-mannosyltransferase which presents with intellectual disability, hypotonia, dysmorphic features, low IgG levels with recurrent infections, male..."</div>
-
-
-                <div class="evidence-explanation">The case-series abstract explicitly lists dysmorphic features in ALG12-CDG.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common phenotypes include intellectual disability, hypotonia, dysmorphic features, coagulation abnormalities and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">ClinGen independently lists dysmorphic features as common in ALG12-CDG.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent infections
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp">HP:0002719</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">The report lists recurrent infections among the currently reported ALG12-CDG features without restricting them to a specific organ system.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">The report lists hypotonia as a currently reported feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-dysplasia-like-abnormalities" data-dismech-node="Skeletal-dysplasia-like abnormalities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skeletal-dysplasia-like abnormalities
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Skeletal-dysplasia-like abnormalities, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the skeletal system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp">HP:0000924</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition, skeletal abnormalities resembling a skeletal dysplasia including shortened long bones and talipes equinovarus have been seen in more severe neonatal presentation of this disorder."</div>
-
-
-                <div class="evidence-explanation">The prenatal phenotype report supports skeletal abnormalities resembling a dysplasia in severe neonatal ALG12-CDG without establishing a specific skeletal dysplasia diagnosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scoliosis
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We here present an intriguing patient with an exceptional phenotype: 25-year-old women with a ventricular septal defect and severe idiopathic scoliosis but no facial dysmorphism, who dances as a professional, and has a University degree."</div>
-
-
-                <div class="evidence-explanation">The report establishes the single-patient co-occurrence but not that the scoliosis was caused by ALG12 deficiency.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In this context, we wonder what the contribution, if any, may be of the coexisting KMT2D variants and of the ALG6 variant."</div>
-
-
-                <div class="evidence-explanation">The authors explicitly identify other-gene variants as possible modifiers of the exceptional adult phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">The prenatal phenotype report summarizes developmental delay among reported ALG12-CDG features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual disability
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31481313" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ALG12-congenital disorder of glycosylation (ALG12-CDG) is a rare disorder caused by a deficiency of dolichol-P-mannose:Man7GlcNAc2-PP-dolichyl-α-6-mannosyltransferase which presents with intellectual disability, hypotonia, dysmorphic features, low IgG levels with recurrent infections, male..."</div>
-
-
-                <div class="evidence-explanation">The case-series abstract directly lists intellectual disability among ALG12-CDG presenting features.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common phenotypes include intellectual disability, hypotonia, dysmorphic features, coagulation abnormalities and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">ClinGen names intellectual disability as a common phenotype for this gene-disease assertion.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">The report lists failure to thrive among current features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
-
-
-                <div class="evidence-explanation">The report lists short stature as an alternate growth manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Genitourinary
                     <span class="cat-count">2</span>
                 </summary>
 
@@ -7385,16 +6965,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000050</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Male genital hypoplasia, annotated with Hypoplastic male external genitalia (HP:0000050). HP:0000050 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplastic male external genitalia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp">HP:0000050</a>
-
-
+This clinical feature is Male genital hypoplasia, annotated with Hypoplastic male external genitalia (HP:0000050). HP:0000050 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7415,7 +6999,9 @@ This clinical feature is Male genital hypoplasia, annotated with Hypoplastic mal
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7437,7 +7023,9 @@ This clinical feature is Male genital hypoplasia, annotated with Hypoplastic mal
                         <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7469,16 +7057,20 @@ This clinical feature is Male genital hypoplasia, annotated with Hypoplastic mal
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 is a phenotype from the Human Phenotype Ontology.">
-                        Multicystic kidney dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000003" target="_blank" class="curie-chip curie-chip-hp">HP:0000003</a>
-
-
+This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7499,7 +7091,9 @@ This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7510,6 +7104,739 @@ This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 i
 
 
                 <div class="evidence-explanation">This directly supports multicystic kidneys as a reported prenatal extension of the phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-dysmorphism" data-dismech-node="Facial dysmorphism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Facial dysmorphism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31481313" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ALG12-congenital disorder of glycosylation (ALG12-CDG) is a rare disorder caused by a deficiency of dolichol-P-mannose:Man7GlcNAc2-PP-dolichyl-α-6-mannosyltransferase which presents with intellectual disability, hypotonia, dysmorphic features, low IgG levels with recurrent infections, male..."</div>
+
+
+                <div class="evidence-explanation">The case-series abstract explicitly lists dysmorphic features in ALG12-CDG.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common phenotypes include intellectual disability, hypotonia, dysmorphic features, coagulation abnormalities and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">ClinGen independently lists dysmorphic features as common in ALG12-CDG.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent infections
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002719</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">The report lists recurrent infections among the currently reported ALG12-CDG features without restricting them to a specific organ system.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">The report lists hypotonia as a currently reported feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-dysplasia-like-abnormalities" data-dismech-node="Skeletal-dysplasia-like abnormalities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skeletal-dysplasia-like abnormalities
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the skeletal system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000924</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal-dysplasia-like abnormalities, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, skeletal abnormalities resembling a skeletal dysplasia including shortened long bones and talipes equinovarus have been seen in more severe neonatal presentation of this disorder."</div>
+
+
+                <div class="evidence-explanation">The prenatal phenotype report supports skeletal abnormalities resembling a dysplasia in severe neonatal ALG12-CDG without establishing a specific skeletal dysplasia diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We here present an intriguing patient with an exceptional phenotype: 25-year-old women with a ventricular septal defect and severe idiopathic scoliosis but no facial dysmorphism, who dances as a professional, and has a University degree."</div>
+
+
+                <div class="evidence-explanation">The report establishes the single-patient co-occurrence but not that the scoliosis was caused by ALG12 deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32530140" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this context, we wonder what the contribution, if any, may be of the coexisting KMT2D variants and of the ALG6 variant."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly identify other-gene variants as possible modifiers of the exceptional adult phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">The prenatal phenotype report summarizes developmental delay among reported ALG12-CDG features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Intellectual disability
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31481313" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ALG12-congenital disorder of glycosylation (ALG12-CDG) is a rare disorder caused by a deficiency of dolichol-P-mannose:Man7GlcNAc2-PP-dolichyl-α-6-mannosyltransferase which presents with intellectual disability, hypotonia, dysmorphic features, low IgG levels with recurrent infections, male..."</div>
+
+
+                <div class="evidence-explanation">The case-series abstract directly lists intellectual disability among ALG12-CDG presenting features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common phenotypes include intellectual disability, hypotonia, dysmorphic features, coagulation abnormalities and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">ClinGen names intellectual disability as a common phenotype for this gene-disease assertion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">The report lists failure to thrive among current features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38717015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently reported features of ALG12-CDG include: developmental delay, hypotonia, failure to thrive and/or short stature, brain anomalies, recurrent infections, hypogammaglobulinemia, coagulation abnormalities, and genitourinary abnormalities."</div>
+
+
+                <div class="evidence-explanation">The report lists short stature as an alternate growth manifestation.</div>
 
 
 
@@ -7577,15 +7904,17 @@ This clinical feature is Multicystic kidney dysplasia (HP:0000003). HP:0000003 i
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALG12
 
 
-    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19358</a>
+    <a href="https://bioregistry.io/hgnc:19358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:19358</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7611,7 +7940,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7633,7 +7964,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38717015" target="_blank">PMID:38717015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7655,7 +7988,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                         <a href="https://bioregistry.io/CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z" target="_blank">CGGV:assertion_21631e85-8133-4703-a77c-c046effb6e56-2023-02-15T200000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7685,6 +8020,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7701,18 +8039,18 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">immunoglobulin infusion therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">immunoglobulin infusion therapy</span>
+This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.">NCIT:C62710</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62710" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C62710">NCIT:C62710</a>
 
 
 
@@ -7737,21 +8075,31 @@ This treatment is immunoglobulin infusion therapy, annotated with Immunoglobulin
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses Therapeutic Immune Globulin (NCIT:C2701). NCIT:C2701 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         Therapeutic Immune Globulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2701" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C2701</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2701" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C2701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Therapeutic Immune Globulin (NCIT:C2701). NCIT:C2701 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7763,33 +8111,37 @@ This treatment uses Therapeutic Immune Globulin (NCIT:C2701). NCIT:C2701 is a th
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypogammaglobulinemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp">HP:0004313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002719</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7809,7 +8161,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38550576" target="_blank">PMID:38550576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7893,7 +8247,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7933,7 +8289,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8002,7 +8360,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8042,7 +8402,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8111,7 +8473,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8151,7 +8515,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8173,7 +8539,9 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32530140" target="_blank">PMID:32530140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8199,6 +8567,478 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-transferrin-isoelectric-focusing-screening">
+                <div class="item-name">
+                    Transferrin isoelectric focusing screening
+
+                </div>
+
+                <div class="item-desc">Transferrin isoelectric focusing can detect a type I protein N-glycosylation pattern, but that pattern is shared across multiple CDG subtypes and does not identify ALG12-CDG by itself.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical laboratory procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A type I transferrin hypoglycosylation pattern supports a disorder of early protein N-glycosylation and should prompt molecular subtype evaluation; it is not specific for ALG12-CDG.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34467644" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Due to a newborn Slovak patient&#39;s clinical and biochemical abnormalities, the isoelectric focusing of transferrin was performed with observed significant hypoglycosylation typical of CDG I."</div>
+
+
+                <div class="evidence-explanation">This patient result supports transferrin isoelectric focusing as a biochemical screen for a type I CDG pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31529350" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31529350" target="_blank">PMID:31529350</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We analyzed serum native transferrin, as first line test for CDG"</div>
+
+
+                <div class="evidence-explanation">This directly supports serum transferrin testing as a first-line CDG screen, without implying ALG12 specificity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-n-glycan-profiling">
+                <div class="item-name">
+                    Serum N-glycan profiling
+
+                </div>
+
+                <div class="item-desc">Mass-spectrometric serum N-glycan profiling identified an oligomannose pattern consistent with impaired ALG12 activity in one reported patient; its sensitivity and specificity as an ALG12-CDG diagnostic test are not established.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical laboratory procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Accumulation of GlcNAc2Man5-7 with decreased GlcNAc2Man8-9 can provide supporting biochemical evidence for impaired ALG12 activity, but molecular confirmation is required.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34467644" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Furthermore, analysis of neutral serum N-glycans by mass spectrometry revealed the accumulation of GlcNAc2Man5-7 and decreased levels of GlcNAc2Man8-9, which indicated impaired ALG12 enzymatic activity."</div>
+
+
+                <div class="evidence-explanation">This single-patient result supports the reported ALG12-associated glycomic signature without establishing population-level diagnostic performance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-alg12-molecular-genetic-testing">
+                <div class="item-name">
+                    ALG12 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis is established by identifying biallelic pathogenic or likely pathogenic ALG12 variants; compound-heterozygous alleles should be shown or inferred to be in trans. Compatible glycosylation findings can support variant interpretation but are not themselves ALG12-specific.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Homozygous or in-trans compound-heterozygous pathogenic or likely pathogenic ALG12 variants establish the molecular diagnosis; biochemical findings provide supporting pathway evidence.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34467644" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This comprehensive genomic and glycomic approach led to the confirmation of the ALG12 pathogenic variant responsible for the clinical manifestation of the disorder in the patient described."</div>
+
+
+                <div class="evidence-explanation">The case report directly supports combined genomic and glycomic confirmation of the diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37644541" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37644541" target="_blank">PMID:37644541</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CDG diagnosis has been at a rapid pace since the introduction of whole-exome/whole-genome sequencing as a diagnostic tool."</div>
+
+
+                <div class="evidence-explanation">This CDG-wide review supports genome-scale sequencing as a modern diagnostic approach for CDG; it is broader than ALG12-CDG alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-variable-severity">
+                <div class="item-name">Variable severity</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">ALG12-CDG severity ranges from mild adult presentations to fatal multisystem infantile disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31481313" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481313" target="_blank">PMID:31481313</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a unique family with three affected individuals, including two older brothers with only cognitive and coagulation defects and a younger brother who died from a severe multisystem disease at age 18 months. The two living brothers are the oldest and mildest cases of ALG12-CDG described thus far."</div>
+
+
+                <div class="evidence-explanation">The within-family case series directly contrasts the mildest and oldest reported survivors with a sibling who died from severe multisystem disease at 18 months.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global-published-literature">
+                <div class="item-name">Global published literature</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">As of 2021, the cited report stated that 15 patients had been diagnosed globally. This is a time-bounded diagnosed-case count from the literature, not a population prevalence estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34467644" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34467644" target="_blank">PMID:34467644</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, only 15 patients have been diagnosed with ALG12-CDG globally."</div>
+
+
+                <div class="evidence-explanation">The 2021 case report provides a direct published patient-count estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8214,7 +9054,7 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04199000">
                 <div class="item-name">
                     NCT04199000
 
@@ -8234,13 +9074,15 @@ This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenot
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT04199000" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT04199000" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04199000" target="_blank">clinicaltrials:NCT04199000</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8444,7 +9286,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We here present an intriguing patient with an exceptional phenotype:
@@ -8625,7 +9467,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32530140
       reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The relevance of N‐glycosylation for the folding, intracellular
@@ -8689,7 +9531,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32530140
       reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The relevance of N‐glycosylation for the folding, intracellular
@@ -8782,7 +9624,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32530140
       reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We here present an intriguing patient with an exceptional phenotype:
@@ -9204,7 +10046,7 @@ pathophysiology:
   evidence:
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We here present an intriguing patient with an exceptional phenotype:
@@ -9226,7 +10068,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32530140
       reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We here present an intriguing patient with an exceptional phenotype:
@@ -9247,7 +10089,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32530140
       reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We here present an intriguing patient with an exceptional phenotype:
@@ -9558,7 +10400,7 @@ phenotypes:
   evidence:
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We here present an intriguing patient with an exceptional phenotype:
@@ -9570,7 +10412,7 @@ phenotypes:
       ventricular septal defect was caused by ALG12 deficiency.
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In this context, we wonder what the contribution, if any, may be of the
@@ -9592,7 +10434,7 @@ phenotypes:
   evidence:
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We here present an intriguing patient with an exceptional phenotype:
@@ -9604,7 +10446,7 @@ phenotypes:
       scoliosis was caused by ALG12 deficiency.
   - reference: PMID:32530140
     reference_title: &#34;ALG12-CDG: An unusual patient without intellectual disability and facial dysmorphism, and with a novel variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In this context, we wonder what the contribution, if any, may be of the
@@ -9873,7 +10715,7 @@ diagnosis:
       confirmation of the diagnosis.
   - reference: PMID:37644541
     reference_title: &#34;Congenital disorders of glycosylation: narration of a story through its patents.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       CDG diagnosis has been at a rapid pace since the introduction of
@@ -9928,7 +10770,7 @@ clinical_trials:
   evidence:
   - reference: clinicaltrials:NCT04199000
     reference_title: Clinical and Basic Investigations Into Congenital Disorders of Glycosylation
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The purpose of this research is to study the natural history of
@@ -10626,7 +11468,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ALG12-congenital disorder of glycosylation", "mondoId": "MONDO:0011783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG12-congenital_disorder_of_glycosylation", "yamlRevision": "437e0d8e45e8"};
+        const OS_CONFIG = {"diseaseName": "ALG12-congenital disorder of glycosylation", "mondoId": "MONDO:0011783", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG12-congenital_disorder_of_glycosylation", "yamlRevision": "048ddbb5efd8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11045,5 +11887,73 @@ datasets: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

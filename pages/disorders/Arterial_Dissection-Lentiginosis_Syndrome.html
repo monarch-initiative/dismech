@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Arterial Dissection-Lentiginosis Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Arterial Dissection-Lentiginosis Syndrome</h1>
             <div class="header-meta">
 
@@ -3969,7 +4116,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-clinical-definition">
                 <div class="item-name">Orphanet clinical definition</div>
 
                 <div class="item-desc">An association of early arterial dissection, cystic medial necrosis, and multiple lentigines, with symptoms determined by the vascular territory involved.</div>
@@ -4013,7 +4160,9 @@
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4049,7 +4198,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-unknown-inheritance">
                 <div class="item-name">
                     Unknown inheritance
 
@@ -4076,7 +4225,9 @@
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-natural_history/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-natural_history/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4144,18 +4295,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4183,18 +4336,20 @@ This pathophysiological event involves neural crest cell (CL:0011012). CL:001101
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural crest cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0014032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4276,13 +4431,15 @@ This pathophysiological event involves abnormal neural crest cell development (G
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1046/j.1365-2796.1998.00341.x" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1046/j.1365-2796.1998.00341.x" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1046/j.1365-2796.1998.00341.x" target="_blank">DOI:10.1046/j.1365-2796.1998.00341.x</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4325,18 +4482,20 @@ This pathophysiological event involves abnormal neural crest cell development (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001637" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001637</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001637" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001637</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4398,7 +4557,9 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4431,18 +4592,20 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4497,13 +4660,15 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1046/j.1365-2796.1998.00341.x" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1046/j.1365-2796.1998.00341.x" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1046/j.1365-2796.1998.00341.x" target="_blank">DOI:10.1046/j.1365-2796.1998.00341.x</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4538,7 +4703,7 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cystic-medial-necrosis">
                 <div class="item-name">
                     Cystic medial necrosis
 
@@ -4560,7 +4725,9 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4624,9 +4791,11 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4635,26 +4804,133 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">3</span>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-dissection" data-dismech-node="Arterial dissection" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Headache
+                        Arterial dissection
+
+                        <span class="phenotype-freq">Very frequent</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0005294</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-                        Headache
+This clinical feature is Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by arterial dissection, occurring at an early age"</div>
+
+
+                <div class="evidence-explanation">The current syndrome definition directly identifies early arterial dissection as a core feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
+
+
+                <div class="evidence-explanation">The Orphadata HPO association table classifies arterial dissection as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-lentigines" data-dismech-node="Multiple lentigines" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Multiple lentigines
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4675,7 +4951,86 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple lentigines (brown and black in color and mainly affecting the skin of the trunk and extremities)"</div>
+
+
+                <div class="evidence-explanation">Orphadata directly defines the morphology and distribution of the lentigines.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Headache
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4707,16 +5062,20 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.">
-                        Aphasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp">HP:0002381</a>
-
-
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4737,7 +5096,9 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4771,16 +5132,20 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001269</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.">
-                        Hemiparesis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp">HP:0001269</a>
-
-
+This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4801,7 +5166,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4823,7 +5190,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
                         <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4834,163 +5203,6 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
                 <div class="evidence-explanation">The structured Orphadata HPO association classifies hemiparesis as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-dissection" data-dismech-node="Arterial dissection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arterial dissection
-
-                        <span class="phenotype-freq">Very frequent</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.">
-                        Arterial dissection
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp">HP:0005294</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by arterial dissection, occurring at an early age"</div>
-
-
-                <div class="evidence-explanation">The current syndrome definition directly identifies early arterial dissection as a core feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-phenotypes/orphacodes/1682</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"&#34;HPOFrequency&#34;: &#34;Very frequent (99-80%)&#34;"</div>
-
-
-                <div class="evidence-explanation">The Orphadata HPO association table classifies arterial dissection as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-lentigines" data-dismech-node="Multiple lentigines" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Multiple lentigines
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a phenotype from the Human Phenotype Ontology.">
-                        Multiple lentigines
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001003" target="_blank" class="curie-chip curie-chip-hp">HP:0001003</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"multiple lentigines (brown and black in color and mainly affecting the skin of the trunk and extremities)"</div>
-
-
-                <div class="evidence-explanation">Orphadata directly defines the morphology and distribution of the lentigines.</div>
 
 
 
@@ -5042,6 +5254,83 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-arterial-dissection-lentiginosis-syndrome-record">
+
+
+    <div class="item-name">Orphanet arterial dissection-lentiginosis syndrome record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank" rel="noopener noreferrer" title="Open ORPHA:1682">ORPHA:1682</a>
+
+
+    </div>
+
+    <div class="item-desc">The current Orphadata record supplies the preferred name, clinical definition, exact MONDO and OMIM mappings, epidemiology, age of onset, inheritance status, and structured HPO associations used in this entry.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;Preferred term&#34;: &#34;Arterial dissection-lentiginosis syndrome&#34;"</div>
+
+
+                <div class="evidence-explanation">The current Orphadata cross-reference record identifies ORPHA:1682 by the same preferred disease name.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5064,6 +5353,14 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">When ADL manifests as cervical artery dissection, antiplatelet or anticoagulant therapy may be considered using general cervical-dissection practice. Evidence does not establish a single preferred strategy, and ischemic benefit must be balanced against bleeding risk. This is territory-specific supportive management, not an ADL-specific or disease-modifying treatment.</div>
 
 
@@ -5072,18 +5369,20 @@ This clinical feature is Multiple lentigines (HP:0001003). HP:0001003 is a pheno
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Arterial dissection
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp">HP:0005294</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0005294</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5103,7 +5402,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38739383" target="_blank">PMID:38739383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5125,7 +5426,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38847098" target="_blank">PMID:38847098</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5157,6 +5460,498 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-syndromic-clinical-recognition">
+                <div class="item-name">
+                    Syndromic clinical recognition
+
+                </div>
+
+                <div class="item-desc">Diagnosis is clinical and rests on the unusual association of early arterial dissection, multiple lentigines, and cystic medial necrosis. No validated diagnostic criteria or syndrome-specific molecular confirmatory test were identified.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Early arterial dissection plus characteristic multiple lentigines supports recognition of the syndrome; medial pathology may add corroboration when tissue is available.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by arterial dissection, occurring at an early age and presenting with a range of manifestations depending on the vascular territory involved"</div>
+
+
+                <div class="evidence-explanation">The Orphadata definition supplies the syndrome-defining clinical association.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-angiographic-evaluation-of-suspected-arterial-dissection">
+                <div class="item-name">
+                    Angiographic evaluation of suspected arterial dissection
+
+                </div>
+
+                <div class="item-desc">Image symptomatic vascular territories to confirm dissection and define its extent. Magnetic resonance angiography is one option for cervical arterial involvement; modality and urgency should follow the affected territory and local acute-care practice.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        angiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190556" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C190556</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Demonstrates the site and extent of arterial dissection or related aneurysmal change.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11128183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11128183" target="_blank">PMID:11128183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Magnetic resonance imaging has largely surpassed angiography as the imaging study of choice."</div>
+
+
+                <div class="evidence-explanation">General cervical-dissection evidence supports MR-based vascular imaging; no ADL-specific surveillance schedule is established.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-arterial-dissection-on-angiographic-imaging">
+                <div class="item-name">
+                    Arterial dissection on angiographic imaging
+
+                </div>
+
+                <div class="item-desc">Imaging can demonstrate dissection in the symptomatic arterial territory. The available cached diagnostic evidence is for spontaneous carotid and vertebral dissections generally, not for an ADL-specific screening protocol.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Angiography</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Arterial dissection
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005294" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11128183" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11128183" target="_blank">PMID:11128183</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Magnetic resonance imaging has largely surpassed angiography as the imaging study of choice."</div>
+
+
+                <div class="evidence-explanation">The review supports MR-based diagnosis for cervical arterial dissection but is not syndrome-specific.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Orphanet assigns childhood onset to the syndrome as a whole; the source does not provide a quantitative age distribution for individual findings.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-natural_history/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-natural_history/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-natural_history/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;Childhood&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata lists childhood as the average age-of-onset category.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-arterial-dissection">
+                <div class="item-name">Arterial dissection</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Early age, not further quantified</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Dissection is episodic and its presentation depends on vascular territory; no syndrome-specific longitudinal natural-history series was identified.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"arterial dissection, occurring at an early age and presenting with a range of manifestations depending on the vascular territory involved"</div>
+
+
+                <div class="evidence-explanation">The current definition describes early dissection with territory-dependent manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphadata classifies worldwide point prevalence as below one per million and separately records four cases; its definition describes affected members of two families. These values reflect published case ascertainment, not a population survey.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;PrevalenceClass&#34;: &#34;&lt;1 / 1 000 000&#34;"</div>
+
+
+                <div class="evidence-explanation">Orphadata reports a validated worldwide point-prevalence class below one per million.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682" target="_blank">url:https://api.orphadata.com/rd-epidemiology/orphacodes/1682</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&#34;ValMoy&#34;: &#34;4.0&#34;"</div>
+
+
+                <div class="evidence-explanation">The cases/families prevalence row records four published cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5171,7 +5966,7 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-vascular-ehlers-danlos-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Vascular_Ehlers-Danlos_Syndrome.html">Vascular Ehlers-Danlos syndrome</a>
@@ -5214,7 +6009,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28607545" target="_blank">PMID:28607545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5239,7 +6036,7 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-loeys-dietz-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Loeys-Dietz_Syndrome.html">Loeys-Dietz syndrome</a>
@@ -5282,7 +6079,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28607545" target="_blank">PMID:28607545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5307,7 +6106,7 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-noonan-syndrome-with-multiple-lentigines">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Noonan_Syndrome_with_Multiple_Lentigines.html">Noonan syndrome with multiple lentigines</a>
@@ -5350,7 +6149,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16523510" target="_blank">PMID:16523510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5375,7 +6176,7 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-peutz-jeghers-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Peutz-Jeghers_syndrome.html">Peutz-Jeghers syndrome</a>
@@ -5416,7 +6217,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="https://bioregistry.io/DOI:10.1159/000053283" target="_blank">DOI:10.1159/000053283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5441,10 +6244,10 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-carney-complex">
                 <div class="item-name">
 
-                    Carney complex
+                    <a class="item-name-link" href="Carney_Complex.html">Carney complex</a>
 
 
                 </div>
@@ -5482,7 +6285,9 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
                         <a href="https://bioregistry.io/DOI:10.1159/000053283" target="_blank">DOI:10.1159/000053283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5536,7 +6341,6 @@ This treatment targets Arterial dissection (HP:0005294). HP:0005294 is a phenoty
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Arterial Dissection-Lentiginosis Syndrome
 creation_date: &#34;2026-05-05T15:37:54Z&#34;
-updated_date: &#34;2026-05-06T22:30:37Z&#34;
 description: &gt;-
   Arterial dissection-lentiginosis syndrome is an ultra-rare familial
   association syndrome reported in several members of two families. It is
@@ -5689,7 +6493,7 @@ pathophysiology:
   evidence:
   - reference: DOI:10.1046/j.1365-2796.1998.00341.x
     reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       are involved in the function, growth and proliferation of neural crest
@@ -5707,7 +6511,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.1046/j.1365-2796.1998.00341.x
       reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         are involved in the function, growth and proliferation of neural crest
@@ -5723,7 +6527,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.1046/j.1365-2796.1998.00341.x
       reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         important regulators of melanocyte function, they participate in the
@@ -5758,7 +6562,7 @@ pathophysiology:
     evidence:
     - reference: url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1682
       reference_title: &#34;https://api.orphadata.com/rd-cross-referencing/orphacodes/1682&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         characterized by arterial dissection, occurring at an early age and
@@ -5819,7 +6623,7 @@ pathophysiology:
   evidence:
   - reference: DOI:10.1046/j.1365-2796.1998.00341.x
     reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       genes responsible for the lentiginosis syndromes are important regulators
@@ -5832,7 +6636,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.1046/j.1365-2796.1998.00341.x
       reference_title: &#34;Carney complex and the familial lentiginosis syndromes: link to inherited neoplasias and developmental disorders, and genetic loci&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         important regulators of melanocyte function, they participate in the
@@ -5963,7 +6767,7 @@ imaging_findings:
   evidence:
   - reference: PMID:11128183
     reference_title: The treatment of spontaneous carotid and vertebral artery dissections.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Magnetic resonance imaging has largely surpassed angiography as the imaging study of choice.
     explanation: The review supports MR-based diagnosis for cervical arterial dissection but is not syndrome-specific.
@@ -6000,7 +6804,7 @@ diagnosis:
   evidence:
   - reference: PMID:11128183
     reference_title: The treatment of spontaneous carotid and vertebral artery dissections.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Magnetic resonance imaging has largely surpassed angiography as the imaging study of choice.
     explanation: General cervical-dissection evidence supports MR-based vascular imaging; no ADL-specific surveillance schedule is established.
@@ -8039,7 +8843,7 @@ Spontaneous arterial dissection → Stroke, hemorrhage
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arterial Dissection-Lentiginosis Syndrome", "mondoId": "MONDO:0010889", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Dissection-Lentiginosis_Syndrome", "yamlRevision": "c209c6f7b979"};
+        const OS_CONFIG = {"diseaseName": "Arterial Dissection-Lentiginosis Syndrome", "mondoId": "MONDO:0010889", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arterial_Dissection-Lentiginosis_Syndrome", "yamlRevision": "a7e596ce9445"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8458,5 +9262,73 @@ Spontaneous arterial dissection → Stroke, hemorrhage
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

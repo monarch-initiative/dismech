@@ -169,6 +169,9 @@ TERM_ROLES: dict[str, TermRole] = {
     "treatment.therapeutic_agent": TermRole("This treatment", "uses", "therapeutic agent"),
     "treatment.food": TermRole("This dietary modification", "concerns", "food"),
     "treatment.target_phenotype": TermRole("This treatment", "targets", "phenotype"),
+    "treatment.target_gene": TermRole(
+        "This treatment", "base-pairs with the transcript of", "gene"
+    ),
     # Environmental factors
     "environment.exposure_term": TermRole("This environmental factor", "is", "exposure"),
     "environment.environment_context": TermRole(

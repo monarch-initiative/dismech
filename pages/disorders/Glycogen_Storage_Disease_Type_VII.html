@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Glycogen Storage Disease Type VII</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Glycogen Storage Disease Type VII</h1>
             <div class="header-meta">
 
@@ -3956,7 +4103,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3999,7 +4146,9 @@
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4063,17 +4212,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PFKM (hgnc:8877). hgnc:8877 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PFKM
 
 
-    <a href="https://bioregistry.io/hgnc:8877" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8877</a>
+    <a href="https://bioregistry.io/hgnc:8877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8877</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PFKM (hgnc:8877). hgnc:8877 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4102,18 +4255,20 @@ This pathophysiological event involves PFKM (hgnc:8877). hgnc:8877 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4139,18 +4294,20 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         6-phosphofructokinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go">GO:0003872</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003872</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4223,7 +4380,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4245,7 +4404,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22995305" target="_blank">PMID:22995305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4278,18 +4439,20 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4317,18 +4480,20 @@ This pathophysiological event involves Skeletal muscle cell, annotated with cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4354,18 +4519,20 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         6-phosphofructokinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go">GO:0003872</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0003872</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4518,7 +4685,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4540,7 +4709,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4573,18 +4744,20 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4612,18 +4785,20 @@ This pathophysiological event involves Skeletal muscle cell, annotated with cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased pentose-phosphate shunt (GO:0006098). GO:0006098 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         pentose-phosphate shunt
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006098" target="_blank" class="curie-chip curie-chip-go">GO:0006098</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006098" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased pentose-phosphate shunt (GO:0006098). GO:0006098 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4644,18 +4819,20 @@ This pathophysiological event involves increased pentose-phosphate shunt (GO:000
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased purine ribonucleotide catabolic process (GO:0009154). GO:0009154 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         purine ribonucleotide catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009154" target="_blank" class="curie-chip curie-chip-go">GO:0009154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0009154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased purine ribonucleotide catabolic process (GO:0009154). GO:0009154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4721,7 +4898,9 @@ This pathophysiological event involves increased purine ribonucleotide catabolic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4743,7 +4922,9 @@ This pathophysiological event involves increased purine ribonucleotide catabolic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4776,18 +4957,20 @@ This pathophysiological event involves increased purine ribonucleotide catabolic
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4815,18 +4998,20 @@ This pathophysiological event involves Erythrocyte (CL:0000232). CL:0000232 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4852,18 +5037,20 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         6-phosphofructokinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go">GO:0003872</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003872" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0003872</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 6-phosphofructokinase activity (GO:0003872). GO:0003872 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4928,7 +5115,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22995305" target="_blank">PMID:22995305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4950,7 +5139,9 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5017,17 +5208,15 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5037,7 +5226,7 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-anemia" data-dismech-node="Hemolytic anemia" data-dismech-type="phenotype">
@@ -5048,16 +5237,20 @@ This pathophysiological event involves decreased 6-phosphofructokinase activity 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.">
-                        Hemolytic anemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp">HP:0001878</a>
-
-
+This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5078,7 +5271,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5100,7 +5295,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5122,7 +5319,9 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22995305" target="_blank">PMID:22995305</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5133,6 +5332,74 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
                 <div class="evidence-explanation">This paper supports compensated hemolysis as part of GSD VII.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-erythrocyte-2-3-diphosphoglycerate-concentration" data-dismech-node="Reduced erythrocyte 2,3-diphosphoglycerate concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced erythrocyte 2,3-diphosphoglycerate concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0030271</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced erythrocyte 2,3-diphosphoglycerate concentration (HP:0030271). HP:0030271 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6227635" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6227635" target="_blank">PMID:6227635</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the levels of hexose monophosphates were elevated and those of 2,3-diphosphoglycerate (2,3-DPG) were depressed"</div>
+
+
+                <div class="evidence-explanation">The study reports depressed erythrocyte 2,3-DPG in symptomatic phosphofructokinase deficiency.</div>
 
 
 
@@ -5163,16 +5430,20 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002913</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype from the Human Phenotype Ontology.">
-                        Myoglobinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp">HP:0002913</a>
-
-
+This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5193,7 +5464,9 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5225,27 +5498,31 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperuricemia" data-dismech-node="Hyperuricemia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-muscle-glycogen-content" data-dismech-node="Increased muscle glycogen content" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hyperuricemia
+                        Increased muscle glycogen content
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009051</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperuricemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp">HP:0002149</a>
-
-
+This clinical feature is Increased muscle glycogen content (HP:0009051). HP:0009051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5266,7 +5543,79 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0009051 | Increased muscle glycogen content | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists increased muscle glycogen content as a very frequent phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperuricemia" data-dismech-node="Hyperuricemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperuricemia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002149</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5277,6 +5626,74 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
 
 
                 <div class="evidence-explanation">Orphanet lists hyperuricemia as a frequent phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-muscle-6-phosphofructokinase-activity" data-dismech-node="Reduced muscle 6-phosphofructokinase activity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced muscle 6-phosphofructokinase activity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:6000359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced muscle 6-phosphofructokinase activity (HP:6000359). HP:6000359 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6227635" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6227635" target="_blank">PMID:6227635</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They showed total lack of muscle-type PFK"</div>
+
+
+                <div class="evidence-explanation">The study directly reports absent muscle-type PFK in symptomatic GSD VII patients.</div>
 
 
 
@@ -5309,16 +5726,20 @@ This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002486</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.">
-                        Myotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp">HP:0002486</a>
-
-
+This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,7 +5760,9 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5373,16 +5796,20 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
-                        Muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
-
-
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5403,7 +5830,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5437,16 +5866,20 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003202</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.">
-                        Skeletal muscle atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp">HP:0003202</a>
-
-
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5467,7 +5900,9 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5499,16 +5934,22 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Muscle spasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.">
-                        Muscle spasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp">HP:0003394</a>
-
-
+This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5529,7 +5970,9 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5561,16 +6004,20 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003201</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.">
-                        Rhabdomyolysis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp">HP:0003201</a>
-
-
+This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5591,7 +6038,9 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5632,16 +6081,20 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.">
-                        Exercise intolerance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp">HP:0003546</a>
-
-
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5662,7 +6115,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5694,16 +6149,20 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
-                        Myalgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
-
-
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5724,7 +6183,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5735,203 +6196,6 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                 <div class="evidence-explanation">The clinical report directly links GSD VII to myalgia accompanying exercise intolerance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-muscle-glycogen-content" data-dismech-node="Increased muscle glycogen content" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased muscle glycogen content
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased muscle glycogen content (HP:0009051). HP:0009051 is a phenotype from the Human Phenotype Ontology.">
-                        Increased muscle glycogen content
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009051" target="_blank" class="curie-chip curie-chip-hp">HP:0009051</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:371" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0009051 | Increased muscle glycogen content | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet lists increased muscle glycogen content as a very frequent phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-muscle-6-phosphofructokinase-activity" data-dismech-node="Reduced muscle 6-phosphofructokinase activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced muscle 6-phosphofructokinase activity
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced muscle 6-phosphofructokinase activity (HP:6000359). HP:6000359 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced muscle 6-phosphofructokinase activity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000359" target="_blank" class="curie-chip curie-chip-hp">HP:6000359</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:6227635" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6227635" target="_blank">PMID:6227635</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They showed total lack of muscle-type PFK"</div>
-
-
-                <div class="evidence-explanation">The study directly reports absent muscle-type PFK in symptomatic GSD VII patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-erythrocyte-2-3-diphosphoglycerate-concentration" data-dismech-node="Reduced erythrocyte 2,3-diphosphoglycerate concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced erythrocyte 2,3-diphosphoglycerate concentration
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced erythrocyte 2,3-diphosphoglycerate concentration (HP:0030271). HP:0030271 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced erythrocyte 2,3-diphosphoglycerate concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030271" target="_blank" class="curie-chip curie-chip-hp">HP:0030271</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:6227635" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6227635" target="_blank">PMID:6227635</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the levels of hexose monophosphates were elevated and those of 2,3-diphosphoglycerate (2,3-DPG) were depressed"</div>
-
-
-                <div class="evidence-explanation">The study reports depressed erythrocyte 2,3-DPG in symptomatic phosphofructokinase deficiency.</div>
 
 
 
@@ -5997,15 +6261,17 @@ This clinical feature is Reduced erythrocyte 2,3-diphosphoglycerate concentratio
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PFKM (hgnc:8877). hgnc:8877 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PFKM
 
 
-    <a href="https://bioregistry.io/hgnc:8877" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8877</a>
+    <a href="https://bioregistry.io/hgnc:8877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:8877</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PFKM (hgnc:8877). hgnc:8877 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6033,7 +6299,9 @@ This disease-associated gene is PFKM (hgnc:8877). hgnc:8877 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39156960" target="_blank">PMID:39156960</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6063,6 +6331,9 @@ This disease-associated gene is PFKM (hgnc:8877). hgnc:8877 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6079,18 +6350,18 @@ This disease-associated gene is PFKM (hgnc:8877). hgnc:8877 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">ketogenic diet intake<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">ketogenic diet intake</span>
+This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ketogenic Diet</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">NCIT:C173168</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C173168">NCIT:C173168</a>
 
 
 
@@ -6108,6 +6379,14 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6141,7 +6420,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6163,7 +6444,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6208,7 +6491,9 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6238,48 +6523,54 @@ This treatment is ketogenic diet intake, annotated with Ketogenic Diet (NCIT:C17
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myalgia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Muscle cramps
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp">HP:0003394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003394</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6299,7 +6590,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6321,7 +6614,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32117019" target="_blank">PMID:32117019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6405,7 +6700,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6445,7 +6742,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6514,7 +6813,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6554,7 +6855,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6623,7 +6926,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6663,7 +6968,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6685,7 +6992,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6754,7 +7063,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6794,7 +7105,9 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18421897" target="_blank">PMID:18421897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6818,6 +7131,459 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exercise-lactate-and-ammonia-profiling">
+                <div class="item-name">
+                    Exercise lactate and ammonia profiling
+
+                </div>
+
+                <div class="item-desc">Maximal exercise testing with lactate and ammonia follow-up can reveal the Tarui disease pattern and help direct genetic testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        exercise lactate and ammonia profiling
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Low lactate during exercise with delayed post-exercise lactate rise and high ammonia.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27303362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In diagnostic setting, we recommend to utilize maximal bicycle spiroergometry with sufficiently long (30–40 min) follow-up of ammonia and lactate levels after exercise."</div>
+
+
+                <div class="evidence-explanation">The study explicitly recommends post-exercise ammonia and lactate follow-up for diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pfkm-molecular-genetic-testing">
+                <div class="item-name">
+                    PFKM molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Sequencing can identify biallelic PFKM pathogenic variants that confirm GSD VII.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of pathogenic PFKM variants.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39156960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39156960" target="_blank">PMID:39156960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole genome sequencing (WGS) and whole exome sequencing (WES) identified two compound heterozygous mutations in the PFKM (NM_000289.6) gene: c.626G&gt;A and c.1376G&gt;A in exons 7 and 15, respectively."</div>
+
+
+                <div class="evidence-explanation">This case report demonstrates confirmatory detection of PFKM variants by genomic sequencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-muscle-biopsy-and-phosphofructokinase-activity-testing">
+                <div class="item-name">
+                    Muscle biopsy and phosphofructokinase activity testing
+
+                </div>
+
+                <div class="item-desc">Muscle biopsy can show glycogen deposition and enzyme studies can demonstrate reduced phosphofructokinase activity.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        biopsy of muscle tissue
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51895" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C51895</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Muscle glycogen deposition with reduced phosphofructokinase activity.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27303362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27303362" target="_blank">PMID:27303362</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both patients with Tarui disease showed in muscle electron microscopic analysis extra lysosomal glycogen accumulations. Although phosphofructokinase staining was normal, the whole-exome sequencing revealed a causative homozygous PFKM gene defect, R39Q, in both siblings establishing the diagnosis..."</div>
+
+
+                <div class="evidence-explanation">This human study supports muscle glycogen accumulation together with reduced muscle phosphofructokinase activity testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-to-adult-exertional-myopathy">
+                <div class="item-name">Childhood-to-adult exertional myopathy</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy through adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Orphanet records onset from infancy through adulthood and describes the classic presentation as childhood or adolescent exertional fatigue and muscular exercise intolerance.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Childhood"</div>
+
+
+                <div class="evidence-explanation">Orphanet records childhood onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Adolescent"</div>
+
+
+                <div class="evidence-explanation">Orphanet records adolescent onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports worldwide point prevalence below 1 per 1,000,000.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:371" target="_blank">ORPHA:371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:18421897"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the worldwide point-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6851,7 +7617,6 @@ This treatment targets Muscle cramps, annotated with Muscle spasm (HP:0003394). 
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Glycogen Storage Disease Type VII
 creation_date: &#34;2026-05-11T13:32:18Z&#34;
-updated_date: &#34;2026-05-20T16:14:00Z&#34;
 category: Mendelian
 synonyms:
 - Glycogen storage disease due to muscle phosphofructokinase deficiency
@@ -6891,7 +7656,7 @@ prevalence:
   notes: Orphanet reports worldwide point prevalence below 1 per 1,000,000.
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:18421897&#34;
@@ -6905,7 +7670,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -6919,13 +7684,13 @@ progression:
     muscular exercise intolerance.
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Childhood&#34;
     explanation: Orphanet records childhood onset.
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Adolescent&#34;
@@ -6954,7 +7719,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;PFKM | phosphofructokinase, muscle | hgnc:8877 | Disease-causing germline mutation(s) in&#34;
@@ -7221,7 +7986,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:371
-      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002486 | Myotonia | Very frequent (99-80%)&#34;
@@ -7231,7 +7996,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:371
-      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003202 | Skeletal muscle atrophy | Frequent (79-30%)&#34;
@@ -7420,7 +8185,7 @@ phenotypes:
       label: Hemolytic anemia
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001903 | Anemia | Very frequent (99-80%)&#34;
@@ -7453,7 +8218,7 @@ phenotypes:
       label: Myotonia
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002486 | Myotonia | Very frequent (99-80%)&#34;
@@ -7467,7 +8232,7 @@ phenotypes:
       label: Increased muscle glycogen content
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0009051 | Increased muscle glycogen content | Very frequent (99-80%)&#34;
@@ -7481,7 +8246,7 @@ phenotypes:
       label: Muscle weakness
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001324 | Muscle weakness | Frequent (79-30%)&#34;
@@ -7495,7 +8260,7 @@ phenotypes:
       label: Hyperuricemia
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002149 | Hyperuricemia | Frequent (79-30%)&#34;
@@ -7509,7 +8274,7 @@ phenotypes:
       label: Skeletal muscle atrophy
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003202 | Skeletal muscle atrophy | Frequent (79-30%)&#34;
@@ -7729,7 +8494,7 @@ biochemical:
       explanation: Human muscle electron microscopy documents glycogen accumulation in Tarui disease.
   evidence:
   - reference: ORPHA:371
-    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0009051 | Increased muscle glycogen content | Very frequent (99-80%)&#34;
@@ -7930,7 +8695,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: ORPHA:371
-      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Glycogen storage disease due to muscle phosphofructokinase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;PFKM | phosphofructokinase, muscle | hgnc:8877 | Disease-causing germline mutation(s) in&#34;
@@ -8357,7 +9122,7 @@ genetic:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type VII", "mondoId": "MONDO:0009295", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_VII", "yamlRevision": "43a1e12405a9"};
+        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type VII", "mondoId": "MONDO:0009295", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_VII", "yamlRevision": "db064846467c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8776,5 +9541,73 @@ genetic:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

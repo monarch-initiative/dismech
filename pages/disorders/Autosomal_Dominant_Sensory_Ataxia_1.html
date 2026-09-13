@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Autosomal Dominant Sensory Ataxia 1</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Dominant Sensory Ataxia 1</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autosomal%20Dominant%20Sensory%20Ataxia%201"
@@ -3862,7 +4009,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">15</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3931,29 +4078,107 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4024,7 +4249,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4069,7 +4294,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4091,7 +4318,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4196,7 +4425,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4218,7 +4449,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4240,7 +4473,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4344,7 +4579,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4366,7 +4603,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4453,7 +4692,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4475,7 +4716,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4598,6 +4841,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4636,6 +4885,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4694,6 +4949,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4717,7 +4978,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4739,7 +5002,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4761,7 +5026,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39177409" target="_blank">PMID:39177409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4872,6 +5139,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4910,6 +5183,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4968,6 +5247,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4991,7 +5276,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5102,6 +5389,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5140,6 +5433,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5198,6 +5497,12 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5221,7 +5526,9 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5273,17 +5580,21 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:25358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5314,18 +5625,20 @@ This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum membrane (GO:0005789). GO:0005789 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" class="curie-chip curie-chip-go">GO:0005789</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005789</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum membrane (GO:0005789). GO:0005789 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5362,7 +5675,9 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5384,7 +5699,9 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21610068" target="_blank">PMID:21610068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5449,18 +5766,20 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased protein autoubiquitination (GO:0051865). GO:0051865 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein autoubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051865" target="_blank" class="curie-chip curie-chip-go">GO:0051865</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051865" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0051865</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein autoubiquitination (GO:0051865). GO:0051865 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5481,18 +5800,20 @@ This pathophysiological event involves increased protein autoubiquitination (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5513,18 +5834,20 @@ This pathophysiological event involves increased proteasome-mediated ubiquitin-d
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased protein destabilization (GO:0031648). GO:0031648 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein destabilization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031648" target="_blank" class="curie-chip curie-chip-go">GO:0031648</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031648" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031648</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein destabilization (GO:0031648). GO:0031648 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5619,7 +5942,9 @@ This pathophysiological event involves increased protein destabilization (GO:003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5670,17 +5995,21 @@ This pathophysiological event involves increased protein destabilization (GO:003
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:25358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5705,17 +6034,21 @@ This pathophysiological event involves RNF170 (hgnc:25358). hgnc:25358 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ITPR1
 
 
-    <a href="https://bioregistry.io/hgnc:6180" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6180</a>
+    <a href="https://bioregistry.io/hgnc:6180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:6180</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5740,17 +6073,21 @@ This pathophysiological event involves ITPR1 (hgnc:6180). hgnc:6180 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ERLIN1 (hgnc:16947). hgnc:16947 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ERLIN1
 
 
-    <a href="https://bioregistry.io/hgnc:16947" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16947</a>
+    <a href="https://bioregistry.io/hgnc:16947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:16947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERLIN1 (hgnc:16947). hgnc:16947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5775,17 +6112,21 @@ This pathophysiological event involves ERLIN1 (hgnc:16947). hgnc:16947 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ERLIN2 (hgnc:1356). hgnc:1356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ERLIN2
 
 
-    <a href="https://bioregistry.io/hgnc:1356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1356</a>
+    <a href="https://bioregistry.io/hgnc:1356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:1356</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERLIN2 (hgnc:1356). hgnc:1356 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5810,17 +6151,21 @@ This pathophysiological event involves ERLIN2 (hgnc:1356). hgnc:1356 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TMUB1 (hgnc:21709). hgnc:21709 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TMUB1
 
 
-    <a href="https://bioregistry.io/hgnc:21709" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21709</a>
+    <a href="https://bioregistry.io/hgnc:21709" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:21709</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMUB1 (hgnc:21709). hgnc:21709 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5849,18 +6194,20 @@ This pathophysiological event involves TMUB1 (hgnc:21709). hgnc:21709 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased ERAD pathway (GO:0036503). GO:0036503 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ERAD pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go">GO:0036503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0036503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ERAD pathway (GO:0036503). GO:0036503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5881,18 +6228,20 @@ This pathophysiological event involves decreased ERAD pathway (GO:0036503). GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein K48-linked ubiquitination (GO:0070936). GO:0070936 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein K48-linked ubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070936" target="_blank" class="curie-chip curie-chip-go">GO:0070936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein K48-linked ubiquitination (GO:0070936). GO:0070936 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5918,18 +6267,20 @@ This pathophysiological event involves decreased protein K48-linked ubiquitinati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased ubiquitin protein ligase activity (GO:0061630). GO:0061630 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ubiquitin protein ligase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061630" target="_blank" class="curie-chip curie-chip-go">GO:0061630</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061630" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0061630</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ubiquitin protein ligase activity (GO:0061630). GO:0061630 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5955,18 +6306,20 @@ This pathophysiological event involves decreased ubiquitin protein ligase activi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum membrane (GO:0005789). GO:0005789 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" class="curie-chip curie-chip-go">GO:0005789</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0005789</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum membrane (GO:0005789). GO:0005789 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6014,7 +6367,9 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21610068" target="_blank">PMID:21610068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6036,7 +6391,9 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21610068" target="_blank">PMID:21610068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6058,7 +6415,9 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35568199" target="_blank">PMID:35568199</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6093,18 +6452,20 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sensory neuron of dorsal root ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl">CL:1001451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:1001451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6132,18 +6493,20 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased release of sequestered calcium ion into cytosol (GO:0051209). GO:0051209 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         release of sequestered calcium ion into cytosol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051209" target="_blank" class="curie-chip curie-chip-go">GO:0051209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0051209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased release of sequestered calcium ion into cytosol (GO:0051209). GO:0051209 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6164,18 +6527,20 @@ This pathophysiological event involves decreased release of sequestered calcium 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated calcium-mediated signaling (GO:0019722). GO:0019722 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019722" target="_blank" class="curie-chip curie-chip-go">GO:0019722</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0019722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated calcium-mediated signaling (GO:0019722). GO:0019722 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6241,7 +6606,9 @@ This pathophysiological event involves dysregulated calcium-mediated signaling (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6263,7 +6630,9 @@ This pathophysiological event involves dysregulated calcium-mediated signaling (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6285,7 +6654,9 @@ This pathophysiological event involves dysregulated calcium-mediated signaling (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31636353" target="_blank">PMID:31636353</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6328,18 +6699,20 @@ This pathophysiological event involves dysregulated calcium-mediated signaling (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002707</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6383,7 +6756,9 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6399,13 +6774,15 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6438,18 +6815,20 @@ This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UB
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sensory neuron of dorsal root ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl">CL:1001451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:1001451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6480,18 +6859,20 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). UBERON:0000044 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         dorsal root ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000044" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000044" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). UBERON:0000044 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6541,7 +6922,9 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6563,7 +6946,9 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6606,18 +6991,20 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in spinal cord dorsal column (UBERON:0005373). UBERON:0005373 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         spinal cord dorsal column
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005373" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0005373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0005373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord dorsal column (UBERON:0005373). UBERON:0005373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6653,7 +7040,9 @@ This pathophysiological event occurs in spinal cord dorsal column (UBERON:000537
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6675,7 +7064,9 @@ This pathophysiological event occurs in spinal cord dorsal column (UBERON:000537
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6708,18 +7099,20 @@ This pathophysiological event occurs in spinal cord dorsal column (UBERON:000537
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sensory neuron of dorsal root ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl">CL:1001451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:1001451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron of dorsal root ganglion (CL:1001451). CL:1001451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6778,7 +7171,9 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6794,13 +7189,15 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6816,13 +7213,15 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6855,18 +7254,20 @@ This pathophysiological event involves sensory neuron of dorsal root ganglion (C
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6897,18 +7298,20 @@ This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in vestibular ganglion (UBERON:0002824). UBERON:0002824 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         vestibular ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002824" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002824</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002824" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002824</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vestibular ganglion (UBERON:0002824). UBERON:0002824 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6946,7 +7349,9 @@ This pathophysiological event occurs in vestibular ganglion (UBERON:0002824). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6968,7 +7373,9 @@ This pathophysiological event occurs in vestibular ganglion (UBERON:0002824). UB
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7008,18 +7415,20 @@ This pathophysiological event occurs in vestibular ganglion (UBERON:0002824). UB
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased proprioception (GO:0019230). GO:0019230 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         proprioception
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019230" target="_blank" class="curie-chip curie-chip-go">GO:0019230</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019230" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0019230</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proprioception (GO:0019230). GO:0019230 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7075,7 +7484,9 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7097,7 +7508,9 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7119,7 +7532,9 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7177,7 +7592,9 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7199,7 +7616,9 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7237,16 +7656,6 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
-            <div class="graph-warning">
-                <strong>Referential integrity issues (1):</strong>
-                <ul>
-
-                    <li>Source &#39;pathophysiology#Variable Corticospinal Tract Involvement&#39; (for edge to &#39;Pyramidal Signs&#39;) not found in named elements</li>
-
-
-                </ul>
-            </div>
-
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -7257,7 +7666,7 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of large sensory neurons whose cell bodies lie in the dorsal root ganglia and whose centrally projecting branches form the posterior columns. That the insult originates at the cell body (a neuronopathy or ganglionopathy) rather than at the distal axon is an inference, drawn from combined electrophysiology and imaging and best evidenced in the Ecuadorian kindred, where both the central and the peripheral branch degenerate; that non-length-dependent pattern explains prominent upper- as well as lower-limb sensory involvement in that family. The inference must not be generalized to every ADSA1 kindred: the original Canadian families had normal sensory nerve conduction despite posterior-column disease, so the peripheral branch is not always involved. The node is marked PROVISIONAL for that reason. It is not frequency-banded, because it is the sole modelled route to the universal defining lesion; the genuinely variable peripheral arm is banded separately on \\\"Peripheral Sensory Axon Degeneration\\\".\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"locations\": [\"dorsal root ganglion\"]}}, {\"id\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent functional abnormality, reached by whichever upstream route is correct. Patient lymphoblasts mobilise significantly less cytosolic Ca2+ in response to platelet-activating factor, while store content, receptor level and IP3 production are all normal \\u2014 localising the defect to the IP3 receptor itself. In Rnf170-null mice Itpr1 protein accumulates in the cerebellum and spinal cord but not the cerebral cortex, showing that loss of this pathway perturbs IP3 receptor homeostasis in a regionally selective way. Note that this regional pattern does not map cleanly onto the human lesion, since the cerebellum is clinically and radiologically spared in ADSA.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"biological_processes\": [\"release of sequestered calcium ion into cytosol\", \"calcium-mediated signaling\"]}}, {\"id\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNF170 is the E3 ligase arm of the ER quality-control module that disposes of activated IP3 receptors. On receptor activation the erlin1/2 (SPFH1/2) complex binds the third intralumenal loop of IP3R1 and recruits RNF170, which then attaches the mono-, K48- and K63-linked ubiquitin conjugates that commit the receptor to ERAD. Erlin1/2 binding is the rate-limiting first step and RNF170 recruitment depends on it. Reduced RNF170 availability slows this turnover pathway. This node states the canonical pathway; the evidence that mutant RNF170 actually fails at this step is weak, which is why the causal edge into it is hypothesis-tagged and the node carries PROVISIONAL confidence.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"ERAD pathway\", \"protein K48-linked ubiquitination\"], \"molecular_functions\": [\"ubiquitin protein ligase activity\"], \"genes\": [\"RNF170\", \"ITPR1\", \"ERLIN1\", \"ERLIN2\", \"TMUB1\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}, {\"label\": \"ITPR1\", \"id\": \"hgnc:6180\"}, {\"label\": \"ERLIN1\", \"id\": \"hgnc:16947\"}, {\"label\": \"ERLIN2\", \"id\": \"hgnc:1356\"}, {\"label\": \"TMUB1\", \"id\": \"hgnc:21709\"}]}}, {\"id\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The physiological consequence of losing large-fibre sensory pathways centrally and peripherally: joint position sense and vibration sense are degraded, deep tendon reflexes are lost because their afferent limb is destroyed, and the patient becomes dependent on vision to know where the limbs are. Removing vision unmasks the deficit (positive Romberg sign) and unmonitored limbs drift (pseudoathetosis).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proprioception\"]}}, {\"id\": \"Peripheral Sensory Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the peripherally projecting branches of the affected dorsal root ganglion neurons, expressed electrophysiologically as reduced or absent sensory nerve action potentials with preserved motor conduction. This arm is genuinely variable across kindreds and is the main phenotypic difference between the reported families: the Maritime Canadian families had normal sensory nerve conduction (a purely central posterior-column picture), whereas the Ecuadorian family had absent sensory action potentials in all four limbs. The reason for this difference is unknown; a modifying genetic background has been proposed by the authors as a hypothesis, not demonstrated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Posterior Column Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the centrally projecting branches of the degenerating dorsal root ganglion neurons produces the defining lesion of ADSA: atrophy and signal change in the dorsal columns of the spinal cord, demonstrable in life as reduced posterior-column volume with increased T2 signal on cervical cord MRI. These tracts carry proprioceptive and vibratory information, and their loss is the anatomical basis of the sensory ataxia.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"spinal cord dorsal column\"]}}, {\"id\": \"Progressive Sensory Gait Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: a broad-based, unsteady, visually dependent gait that worsens over years, leading to falls, then reliance on a stick and eventually a walking aid, typically within a decade of onset. Cerebellar signs (dysarthria, nystagmus, appendicular cerebellar ataxia with eyes open) and cerebellar atrophy on imaging are characteristically absent, and it is this combination \\u2014 severe ataxia with a normal cerebellum \\u2014 that identifies the disorder clinically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pyramidal Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corticospinal tract signs (spasticity, hyperreflexia, extensor plantar responses) occur in some affected individuals but are variable and are not required for the diagnosis. Their presence blurs the clinical boundary with the recessive RNF170 spastic paraplegia phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"reports_on\": [{\"target\": \"pathophysiology#Variable Corticospinal Tract Involvement\", \"relationship\": \"READOUT_OF\", \"description\": \"This phenotype is the clinical readout of the variable corticospinal arm of the pathograph.\"}], \"term_id\": \"HP:0007256\"}}, {\"id\": \"RNF170\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilised mutant protein autoubiquitinates more avidly and is cleared by the proteasome, so steady-state RNF170 levels fall. This is seen both in cells transfected with mutant constructs and, importantly, in lymphoblasts from ADSA patients, establishing that the reduced-dosage state exists in patient tissue and is not an overexpression artefact.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein autoubiquitination\", \"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"protein destabilization\"]}}, {\"id\": \"RNF170 c.595C\u003eT p.Arg199Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single recurrent ADSA allele. A rare non-synonymous substitution at a well-conserved residue, predicted deleterious by multiple in silico tools. Found on a shared founder haplotype in the two Maritime Canadian families and independently in a Belgian and an Ecuadorian family, showing it is not confined to the founder population. Arg199 is a charged residue in a transmembrane region, and functional work shows that ionic interactions between charged transmembrane residues are what maintain RNF170 stability, so the arginine-to-cysteine change destabilises the protein rather than abolishing its catalytic activity.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single molecular lesion of ADSA. Arginine 199 is a charged residue in a transmembrane region of RNF170; systematic point mutagenesis showed that ionic interactions between charged transmembrane residues are what hold the protein together, so replacing this arginine with cysteine removes a stabilising charge pair. The substitution does not damage the catalytic RING function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}]}}, {\"id\": \"Variable Corticospinal Tract Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minor and inconstant arm of the disease. Some affected individuals show corticospinal signs (spasticity, hyperreflexia, extensor plantar responses) alongside the dominant sensory picture, while others have none and Babinski is explicitly absent. This node is deliberately kept small and PROVISIONAL: the entire human evidence base is a single \\\"variable findings\\\" clause, and no imaging or neuropathological demonstration of corticospinal degeneration in ADSA exists. It is modelled rather than omitted because it is the point of clinical contact with the recessive RNF170 disease (SPG85), in which upper-motor-neuron involvement is the primary lesion, and because it is what the curated Pyramidal Signs phenotype rests on.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"locations\": [\"corticospinal tract\"]}}, {\"id\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In advanced disease the same vulnerability extends to the vestibular (Scarpa\u0027s) ganglion, producing bilateral vestibular hypofunction detectable as impaired vestibulo-ocular reflex gain on video head impulse testing. This was documented in one index case in whom testing three years earlier had been only borderline, indicating late and progressive involvement. Together with the sensory ganglionopathy this makes ADSA a phenocopy of RFC1-related CANVAS, and supports a shared susceptibility of sensory neurons in spinal, cranial and vestibular ganglia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory neuron\"], \"frequency\": \"OCCASIONAL\", \"locations\": [\"vestibular ganglion\"]}}, {\"id\": \"pathophysiology#Variable Corticospinal Tract Involvement\", \"node_type\": \"unknown\", \"color\": \"#f3f4f6\", \"is_orphan\": false}], \"edges\": [{\"source\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"target\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"target\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the reduced-dosage reading, less RNF170 means less IP3 receptor ubiquitination capacity at the ER membrane.\", \"hypothesis_groups\": [\"rnf170_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"target\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alternative routes that bypass the IP3-receptor-ERAD step: a toxic property of the unstable mutant protein, or mis-ubiquitination of an unidentified non-IP3-receptor substrate. Both are invoked because the observed patient calcium defect is demonstrably not explained by defective IP3 receptor ubiquitination.\", \"hypothesis_groups\": [\"r199c_toxic_gain_of_function\", \"non_ip3r_substrate_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"target\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"rnf170_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"target\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How a chronic, subtle perturbation of ER calcium handling selectively kills large dorsal root ganglion sensory neurons over decades is not established; no intermediate steps have been demonstrated in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"target\": \"Variable Corticospinal Tract Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minor, inconstant second target of the same pathway perturbation. Included because the recessive RNF170 disease injures upper motor neurons as its primary lesion, so the corticospinal tract is demonstrably vulnerable to disruption of this module; why it is only variably affected in ADSA is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Corticospinal Tract Involvement\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where present, pyramidal involvement compounds the gait disorder, but the gait phenotype is sensory in origin and occurs without it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Variable Corticospinal Tract Involvement\", \"target\": \"Pyramidal Signs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Posterior Column Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Peripheral Sensory Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late and variable extension of the same sensory-neuron vulnerability to the vestibular (Scarpa\u0027s) ganglion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior Column Degeneration\", \"target\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Sensory Axon Degeneration\", \"target\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of vestibular afference compounds the proprioceptive deficit and worsens balance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"pathophysiology#Variable Corticospinal Tract Involvement\", \"target\": \"Pyramidal Signs\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"This phenotype is the clinical readout of the variable corticospinal arm of the pathograph.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"RNF170\", \"target\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RNF170\", \"target\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RNF170 c.595C\u003eT p.Arg199Cys\", \"target\": \"RNF170\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of large sensory neurons whose cell bodies lie in the dorsal root ganglia and whose centrally projecting branches form the posterior columns. That the insult originates at the cell body (a neuronopathy or ganglionopathy) rather than at the distal axon is an inference, drawn from combined electrophysiology and imaging and best evidenced in the Ecuadorian kindred, where both the central and the peripheral branch degenerate; that non-length-dependent pattern explains prominent upper- as well as lower-limb sensory involvement in that family. The inference must not be generalized to every ADSA1 kindred: the original Canadian families had normal sensory nerve conduction despite posterior-column disease, so the peripheral branch is not always involved. The node is marked PROVISIONAL for that reason. It is not frequency-banded, because it is the sole modelled route to the universal defining lesion; the genuinely variable peripheral arm is banded separately on \\\"Peripheral Sensory Axon Degeneration\\\".\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"locations\": [\"dorsal root ganglion\"]}}, {\"id\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent functional abnormality, reached by whichever upstream route is correct. Patient lymphoblasts mobilise significantly less cytosolic Ca2+ in response to platelet-activating factor, while store content, receptor level and IP3 production are all normal \\u2014 localising the defect to the IP3 receptor itself. In Rnf170-null mice Itpr1 protein accumulates in the cerebellum and spinal cord but not the cerebral cortex, showing that loss of this pathway perturbs IP3 receptor homeostasis in a regionally selective way. Note that this regional pattern does not map cleanly onto the human lesion, since the cerebellum is clinically and radiologically spared in ADSA.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"biological_processes\": [\"release of sequestered calcium ion into cytosol\", \"calcium-mediated signaling\"]}}, {\"id\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNF170 is the E3 ligase arm of the ER quality-control module that disposes of activated IP3 receptors. On receptor activation the erlin1/2 (SPFH1/2) complex binds the third intralumenal loop of IP3R1 and recruits RNF170, which then attaches the mono-, K48- and K63-linked ubiquitin conjugates that commit the receptor to ERAD. Erlin1/2 binding is the rate-limiting first step and RNF170 recruitment depends on it. Reduced RNF170 availability slows this turnover pathway. This node states the canonical pathway; the evidence that mutant RNF170 actually fails at this step is weak, which is why the causal edge into it is hypothesis-tagged and the node carries PROVISIONAL confidence.\", \"meta\": {\"evidence_count\": 7, \"biological_processes\": [\"ERAD pathway\", \"protein K48-linked ubiquitination\"], \"molecular_functions\": [\"ubiquitin protein ligase activity\"], \"genes\": [\"RNF170\", \"ITPR1\", \"ERLIN1\", \"ERLIN2\", \"TMUB1\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}, {\"label\": \"ITPR1\", \"id\": \"hgnc:6180\"}, {\"label\": \"ERLIN1\", \"id\": \"hgnc:16947\"}, {\"label\": \"ERLIN2\", \"id\": \"hgnc:1356\"}, {\"label\": \"TMUB1\", \"id\": \"hgnc:21709\"}]}}, {\"id\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The physiological consequence of losing large-fibre sensory pathways centrally and peripherally: joint position sense and vibration sense are degraded, deep tendon reflexes are lost because their afferent limb is destroyed, and the patient becomes dependent on vision to know where the limbs are. Removing vision unmasks the deficit (positive Romberg sign) and unmonitored limbs drift (pseudoathetosis).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"proprioception\"]}}, {\"id\": \"Peripheral Sensory Axon Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of the peripherally projecting branches of the affected dorsal root ganglion neurons, expressed electrophysiologically as reduced or absent sensory nerve action potentials with preserved motor conduction. This arm is genuinely variable across kindreds and is the main phenotypic difference between the reported families: the Maritime Canadian families had normal sensory nerve conduction (a purely central posterior-column picture), whereas the Ecuadorian family had absent sensory action potentials in all four limbs. The reason for this difference is unknown; a modifying genetic background has been proposed by the authors as a hypothesis, not demonstrated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"sensory neuron of dorsal root ganglion\"], \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Posterior Column Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the centrally projecting branches of the degenerating dorsal root ganglion neurons produces the defining lesion of ADSA: atrophy and signal change in the dorsal columns of the spinal cord, demonstrable in life as reduced posterior-column volume with increased T2 signal on cervical cord MRI. These tracts carry proprioceptive and vibratory information, and their loss is the anatomical basis of the sensory ataxia.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"spinal cord dorsal column\"]}}, {\"id\": \"Progressive Sensory Gait Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: a broad-based, unsteady, visually dependent gait that worsens over years, leading to falls, then reliance on a stick and eventually a walking aid, typically within a decade of onset. Cerebellar signs (dysarthria, nystagmus, appendicular cerebellar ataxia with eyes open) and cerebellar atrophy on imaging are characteristically absent, and it is this combination \\u2014 severe ataxia with a normal cerebellum \\u2014 that identifies the disorder clinically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pyramidal Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corticospinal tract signs (spasticity, hyperreflexia, extensor plantar responses) occur in some affected individuals but are variable and are not required for the diagnosis. Their presence blurs the clinical boundary with the recessive RNF170 spastic paraplegia phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"reports_on\": [{\"target\": \"Variable Corticospinal Tract Involvement\", \"relationship\": \"READOUT_OF\", \"description\": \"This phenotype is the clinical readout of the variable corticospinal arm of the pathograph.\"}], \"term_id\": \"HP:0007256\"}}, {\"id\": \"RNF170\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilised mutant protein autoubiquitinates more avidly and is cleared by the proteasome, so steady-state RNF170 levels fall. This is seen both in cells transfected with mutant constructs and, importantly, in lymphoblasts from ADSA patients, establishing that the reduced-dosage state exists in patient tissue and is not an overexpression artefact.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein autoubiquitination\", \"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"protein destabilization\"]}}, {\"id\": \"RNF170 c.595C\u003eT p.Arg199Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The single recurrent ADSA allele. A rare non-synonymous substitution at a well-conserved residue, predicted deleterious by multiple in silico tools. Found on a shared founder haplotype in the two Maritime Canadian families and independently in a Belgian and an Ecuadorian family, showing it is not confined to the founder population. Arg199 is a charged residue in a transmembrane region, and functional work shows that ionic interactions between charged transmembrane residues are what maintain RNF170 stability, so the arginine-to-cysteine change destabilises the protein rather than abolishing its catalytic activity.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}], \"variant_type\": \"missense variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single molecular lesion of ADSA. Arginine 199 is a charged residue in a transmembrane region of RNF170; systematic point mutagenesis showed that ionic interactions between charged transmembrane residues are what hold the protein together, so replacing this arginine with cysteine removes a stabilising charge pair. The substitution does not damage the catalytic RING function.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RNF170\"], \"gene_terms\": [{\"label\": \"RNF170\", \"id\": \"hgnc:25358\"}]}}, {\"id\": \"Variable Corticospinal Tract Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minor and inconstant arm of the disease. Some affected individuals show corticospinal signs (spasticity, hyperreflexia, extensor plantar responses) alongside the dominant sensory picture, while others have none and Babinski is explicitly absent. This node is deliberately kept small and PROVISIONAL: the entire human evidence base is a single \\\"variable findings\\\" clause, and no imaging or neuropathological demonstration of corticospinal degeneration in ADSA exists. It is modelled rather than omitted because it is the point of clinical contact with the recessive RNF170 disease (SPG85), in which upper-motor-neuron involvement is the primary lesion, and because it is what the curated Pyramidal Signs phenotype rests on.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"locations\": [\"corticospinal tract\"]}}, {\"id\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In advanced disease the same vulnerability extends to the vestibular (Scarpa\u0027s) ganglion, producing bilateral vestibular hypofunction detectable as impaired vestibulo-ocular reflex gain on video head impulse testing. This was documented in one index case in whom testing three years earlier had been only borderline, indicating late and progressive involvement. Together with the sensory ganglionopathy this makes ADSA a phenocopy of RFC1-related CANVAS, and supports a shared susceptibility of sensory neurons in spinal, cranial and vestibular ganglia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory neuron\"], \"frequency\": \"OCCASIONAL\", \"locations\": [\"vestibular ganglion\"]}}], \"edges\": [{\"source\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"target\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"target\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under the reduced-dosage reading, less RNF170 means less IP3 receptor ubiquitination capacity at the ER membrane.\", \"hypothesis_groups\": [\"rnf170_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RNF170 Protein Destabilization by Enhanced Autoubiquitination\", \"target\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alternative routes that bypass the IP3-receptor-ERAD step: a toxic property of the unstable mutant protein, or mis-ubiquitination of an unidentified non-IP3-receptor substrate. Both are invoked because the observed patient calcium defect is demonstrably not explained by defective IP3 receptor ubiquitination.\", \"hypothesis_groups\": [\"r199c_toxic_gain_of_function\", \"non_ip3r_substrate_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"target\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"rnf170_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"target\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"How a chronic, subtle perturbation of ER calcium handling selectively kills large dorsal root ganglion sensory neurons over decades is not established; no intermediate steps have been demonstrated in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dysregulated ER Calcium Release in Sensory Neurons\", \"target\": \"Variable Corticospinal Tract Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minor, inconstant second target of the same pathway perturbation. Included because the recessive RNF170 disease injures upper motor neurons as its primary lesion, so the corticospinal tract is demonstrably vulnerable to disruption of this module; why it is only variably affected in ADSA is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Variable Corticospinal Tract Involvement\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where present, pyramidal involvement compounds the gait disorder, but the gait phenotype is sensory in origin and occurs without it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Variable Corticospinal Tract Involvement\", \"target\": \"Pyramidal Signs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Posterior Column Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Peripheral Sensory Axon Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dorsal Root Ganglion Sensory Neuronopathy\", \"target\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late and variable extension of the same sensory-neuron vulnerability to the vestibular (Scarpa\u0027s) ganglion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior Column Degeneration\", \"target\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Peripheral Sensory Axon Degeneration\", \"target\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vestibular Ganglion Sensory Neuron Degeneration\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of vestibular afference compounds the proprioceptive deficit and worsens balance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Proprioceptive and Vibratory Afferent Input\", \"target\": \"Progressive Sensory Gait Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Variable Corticospinal Tract Involvement\", \"target\": \"Pyramidal Signs\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"This phenotype is the clinical readout of the variable corticospinal arm of the pathograph.\", \"relationship\": \"READOUT_OF\"}, {\"source\": \"RNF170\", \"target\": \"Impaired erlin1/2-RNF170-Mediated IP3 Receptor ERAD\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RNF170\", \"target\": \"RNF170 p.Arg199Cys Transmembrane Destabilizing Substitution\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RNF170 c.595C\u003eT p.Arg199Cys\", \"target\": \"RNF170\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7276,9 +7685,15 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(10)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7287,196 +7702,32 @@ This pathophysiological event involves decreased proprioception (GO:0019230). GO
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">3</span>
+                    Ear
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-neuropathy" data-dismech-node="Sensory Neuropathy" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vestibular-areflexia" data-dismech-node="Vestibular Areflexia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Sensory Neuropathy
+                        Vestibular Areflexia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.">
-                        Sensory neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp">HP:0000763</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
-
-
-                <div class="evidence-explanation">The qualifier &#34;sometimes&#34; applied to sensory neuropathy in a kindred where it was not universal supports the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, in contrast to the two previously reported families, both our patients had reduced or absent sensory action potentials in the four limbs."</div>
-
-
-                <div class="evidence-explanation">Documents the interfamilial variability of the peripheral sensory involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-pain-sensation" data-dismech-node="Impaired Pain Sensation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired Pain Sensation
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired pain sensation (HP:0007328). HP:0007328 is a phenotype from the Human Phenotype Ontology.">
-                        Impaired pain sensation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007328" target="_blank" class="curie-chip curie-chip-hp">HP:0007328</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pinprick sensation was reduced to the elbow and to the hip."</div>
-
-
-                <div class="evidence-explanation">Direct examination finding of reduced pinprick sensation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"without evidence of cerebellar or autonomic involvement and no significant foot ulcerations or pain"</div>
-
-
-                <div class="evidence-explanation">Qualifies the sensory phenotype: pinprick is impaired but neuropathic pain and ulceration are not part of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysesthesia" data-dismech-node="Dysesthesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysesthesia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysesthesia (HP:0012534). HP:0012534 is a phenotype from the Human Phenotype Ontology.">
-                        Dysesthesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012534" target="_blank" class="curie-chip curie-chip-hp">HP:0012534</a>
-
-
+This clinical feature is Vestibular areflexia (HP:0008568). HP:0008568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7497,17 +7748,19 @@ This clinical feature is Dysesthesia (HP:0012534). HP:0012534 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"a 57-year old woman with onset of poor balance at the age of 47 years, followed by dysaesthesia and sensory loss in her feet and hands"</div>
+                <div class="evidence-snippet">"Also, bilateral vestibular areflexia was identified in the index case, mimicking CANVAS."</div>
 
 
-                <div class="evidence-explanation">Documents dysaesthesia as part of the sensory syndrome.</div>
+                <div class="evidence-explanation">Reported in one of two examined affected individuals and explicitly described as stage-dependent, supporting the OCCASIONAL band.</div>
 
 
 
@@ -7528,28 +7781,32 @@ This clinical feature is Dysesthesia (HP:0012534). HP:0012534 is a phenotype fro
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">11</span>
+                    Eye
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-ataxia" data-dismech-node="Sensory Ataxia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-smooth-pursuit" data-dismech-node="Impaired Smooth Pursuit" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Sensory Ataxia
+                        Impaired Smooth Pursuit
 
-                        <span class="phenotype-freq">OBLIGATE</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007772" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007772</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.">
-                        Sensory ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp">HP:0010871</a>
-
-
+This clinical feature is Impaired smooth pursuit (HP:0007772). HP:0007772 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7570,7 +7827,165 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
+
+
+                <div class="evidence-explanation">Names slow-pursuit abnormalities among the variable findings, supporting the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-areflexia-of-lower-limbs" data-dismech-node="Areflexia of Lower Limbs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Areflexia of Lower Limbs
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002522" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002522</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia of lower limbs (HP:0002522). HP:0002522 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deep-tendon reflexes were reduced in the upper limbs and absent in the lower limbs."</div>
+
+
+                <div class="evidence-explanation">Direct examination finding of lower limb areflexia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">10</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-ataxia" data-dismech-node="Sensory Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sensory Ataxia
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010871</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7602,16 +8017,20 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive gait ataxia (HP:0007240), qualified as course progressive. HP:0007240 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive gait ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp">HP:0007240</a>
-
-
+This clinical feature is Progressive gait ataxia (HP:0007240), qualified as course progressive. HP:0007240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7650,7 +8069,9 @@ This clinical feature is Progressive gait ataxia (HP:0007240), qualified as cour
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7682,16 +8103,20 @@ This clinical feature is Progressive gait ataxia (HP:0007240), qualified as cour
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010831" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0010831</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a phenotype from the Human Phenotype Ontology.">
-                        Impaired proprioception
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010831" target="_blank" class="curie-chip curie-chip-hp">HP:0010831</a>
-
-
+This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7712,7 +8137,9 @@ This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7744,16 +8171,20 @@ This clinical feature is Impaired proprioception (HP:0010831). HP:0010831 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002166</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Impaired vibration sensation in the lower limbs (HP:0002166). HP:0002166 is a phenotype from the Human Phenotype Ontology.">
-                        Impaired vibration sensation in the lower limbs
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002166" target="_blank" class="curie-chip curie-chip-hp">HP:0002166</a>
-
-
+This clinical feature is Impaired vibration sensation in the lower limbs (HP:0002166). HP:0002166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7774,7 +8205,9 @@ This clinical feature is Impaired vibration sensation in the lower limbs (HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7806,16 +8239,20 @@ This clinical feature is Impaired vibration sensation in the lower limbs (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002403</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phenotype from the Human Phenotype Ontology.">
-                        Positive Romberg sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002403" target="_blank" class="curie-chip curie-chip-hp">HP:0002403</a>
-
-
+This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7836,7 +8273,9 @@ This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7858,7 +8297,9 @@ This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42052314" target="_blank">PMID:42052314</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7883,6 +8324,411 @@ This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phe
 
 
                 </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-neuropathy" data-dismech-node="Sensory Neuropathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sensory Neuropathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000763</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
+
+
+                <div class="evidence-explanation">The qualifier &#34;sometimes&#34; applied to sensory neuropathy in a kindred where it was not universal supports the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, in contrast to the two previously reported families, both our patients had reduced or absent sensory action potentials in the four limbs."</div>
+
+
+                <div class="evidence-explanation">Documents the interfamilial variability of the peripheral sensory involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-distal-sensory-nerve-action-potential" data-dismech-node="Decreased Distal Sensory Nerve Action Potential" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Decreased Distal Sensory Nerve Action Potential
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0007230</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased distal sensory nerve action potential (HP:0007230). HP:0007230 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NCS showed normal motor conduction parameters. Sensory action potentials had decreased amplitudes in the upper limbs and were absent in the lower limbs."</div>
+
+
+                <div class="evidence-explanation">Direct nerve-conduction documentation of reduced sensory action potentials with motor sparing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-pain-sensation" data-dismech-node="Impaired Pain Sensation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Impaired Pain Sensation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired pain sensation (HP:0007328). HP:0007328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pinprick sensation was reduced to the elbow and to the hip."</div>
+
+
+                <div class="evidence-explanation">Direct examination finding of reduced pinprick sensation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"without evidence of cerebellar or autonomic involvement and no significant foot ulcerations or pain"</div>
+
+
+                <div class="evidence-explanation">Qualifies the sensory phenotype: pinprick is impaired but neuropathic pain and ulceration are not part of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysesthesia" data-dismech-node="Dysesthesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysesthesia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012534" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012534</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysesthesia (HP:0012534). HP:0012534 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a 57-year old woman with onset of poor balance at the age of 47 years, followed by dysaesthesia and sensory loss in her feet and hands"</div>
+
+
+                <div class="evidence-explanation">Documents dysaesthesia as part of the sensory syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pyramidal-signs" data-dismech-node="Pyramidal Signs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pyramidal Signs
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal pyramidal sign</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
+
+
+                <div class="evidence-explanation">Establishes pyramidal involvement as a variable feature, supporting the OCCASIONAL band. The cited source says &#34;pyramidal involvement&#34; generically rather than naming spasticity, which is why the binding is the parent term HP:0007256 rather than HP:0001257 Spasticity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pseudoathetosis" data-dismech-node="Pseudoathetosis" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7909,7 +8755,9 @@ This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7920,324 +8768,6 @@ This clinical feature is Positive Romberg sign (HP:0002403). HP:0002403 is a phe
 
 
                 <div class="evidence-explanation">Direct examination finding of pseudoathetosis in the genotype-confirmed index case, evidencing upper-limb deafferentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-areflexia-of-lower-limbs" data-dismech-node="Areflexia of Lower Limbs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Areflexia of Lower Limbs
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Areflexia of lower limbs (HP:0002522). HP:0002522 is a phenotype from the Human Phenotype Ontology.">
-                        Areflexia of lower limbs
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002522" target="_blank" class="curie-chip curie-chip-hp">HP:0002522</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Deep-tendon reflexes were reduced in the upper limbs and absent in the lower limbs."</div>
-
-
-                <div class="evidence-explanation">Direct examination finding of lower limb areflexia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-distal-sensory-nerve-action-potential" data-dismech-node="Decreased Distal Sensory Nerve Action Potential" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased Distal Sensory Nerve Action Potential
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Decreased distal sensory nerve action potential (HP:0007230). HP:0007230 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased distal sensory nerve action potential
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007230" target="_blank" class="curie-chip curie-chip-hp">HP:0007230</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"NCS showed normal motor conduction parameters. Sensory action potentials had decreased amplitudes in the upper limbs and were absent in the lower limbs."</div>
-
-
-                <div class="evidence-explanation">Direct nerve-conduction documentation of reduced sensory action potentials with motor sparing.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vestibular-areflexia" data-dismech-node="Vestibular Areflexia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vestibular Areflexia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Vestibular areflexia (HP:0008568). HP:0008568 is a phenotype from the Human Phenotype Ontology.">
-                        Vestibular areflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008568" target="_blank" class="curie-chip curie-chip-hp">HP:0008568</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Also, bilateral vestibular areflexia was identified in the index case, mimicking CANVAS."</div>
-
-
-                <div class="evidence-explanation">Reported in one of two examined affected individuals and explicitly described as stage-dependent, supporting the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pyramidal-signs" data-dismech-node="Pyramidal Signs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pyramidal Signs
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pyramidal sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp">HP:0007256</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
-
-
-                <div class="evidence-explanation">Establishes pyramidal involvement as a variable feature, supporting the OCCASIONAL band. The cited source says &#34;pyramidal involvement&#34; generically rather than naming spasticity, which is why the binding is the parent term HP:0007256 rather than HP:0001257 Spasticity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-smooth-pursuit" data-dismech-node="Impaired Smooth Pursuit" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired Smooth Pursuit
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Impaired smooth pursuit (HP:0007772). HP:0007772 is a phenotype from the Human Phenotype Ontology.">
-                        Impaired smooth pursuit
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007772" target="_blank" class="curie-chip curie-chip-hp">HP:0007772</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings."</div>
-
-
-                <div class="evidence-explanation">Names slow-pursuit abnormalities among the variable findings, supporting the OCCASIONAL band.</div>
 
 
 
@@ -8303,15 +8833,17 @@ This clinical feature is Impaired smooth pursuit (HP:0007772). HP:0007772 is a p
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:25358</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8337,7 +8869,9 @@ This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8359,7 +8893,9 @@ This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8381,7 +8917,9 @@ This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8432,15 +8970,17 @@ This disease-associated gene is RNF170 (hgnc:25358). hgnc:25358 is a gene from t
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:25358</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -8540,6 +9080,8 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8552,7 +9094,9 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8574,7 +9118,9 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8596,7 +9142,9 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8624,6 +9172,49 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
         </div>
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-ataxia-sensory-1-autosomal-dominant-record">
+
+
+    <div class="item-name">OMIM ataxia, sensory, 1, autosomal dominant record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://omim.org/entry/608984" target="_blank" rel="noopener noreferrer" title="Open OMIM:608984">OMIM:608984</a>
+
+
+    </div>
+
+    <div class="item-desc">OMIM record for autosomal dominant sensory ataxia 1 (SNAX1), the OMIM xref carried by MONDO:0012166 and one of the three identity anchors used in the NEC preflight for this entry. Recorded here rather than under `mappings:` because the schema&#39;s DiseaseMappings container provides only icd10cm, icd11f, mondo and ncit mapping slots - there is no OMIM mapping slot - and `external_assertions` is the pattern other disorder entries use for OMIM identifiers.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8640,18 +9231,18 @@ This variant is in RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8669,6 +9260,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8691,18 +9301,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8720,6 +9330,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8744,7 +9362,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8776,6 +9396,664 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-confirmation-of-rnf170-p-arg199cys">
+                <div class="item-name">
+                    Molecular confirmation of RNF170 p.Arg199Cys
+
+                </div>
+
+                <div class="item-desc">Diagnosis rests on identifying the heterozygous RNF170 c.595C&gt;T p.Arg199Cys variant, in practice by exome or targeted panel sequencing, in a patient with an adult-onset predominantly sensory ataxia. Because p.Arg199Cys is the only RNF170 allele reported in sensory ataxia, a different RNF170 variant in this clinical setting should not be assumed causal. In a patient with sensory ataxia plus vestibular areflexia, RFC1 expansion testing is usually performed first; RNF170 should be tested when RFC1 is negative, particularly if the family history is dominant.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, we recommend considering RNF170 in the diagnostic work-up of patients affected by sensory ataxic neuropathies and RFC1 negative CANVAS-like patients, particularly if there is a dominant family history."</div>
+
+
+                <div class="evidence-explanation">States the recommended diagnostic pathway.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because of the presence of sensory neuropathy and vestibular areflexia gene testing for RFC1 expansion was performed and resulted negative"</div>
+
+
+                <div class="evidence-explanation">Illustrates the practical testing order, with RFC1 excluded before RNF170 was found.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nerve-conduction-studies-and-vestibular-testing">
+                <div class="item-name">
+                    Nerve conduction studies and vestibular testing
+
+                </div>
+
+                <div class="item-desc">Nerve conduction studies show reduced or absent sensory nerve action potentials with normal motor conduction when the peripheral arm is involved, and may be entirely normal in families with purely central disease. Video head impulse testing detects the late bilateral vestibulo-ocular reflex deficit. Cervical spinal MRI demonstrates the posterior-column lesion. Exclusion of acquired sensory ganglionopathy (paraneoplastic, autoimmune, toxic, metabolic) is a necessary part of the workup.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vestibular testing showed a bilateral VOR gain impairment at the video Head Impulse test"</div>
+
+
+                <div class="evidence-explanation">Documents the vestibular test used to establish the deficit.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Screening for autoimmune, neoplastic, toxic and metabolic causes was negative."</div>
+
+
+                <div class="evidence-explanation">Documents that acquired causes were actively excluded before the genetic diagnosis was accepted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-posterior-column-signal-change-and-atrophy-on-spinal-mri">
+                <div class="item-name">
+                    Posterior Column Signal Change and Atrophy on Spinal MRI
+
+                </div>
+
+                <div class="item-desc">Reduced volume and increased T2 signal of the posterior columns on cervical spinal cord MRI, the in vivo correlate of the defining posterior-column degeneration.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+                    <span class="tag">Bilateral</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        spinal cord dorsal column
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0005373</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Dorsal column degeneration
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0007006</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI of the cervical spine showed reduced volume and increased T2 signal of the posterior columns"</div>
+
+
+                <div class="evidence-explanation">Direct imaging description of the diagnostic finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-absence-of-cerebellar-atrophy-on-brain-mri">
+                <div class="item-name">
+                    Absence of Cerebellar Atrophy on Brain MRI
+
+                </div>
+
+                <div class="item-desc">A negative imaging finding with real diagnostic weight: the cerebellum is normal, which separates ADSA from the spinocerebellar ataxias and from RFC1-CANVAS, in which cerebellar atrophy is typical.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI was normal and in particular there was no cerebellar atrophy."</div>
+
+
+                <div class="evidence-explanation">Documents the diagnostically useful absence of cerebellar atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-presymptomatic-adulthood">
+                <div class="item-name">Presymptomatic adulthood</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to fourth or fifth decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Carriers are clinically normal for most of adult life. Because onset is late, an unaffected examination in an at-risk relative in this age range carries no information about carrier status.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two sisters III-2 and III-4, aged 58 and 49, are reportedly unaffected but given the late onset of the disease were not considered for segregation analysis."</div>
+
+
+                <div class="evidence-explanation">Shows that even relatives in their fifties may be presymptomatic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-of-imbalance-and-sensory-symptoms">
+                <div class="item-name">Onset of imbalance and sensory symptoms</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Fifth to seventh decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Presentation is with poor balance, then distal dysaesthesia and sensory loss in feet and hands. Reported onset ages include 47, 50 and about 60 years.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a 57-year old woman with onset of poor balance at the age of 47 years, followed by dysaesthesia and sensory loss in her feet and hands"</div>
+
+
+                <div class="evidence-explanation">Documents the presenting sequence and age of onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-ataxia-with-loss-of-independent-mobility">
+                <div class="item-name">Progressive ataxia with loss of independent mobility</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Roughly 5 to 15 years after onset</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Ataxia worsens, falls and fractures occur, and patients move from a stick to a walking aid. Vestibular involvement, when it develops, appears at this stage and compounds the imbalance.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She has been using a stick to walk since the age of 55."</div>
+
+
+                <div class="evidence-explanation">Documents progression to aid dependence roughly five years after onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Ultra-rare. At gene discovery only two clinically ascertained families were known, both from Maritime Canada and sharing a founder haplotype; a Belgian family and an Ecuadorian family were subsequently reported carrying the same p.Arg199Cys allele. Only a few dozen affected individuals are on record, no population rate has ever been estimated, and a targeted screen of 404 neuromuscular patients yielded no additional cases. No numeric rate_per_100000 is asserted because none has been measured.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21115467" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date only two families have been clinically ascertained with this condition, both from Maritime Canada."</div>
+
+
+                <div class="evidence-explanation">Establishes the case-count basis for the ultra-rare classification at the time of gene discovery.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34469621" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34469621" target="_blank">PMID:34469621</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We did not find additional pathogenic variants in RNF170 in our in-house neuromuscular cohort."</div>
+
+
+                <div class="evidence-explanation">A targeted screen of 404 neuromuscular patients found no further RNF170 cases, supporting extreme rarity even in an enriched clinical cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8790,7 +10068,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-canvas-rfc1-related-cerebellar-ataxia-neuropathy-vestibular-areflexia-syndrome">
                 <div class="item-name">
 
                     CANVAS (RFC1-related cerebellar ataxia, neuropathy, vestibular areflexia syndrome)
@@ -8837,7 +10115,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8862,7 +10142,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-spastic-paraplegia-85-autosomal-recessive-biallelic-rnf170">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Spastic paraplegia 85, autosomal recessive (biallelic RNF170)</span>
@@ -8916,7 +10196,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8938,7 +10220,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31636353" target="_blank">PMID:31636353</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8960,7 +10244,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33165979" target="_blank">PMID:33165979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8985,7 +10271,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-friedreich-ataxia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Friedreich_Ataxia.html">Friedreich ataxia</a>
@@ -9028,7 +10314,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9053,7 +10341,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acquired-sensory-ganglionopathy-paraneoplastic-autoimmune-toxic">
                 <div class="item-name">
 
                     Acquired sensory ganglionopathy (paraneoplastic, autoimmune, toxic)
@@ -9096,7 +10384,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9192,17 +10482,21 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:25358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9247,7 +10541,9 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9269,7 +10565,9 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26433933" target="_blank">PMID:26433933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9333,17 +10631,21 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:25358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9388,7 +10690,9 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9452,17 +10756,21 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RNF170
 
 
-    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25358</a>
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:25358</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9507,7 +10815,9 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39177409" target="_blank">PMID:39177409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9529,7 +10839,9 @@ This experimental model concerns RNF170 (hgnc:25358). hgnc:25358 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39177409" target="_blank">PMID:39177409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10290,7 +11602,7 @@ pathophysiology:
   - reference: PMID:32943585
     reference_title: &#39;Mutation in RNF170 causes sensory ataxic neuropathy with vestibular
       areflexia: a CANVAS mimic.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Babinski was absent.&#34;
     explanation: &gt;-
@@ -10436,7 +11748,7 @@ pathophysiology:
   - reference: PMID:32943585
     reference_title: &#39;Mutation in RNF170 causes sensory ataxic neuropathy with vestibular
       areflexia: a CANVAS mimic.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected cases showed progressive sensory loss and ataxia due to degeneration of the posterior columns, but normal sensory nerve conduction.&#34;
     explanation: &gt;-
@@ -10445,7 +11757,7 @@ pathophysiology:
   - reference: PMID:34469621
     reference_title: RNF170 mutation causes autosomal dominant sensory ataxia with
       variable pyramidal involvement.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Pyramidal involvement, and sometimes slow-pursuit abnormalities and/or a sensory neuropathy, were more variable findings.&#34;
     explanation: &gt;-
@@ -10834,7 +12146,7 @@ phenotypes:
   - reference: PMID:32943585
     reference_title: &#39;Mutation in RNF170 causes sensory ataxic neuropathy with vestibular
       areflexia: a CANVAS mimic.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;without evidence of cerebellar or autonomic involvement and no significant foot ulcerations or pain&#34;
     explanation: &gt;-
@@ -10900,7 +12212,7 @@ phenotypes:
       label: Abnormal pyramidal sign
   frequency: OCCASIONAL
   reports_on:
-  - target: pathophysiology#Variable Corticospinal Tract Involvement
+  - target: Variable Corticospinal Tract Involvement
     relationship: READOUT_OF
     description: &gt;-
       This phenotype is the clinical readout of the variable corticospinal arm of
@@ -12632,7 +13944,7 @@ Adult-onset, slowly progressive SENSORY (proprioceptive) ATAXIA
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Sensory Ataxia 1", "mondoId": "MONDO:0012166", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Sensory_Ataxia_1", "yamlRevision": "c05568da10fa"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Sensory Ataxia 1", "mondoId": "MONDO:0012166", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Sensory_Ataxia_1", "yamlRevision": "14c14e856c40"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13051,5 +14363,73 @@ Adult-onset, slowly progressive SENSORY (proprioceptive) ATAXIA
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

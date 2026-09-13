@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Campomelic Dysplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Campomelic Dysplasia</h1>
             <div class="header-meta">
 
@@ -3882,6 +4029,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3891,9 +4108,43 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Mendelian skeletal dysplasia (ISDS bent-bone group). The 46,XY sex reversal and the respiratory insufficiency are prominent, but both are curated as mechanism and phenotype of the single SOX9 disorder rather than as additional Harrison&#39;s Parts.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology of Genetic Skeletal Disorders, 2023 revision (11th edition; Unger et al., PMID:36779427), group 20 &#34;Bent bones dysplasia group&#34;, entry NOS 20-0010, listed there as &#34;Campomelic dysplasia (CD), SOX9-related&#34; (AD, SOX9, MIM 114290). In the 2019 revision (Mortier et al., PMID:31633310) the same group was numbered 18 and the entry was listed as &#34;Campomelic dysplasia (CD)&#34;; this assignment was originally made from that table and has been re-verified against the 2023 one.
+Lumping: NOS 20-0010 explicitly folds acampomelic campomelic dysplasia (ACD), mild campomelic dysplasia (MIM 602196), so-called ischio-pubic-patellar dysplasia, and some cases of isolated Pierre-Robin sequence into this single entry. dismech follows that call — this entry covers the whole SOX9 campomelic spectrum, and ACD in particular is curated here as a phenotypic variant rather than as a separate entry.">bent bone dysplasia</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3911,7 +4162,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3939,7 +4190,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36741086" target="_blank">PMID:36741086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3961,7 +4214,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4019,18 +4274,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4058,17 +4315,21 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SOX9
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11204</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4097,18 +4358,20 @@ This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cartilage Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0051216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4125,18 +4388,20 @@ This pathophysiological event involves Cartilage Development (GO:0051216). GO:00
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Endochondral Ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endochondral Ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endochondral Ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4158,18 +4423,20 @@ This pathophysiological event involves Endochondral Ossification (GO:0001958). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves DNA-binding transcription factor activity, RNA polymerase II-specific (GO:0000981). GO:0000981 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA-binding transcription factor activity, RNA polymerase II-specific
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go">GO:0000981</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000981</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves DNA-binding transcription factor activity, RNA polymerase II-specific (GO:0000981). GO:0000981 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4292,7 +4559,9 @@ This pathophysiological event involves DNA-binding transcription factor activity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39854231" target="_blank">PMID:39854231</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4333,18 +4602,20 @@ This pathophysiological event involves DNA-binding transcription factor activity
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular Matrix Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4361,18 +4632,20 @@ This pathophysiological event involves Extracellular Matrix Organization (GO:003
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cartilage Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0051216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4452,7 +4725,9 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40025280" target="_blank">PMID:40025280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4474,7 +4749,9 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40025280" target="_blank">PMID:40025280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4490,13 +4767,15 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39854231" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39854231" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39854231" target="_blank">PMID:39854231</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4539,17 +4818,21 @@ This pathophysiological event involves decreased Cartilage Development (GO:00512
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SOX9
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11204</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4578,18 +4861,20 @@ This pathophysiological event involves SOX9 (hgnc:11204). hgnc:11204 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Male Sex Determination (GO:0030238). GO:0030238 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Male Sex Determination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030238" target="_blank" class="curie-chip curie-chip-go">GO:0030238</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030238" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030238</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Male Sex Determination (GO:0030238). GO:0030238 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4611,18 +4896,20 @@ This pathophysiological event involves Male Sex Determination (GO:0030238). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves DNA-binding transcription factor activity, RNA polymerase II-specific (GO:0000981). GO:0000981 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA-binding transcription factor activity, RNA polymerase II-specific
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go">GO:0000981</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000981</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves DNA-binding transcription factor activity, RNA polymerase II-specific (GO:0000981). GO:0000981 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4685,7 +4972,9 @@ This pathophysiological event involves DNA-binding transcription factor activity
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4726,18 +5015,20 @@ This pathophysiological event involves DNA-binding transcription factor activity
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cartilage Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0051216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4819,7 +5110,9 @@ This pathophysiological event involves Cartilage Development (GO:0051216). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4888,19 +5181,17 @@ This pathophysiological event involves Cartilage Development (GO:0051216). GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4919,16 +5210,20 @@ This pathophysiological event involves Cartilage Development (GO:0051216). GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4949,7 +5244,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4981,7 +5278,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sex-reversal" data-dismech-node="Sex Reversal" data-dismech-type="phenotype">
@@ -4990,16 +5287,20 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012245</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sex reversal (HP:0012245). HP:0012245 is a phenotype from the Human Phenotype Ontology.">
-                        Sex reversal
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012245" target="_blank" class="curie-chip curie-chip-hp">HP:0012245</a>
-
-
+This clinical feature is Sex reversal (HP:0012245). HP:0012245 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5020,7 +5321,9 @@ This clinical feature is Sex reversal (HP:0012245). HP:0012245 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5046,22 +5349,26 @@ This clinical feature is Sex reversal (HP:0012245). HP:0012245 is a phenotype fr
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-female-external-genitalia-in-46-xy-individual" data-dismech-node="Female External Genitalia in 46,XY Individual" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Female External Genitalia in 46,XY Individual
+                        Ambiguous Genitalia
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000062</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Female external genitalia in individual with 46,XY karyotype (HP:0008730). HP:0008730 is a phenotype from the Human Phenotype Ontology.">
-                        Female external genitalia in individual with 46,XY karyotype
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp">HP:0008730</a>
-
-
+This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5082,7 +5389,79 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
+
+
+                <div class="evidence-explanation">GeneReviews directly supports ambiguous genitalia as part of the campomelic dysplasia phenotype spectrum in affected 46,XY individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-female-external-genitalia-in-46-xy-individual" data-dismech-node="Female External Genitalia in 46,XY Individual" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Female External Genitalia in 46,XY Individual
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Female external genitalia in individual with 46,XY karyotype</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008730</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Female external genitalia in individual with 46,XY karyotype (HP:0008730). HP:0008730 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5114,25 +5493,29 @@ This clinical feature is Female external genitalia in individual with 46,XY kary
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pierre-robin-sequence" data-dismech-node="Pierre-Robin Sequence" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cleft Palate
+                        Pierre-Robin Sequence
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000201</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.">
-                        Cleft palate
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp">HP:0000175</a>
-
-
+This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5153,7 +5536,77 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal dysplasia characterized by distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, and clubfeet."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies Pierre-Robin sequence with cleft palate as part of the characteristic craniofacial presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cleft Palate
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000175</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5185,16 +5638,20 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
-                        Micrognathia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
-
-
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5215,7 +5672,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5247,7 +5706,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bowing-of-the-long-bones" data-dismech-node="Bowing of the Long Bones" data-dismech-type="phenotype">
@@ -5258,16 +5717,20 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.">
-                        Bowing of the long bones
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp">HP:0006487</a>
-
-
+This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5288,7 +5751,9 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5304,13 +5769,15 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5336,22 +5803,96 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip Dislocation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hip Dislocation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002827</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6344634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6344634" target="_blank">PMID:6344634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Usually the hips are dislocated and talipes equinovarus deformities are present."</div>
+
+
+                <div class="evidence-explanation">This clinicoradiographic review directly supports hip dislocation as a recurrent orthopedic phenotype in campomelic dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-clubfoot" data-dismech-node="Clubfoot" data-dismech-type="phenotype">
                     <div class="item-name">
                         Clubfoot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Talipes equinovarus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is clubfoot, annotated with Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.">
-                        Talipes equinovarus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp">HP:0001762</a>
-
-
+This clinical feature is clubfoot, annotated with Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5372,7 +5913,9 @@ This clinical feature is clubfoot, annotated with Talipes equinovarus (HP:000176
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5404,8 +5947,212 @@ This clinical feature is clubfoot, annotated with Talipes equinovarus (HP:000176
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bell-shaped-thorax" data-dismech-node="Bell-Shaped Thorax" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bell-Shaped Thorax
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001591</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bell-shaped thorax (HP:0001591). HP:0001591 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
+
+
+                <div class="evidence-explanation">This review abstract identifies bell-shaped thorax as part of the typical campomelic dysplasia skeletal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-11-pairs-of-ribs" data-dismech-node="11 Pairs of Ribs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        11 Pairs of Ribs
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 11 pairs of ribs (HP:0000878). HP:0000878 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
+
+
+                <div class="evidence-explanation">This review abstract directly supports reduced rib number as a recurrent campomelic dysplasia finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-scapulae" data-dismech-node="Hypoplastic Scapulae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplastic Scapulae
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000882</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic scapulae (HP:0000882). HP:0000882 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
+
+
+                <div class="evidence-explanation">This review abstract directly identifies hypoplastic scapulae within the classic radiographic phenotype of campomelic dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-instability" data-dismech-node="Cervical Spine Instability" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5413,16 +6160,20 @@ This clinical feature is clubfoot, annotated with Talipes equinovarus (HP:000176
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010646" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010646</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cervical spine instability (HP:0010646). HP:0010646 is a phenotype from the Human Phenotype Ontology.">
-                        Cervical spine instability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010646" target="_blank" class="curie-chip curie-chip-hp">HP:0010646</a>
-
-
+This clinical feature is Cervical spine instability (HP:0010646). HP:0010646 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,7 +6194,9 @@ This clinical feature is Cervical spine instability (HP:0010646). HP:0010646 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5475,16 +6228,20 @@ This clinical feature is Cervical spine instability (HP:0010646). HP:0010646 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5505,7 +6262,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5537,8 +6296,76 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-laryngotracheomalacia" data-dismech-node="Laryngotracheomalacia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Laryngotracheomalacia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008755" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0008755</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Laryngotracheomalacia (HP:0008755). HP:0008755 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies laryngotracheomalacia as an important airway manifestation contributing to respiratory compromise.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5546,16 +6373,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
-
-
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5576,7 +6407,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5645,7 +6478,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24800790" target="_blank">PMID:24800790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5688,16 +6523,20 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5718,7 +6557,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5729,449 +6570,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">GeneReviews identifies short stature as a later feature in long-term survivors.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bell-shaped-thorax" data-dismech-node="Bell-Shaped Thorax" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bell-Shaped Thorax
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bell-shaped thorax (HP:0001591). HP:0001591 is a phenotype from the Human Phenotype Ontology.">
-                        Bell-shaped thorax
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001591" target="_blank" class="curie-chip curie-chip-hp">HP:0001591</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-
-
-                <div class="evidence-explanation">This review abstract identifies bell-shaped thorax as part of the typical campomelic dysplasia skeletal phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-11-pairs-of-ribs" data-dismech-node="11 Pairs of Ribs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        11 Pairs of Ribs
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is 11 pairs of ribs (HP:0000878). HP:0000878 is a phenotype from the Human Phenotype Ontology.">
-                        11 pairs of ribs
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000878" target="_blank" class="curie-chip curie-chip-hp">HP:0000878</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-
-
-                <div class="evidence-explanation">This review abstract directly supports reduced rib number as a recurrent campomelic dysplasia finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-scapulae" data-dismech-node="Hypoplastic Scapulae" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplastic Scapulae
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplastic scapulae (HP:0000882). HP:0000882 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplastic scapulae
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000882" target="_blank" class="curie-chip curie-chip-hp">HP:0000882</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11754051" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional radiological and clinical findings are 11 pairs of ribs and a bell-shaped thorax, hypoplastic scapulae, narrow iliac wings, non-mineralized thoracic pedicles, clubbed feet, Robin sequence, typical facial anomalies and tracheomalacia."</div>
-
-
-                <div class="evidence-explanation">This review abstract directly identifies hypoplastic scapulae within the classic radiographic phenotype of campomelic dysplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip Dislocation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hip Dislocation
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.">
-                        Hip dislocation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp">HP:0002827</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:6344634" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6344634" target="_blank">PMID:6344634</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Usually the hips are dislocated and talipes equinovarus deformities are present."</div>
-
-
-                <div class="evidence-explanation">This clinicoradiographic review directly supports hip dislocation as a recurrent orthopedic phenotype in campomelic dysplasia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pierre-robin-sequence" data-dismech-node="Pierre-Robin Sequence" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pierre-Robin Sequence
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phenotype from the Human Phenotype Ontology.">
-                        Pierre-Robin sequence
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" class="curie-chip curie-chip-hp">HP:0000201</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Campomelic dysplasia (CD) is a skeletal dysplasia characterized by distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, and clubfeet."</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies Pierre-Robin sequence with cleft palate as part of the characteristic craniofacial presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-laryngotracheomalacia" data-dismech-node="Laryngotracheomalacia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Laryngotracheomalacia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Laryngotracheomalacia (HP:0008755). HP:0008755 is a phenotype from the Human Phenotype Ontology.">
-                        Laryngotracheomalacia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008755" target="_blank" class="curie-chip curie-chip-hp">HP:0008755</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies laryngotracheomalacia as an important airway manifestation contributing to respiratory compromise.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ambiguous Genitalia
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.">
-                        Ambiguous genitalia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp">HP:0000062</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other findings include laryngotracheomalacia with respiratory compromise and ambiguous genitalia or normal female external genitalia in most individuals with a 46,XY karyotype."</div>
-
-
-                <div class="evidence-explanation">GeneReviews directly supports ambiguous genitalia as part of the campomelic dysplasia phenotype spectrum in affected 46,XY individuals.</div>
 
 
 
@@ -6239,15 +6637,17 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX9
 
 
-    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11204</a>
+    <a href="https://bioregistry.io/hgnc:11204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6279,7 +6679,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7485151" target="_blank">PMID:7485151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6301,7 +6703,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7485151" target="_blank">PMID:7485151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6323,7 +6727,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11754051" target="_blank">PMID:11754051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6355,6 +6761,9 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6371,18 +6780,18 @@ This disease-associated gene is SOX9 (hgnc:11204). hgnc:11204 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6405,6 +6814,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early supportive respiratory management (including mechanical ventilation when needed) is critical in severe neonatal presentations.
 </div>
 
@@ -6414,18 +6831,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6445,7 +6864,9 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6475,6 +6896,503 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-radiographic-diagnosis">
+                <div class="item-name">
+                    Clinical and Radiographic Diagnosis
+
+                </div>
+
+                <div class="item-desc">Campomelic dysplasia is usually diagnosed by the combination of characteristic clinical findings and skeletal radiographs, including distinctive facies, Pierre Robin sequence with cleft palate, shortening and bowing of long bones, clubfeet, and thoracic or airway involvement.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of CD is usually based on clinical and radiographic findings."</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly defines clinical and radiographic assessment as the usual diagnostic basis for campomelic dysplasia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-confirmation">
+                <div class="item-name">
+                    Molecular Genetic Confirmation
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing can confirm campomelic dysplasia by identifying a heterozygous pathogenic SOX9 variant. Because disease can also result from chromosome 17q rearrangements affecting SOX9 regulation, testing strategy should consider structural or copy-number evaluation when sequence testing is unrevealing but the clinical/radiographic pattern is compelling.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Identification of a heterozygous pathogenic variant in SOX9 by molecular genetic testing can confirm the diagnosis if clinical and radiographic features are inconclusive."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports SOX9 molecular testing as confirmatory when clinical and radiographic findings are not definitive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36741086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36741086" target="_blank">PMID:36741086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Heterozygous pathogenic variants of SOX9 or rearrangement involving the long arm of chromosome 17 are the causes of disease."</div>
+
+
+                <div class="evidence-explanation">Supports molecular confirmation strategies that consider both SOX9 sequence variants and chromosome 17 rearrangements.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-karyotype-assessment-in-46-xy-sex-reversal">
+                <div class="item-name">
+                    Karyotype Assessment in 46,XY Sex Reversal
+
+                </div>
+
+                <div class="item-desc">Chromosome analysis can clarify sex chromosome complement when external genitalia are ambiguous or female-appearing, because many affected individuals with a 46,XY karyotype have undermasculinization or sex reversal.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        karyotyping
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16768" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C16768</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17185244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17185244" target="_blank">PMID:17185244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The karyotype was 46,XY despite female external genitalia. SOX9 gene analysis revealed frameshift mutation (at nucleotide position 1095G--&gt;AT) in the open reading frame, resulting in a frameshift with 211 new amino acids."</div>
+
+
+                <div class="evidence-explanation">This case illustrates the combined role of karyotype assessment and SOX9 analysis in campomelic dysplasia with sex reversal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-genetic-testing-in-at-risk-pregnancies">
+                <div class="item-name">
+                    Prenatal Genetic Testing in At-Risk Pregnancies
+
+                </div>
+
+                <div class="item-desc">Prenatal genetic testing can be offered for pregnancies at increased risk when the familial pathogenic variant is known, and fetal genomic testing can identify a pathogenic SOX9 variant in a fetus diagnosed with campomelic dysplasia.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        prenatal genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301724" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301724" target="_blank">PMID:20301724</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prenatal testing for a pregnancy at increased risk is possible if the pathogenic variant in the family is known."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports variant-informed prenatal testing for at-risk pregnancies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36741086" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36741086" target="_blank">PMID:36741086</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The affected fetus was selected for whole-exome sequencing to identify the pathogenic mutations in this family."</div>
+
+
+                <div class="evidence-explanation">Supports prenatal molecular evaluation of an affected fetus when campomelic dysplasia is suspected.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-live-births">
+                <div class="item-name">Live births</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.5&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Reported baseline incidence in the literature is 0.05-0.09 per 10,000 live births. A Norwegian single-center series observed a substantially higher local rate and suggested that campomelic dysplasia may be underdiagnosed.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8482284" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8482284" target="_blank">PMID:8482284</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Campomelic dysplasia (CD) is a rare skeletal dysplasia. The incidence, reported in the literature, is 0.05-0.09 per 10,000 live births."</div>
+
+
+                <div class="evidence-explanation">This case series provides an explicit literature-based incidence estimate for campomelic dysplasia. The source words it as an incidence per live births, which is recorded here as BIRTH_PREVALENCE (cases per live birth), the equivalent structured measure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6510,7 +7428,6 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 synonyms:
 - Campomelic dysplasia (CD), SOX9-related
 creation_date: &#39;2026-03-04T07:35:50Z&#39;
-updated_date: &#39;2026-04-19T00:10:02Z&#39;
 category: Mendelian
 description: &gt;
   Campomelic dysplasia is a severe SOX9-related skeletal dysplasia with abnormal
@@ -6553,12 +7470,30 @@ inheritance:
       This report supports de novo SOX9 variants as a frequent genetic origin of
       CD.
 classifications:
+  harrisons_chapter:
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      Mendelian skeletal dysplasia (ISDS bent-bone group). The 46,XY sex
+      reversal and the respiratory insufficiency are prominent, but both are
+      curated as mechanism and phenotype of the single SOX9 disorder rather
+      than as additional Harrison&#39;s Parts.
   isds_skeletal_category:
   - classification_value: bent_bone_dysplasia
     notes: &gt;-
-      ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019
-      revision (Mortier et al., PMID:31633310), Table 1 group 18 &#34;Bent bone
-      dysplasia group&#34;; listed as &#34;Campomelic dysplasia (CD)&#34;.
+      ISDS Nosology of Genetic Skeletal Disorders, 2023 revision (11th edition;
+      Unger et al., PMID:36779427), group 20 &#34;Bent bones dysplasia group&#34;,
+      entry NOS 20-0010, listed there as &#34;Campomelic dysplasia (CD),
+      SOX9-related&#34; (AD, SOX9, MIM 114290). In the 2019 revision (Mortier et
+      al., PMID:31633310) the same group was numbered 18 and the entry was
+      listed as &#34;Campomelic dysplasia (CD)&#34;; this assignment was originally
+      made from that table and has been re-verified against the 2023 one.
+
+      Lumping: NOS 20-0010 explicitly folds acampomelic campomelic dysplasia
+      (ACD), mild campomelic dysplasia (MIM 602196), so-called
+      ischio-pubic-patellar dysplasia, and some cases of isolated Pierre-Robin
+      sequence into this single entry. dismech follows that call — this entry
+      covers the whole SOX9 campomelic spectrum, and ACD in particular is
+      curated here as a phenotypic variant rather than as a separate entry.
 prevalence:
 - population: Live births
   measure_type: BIRTH_PREVALENCE
@@ -6572,7 +7507,7 @@ prevalence:
     local rate and suggested that campomelic dysplasia may be underdiagnosed.
   evidence:
   - reference: PMID:8482284
-    reference_title: &#34;Campomelic dysplasia.&#34;
+    reference_title: &#34;Campomelic dysplasia--an underdiagnosed condition?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Campomelic dysplasia (CD) is a rare skeletal dysplasia. The incidence, reported in the literature, is 0.05-0.09 per 10,000 live births.&#34;
@@ -6687,7 +7622,7 @@ pathophysiology:
       insufficiency as the operative mechanism behind the matrix defect.
   - reference: PMID:39854231
     reference_title: &#34;Variants in the SOX9 transactivation middle domain induce axial skeleton dysplasia and scoliosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       both the human missense and the mouse microdeletion mutations resulted in
@@ -6702,7 +7637,7 @@ pathophysiology:
       the mechanism is inferred to generalize across the SOX9 dosage spectrum.
   - reference: PMID:39854231
     reference_title: &#34;Variants in the SOX9 transactivation middle domain induce axial skeleton dysplasia and scoliosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       We isolated a Sox9 mutant mouse with an in-frame microdeletion in the TAM
@@ -6870,7 +7805,7 @@ phenotypes:
       source supports the &gt;=80% floor required for VERY_FREQUENT.
   - reference: PMID:11754051
     reference_title: &#34;Acampomelic campomelic syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Half of the CD cases with 17q rearrangements have no or mild campomelia.
@@ -7559,7 +8494,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Campomelic Dysplasia", "mondoId": "MONDO:0007251", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Campomelic_Dysplasia", "yamlRevision": "de1eeffc81b3"};
+        const OS_CONFIG = {"diseaseName": "Campomelic Dysplasia", "mondoId": "MONDO:0007251", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Campomelic_Dysplasia", "yamlRevision": "7a932532fc57"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7978,5 +8913,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

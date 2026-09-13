@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Persistent Truncus Arteriosus</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Persistent Truncus Arteriosus</h1>
             <div class="header-meta">
 
@@ -3900,27 +4047,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">CARDIOVASCULAR</span>
+
+
+
+
+                    <span class="tag tag-classification" title="A structural congenital cardiovascular malformation. The syndromic 22q11.2-deleted subgroup additionally carries immune, endocrine, and neurodevelopmental features that fall outside this chapter, but the entity curated here is the cardiac lesion.">CARDIOVASCULAR</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3938,7 +4162,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-22q11-2-deletion">
                 <div class="item-name">
                     Autosomal dominant, 22q11.2 deletion
 
@@ -3984,7 +4208,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4007,7 +4233,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-biallelic-tmem260-or-nkx2-6">
                 <div class="item-name">
                     Autosomal recessive, biallelic TMEM260 or NKX2-6
 
@@ -4053,7 +4279,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4075,7 +4303,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32198970" target="_blank">PMID:32198970</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4200,6 +4430,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4223,7 +4459,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4239,13 +4477,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:9316541" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:9316541" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9316541" target="_blank">PMID:9316541</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4349,6 +4589,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4372,7 +4618,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15649947" target="_blank">PMID:15649947</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4394,7 +4642,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32198970" target="_blank">PMID:32198970</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4416,7 +4666,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32198970" target="_blank">PMID:32198970</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4513,6 +4765,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4536,7 +4794,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4558,7 +4818,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4662,6 +4924,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4685,7 +4953,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4701,13 +4971,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38884753" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38884753" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884753" target="_blank">PMID:38884753</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4753,18 +5025,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Cardiac neural crest cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Cardiac neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac neural crest cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4792,18 +5066,20 @@ This pathophysiological event involves Cardiac neural crest cell, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cardiac neural crest cell development involved in outflow tract morphogenesis (GO:0061309). GO:0061309 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cardiac neural crest cell development involved in outflow tract morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go">GO:0061309</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0061309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cardiac neural crest cell development involved in outflow tract morphogenesis (GO:0061309). GO:0061309 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4824,18 +5100,20 @@ This pathophysiological event involves decreased cardiac neural crest cell devel
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4863,18 +5141,20 @@ This pathophysiological event involves decreased neural crest cell migration (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0004145 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Outflow tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004145</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0004145</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0004145 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4942,7 +5222,9 @@ This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884753" target="_blank">PMID:38884753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4983,18 +5265,20 @@ This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves outflow tract septum morphogenesis (GO:0003148), qualified as loss of function. GO:0003148 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         outflow tract septum morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go">GO:0003148</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves outflow tract septum morphogenesis (GO:0003148), qualified as loss of function. GO:0003148 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5022,33 +5306,37 @@ This pathophysiological event involves outflow tract septum morphogenesis (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Truncus arteriosus (UBERON:0002061). UBERON:0002061 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Truncus arteriosus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002061" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002061</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002061" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002061</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Truncus arteriosus (UBERON:0002061). UBERON:0002061 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). UBERON:0004142 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Outflow tract septum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004142" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0004142</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004142" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0004142</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). UBERON:0004142 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5116,7 +5404,9 @@ This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884754" target="_blank">PMID:38884754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5160,18 +5450,20 @@ This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Interventricular septum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5237,7 +5529,9 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5312,7 +5606,9 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5356,18 +5652,20 @@ This pathophysiological event occurs in Interventricular septum (UBERON:0002094)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5415,7 +5713,9 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884754" target="_blank">PMID:38884754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5490,7 +5790,9 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5565,7 +5867,9 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5587,7 +5891,9 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5674,18 +5980,20 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5729,13 +6037,15 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5829,7 +6139,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
@@ -5839,8 +6149,6 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
-
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
@@ -5849,7 +6157,7 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-truncus-arteriosus" data-dismech-node="Truncus arteriosus" data-dismech-type="phenotype">
@@ -5860,16 +6168,20 @@ This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001660</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenotype from the Human Phenotype Ontology.">
-                        Truncus arteriosus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001660" target="_blank" class="curie-chip curie-chip-hp">HP:0001660</a>
-
-
+This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5890,7 +6202,9 @@ This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5924,16 +6238,20 @@ This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001629</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.">
-                        Ventricular septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp">HP:0001629</a>
-
-
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5954,7 +6272,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5988,16 +6308,20 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635), qualified as temporality acute. HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635), qualified as temporality acute. HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6038,16 +6362,20 @@ This clinical feature is Congestive heart failure (HP:0001635), qualified as tem
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001659</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Truncal valve regurgitation, annotated with Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic regurgitation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp">HP:0001659</a>
-
-
+This clinical feature is Truncal valve regurgitation, annotated with Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6062,13 +6390,15 @@ This clinical feature is Truncal valve regurgitation, annotated with Aortic regu
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6094,6 +6424,238 @@ This clinical feature is Truncal valve regurgitation, annotated with Aortic regu
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-coronary-artery-origin" data-dismech-node="Abnormal coronary artery origin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal coronary artery origin
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011636" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011636</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:0011636 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Specimens of heart from 30 subjects with persistent truncus arteriosus were studied for the nature and sites of coronary arterial origin."</div>
+
+
+                <div class="evidence-explanation">The autopsy series that characterised coronary origin in this malformation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It was common for the posterior descending artery to arise from the left circumflex artery. This arrangement was noted in eight of 25 cases (32%)"</div>
+
+
+                <div class="evidence-explanation">A specific anomalous arrangement in 32 percent of cases, supporting the FREQUENT band with a counted denominator rather than a review estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-aortic-arch" data-dismech-node="Right aortic arch" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Right aortic arch
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right aortic arch (HP:0012020). HP:0012020 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"right aortic arch (RAA) in Patient 2"</div>
+
+
+                <div class="evidence-explanation">Documents a right aortic arch in a patient in this truncus arteriosus case series, which establishes the association without supporting any particular rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interrupted-aortic-arch" data-dismech-node="Interrupted aortic arch" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Interrupted aortic arch
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011611</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a subset of conotruncal defects (tetralogy of Fallot, truncus arteriosus, interrupted aortic arch type B), conoventricular and/or atrial septal defects, and aortic arch anomalies"</div>
+
+
+                <div class="evidence-explanation">Places truncus arteriosus and interrupted aortic arch together within the same 22q11.2 conotruncal spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary arterial hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary arterial hypertension
@@ -6102,16 +6664,20 @@ This clinical feature is Truncal valve regurgitation, annotated with Aortic regu
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002092</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified as course progressive. HP:0002092 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary arterial hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp">HP:0002092</a>
-
-
+This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified as course progressive. HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6144,13 +6710,15 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38884754" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38884754" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884754" target="_blank">PMID:38884754</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6193,16 +6761,20 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000961</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cyanosis (HP:0000961), qualified as temporality chronic. HP:0000961 is a phenotype from the Human Phenotype Ontology.">
-                        Cyanosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp">HP:0000961</a>
-
-
+This clinical feature is Cyanosis (HP:0000961), qualified as temporality chronic. HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6252,16 +6824,20 @@ This clinical feature is Cyanosis (HP:0000961), qualified as temporality chronic
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002901</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.">
-                        Hypocalcemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp">HP:0002901</a>
-
-
+This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6282,7 +6858,9 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6325,16 +6903,20 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002789</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from the Human Phenotype Ontology.">
-                        Tachypnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp">HP:0002789</a>
-
-
+This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6366,16 +6948,20 @@ This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508), qualified as course progressive. HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508), qualified as course progressive. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6401,227 +6987,6 @@ This clinical feature is Failure to thrive (HP:0001508), qualified as course pro
 
 
 
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-coronary-artery-origin" data-dismech-node="Abnormal coronary artery origin" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal coronary artery origin
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:0011636 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal coronary artery origin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011636" target="_blank" class="curie-chip curie-chip-hp">HP:0011636</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Specimens of heart from 30 subjects with persistent truncus arteriosus were studied for the nature and sites of coronary arterial origin."</div>
-
-
-                <div class="evidence-explanation">The autopsy series that characterised coronary origin in this malformation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:837493" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/837493" target="_blank">PMID:837493</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It was common for the posterior descending artery to arise from the left circumflex artery. This arrangement was noted in eight of 25 cases (32%)"</div>
-
-
-                <div class="evidence-explanation">A specific anomalous arrangement in 32 percent of cases, supporting the FREQUENT band with a counted denominator rather than a review estimate.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-aortic-arch" data-dismech-node="Right aortic arch" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right aortic arch
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right aortic arch (HP:0012020). HP:0012020 is a phenotype from the Human Phenotype Ontology.">
-                        Right aortic arch
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012020" target="_blank" class="curie-chip curie-chip-hp">HP:0012020</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"right aortic arch (RAA) in Patient 2"</div>
-
-
-                <div class="evidence-explanation">Documents a right aortic arch in a patient in this truncus arteriosus case series, which establishes the association without supporting any particular rate.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interrupted-aortic-arch" data-dismech-node="Interrupted aortic arch" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interrupted aortic arch
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a phenotype from the Human Phenotype Ontology.">
-                        Interrupted aortic arch
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011611" target="_blank" class="curie-chip curie-chip-hp">HP:0011611</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a subset of conotruncal defects (tetralogy of Fallot, truncus arteriosus, interrupted aortic arch type B), conoventricular and/or atrial septal defects, and aortic arch anomalies"</div>
-
-
-                <div class="evidence-explanation">Places truncus arteriosus and interrupted aortic arch together within the same 22q11.2 conotruncal spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -6679,15 +7044,17 @@ This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a p
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBX1
 
 
-    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11592</a>
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:11592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6713,7 +7080,9 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6735,7 +7104,9 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884753" target="_blank">PMID:38884753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6770,15 +7141,17 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM260
 
 
-    <a href="https://bioregistry.io/hgnc:20185" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20185</a>
+    <a href="https://bioregistry.io/hgnc:20185" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:20185</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6804,7 +7177,9 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6826,7 +7201,9 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6861,15 +7238,17 @@ This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NKX2-6
 
 
-    <a href="https://bioregistry.io/hgnc:32940" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:32940</a>
+    <a href="https://bioregistry.io/hgnc:32940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:32940</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6895,7 +7274,9 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15649947" target="_blank">PMID:15649947</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6917,7 +7298,9 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15649947" target="_blank">PMID:15649947</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6952,15 +7335,17 @@ This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA6
 
 
-    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4174</a>
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:4174</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6986,7 +7371,9 @@ This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7021,15 +7408,17 @@ This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7049,13 +7438,15 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7085,6 +7476,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7101,18 +7495,18 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">cardiac surgery<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">cardiac surgery</span>
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">NCIT:C157806</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157806">NCIT:C157806</a>
 
 
 
@@ -7130,6 +7524,25 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7165,7 +7578,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7205,13 +7620,15 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38884754" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38884754" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884754" target="_blank">PMID:38884754</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7252,7 +7669,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7282,18 +7701,18 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">cardiac surgery<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">cardiac surgery</span>
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">NCIT:C157806</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157806">NCIT:C157806</a>
 
 
 
@@ -7311,6 +7730,25 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7353,17 +7791,17 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7388,21 +7826,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         diuretic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C448</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C448</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7443,18 +7902,18 @@ This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">extracorporeal membrane oxygenation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C171507 is a clinical intervention from the NCI Thesaurus.">extracorporeal membrane oxygenation</span>
+This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C171507 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Extracorporeal Membrane Oxygenation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171507" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C171507 is a clinical intervention from the NCI Thesaurus.">NCIT:C171507</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171507" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171507">NCIT:C171507</a>
 
 
 
@@ -7472,6 +7931,25 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7507,7 +7985,9 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7542,13 +8022,15 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7587,6 +8069,10 @@ This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C1715
                 <div class="item-name">Maternal pregestational diabetes</div>
 
 
+
+
+
+
                 <div class="item-desc">No ECTO term is bound. Maternal pregestational diabetes is a maternal disease state rather than an exposure to an agent, and the ECTO exposure hierarchy has no term that expresses it without asserting a specific chemical exposure the sources do not support.
 A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyperglycaemia-induced disturbance of embryonic retinoic acid catabolism sensitising the conotruncal field. It was in an earlier draft of this description and has been removed. The deep-research report sources it only to PMC identifiers that were never fetched or verified, and the one study cited here states outright that the teratogenic mechanism is unknown. Recording it as a lead in notes is honest; asserting it in a description backed by a source that disclaims it is not.
 </div>
@@ -7609,7 +8095,9 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31454511" target="_blank">PMID:31454511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7625,13 +8113,15 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31454511" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31454511" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31454511" target="_blank">PMID:31454511</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7675,13 +8165,15 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31454511" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31454511" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31454511" target="_blank">PMID:31454511</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7714,6 +8206,780 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-transthoracic-echocardiography">
+                <div class="item-name">
+                    Transthoracic echocardiography
+
+                </div>
+
+                <div class="item-desc">The diagnostic test. It demonstrates the single trunk overriding the ventricular septal defect, the number and competence of the truncal valve cusps, the origin pattern of the pulmonary arteries that determines the anatomic subtype, and any arch anomaly. It is also the test that must be complete before surgery, because the operative plan depends on these details.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        echocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C16525</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-22q11-2-deletion-testing">
+                <div class="item-name">
+                    22q11.2 deletion testing
+
+                </div>
+
+                <div class="item-desc">Should be performed in every infant with this diagnosis, not only in those who look syndromic. Guidelines specifically name truncus arteriosus as an indication, and the reason is practical: the deletion changes perioperative management through hypocalcaemia and immunodeficiency, changes recurrence counselling for the parents, and identifies neurodevelopmental and psychiatric risks long before they would otherwise be visible.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"New guidelines suggest screening for a 22q11.2 deletion in the patient with tetralogy of Fallot, truncus arteriosus, interrupted aortic arch type B, conoventricular septal defects as well as those with an isolated aortic arch anomaly."</div>
+
+
+                <div class="evidence-explanation">Names truncus arteriosus explicitly as a guideline-level indication for deletion testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early identification of a 22q11.2 deletion in the neonate or infant when other syndromic features may not be apparent allows for timely parental screening for reproductive counseling and anticipatory evaluation of cardiac and noncardiac features."</div>
+
+
+                <div class="evidence-explanation">States why testing should not wait for syndromic features to declare themselves.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-whole-genome-or-whole-exome-sequencing-in-deletion-negative-cases">
+                <div class="item-name">
+                    Whole-genome or whole-exome sequencing in deletion-negative cases
+
+                </div>
+
+                <div class="item-desc">Sequencing has real yield in patients without the deletion. In a Japanese series of 11 deletion-negative patients, five carried pathogenic TMEM260 variants and two more carried de novo variants in GATA6 and NOTCH1, so a majority of the cohort received a molecular diagnosis. The yield is population-dependent, since the TMEM260 signal rests on a local founder variant, which is itself an argument for sequencing rather than for targeted panels built elsewhere.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        whole genome sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C101294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We performed whole-genome sequencing of 11 Japanese patients having TA without 22q11.2 deletion. Among five patients, we identified pathogenic variants in TMEM260"</div>
+
+
+                <div class="evidence-explanation">Demonstrates the diagnostic yield of sequencing in deletion-negative patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-genetic-counselling">
+                <div class="item-name">
+                    Genetic counselling
+
+                </div>
+
+                <div class="item-desc">Follows from the genetic result and is a distinct clinical action. Counselling differs sharply by mechanism: a de novo 22q11.2 deletion carries low recurrence risk but a fifty percent transmission risk for the affected child, whereas biallelic TMEM260 disease is autosomal recessive with a one in four sibling recurrence risk and identifiable carrier parents.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic counseling
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C15240</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"allows for timely parental screening for reproductive counseling and anticipatory evaluation of cardiac and noncardiac features"</div>
+
+
+                <div class="evidence-explanation">States the reproductive-counselling purpose that the genetic diagnosis serves.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-fetal-and-immediate-newborn-period">
+                <div class="item-name">Fetal and immediate newborn period</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The lesion is fully formed by week eight of gestation and is well tolerated in utero, because the fetal circulation is already a parallel mixing circuit. At birth, high neonatal pulmonary vascular resistance still limits pulmonary flow, so the infant may look deceptively well. Increasingly the diagnosis is made antenatally or by newborn pulse oximetry rather than by clinical deterioration.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-decompensation">
+                <div class="item-name">Neonatal decompensation</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Over the first days to weeks pulmonary vascular resistance falls physiologically, pulmonary blood flow rises steeply, and the infant develops high-output heart failure. This is when repair is performed, and the window is narrow. Contemporary in-hospital mortality around repair is about 10.8 percent, with prematurity, stroke, necrotising enterocolitis, and venous thrombosis as independent risk factors.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, 3009 neonates met inclusion criteria; a total of 326 patients died during the hospitalization (10.8%)."</div>
+
+
+                <div class="evidence-explanation">Contemporary national in-hospital mortality across 3009 neonates.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"necrotizing enterocolitis (aOR = 3.10; 95% CI: 1.24-7.74; P = .015) and presence of venous thrombosis (aOR = 13.5; 95% CI: 6.7-27.2; P &lt; .001)"</div>
+
+
+                <div class="evidence-explanation">Gives two of the independent mortality risk factors with their adjusted odds ratios in the same cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-untreated-progression-to-fixed-pulmonary-vascular-disease">
+                <div class="item-name">Untreated progression to fixed pulmonary vascular disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Without repair, sustained systemic-pressure pulmonary flow produces irreversible pulmonary vascular obstructive disease within the first year or two, converting an operable lesion into an inoperable one. This is the natural history that neonatal repair exists to pre-empt, and it is why deferring surgery is not a conservative option here.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38884754" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884754" target="_blank">PMID:38884754</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a single common outflow vessel persists resulting in a serious clinical condition known as persistent truncus arteriosus or common arterial trunk"</div>
+
+
+                <div class="evidence-explanation">Characterises the unrepaired lesion as a serious condition; PARTIAL because the specific pulmonary vascular endpoint is not described.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-post-repair-surveillance-and-reintervention">
+                <div class="item-name">Post-repair surveillance and reintervention</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Repair is not a cure but a conversion into a different chronic problem. The right ventricle to pulmonary artery conduit is fixed in size while the child is not, so it is outgrown and must be replaced serially through childhood and adolescence. Truncal valve regurgitation frequently progresses and drives further reoperation independently of the conduit.
+</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-critical-congenital-heart-disease">
+                <div class="item-name">Critical congenital heart disease</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">Truncus arteriosus accounts for about 4 percent of all critical congenital heart disease, the subset requiring intervention in the newborn period. This is a share of a diagnostic category rather than a population rate, and is recorded as such.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38351237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TA accounts for 4% of all critical congenital heart diseases."</div>
+
+
+                <div class="evidence-explanation">The share of critical congenital heart disease attributable to this lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-22q11-2-deletion-syndrome-livebirths">
+                <div class="item-name">22q11.2 deletion syndrome, livebirths</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        20.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">The deletion syndrome that causes 12 to 35 percent of truncus arteriosus has an estimated prevalence of 1 in 4000 to 6000 livebirths, with 60 to 80 percent of those having a cardiac malformation. Recorded here as denominator context for the leading genetic cause, not as the prevalence of this malformation.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 22q11.2 deletion syndrome has an estimated prevalence of 1 in 4-6,000 livebirths."</div>
+
+
+                <div class="evidence-explanation">Birth prevalence of the deletion syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 60-80% of patients have a cardiac malformation most commonly including a subset of conotruncal defects"</div>
+
+
+                <div class="evidence-explanation">The cardiac penetrance of the deletion, which converts its birth prevalence into a conotruncal-disease denominator.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">A critical congenital heart lesion that is uniformly fatal in infancy without surgery, and whose surgical treatment still carries about 10.8 percent in-hospital mortality in contemporary national data. Repair is not curative: the right ventricle to pulmonary artery conduit is outgrown and must be replaced serially through childhood, and truncal valve regurgitation drives further reoperation, so survivors carry a lifelong surgical and surveillance burden.
+</div>
+
+
+                <div class="item-notes">A substantial minority carry a 22q11.2 deletion, which adds hypocalcaemia, immunodeficiency, palatal and feeding disorders, and neurodevelopmental and psychiatric morbidity to the cardiac disease. Those patients have more perioperative complications than non-syndromic patients but do not, in the reported data, have higher surgical mortality, so the syndromic burden is chiefly a matter of complication management and lifelong non-cardiac care rather than of operative survival.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32557823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32557823" target="_blank">PMID:32557823</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, 3009 neonates met inclusion criteria; a total of 326 patients died during the hospitalization (10.8%)."</div>
+
+
+                <div class="evidence-explanation">Contemporary in-hospital mortality in a national neonatal cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiac patients with a 22q11.2 deletion do not generally experience higher mortality upon surgical intervention but suffer more peri-operative complications than their non-syndromic counterparts."</div>
+
+
+                <div class="evidence-explanation">Separates the syndromic complication burden from operative mortality, which is the distinction the notes above rest on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7728,7 +8994,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tetralogy-of-fallot-with-pulmonary-atresia">
                 <div class="item-name">
 
                     Tetralogy of Fallot with pulmonary atresia
@@ -7751,13 +9017,15 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32049433" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32049433" target="_blank">PMID:32049433</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7782,7 +9050,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-aortopulmonary-window">
                 <div class="item-name">
 
                     Aortopulmonary window
@@ -7805,13 +9073,15 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15649947" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15649947" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15649947" target="_blank">PMID:15649947</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7836,7 +9106,7 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-structural-heart-defects-and-renal-anomalies-syndrome">
                 <div class="item-name">
 
                     Structural heart defects and renal anomalies syndrome
@@ -7865,7 +9135,9 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38351237" target="_blank">PMID:38351237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7927,17 +9199,19 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-37">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-37">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8017,7 +9291,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2619088" target="_blank">PMID:2619088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8039,7 +9315,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2619088" target="_blank">PMID:2619088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8061,7 +9339,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2619088" target="_blank">PMID:2619088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8104,17 +9384,19 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-38">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-38">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8194,7 +9476,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28346476" target="_blank">PMID:28346476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8216,7 +9500,9 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28346476" target="_blank">PMID:28346476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8423,7 +9709,7 @@ pathophysiology:
     evidence:
     - reference: PMID:15649947
       reference_title: &#34;Common arterial trunk associated with a homeodomain mutation of NKX2.6.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;a failure of septation of the cardiac outflow tract (OFT) into the pulmonary artery and the aorta&#34;
       explanation: Establishes that the pulmonary arteries and aorta share a single unseptated source; PARTIAL because the haemodynamic consequence is not stated in the source.
@@ -8440,7 +9726,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38351237
       reference_title: &#34;Genetic etiology of truncus arteriosus excluding 22q11.2 deletion syndrome and identification of c.1617del, a prevalent variant in TMEM260, in the Japanese population.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;a single common blood vessel emerging from the right and left ventricles instead of the main pulmonary artery and aorta&#34;
       explanation: Establishes the abnormal root geometry from which the coronaries must arise; PARTIAL because the coronary consequence is not asserted in the source.
@@ -8547,7 +9833,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32557823
       reference_title: &#34;Outcomes of truncus arteriosus repair and predictors of mortality.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;a total of 326 patients died during the hospitalization (10.8%)&#34;
       explanation: Quantifies the in-hospital mortality that coronary anomalies contribute to; PARTIAL because the database analysis does not attribute deaths to coronary anatomy.
@@ -8606,7 +9892,7 @@ pathophysiology:
   evidence:
   - reference: PMID:32557823
     reference_title: &#34;Outcomes of truncus arteriosus repair and predictors of mortality.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Overall, 3009 neonates met inclusion criteria; a total of 326 patients died during the hospitalization (10.8%).&#34;
     explanation: Quantifies contemporary in-hospital mortality in a national cohort; PARTIAL because ischaemia is not separately attributed.
@@ -8717,7 +10003,7 @@ phenotypes:
   evidence:
   - reference: PMID:837493
     reference_title: &#34;Coronary arterial origin in persistent truncus arteriosus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Bicuspid truncal valve was observed in six cases (20%) and tricuspid in 21 cases (70%).&#34;
     explanation: Establishes the abnormal cusp anatomy that predisposes to regurgitation; PARTIAL because the series reports valve morphology at autopsy and not the presence or severity of regurgitation in life.
@@ -8800,7 +10086,7 @@ phenotypes:
   evidence:
   - reference: PMID:38884754
     reference_title: &#34;Molecular Pathways and Animal Models of Truncus Arteriosus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the outflow tract of the heart is divided into two distinct channels to separate the oxygenated systemic blood flow from the deoxygenated pulmonary circulation&#34;
     explanation: States the separation that normally protects the pulmonary circulation from systemic pressure, whose absence produces pulmonary hypertension; PARTIAL because the complication is not described in the source.
@@ -8860,7 +10146,7 @@ progression:
   evidence:
   - reference: PMID:38884754
     reference_title: &#34;Molecular Pathways and Animal Models of Truncus Arteriosus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a single common outflow vessel persists resulting in a serious clinical condition known as persistent truncus arteriosus or common arterial trunk&#34;
     explanation: Characterises the unrepaired lesion as a serious condition; PARTIAL because the specific pulmonary vascular endpoint is not described.
@@ -8984,7 +10270,7 @@ treatments:
     evidence:
     - reference: PMID:38884754
       reference_title: &#34;Molecular Pathways and Animal Models of Truncus Arteriosus.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the outflow tract of the heart is divided into two distinct channels to separate the oxygenated systemic blood flow from the deoxygenated pulmonary circulation&#34;
       explanation: States the separation of circulations that the operation restores surgically; PARTIAL because the source describes normal development rather than the operation.
@@ -9064,7 +10350,7 @@ treatments:
   evidence:
   - reference: PMID:32557823
     reference_title: &#34;Outcomes of truncus arteriosus repair and predictors of mortality.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients who received extracorporeal membrane oxygenation support or had cardiac catheterization procedure during the hospitalization had increased odds of mortality&#34;
     explanation: Reports the mortality association; PARTIAL and directionally uninterpretable as a treatment effect, because the sickest infants are the ones cannulated.
@@ -9190,7 +10476,7 @@ genetic:
   evidence:
   - reference: PMID:38351237
     reference_title: &#34;Genetic etiology of truncus arteriosus excluding 22q11.2 deletion syndrome and identification of c.1617del, a prevalent variant in TMEM260, in the Japanese population.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;in another patient, we identified a de novo probably pathogenic variant in NOTCH1&#34;
     explanation: The authors&#39; own hedged classification, which is the reason this gene is not curated as causative.
@@ -9264,7 +10550,7 @@ environmental:
     evidence:
     - reference: PMID:31454511
       reference_title: &#34;Specific birth defects in pregnancies of women with diabetes: National Birth Defects Prevention Study, 1997-2011.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the teratogenic mechanism behind the increase risk for birth defects is still unknown&#34;
       explanation: PARTIAL, and deliberately so. This edge asserts that the exposure acts on the neural crest and second heart field program, and the source states plainly that the teratogenic mechanism is unknown. The association is strong and disease-specific; the step from association to this particular developmental mechanism is not evidenced, and the snippet records that rather than papering over it.
@@ -9277,7 +10563,7 @@ environmental:
     explanation: The disease-specific adjusted effect estimate from the National Birth Defects Prevention Study, and the strongest available evidence for this exposure. A roughly fifteen-fold adjusted odds ratio with a confidence interval well clear of one places this malformation among the defects most strongly associated with pregestational diabetes.
   - reference: PMID:31454511
     reference_title: &#34;Specific birth defects in pregnancies of women with diabetes: National Birth Defects Prevention Study, 1997-2011.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;For some defect categories, and particularly for pregestational diabetes, there were few exposed cases, leading to imprecise estimates.&#34;
     explanation: The authors&#39; own precision caveat, which is why the confidence interval on the truncus arteriosus estimate is as wide as it is; PARTIAL because it qualifies the estimate rather than supporting the association.
@@ -9425,7 +10711,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:32049433
     reference_title: &#34;22q11.2 deletion syndrome and congenital heart disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a subset of conotruncal defects (tetralogy of Fallot, truncus arteriosus, interrupted aortic arch type B)&#34;
     explanation: Places the two lesions in the same conotruncal family sharing a genetic cause; PARTIAL because the source does not address their differentiation.
@@ -9438,7 +10724,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:15649947
     reference_title: &#34;Common arterial trunk associated with a homeodomain mutation of NKX2.6.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A common arterial trunk (CAT) is often diagnosed as PTA in the absence of evidence of embryological mechanism.&#34;
     explanation: Notes explicitly that the diagnostic label is applied on appearance without embryologic confirmation, which is the reasoning gap this differential exploits; PARTIAL because aortopulmonary window is not named.
@@ -9530,7 +10816,7 @@ discussions:
     explanation: The observation that creates the controversy.
   - reference: PMID:9316541
     reference_title: &#34;Truncus arteriosus communis associated with chromosome 22q11 deletion.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In truncus arteriosus communis, the rare type A3 with major aortopulmonary collateral arteries and pulmonary ostial stenosis and type A1 with pulmonary artery stenosis are associated with del 22q11.&#34;
     explanation: Supports the anatomic-difference explanation, since the deletion-associated subtypes carry pulmonary flow restriction; PARTIAL because the series of 15 patients is small and outcomes are not reported.
@@ -9678,7 +10964,7 @@ discussions:
     explanation: Quantifies the explained fraction and states that the remainder was unaccounted for before this study.
   - reference: PMID:38884753
     reference_title: &#34;Human Genetics of Truncus Arteriosus.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Other congenital malformation syndromes and variants in genes encoding TBX, GATA, and NKX transcription factors and some signaling proteins have also been reported as its etiology.&#34;
     explanation: Documents the scattered additional genetic causes reported to date; PARTIAL because it does not quantify what share of cases they explain.
@@ -10317,7 +11603,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Persistent Truncus Arteriosus", "mondoId": "MONDO:0018072", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Persistent_Truncus_Arteriosus", "yamlRevision": "357b365f82b3"};
+        const OS_CONFIG = {"diseaseName": "Persistent Truncus Arteriosus", "mondoId": "MONDO:0018072", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Persistent_Truncus_Arteriosus", "yamlRevision": "fe684e5555cf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10736,5 +12022,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

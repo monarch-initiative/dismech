@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Alpha-gal Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Alpha-gal Syndrome</h1>
             <div class="header-meta">
 
@@ -3954,9 +4101,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">5 support</span>
-
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">6 support</span>
 
                 </div>
 
@@ -4002,7 +4147,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4024,7 +4171,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30242261" target="_blank">PMID:30242261</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4046,7 +4195,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38741222" target="_blank">PMID:38741222</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4153,7 +4304,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4175,7 +4328,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38741222" target="_blank">PMID:38741222</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4197,7 +4352,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31540167" target="_blank">PMID:31540167</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4302,7 +4459,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4324,7 +4483,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35382677" target="_blank">PMID:35382677</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4408,7 +4569,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4505,6 +4668,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4522,13 +4691,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38390396" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38390396" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38390396" target="_blank">PMID:38390396</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4600,7 +4771,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193233" target="_blank">PMID:38193233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4645,18 +4818,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4673,18 +4848,20 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         T-helper 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4712,18 +4889,20 @@ This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased T-helper 2 cell differentiation (GO:0045064). GO:0045064 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T-helper 2 cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go">GO:0045064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0045064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T-helper 2 cell differentiation (GO:0045064). GO:0045064 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4781,7 +4960,9 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21453959" target="_blank">PMID:21453959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4803,7 +4984,9 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19413526" target="_blank">PMID:19413526</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4825,7 +5008,9 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4860,18 +5045,20 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves memory B cell (CL:0000787). CL:0000787 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         memory B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl">CL:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000787</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves memory B cell (CL:0000787). CL:0000787 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4888,18 +5075,20 @@ This pathophysiological event involves memory B cell (CL:0000787). CL:0000787 is
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves IgE plasmablast (CL:0000950). CL:0000950 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         IgE plasmablast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000950" target="_blank" class="curie-chip curie-chip-cl">CL:0000950</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000950" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000950</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves IgE plasmablast (CL:0000950). CL:0000950 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4927,18 +5116,20 @@ This pathophysiological event involves IgE plasmablast (CL:0000950). CL:0000950 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased interleukin-4-dependent isotype switching to IgE isotypes (GO:0035708). GO:0035708 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         interleukin-4-dependent isotype switching to IgE isotypes
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go">GO:0035708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased interleukin-4-dependent isotype switching to IgE isotypes (GO:0035708). GO:0035708 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4996,7 +5187,9 @@ This pathophysiological event involves increased interleukin-4-dependent isotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41098729" target="_blank">PMID:41098729</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5018,7 +5211,9 @@ This pathophysiological event involves increased interleukin-4-dependent isotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40515672" target="_blank">PMID:40515672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5051,18 +5246,20 @@ This pathophysiological event involves increased interleukin-4-dependent isotype
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5079,18 +5276,20 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves basophil (CL:0000767). CL:0000767 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         basophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000767" target="_blank" class="curie-chip curie-chip-cl">CL:0000767</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000767" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000767</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves basophil (CL:0000767). CL:0000767 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5118,18 +5317,20 @@ This pathophysiological event involves basophil (CL:0000767). CL:0000767 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased type I hypersensitivity mediated by mast cells (GO:0002558). GO:0002558 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         type I hypersensitivity mediated by mast cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002558" target="_blank" class="curie-chip curie-chip-go">GO:0002558</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002558" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002558</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I hypersensitivity mediated by mast cells (GO:0002558). GO:0002558 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5150,18 +5351,20 @@ This pathophysiological event involves increased type I hypersensitivity mediate
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased mast cell degranulation (GO:0043303). GO:0043303 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mast cell degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go">GO:0043303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0043303</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mast cell degranulation (GO:0043303). GO:0043303 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5227,7 +5430,9 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5249,7 +5454,9 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41534718" target="_blank">PMID:41534718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5322,7 +5529,9 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5362,18 +5571,20 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased histamine secretion by mast cell (GO:0002553). GO:0002553 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         histamine secretion by mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002553" target="_blank" class="curie-chip curie-chip-go">GO:0002553</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002553" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased histamine secretion by mast cell (GO:0002553). GO:0002553 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5471,7 +5682,9 @@ This pathophysiological event involves increased histamine secretion by mast cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193233" target="_blank">PMID:38193233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5511,18 +5724,20 @@ This pathophysiological event involves increased histamine secretion by mast cel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased mast cell degranulation (GO:0043303). GO:0043303 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mast cell degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go">GO:0043303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0043303</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mast cell degranulation (GO:0043303). GO:0043303 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5565,7 +5780,9 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18337601" target="_blank">PMID:18337601</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5632,15 +5849,17 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5649,8 +5868,87 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
+                    Blood
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-anti-meat-allergen-ige" data-dismech-node="Increased anti-meat allergen IgE" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased anti-meat allergen IgE
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased anti-meat allergen IgE antibody level</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0410233</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased anti-meat allergen IgE antibody level (HP:0410233). HP:0410233 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19070355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-four patients with IgE antibodies to alpha-gal were identified."</div>
+
+
+                <div class="evidence-explanation">Identifies patients by the defining laboratory feature of elevated serum IgE specific for alpha-gal (anti-meat allergen IgE).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-urticaria" data-dismech-node="Urticaria" data-dismech-type="phenotype">
@@ -5661,16 +5959,20 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001025</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.">
-                        Urticaria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp">HP:0001025</a>
-
-
+This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5691,7 +5993,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5713,7 +6017,9 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41553273" target="_blank">PMID:41553273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5739,9 +6045,77 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-angioedema" data-dismech-node="Angioedema" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Angioedema
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100665</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19070355" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Delayed anaphylaxis, angioedema, or urticaria after consumption of red meat in patients with IgE antibodies specific for galactose-alpha-1,3-galactose."</div>
+
+
+                <div class="evidence-explanation">Angioedema is among the delayed reactions to red meat in alpha-gal syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -5756,16 +6130,20 @@ This clinical feature is Urticaria (HP:0001025). HP:0001025 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
-                        Diarrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
-
-
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5786,7 +6164,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5808,7 +6188,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41553273" target="_blank">PMID:41553273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5842,16 +6224,20 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002017</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.">
-                        Nausea and vomiting
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp">HP:0002017</a>
-
-
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5872,7 +6258,9 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5894,7 +6282,9 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41553273" target="_blank">PMID:41553273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5922,177 +6312,11 @@ This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a pheno
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pruritus
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25747720" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"the most common symptom reported was itching"</div>
-
-
-                <div class="evidence-explanation">Itching (pruritus) was the most commonly reported symptom in alpha-gal reactions.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abdominal pain
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25747720" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Common complaints include both gastrointestinal symptoms and urticaria"</div>
-
-
-                <div class="evidence-explanation">Gastrointestinal symptoms are a common presentation of alpha-gal reactions, sometimes predominating.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41553273" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41553273" target="_blank">PMID:41553273</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"abdominal pain (58.3%, CI: 36.0-78.9, I2 = 96.0%), diarrhea (41.7%, CI: 22.3-62.5, I2 = 93.4%), nausea (39.1%, CI: 29.2-49.6, I2 = 79.1%), and vomiting (31.1%, CI: 21.9-41.2, I2 = 70.4%)."</div>
-
-
-                <div class="evidence-explanation">The pooled abdominal-pain estimate supports the FREQUENT band, with substantial between-study heterogeneity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Immune
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-meat-allergen-allergy" data-dismech-node="Meat allergen allergy" data-dismech-type="phenotype">
@@ -6101,16 +6325,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0410330</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Meat allergen allergy (HP:0410330). HP:0410330 is a phenotype from the Human Phenotype Ontology.">
-                        Meat allergen allergy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410330" target="_blank" class="curie-chip curie-chip-hp">HP:0410330</a>
-
-
+This clinical feature is Meat allergen allergy (HP:0410330). HP:0410330 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6131,7 +6359,9 @@ This clinical feature is Meat allergen allergy (HP:0410330). HP:0410330 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6163,16 +6393,22 @@ This clinical feature is Meat allergen allergy (HP:0410330). HP:0410330 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Food-induced anaphylaxis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0500095</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a phenotype from the Human Phenotype Ontology.">
-                        Food-induced anaphylaxis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp">HP:0500095</a>
-
-
+This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6193,7 +6429,9 @@ This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6215,7 +6453,9 @@ This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193233" target="_blank">PMID:38193233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6241,22 +6481,35 @@ This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-angioedema" data-dismech-node="Angioedema" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Angioedema
+                        Pruritus
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.">
-                        Angioedema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp">HP:0100665</a>
-
-
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6271,23 +6524,25 @@ This clinical feature is Angioedema (HP:0100665). HP:0100665 is a phenotype from
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19070355" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25747720" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Delayed anaphylaxis, angioedema, or urticaria after consumption of red meat in patients with IgE antibodies specific for galactose-alpha-1,3-galactose."</div>
+                <div class="evidence-snippet">"the most common symptom reported was itching"</div>
 
 
-                <div class="evidence-explanation">Angioedema is among the delayed reactions to red meat in alpha-gal syndrome.</div>
+                <div class="evidence-explanation">Itching (pruritus) was the most commonly reported symptom in alpha-gal reactions.</div>
 
 
 
@@ -6303,22 +6558,37 @@ This clinical feature is Angioedema (HP:0100665). HP:0100665 is a phenotype from
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-anti-meat-allergen-ige" data-dismech-node="Increased anti-meat allergen IgE" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Increased anti-meat allergen IgE
+                        Abdominal pain
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased anti-meat allergen IgE antibody level (HP:0410233). HP:0410233 is a phenotype from the Human Phenotype Ontology.">
-                        Increased anti-meat allergen IgE antibody level
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410233" target="_blank" class="curie-chip curie-chip-hp">HP:0410233</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6329,27 +6599,53 @@ This clinical feature is Increased anti-meat allergen IgE antibody level (HP:041
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19070355" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:25747720" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Twenty-four patients with IgE antibodies to alpha-gal were identified."</div>
+                <div class="evidence-snippet">"Common complaints include both gastrointestinal symptoms and urticaria"</div>
 
 
-                <div class="evidence-explanation">Identifies patients by the defining laboratory feature of elevated serum IgE specific for alpha-gal (anti-meat allergen IgE).</div>
+                <div class="evidence-explanation">Gastrointestinal symptoms are a common presentation of alpha-gal reactions, sometimes predominating.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41553273" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41553273" target="_blank">PMID:41553273</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abdominal pain (58.3%, CI: 36.0-78.9, I2 = 96.0%), diarrhea (41.7%, CI: 22.3-62.5, I2 = 93.4%), nausea (39.1%, CI: 29.2-49.6, I2 = 79.1%), and vomiting (31.1%, CI: 21.9-41.2, I2 = 70.4%)."</div>
+
+
+                <div class="evidence-explanation">The pooled abdominal-pain estimate supports the FREQUENT band, with substantial between-study heterogeneity.</div>
 
 
 
@@ -6401,6 +6697,9 @@ This clinical feature is Increased anti-meat allergen IgE antibody level (HP:041
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6417,18 +6716,18 @@ This clinical feature is Increased anti-meat allergen IgE antibody level (HP:041
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">dietary mammalian meat food product intake avoidance<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary mammalian meat food product intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary mammalian meat food product intake avoidance</span>
+This treatment is dietary mammalian meat food product intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary mammalian meat food product intake avoidance, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -6446,6 +6745,25 @@ This treatment is dietary mammalian meat food product intake avoidance, annotate
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6470,7 +6788,9 @@ This treatment is dietary mammalian meat food product intake avoidance, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6492,7 +6812,9 @@ This treatment is dietary mammalian meat food product intake avoidance, annotate
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39067555" target="_blank">PMID:39067555</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6522,17 +6844,17 @@ This treatment is dietary mammalian meat food product intake avoidance, annotate
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6557,21 +6879,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses adrenaline (CHEBI:33568). CHEBI:33568 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         adrenaline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_33568" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:33568</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_33568" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:33568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses adrenaline (CHEBI:33568). CHEBI:33568 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6594,7 +6937,9 @@ This treatment uses adrenaline (CHEBI:33568). CHEBI:33568 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40312115" target="_blank">PMID:40312115</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6624,18 +6969,18 @@ This treatment uses adrenaline (CHEBI:33568). CHEBI:33568 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">antihistamine agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is antihistamine agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">antihistamine agent therapy</span>
+This treatment is antihistamine agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is antihistamine agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6660,21 +7005,42 @@ This treatment is antihistamine agent therapy, annotated with Pharmacotherapy (N
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses histamine-1 receptor antagonist (NCIT:C29578). NCIT:C29578 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         histamine-1 receptor antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29578" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C29578</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29578" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C29578</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses histamine-1 receptor antagonist (NCIT:C29578). NCIT:C29578 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6697,7 +7063,9 @@ This treatment uses histamine-1 receptor antagonist (NCIT:C29578). NCIT:C29578 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40312115" target="_blank">PMID:40312115</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6727,18 +7095,18 @@ This treatment uses histamine-1 receptor antagonist (NCIT:C29578). NCIT:C29578 i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">therapeutic avoidance of environmental exposure<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is therapeutic avoidance of environmental exposure, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">therapeutic avoidance of environmental exposure</span>
+This treatment is therapeutic avoidance of environmental exposure, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is therapeutic avoidance of environmental exposure, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.">NCIT:C15900</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15900" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15900">NCIT:C15900</a>
 
 
 
@@ -6756,6 +7124,25 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6780,7 +7167,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40312115" target="_blank">PMID:40312115</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6802,7 +7191,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33009122" target="_blank">PMID:33009122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6841,6 +7232,10 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                 <div class="item-name">Tick bite</div>
 
 
+
+
+
+
                 <div class="item-desc">Bites of the lone star tick (Amblyomma americanum) in the southeastern and eastern United States are the principal sensitizing exposure; Ixodes holocyclus (Australia) and Ixodes ricinus (Europe) are implicated elsewhere.</div>
 
 
@@ -6858,7 +7253,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25747720" target="_blank">PMID:25747720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6880,7 +7277,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21453959" target="_blank">PMID:21453959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6929,7 +7328,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21453959" target="_blank">PMID:21453959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6960,6 +7361,10 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                 <div class="item-name">Mammalian meat and mammalian-derived products</div>
 
 
+
+
+
+
                 <div class="item-desc">Beef, pork, lamb, and other non-primate mammalian meat, plus organ meats, dairy, gelatin, and mammalian-derived medical products (e.g., gelatin colloids, some vaccines, heparin, bovine/porcine bioprosthetic materials).</div>
 
 
@@ -6977,7 +7382,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193233" target="_blank">PMID:38193233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7026,7 +7433,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193233" target="_blank">PMID:38193233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7057,6 +7466,10 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                 <div class="item-name">Cetuximab</div>
 
 
+
+
+
+
                 <div class="item-desc">The anti-EGFR monoclonal antibody cetuximab carries alpha-gal on its Fab glycan and causes immediate hypersensitivity in pre-sensitized patients.</div>
 
 
@@ -7074,7 +7487,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18337601" target="_blank">PMID:18337601</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7123,7 +7538,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18337601" target="_blank">PMID:18337601</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7186,7 +7603,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19070355" target="_blank">PMID:19070355</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7212,6 +7631,327 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-compatible-delayed-reaction-history-plus-alpha-gal-specific-ige">
+                <div class="item-name">
+                    Compatible delayed-reaction history plus alpha-gal-specific IgE
+
+                </div>
+
+                <div class="item-desc">Diagnosis requires both a compatible history of delayed allergic or gastrointestinal reactions after non-primate mammalian exposure and a supporting positive serum alpha-gal-specific IgE result. Sensitization alone is insufficient because asymptomatic alpha-gal IgE positivity is common in tick-endemic populations.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        allergy diagnosis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32571129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32571129" target="_blank">PMID:32571129</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The combination of both an appropriate clinical history and supporting blood test is necessary to establish an accurate AGS diagnosis"</div>
+
+
+                <div class="evidence-explanation">Large-practice clinical experience explicitly requires concordant history and serology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32628573" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32628573" target="_blank">PMID:32628573</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"not all patients sensitized to α-Gal and with anti-α-Gal IgE antibodies higher than the cutoff (0.35 IU/ml) develop anaphylaxis to mammalian meat and AGS."</div>
+
+
+                <div class="evidence-explanation">Clarifies that a positive titer is sensitization evidence, not a stand-alone disease diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-oral-mammalian-meat-food-challenge">
+                <div class="item-name">
+                    Oral mammalian-meat food challenge
+
+                </div>
+
+                <div class="item-desc">A supervised oral food challenge can directly reproduce symptoms and is used when history and serology are discordant or in research, but it carries a clinically important risk of delayed anaphylaxis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        food challenge test
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36728603" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36728603" target="_blank">PMID:36728603</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Isolated-GI distress occurred in 4 in every 10 alpha-gal allergic individuals who developed symptoms on oral food challenge with mammalian meat."</div>
+
+
+                <div class="evidence-explanation">Prospective challenge cohorts demonstrate the test&#39;s ability to reproduce the GI-only AGS phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-basophil-activation-testing">
+                <div class="item-name">
+                    Basophil activation testing
+
+                </div>
+
+                <div class="item-desc">Ex vivo basophil activation may help distinguish symptomatic AGS from asymptomatic sensitization, but it is not a generally deployable routine clinical test.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        basophil activation test
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32628573" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32628573" target="_blank">PMID:32628573</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The basophil activation test proposed to differentiate between patients with AGS and asymptomatic α-Gal sensitization cannot be easily implemented as a generalized clinical test."</div>
+
+
+                <div class="evidence-explanation">Supports both the diagnostic promise and the current implementation limitation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7224,7 +7964,7 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse308814">
                 <div class="item-name">
                     Single-cell mRNA analysis and surface marker expression profiling of circulating immune cells in human with alpha-gal syndrome
 
@@ -7263,7 +8003,7 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse237627">
                 <div class="item-name">
                     Multi-omics analysis of zebrafish response to tick saliva reveals biological processes associated with alpha-Gal syndrome
 
@@ -7318,7 +8058,7 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06268717">
                 <div class="item-name">
                     NCT06268717
 
@@ -7346,7 +8086,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="https://clinicaltrials.gov/study/NCT06268717" target="_blank">clinicaltrials:NCT06268717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7369,7 +8111,7 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07611435">
                 <div class="item-name">
                     NCT07611435
 
@@ -7397,7 +8139,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="https://clinicaltrials.gov/study/NCT07611435" target="_blank">clinicaltrials:NCT07611435</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7420,7 +8164,7 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07177729">
                 <div class="item-name">
                     NCT07177729
 
@@ -7448,7 +8192,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="https://clinicaltrials.gov/study/NCT07177729" target="_blank">clinicaltrials:NCT07177729</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7543,7 +8289,9 @@ This treatment is therapeutic avoidance of environmental exposure, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38390396" target="_blank">PMID:38390396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8469,7 +9217,7 @@ mechanistic_hypotheses:
     explanation: Pathogen-free tick salivary gland extract alone is sufficient to induce AGS-like sensitization, isolating the tick salivary constituents as the sensitizing agent.
   - reference: PMID:38390396
     reference_title: &#34;Tick bite-induced alpha-gal syndrome and immunologic responses in an alpha-gal deficient murine model.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Gene expression analysis revealed that Am. americanum bites direct mouse immunity toward Th2 and facilitate host sensitization to the α-gal antigen.&#34;
     explanation: The AGKO-mouse model shows lone-star tick bites themselves drive Th2 polarization and alpha-gal sensitization, consistent with a tick-intrinsic route.
@@ -8597,7 +9345,7 @@ discussions:
   evidence:
   - reference: PMID:38390396
     reference_title: &#34;Tick bite-induced alpha-gal syndrome and immunologic responses in an alpha-gal deficient murine model.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;significant increase in the total IgE, IgG1, and&#34;
     explanation: The model&#39;s alpha-gal-specific response is reported as IgG1 (with a hypothermia readout), differing from the human IgE-mediated delayed anaphylaxis it is meant to model.
@@ -10309,7 +11057,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alpha-gal Syndrome", "mondoId": "MONDO:0100001", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-gal_Syndrome", "yamlRevision": "f035c2d6218f"};
+        const OS_CONFIG = {"diseaseName": "Alpha-gal Syndrome", "mondoId": "MONDO:0100001", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-gal_Syndrome", "yamlRevision": "94feee5141b3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10728,5 +11476,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Facioscapulohumeral Muscular Dystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Facioscapulohumeral Muscular Dystrophy</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Facioscapulohumeral%20Muscular%20Dystrophy"
@@ -3819,7 +3966,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3830,7 +3977,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3883,6 +4030,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
 
@@ -3915,7 +4070,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3960,7 +4115,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924332" target="_blank">PMID:17924332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3983,7 +4140,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-digenic-inheritance-fshd2">
                 <div class="item-name">
                     Digenic inheritance (FSHD2)
 
@@ -4028,7 +4185,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23143600" target="_blank">PMID:23143600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4081,7 +4240,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fshd1">
 
                     <div class="item-name">
                         FSHD1
@@ -4117,7 +4276,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924332" target="_blank">PMID:17924332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4143,7 +4304,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fshd2">
 
                     <div class="item-name">
                         FSHD2
@@ -4179,7 +4340,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19728363" target="_blank">PMID:19728363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4265,6 +4428,14 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Retinal vasculopathy</span>
+
+	                            <span class="crosslink-desc">Retinal vasculopathy travels with the same large-deletion, early-onset end of the D4Z4 contraction spectrum as hearing loss, so it is placed here alongside it rather than downstream of myofiber loss.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4282,7 +4453,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19728363" target="_blank">PMID:19728363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4304,7 +4477,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29478599" target="_blank">PMID:29478599</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4337,18 +4512,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Skeletal Muscle Fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Skeletal Muscle Fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal Muscle Fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4376,17 +4553,21 @@ This pathophysiological event involves Skeletal Muscle Fiber, annotated with cel
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves increased DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DUX4
 
 
-    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:50800</a>
+    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:50800</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4419,18 +4600,20 @@ This pathophysiological event involves increased DUX4 (hgnc:50800). hgnc:50800 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4484,7 +4667,9 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32576599" target="_blank">PMID:32576599</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4581,7 +4766,9 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4629,7 +4816,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"D4Z4 Epigenetic Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FSHD develops when D4Z4 contraction or contraction-independent hypomethylation occurs on a permissive 4qA subtelomere, relaxing chromatin and enabling pathogenic DUX4 expression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"D4Z4 repeat contraction on permissive 4qA haplotype\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUX4\"], \"gene_terms\": [{\"label\": \"DUX4\", \"id\": \"hgnc:50800\"}], \"subtypes\": [\"FSHD1\"], \"association\": \"Causative repeat contraction\"}}, {\"id\": \"DUX4 Misexpression in Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intermittent DUX4 expression in skeletal muscle activates an embryonic transcriptional program and promotes muscle fiber toxicity and death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"DUX4\"], \"gene_terms\": [{\"label\": \"DUX4\", \"id\": \"hgnc:50800\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the facial musculature is often an early and characteristic manifestation of FSHD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness is typically asymmetric and descends from facial and shoulder muscles to the upper arms, trunk, distal lower extremities, and pelvic girdle.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pain commonly affects the shoulders and lower back and is an important contributor to disability and reduced quality of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Progressive Myofiber Loss and Fatty Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical pattern of FSHD reflects chronic degeneration of selected facial, scapular, humeral, truncal, and lower-extremity muscles, usually with marked asymmetry and variable progression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Scapular winging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of scapular stabilizers produces winging and limits active shoulder abduction and flexion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003691\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is an extra-muscular feature seen mainly in severe early-onset disease with very short 4q35 fragments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"D4Z4 Epigenetic Derepression\", \"target\": \"DUX4 Misexpression in Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of repression at the FSHD locus permits aberrant DUX4 expression in differentiated skeletal muscle.\"}, {\"source\": \"D4Z4 Epigenetic Derepression\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early-onset FSHD with large 4q35 deletions can include sensorineural hearing loss through extra-muscular intermediates not represented in the skeletal-muscle pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"DUX4 Misexpression in Skeletal Muscle\", \"target\": \"Progressive Myofiber Loss and Fatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent DUX4-mediated injury drives chronic muscle degeneration with incomplete repair and replacement by fat and fibrous tissue.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early involvement of the muscles of facial expression contributes to incomplete eye closure, poor smile excursion, and facial asymmetry.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Scapular winging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periscapular weakness destabilizes the scapulothoracic joint and limits active shoulder elevation.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive weakness extends to upper arm, trunk, pelvic-girdle, and distal lower-extremity muscles.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic biomechanical strain and ongoing muscle pathology contribute to frequent shoulder and low-back pain.\"}, {\"source\": \"D4Z4 repeat contraction on permissive 4qA haplotype\", \"target\": \"DUX4 Misexpression in Skeletal Muscle\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"D4Z4 Epigenetic Derepression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FSHD develops when D4Z4 contraction or contraction-independent hypomethylation occurs on a permissive 4qA subtelomere, relaxing chromatin and enabling pathogenic DUX4 expression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"D4Z4 repeat contraction on permissive 4qA haplotype\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUX4\"], \"gene_terms\": [{\"label\": \"DUX4\", \"id\": \"hgnc:50800\"}], \"subtypes\": [\"FSHD1\"], \"association\": \"Causative repeat contraction\"}}, {\"id\": \"DUX4 Misexpression in Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intermittent DUX4 expression in skeletal muscle activates an embryonic transcriptional program and promotes muscle fiber toxicity and death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"apoptotic process\"], \"genes\": [\"DUX4\"], \"gene_terms\": [{\"label\": \"DUX4\", \"id\": \"hgnc:50800\", \"modifier\": \"INCREASED\"}]}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of the facial musculature is often an early and characteristic manifestation of FSHD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness is typically asymmetric and descends from facial and shoulder muscles to the upper arms, trunk, distal lower extremities, and pelvic girdle.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pain commonly affects the shoulders and lower back and is an important contributor to disability and reduced quality of life.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Progressive Myofiber Loss and Fatty Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical pattern of FSHD reflects chronic degeneration of selected facial, scapular, humeral, truncal, and lower-extremity muscles, usually with marked asymmetry and variable progression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal vasculopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A telangiectatic, sometimes exudative retinal vasculopathy resembling Coats disease is the ophthalmologic extramuscular feature of FSHD. Like hearing loss, it clusters in early-onset disease with large D4Z4 deletions, and it is the human counterpart of the vascular arm of the disease that the frog FRG1 model addresses.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008046\", \"animal_models\": [{\"name\": \"Xenopus frg1 gain- and loss-of-function vascular model\", \"species\": \"Xenopus laevis\", \"genotype\": \"FRG1 morpholino knockdown and frg1 mRNA overexpression in embryos and tadpoles\", \"category\": \"Candidate-gene dosage model of the vascular component of FSHD\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"Produces a disturbed vascular phenotype from misexpression of a gene at the FSHD locus, offering a mechanism for a disease feature that the DUX4-in-skeletal-muscle account does not reach.\"}]}}, {\"id\": \"Scapular winging\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of scapular stabilizers produces winging and limits active shoulder abduction and flexion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003691\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment is an extra-muscular feature seen mainly in severe early-onset disease with very short 4q35 fragments.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Xenopus frg1 gain- and loss-of-function vascular model\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The only model to address why FSHD has an ophthalmologic component at all. frg1 is expressed in frog vasculature; knocking it down reduces angiogenesis and DAB2 expression, and overexpressing it produces excess vessel branching, vessel dilation and edema. Read carefully, this is a candidate-gene result from before the field settled on DUX4: it shows that a gene at the FSHD locus can produce a vascular phenotype when its dose is wrong, not that FRG1 dosage is what causes vasculopathy in patients.\"}], \"edges\": [{\"source\": \"D4Z4 Epigenetic Derepression\", \"target\": \"DUX4 Misexpression in Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of repression at the FSHD locus permits aberrant DUX4 expression in differentiated skeletal muscle.\"}, {\"source\": \"D4Z4 Epigenetic Derepression\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early-onset FSHD with large 4q35 deletions can include sensorineural hearing loss through extra-muscular intermediates not represented in the skeletal-muscle pathograph.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"D4Z4 Epigenetic Derepression\", \"target\": \"Retinal vasculopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal vasculopathy travels with the same large-deletion, early-onset end of the D4Z4 contraction spectrum as hearing loss, so it is placed here alongside it rather than downstream of myofiber loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"DUX4 Misexpression in Skeletal Muscle\", \"target\": \"Progressive Myofiber Loss and Fatty Replacement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent DUX4-mediated injury drives chronic muscle degeneration with incomplete repair and replacement by fat and fibrous tissue.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early involvement of the muscles of facial expression contributes to incomplete eye closure, poor smile excursion, and facial asymmetry.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Scapular winging\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periscapular weakness destabilizes the scapulothoracic joint and limits active shoulder elevation.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive weakness extends to upper arm, trunk, pelvic-girdle, and distal lower-extremity muscles.\"}, {\"source\": \"Progressive Myofiber Loss and Fatty Replacement\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic biomechanical strain and ongoing muscle pathology contribute to frequent shoulder and low-back pain.\"}, {\"source\": \"Xenopus frg1 gain- and loss-of-function vascular model\", \"target\": \"Retinal vasculopathy\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Produces a disturbed vascular phenotype from misexpression of a gene at the FSHD locus, offering a mechanism for a disease feature that the DUX4-in-skeletal-muscle account does not reach.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Three gaps separate this from the human phenotype. The readouts are whole-embryo and tadpole vasculature, not retina, so the tissue in which patients present is not examined. The manipulation is systemic overexpression of frg1, whereas FRG1 is a candidate whose upregulation in patient muscle has been contested and which the field has largely displaced in favour of DUX4 \\u2014 so the model may be modelling a gene that is not the effector. And the direction is inverted between arms: knockdown reduces angiogenesis while overexpression increases branching, so the model does not by itself say which dose change, if either, corresponds to the patient state.\"}, {\"source\": \"D4Z4 repeat contraction on permissive 4qA haplotype\", \"target\": \"DUX4 Misexpression in Skeletal Muscle\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4642,27 +4829,134 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-vasculopathy" data-dismech-node="Retinal vasculopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Retinal vasculopathy
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal retinal vascular morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0008046</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal vasculopathy, annotated with Abnormal retinal vascular morphology (HP:0008046). HP:0008046 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30923442" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30923442" target="_blank">PMID:30923442</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"early-onset FSHD is associated with a large deletion of D4Z4 repeats and a more severe disease phenotype, including early loss of independent ambulation as well as extramuscular manifestations, such as retinal vasculopathy, hearing loss, and central nervous system (CNS) involvement"</div>
+
+
+                <div class="evidence-explanation">Places retinal vasculopathy among the extramuscular features and ties it to large D4Z4 deletions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30923442" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30923442" target="_blank">PMID:30923442</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients with FSHD had retinal vasculopathy with features resembling Coats"</div>
+
+
+                <div class="evidence-explanation">Characterizes the vasculopathy as Coats-like, which is the specific ophthalmologic pattern described.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
@@ -4677,16 +4971,20 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4707,7 +5005,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19049553" target="_blank">PMID:19049553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4735,7 +5035,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -4750,16 +5050,22 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Weakness of facial musculature</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0030319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.">
-                        Weakness of facial musculature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp">HP:0030319</a>
-
-
+This clinical feature is facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4780,7 +5086,9 @@ This clinical feature is facial weakness, annotated with Weakness of facial musc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924332" target="_blank">PMID:17924332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4808,7 +5116,86 @@ This clinical feature is facial weakness, annotated with Weakness of facial musc
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scapular-winging" data-dismech-node="Scapular winging" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scapular winging
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003691</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18056023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18056023" target="_blank">PMID:18056023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Participants: Thirteen patients with bilateral winged scapula affected by facioscapulohumeral muscular dystrophy."</div>
+
+
+                <div class="evidence-explanation">Surgical series directly documents scapular winging as a common and functionally important manifestation of FSHD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -4823,16 +5210,20 @@ This clinical feature is facial weakness, annotated with Weakness of facial musc
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
-                        Muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
-
-
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4853,7 +5244,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4881,7 +5274,7 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -4896,16 +5289,20 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
-                        Myalgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
-
-
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4926,7 +5323,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4937,79 +5336,6 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                 <div class="evidence-explanation">Large registry-based study shows that pain is common and localizes to the shoulder and lumbar regions most affected by weakness and posture.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scapular-winging" data-dismech-node="Scapular winging" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scapular winging
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotype from the Human Phenotype Ontology.">
-                        Scapular winging
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp">HP:0003691</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18056023" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18056023" target="_blank">PMID:18056023</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Participants: Thirteen patients with bilateral winged scapula affected by facioscapulohumeral muscular dystrophy."</div>
-
-
-                <div class="evidence-explanation">Surgical series directly documents scapular winging as a common and functionally important manifestation of FSHD.</div>
 
 
 
@@ -5077,15 +5403,17 @@ This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotyp
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DUX4
 
 
-    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:50800</a>
+    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:50800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5107,7 +5435,9 @@ This disease-associated gene is DUX4 (hgnc:50800). hgnc:50800 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17924332" target="_blank">PMID:17924332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5144,15 +5474,17 @@ This disease-associated gene is DUX4 (hgnc:50800). hgnc:50800 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:29090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5174,7 +5506,9 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29478599" target="_blank">PMID:29478599</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5204,6 +5538,9 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5220,18 +5557,18 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -5249,6 +5586,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5273,7 +5629,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26156512" target="_blank">PMID:26156512</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5303,18 +5661,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5332,6 +5690,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5356,7 +5733,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18056023" target="_blank">PMID:18056023</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5386,18 +5765,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5415,6 +5794,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5439,7 +5826,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5497,6 +5886,213 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-typical-onset">
+                <div class="item-name">Typical onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence to early adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Facial weakness and scapular instability usually appear first; the age at onset and severity vary widely across individuals and families.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29053898" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FSHD symptoms usually start around the second decade and are most commonly characterized by asymmetric weakness affecting the face, shoulder, and arms, followed by the distal lower extremities and pelvic girdle. Not all patients have the complete phenotype of FSHD, and clinical severity varies..."</div>
+
+
+                <div class="evidence-explanation">Supports onset around the second decade and the wide phenotypic variability across affected individuals and families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-descending-asymmetric-progression">
+                <div class="item-name">Descending asymmetric progression</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Weakness usually spreads from face and shoulder girdle to upper arms, trunk, distal lower extremities, and pelvic girdle with marked side-to-side asymmetry.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29053898" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29053898" target="_blank">PMID:29053898</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FSHD symptoms usually start around the second decade and are most commonly characterized by asymmetric weakness affecting the face, shoulder, and arms, followed by the distal lower extremities and pelvic girdle."</div>
+
+
+                <div class="evidence-explanation">Describes the characteristic asymmetric distribution and descending spread of weakness from face and shoulder/arm involvement to distal lower extremities and pelvic girdle.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-symptomatic-population-in-the-netherlands">
+                <div class="item-name">Symptomatic population in the Netherlands</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        12.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000</span>
+
+                </div>
+
+                <div class="item-notes">Population-based capture-recapture analysis estimated approximately 2,000 symptomatic affected individuals in the Netherlands.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25122204" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25122204" target="_blank">PMID:25122204</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence rate was 12/100,000, equivalent to 2,000 affected individuals."</div>
+
+
+                <div class="evidence-explanation">Population-based prevalence estimate for symptomatic FSHD from a national registry analysis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5509,7 +6105,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse261617">
                 <div class="item-name">
                     Iron supplementation alleviates pathologies in a mouse model of facioscapulohumeral muscular dystrophy
 
@@ -5552,7 +6148,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse291267">
                 <div class="item-name">
                     DUX4.6 siRNA in vitro activity in FSHD patient-derived myotubes
 
@@ -5595,7 +6191,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse201185">
                 <div class="item-name">
                     Hit-and-run silencing of endogenous DUX4 by targeting DNA hypomethylation on D4Z4 repeats in facioscapulohumeral muscular dystrophy
 
@@ -5632,7 +6228,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001007350">
                 <div class="item-name">
                     A circulating biomarker for severity of facioscapulohumeral muscular dystrophy
 
@@ -5667,7 +6263,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000000502">
                 <div class="item-name">
                     3D tissue engineered human skeletal muscle modelling Facioscapulohumeral Muscular Dystrophy
 
@@ -5714,7 +6310,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05747924">
                 <div class="item-name">
                     NCT05747924
 
@@ -5742,7 +6338,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT05747924" target="_blank">clinicaltrials:NCT05747924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5765,7 +6363,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06131983">
                 <div class="item-name">
                     NCT06131983
 
@@ -5793,7 +6391,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT06131983" target="_blank">clinicaltrials:NCT06131983</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5816,7 +6416,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05397470">
                 <div class="item-name">
                     NCT05397470
 
@@ -5844,7 +6444,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT05397470" target="_blank">clinicaltrials:NCT05397470</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5867,7 +6469,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07435129">
                 <div class="item-name">
                     NCT07435129
 
@@ -5895,7 +6497,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://clinicaltrials.gov/study/NCT07435129" target="_blank">clinicaltrials:NCT07435129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,6 +6530,121 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
         <!-- Animal Models -->
 
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-xenopus-frg1-gain-and-loss-of-function-vascular-model" data-dismech-node="Xenopus frg1 gain- and loss-of-function vascular model" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Xenopus frg1 gain- and loss-of-function vascular model
+
+                    <span class="tag tag-exp-model-type">Candidate-gene dosage model of the vascular component of FSHD</span>
+
+                </div>
+
+                <div class="item-desc">The only model to address why FSHD has an ophthalmologic component at all. frg1 is expressed in frog vasculature; knocking it down reduces angiogenesis and DAB2 expression, and overexpressing it produces excess vessel branching, vessel dilation and edema. Read carefully, this is a candidate-gene result from before the field settled on DUX4: it shows that a gene at the FSHD locus can produce a vascular phenotype when its dose is wrong, not that FRG1 dosage is what causes vasculopathy in patients.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Xenopus laevis</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">FRG1 morpholino knockdown and frg1 mRNA overexpression in embryos and tadpoles</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FRG1
+
+
+    <a href="https://bioregistry.io/hgnc:3954" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3954</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns FRG1 (hgnc:3954). hgnc:3954 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/19383939" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:19383939">PMID:19383939</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Retained as a candidate-gene model with its caveats intact rather than dropped: FRG1 has largely been displaced by DUX4 as the FSHD effector, but no DUX4-based account of the retinal vasculopathy has replaced this one, so the vascular feature currently has no better mechanistic model.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Computational Models -->
 
@@ -5943,7 +6662,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Facioscapulohumeral Muscular Dystrophy
 creation_date: &#34;2026-04-21T04:46:26Z&#34;
-updated_date: &#34;2026-04-26T22:36:45Z&#34;
 description: &gt;-
   Facioscapulohumeral muscular dystrophy (FSHD) is a dominantly inherited
   muscular dystrophy characterized by progressive, often asymmetric weakness
@@ -6160,6 +6878,19 @@ pathophysiology:
       Severe early-onset FSHD with large 4q35 deletions can include
       sensorineural hearing loss through extra-muscular intermediates not
       represented in the skeletal-muscle pathograph.
+  - target: Retinal vasculopathy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Retinal vasculopathy travels with the same large-deletion, early-onset end
+      of the D4Z4 contraction spectrum as hearing loss, so it is placed here
+      alongside it rather than downstream of myofiber loss.
+    evidence:
+    - reference: PMID:30923442
+      reference_title: &#34;A Pediatric Review of Facioscapulohumeral Muscular Dystrophy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;early-onset FSHD is associated with a large deletion of D4Z4 repeats and a more severe disease phenotype, including early loss of independent ambulation as well as extramuscular manifestations, such as retinal vasculopathy, hearing loss, and central nervous system (CNS) involvement&#34;
+      explanation: Supports the edge from the size of the D4Z4 contraction to the extramuscular ophthalmologic feature.
 - name: DUX4 Misexpression in Skeletal Muscle
   description: &gt;-
     Intermittent DUX4 expression in skeletal muscle activates an embryonic
@@ -6283,7 +7014,7 @@ pathophysiology:
     evidence:
     - reference: PMID:29053898
       reference_title: &#34;Chronic pain has a strong impact on quality of life in facioscapulohumeral muscular dystrophy.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Pain was reported most frequently in the shoulders and lower back.
@@ -6412,6 +7143,33 @@ phenotypes:
     explanation: &gt;-
       Supports hearing loss as a recognized extra-muscular phenotype in
       severe early-onset FSHD with large 4q35 deletions.
+- name: Retinal vasculopathy
+  category: Ophthalmologic
+  frequency: OCCASIONAL
+  description: &gt;-
+    A telangiectatic, sometimes exudative retinal vasculopathy resembling Coats
+    disease is the ophthalmologic extramuscular feature of FSHD. Like hearing
+    loss, it clusters in early-onset disease with large D4Z4 deletions, and it
+    is the human counterpart of the vascular arm of the disease that the frog
+    FRG1 model addresses.
+  phenotype_term:
+    preferred_term: Retinal vasculopathy
+    term:
+      id: HP:0008046
+      label: Abnormal retinal vascular morphology
+  evidence:
+  - reference: PMID:30923442
+    reference_title: &#34;A Pediatric Review of Facioscapulohumeral Muscular Dystrophy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;early-onset FSHD is associated with a large deletion of D4Z4 repeats and a more severe disease phenotype, including early loss of independent ambulation as well as extramuscular manifestations, such as retinal vasculopathy, hearing loss, and central nervous system (CNS) involvement&#34;
+    explanation: Places retinal vasculopathy among the extramuscular features and ties it to large D4Z4 deletions.
+  - reference: PMID:30923442
+    reference_title: &#34;A Pediatric Review of Facioscapulohumeral Muscular Dystrophy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;patients with FSHD had retinal vasculopathy with features resembling Coats&#34;
+    explanation: Characterizes the vasculopathy as Coats-like, which is the specific ophthalmologic pattern described.
 biochemical:
 - name: Creatine Kinase
   presence: Mildly elevated
@@ -6532,6 +7290,92 @@ treatments:
     explanation: &gt;-
       Registry-based outcome data support pain-directed supportive care as a
       necessary component of FSHD management.
+animal_models:
+- name: Xenopus frg1 gain- and loss-of-function vascular model
+  species: Xenopus laevis
+  genotype: FRG1 morpholino knockdown and frg1 mRNA overexpression in embryos and tadpoles
+  category: Candidate-gene dosage model of the vascular component of FSHD
+  publication: PMID:19383939
+  description: &gt;-
+    The only model to address why FSHD has an ophthalmologic component at all.
+    frg1 is expressed in frog vasculature; knocking it down reduces angiogenesis
+    and DAB2 expression, and overexpressing it produces excess vessel branching,
+    vessel dilation and edema. Read carefully, this is a candidate-gene result
+    from before the field settled on DUX4: it shows that a gene at the FSHD locus
+    can produce a vascular phenotype when its dose is wrong, not that FRG1 dosage
+    is what causes vasculopathy in patients.
+  genes:
+  - preferred_term: FRG1
+    term:
+      id: hgnc:3954
+      label: FRG1
+  modeled_mechanisms:
+  - target: Retinal vasculopathy
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    description: &gt;-
+      Produces a disturbed vascular phenotype from misexpression of a gene at the
+      FSHD locus, offering a mechanism for a disease feature that the
+      DUX4-in-skeletal-muscle account does not reach.
+    limitations: &gt;-
+      Three gaps separate this from the human phenotype. The readouts are
+      whole-embryo and tadpole vasculature, not retina, so the tissue in which
+      patients present is not examined. The manipulation is systemic
+      overexpression of frg1, whereas FRG1 is a candidate whose upregulation in
+      patient muscle has been contested and which the field has largely
+      displaced in favour of DUX4 — so the model may be modelling a gene that
+      is not the effector. And the direction is inverted between arms:
+      knockdown reduces angiogenesis while overexpression increases branching,
+      so the model does not by itself say which dose change, if either,
+      corresponds to the patient state.
+    readouts:
+    - name: Blood vessel branching and vessel diameter after frg1 overexpression
+      target: Retinal vasculopathy
+      direction: INCREASED
+      interpretation: &gt;-
+        The pro-angiogenic arm — excess branching, dilated vessels and edema —
+        is the phenotype offered as a vascular counterpart of the human feature.
+      evidence:
+      - reference: PMID:19383939
+        reference_title: &#34;FSHD region gene 1 (FRG1) is crucial for angiogenesis linking FRG1 to facioscapulohumeral muscular dystrophy-associated vasculopathy.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;tadpoles subjected to frg1 overexpression displayed the pro-angiogenic phenotypes of increased blood vessel branching and dilation of blood vessels, and developed edemas, suggesting that their circulation was disrupted&#34;
+        explanation: Reports the measured vascular phenotype under frg1 overexpression.
+    - name: Angiogenesis and DAB2 expression after FRG1 knockdown
+      target: Retinal vasculopathy
+      direction: DECREASED
+      interpretation: &gt;-
+        The loss-of-function arm establishes that frg1 is required for normal
+        vessel development, which is what makes the overexpression phenotype a
+        dosage effect rather than a nonspecific toxicity.
+      evidence:
+      - reference: PMID:19383939
+        reference_title: &#34;FSHD region gene 1 (FRG1) is crucial for angiogenesis linking FRG1 to facioscapulohumeral muscular dystrophy-associated vasculopathy.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;expression of FRG1 was found to be essential for the development of the vasculature, as a knockdown of FRG1 resulted in decreased angiogenesis and reduced expression of the angiogenic regulator DAB2&#34;
+        explanation: Reports the knockdown arm and the molecular readout used for it.
+    evidence:
+    - reference: PMID:19383939
+      reference_title: &#34;FSHD region gene 1 (FRG1) is crucial for angiogenesis linking FRG1 to facioscapulohumeral muscular dystrophy-associated vasculopathy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Thus, the systemic upregulation of the FRG1 protein shows the potential for acquiring a disrupted vascular phenotype, providing the first link between a FSHD candidate gene and the vascular component of FSHD pathology.&#34;
+      explanation: &gt;-
+        The authors&#39; own claim is a demonstrated potential and a first link, not
+        an established disease mechanism, which is the level this link asserts.
+    - reference: PMID:19383939
+      reference_title: &#34;FSHD region gene 1 (FRG1) is crucial for angiogenesis linking FRG1 to facioscapulohumeral muscular dystrophy-associated vasculopathy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;We found that endogenous frg1 is expressed in both the developing and adult vasculature in Xenopus.&#34;
+      explanation: Establishes that the gene is expressed in the tissue whose phenotype the model scores.
+  notes: &gt;-
+    Retained as a candidate-gene model with its caveats intact rather than
+    dropped: FRG1 has largely been displaced by DUX4 as the FSHD effector, but
+    no DUX4-based account of the retinal vasculopathy has replaced this one, so
+    the vascular feature currently has no better mechanistic model.
 clinical_trials:
 - name: NCT05747924
   phase: NOT_APPLICABLE
@@ -7109,7 +7953,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Facioscapulohumeral Muscular Dystrophy", "mondoId": "MONDO:0001347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Facioscapulohumeral_Muscular_Dystrophy", "yamlRevision": "5d382d4a1cc2"};
+        const OS_CONFIG = {"diseaseName": "Facioscapulohumeral Muscular Dystrophy", "mondoId": "MONDO:0001347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Facioscapulohumeral_Muscular_Dystrophy", "yamlRevision": "629c10b8a86f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7528,5 +8372,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
