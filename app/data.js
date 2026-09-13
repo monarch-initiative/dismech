@@ -34222,6 +34222,144 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Autosomal Recessive Osteopetrosis 3",
+    "disease_id": "MONDO:0009818",
+    "category": "Mendelian",
+    "parents": [
+      "Sclerosing Bone Dysplasias"
+    ],
+    "creation_date": "2026-09-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive osteopetrosis 3 (ARO3, OPTB3) is carbonic anhydrase II deficiency, historically described as the syndrome of osteopetrosis with renal tubular acidosis and cerebral calcification (\"marble brain disease\", Guibaud-Vainsel syndrome; OMIM 259730). Biallelic loss-of-function variants in CA2 abolish the cytosolic carbonic anhydrase isoenzyme that hydrates CO2 to H+ and HCO3-. This distinguishes ARO3 mechanistically from the other recessive osteopetroses: TCIRG1 and CLCN7 disable the acid-secreting machinery of the osteoclast ruffled border, whereas CA2 loss removes the supply of protons that machinery pumps. Because the same enzyme serves the renal tubule and the brain, one enzymatic lesion fans out into three organ phenotypes - an osteoclast-rich osteopetrosis in which morphologically present osteoclasts cannot acidify the resorption lacuna, a renal tubular acidosis that is most often of mixed proximal and distal type, and intracranial parenchymal calcification whose mechanism remains the least settled arm. Presentation is in late infancy or early childhood with fractures, developmental delay, short stature and cranial nerve compression; unlike the severe TCIRG1 \"malignant\" infantile form this is an intermediate osteopetrosis compatible with a normal lifespan, and hematopoietic stem cell transplantation - which replaces only the osteoclast lineage - corrects the bone arm while leaving the renal and central nervous system arms intact.\n",
+    "pathophysiology": [
+      "Biallelic CA2 Loss of Function",
+      "Loss of Cytosolic Proton and Bicarbonate Supply",
+      "Osteoclast Resorption Lacuna Acidification Failure",
+      "Failure of Hydroxyapatite Dissolution and Bone Matrix Degradation",
+      "Accumulation of Unresorbed Sclerotic Bone with Preserved Osteoclast Number",
+      "Cranial Foramen and Optic Canal Narrowing",
+      "Craniofacial Disproportion and Upper Airway Narrowing",
+      "Impaired Renal Tubular Proton Secretion and Bicarbonate Reclamation",
+      "Systemic Hyperchloremic Metabolic Acidosis",
+      "Intracranial Parenchymal Calcium Deposition"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "osteoclast",
+      "epithelial cell of proximal tubule",
+      "collecting-duct alpha-intercalated cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000092",
+      "CL:0002306",
+      "CL:0005011"
+    ],
+    "biological_processes": [
+      "one-carbon (CO2/bicarbonate) interconversion",
+      "acidification of the sealed resorption lacuna",
+      "proton secretion across the osteoclast ruffled border",
+      "osteoclastic bone resorption",
+      "bone remodeling",
+      "ossification continuing without matched resorption",
+      "tubular bicarbonate reclamation",
+      "tubular proton secretion"
+    ],
+    "phenotypes": [
+      "Osteopetrosis",
+      "Renal tubular acidosis",
+      "Hyperchloremic metabolic acidosis",
+      "Cerebral calcification",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Short stature",
+      "Recurrent fractures",
+      "Optic atrophy",
+      "Cranial nerve compression",
+      "Nystagmus",
+      "Amelogenesis imperfecta",
+      "Delayed eruption of teeth",
+      "Nephrocalcinosis",
+      "Nephrolithiasis",
+      "Obstructive sleep apnea",
+      "Hearing impairment",
+      "Broad forehead"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Renal",
+      "Laboratory",
+      "Neurologic",
+      "Growth",
+      "Ophthalmologic",
+      "Dental",
+      "Respiratory",
+      "Audiologic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011002",
+      "HP:0001947",
+      "HP:0004918",
+      "HP:0002514",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0004322",
+      "HP:0002757",
+      "HP:0000648",
+      "HP:0001293",
+      "HP:0000639",
+      "HP:0000705",
+      "HP:0000684",
+      "HP:0000121",
+      "HP:0000787",
+      "HP:0002870",
+      "HP:0000365",
+      "HP:0000337"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CA2"
+    ],
+    "treatments": [
+      "Oral alkali therapy",
+      "Allogeneic hematopoietic stem cell transplantation",
+      "Continuous positive airway pressure for obstructive sleep apnea",
+      "Ophthalmologic surveillance for compressive optic neuropathy",
+      "Dental and orthodontic care",
+      "Genetic counseling, carrier testing and prenatal diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Erythrocyte carbonic anhydrase II"
+    ],
+    "source_file": "Autosomal_Recessive_Osteopetrosis_3.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Osteopetrosis_3.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Recessive Primary Microcephaly",
     "disease_id": "MONDO:0016660",
     "category": "Mendelian",
@@ -35042,13 +35180,13 @@ window.searchData = [
     "creation_date": "2026-08-31T10:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal recessive spondylometaphyseal dysplasia, Megarbane type (SMDMDM, also Megarbane-Dagher-Melki type) is an early-lethal skeletal dysplasia caused by biallelic variants in PAM16, the gene for the protein historically called MAGMAS. It is a skeletal dysplasia whose lesion is not in cartilage matrix, collagen, or a mineralisation pathway at all, but in the machinery that pulls nuclear-encoded proteins into the mitochondrial matrix.\nPAM16 is the J-like regulatory subunit of the presequence translocase-associated motor (PAM) that drives the TIM23 import channel. It heterodimerises with the J-domain of DNAJC19 and, through that pairing, sets how hard mitochondrial Hsp70 pulls on an incoming precursor. Roughly sixty per cent of the mitochondrial proteome arrives through TIM23, so a partial failure of this motor is a partial failure of mitochondrial biogenesis everywhere at once. The reason the skeleton is what breaks is a matter of where and when the protein is needed: MAGMAS is expressed in the hypertrophic zone of the growth plate and in the primary spongiosa of trabecular bone, the two compartments in which a cartilage template is converted into bone, and not appreciably in the resting or proliferative chondrocytes above them.\nThe disease allele in every reported Lebanese case is the same homozygous missense change, c.226A>G (p.Asn76Asp), lying in helix II of the J-like domain and shared on a 1.9 Mb founder haplotype at 16p13.3. It is a hypomorph rather than a null: in yeast complementation it supports normal growth at 28 degrees and fails progressively at higher temperatures, which is consistent with children who are born alive and die at 9 to 24 months rather than with embryonic lethality. When the mutant phenotype is forced, unprocessed Hsp60 precursor accumulates, the mitochondrial network fragments, pexophagy appears and the cells die.\nClinically the four originally reported children shared pre- and postnatal growth retardation, developmental delay, a narrow thorax with short ribs, short limbs, severe platyspondyly at birth, square iliac bones, horizontal acetabula, delayed epiphyseal ossification and widened distal femoral metaphyses. What killed them differed by family and follows the two organs the mechanism most exposes: respiratory insufficiency, mechanically downstream of the small thorax, in the first family, and heart failure with severe cardiomegaly in the second. A fifth patient carrying the adjacent p.Gln74Pro allele has been reported with a milder course and longer survival, which is the only genotype-phenotype contrast the literature currently offers.",
+    "description": "Autosomal recessive spondylometaphyseal dysplasia, Megarbane-Dagher-Melki type (SMDMDM), is caused by biallelic PAM16 variants. PAM16 encodes MAGMAS, a regulator of the TIM23/PAM mitochondrial protein-import motor. The founder p.Asn76Asp allele impairs matrix-preprotein import, destabilizes MAGMAS and disrupts cell integrity in yeast under nonpermissive assay conditions. These experiments establish an allele effect in a model, not a human temperature threshold or a measured patient-tissue import defect.\n\nThe four children in the two original Lebanese families had pre- and postnatal growth retardation, developmental delay, short limbs, a small thorax and severe congenital skeletal abnormalities. Platyspondyly and some other radiographic abnormalities improved with age, while short stature persisted. Two children died from respiratory insufficiency at nine months and two years; the other family's two children had cardiomyopathy and died from heart failure around two years. A later p.Gln74Pro case had a milder course. A 2026 surgical report describes survival to 13 years with cervical instability, cord compression and progressive kyphoscoliosis; its full case report cites the 2016 report at molecular diagnosis but does not state the allele or establish an additional distinct patient.\n\nMAGMAS expression in mouse hypertrophic chondrocytes and primary spongiosa supports an ossification role. The molecular route to the human skeletal lesions remains provisional: neither expression localization nor yeast import failure proves a lesion confined to that ossification compartment. Bioenergetic and oxidative injury are supported by fly models, but their contribution to human growth-plate or myocardial disease has not been measured. Thoracic restriction is a plausible contributor to respiratory insufficiency; an additional intrinsic pulmonary defect has not been excluded.",
     "pathophysiology": [
-      "PAM16 p.Asn76Asp Destabilisation of the MAGMAS J-Like Domain",
+      "PAM16 Dysfunction",
       "Impaired TIM23/PAM-Dependent Import of Matrix Preproteins",
       "Mitochondrial Network Fragmentation",
       "Bioenergetic Failure and Cell Death",
-      "Growth Plate Hypertrophic Zone and Primary Spongiosa Ossification Failure",
+      "Impaired Skeletal Ossification and Modeling",
       "Myocardial Energetic Failure",
       "Restrictive Thoracic Insufficiency"
     ],
@@ -35077,28 +35215,46 @@ window.searchData = [
       "Delayed epiphyseal ossification",
       "Short long bone",
       "Wide distal femoral metaphysis",
-      "Metaphyseal cupping",
+      "Cupped ribs",
       "Short ribs",
       "Narrow chest",
       "Squared iliac bones",
       "Flat acetabular roof",
-      "Abnormal ischium morphology",
+      "Hypoplastic ischia",
       "Wormian bones",
-      "Narrow vertebral interpedicular distance",
+      "Lumbar interpedicular narrowing",
       "Aplasia/Hypoplasia of the sacrum",
       "Protuberant abdomen",
       "Abnormal facial shape",
       "Short neck",
       "Rhizomelia",
-      "Small for gestational age",
+      "Intrauterine growth retardation",
       "Postnatal growth retardation",
-      "Short stature",
+      "Disproportionate short-limb short stature",
       "Global developmental delay",
-      "Hypotonia",
+      "Axial hypotonia",
       "Cardiomegaly",
       "Respiratory insufficiency",
       "Death in infancy",
-      "Death in childhood"
+      "Death in childhood",
+      "Wide anterior fontanel",
+      "Prominent forehead",
+      "Low-set ears",
+      "Depressed nasal bridge",
+      "Short nose",
+      "Anteverted nares",
+      "Broad nose",
+      "Trident acetabulum",
+      "Bell-shaped thorax",
+      "Cardiomyopathy",
+      "Heart failure",
+      "Cervical spine instability",
+      "Spinal cord compression",
+      "Kyphoscoliosis",
+      "Cervical spinal canal stenosis",
+      "Spastic diplegia",
+      "Inability to walk",
+      "Subglottic stenosis"
     ],
     "phenotype_categories": [
       "Skeletal",
@@ -35112,6 +35268,7 @@ window.searchData = [
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Growth",
       "Head and Neck",
       "Limbs",
@@ -35124,44 +35281,63 @@ window.searchData = [
       "HP:0002663",
       "HP:0003026",
       "HP:0006387",
-      "HP:0003021",
+      "HP:0000887",
       "HP:0000773",
       "HP:0000774",
       "HP:0003177",
       "HP:0003180",
-      "HP:0003174",
+      "HP:0003175",
       "HP:0002645",
-      "HP:0008450",
+      "HP:0008486",
       "HP:0008517",
       "HP:0001538",
       "HP:0001999",
       "HP:0000470",
       "HP:0008905",
-      "HP:0001518",
+      "HP:0001511",
       "HP:0008897",
-      "HP:0004322",
+      "HP:0008873",
       "HP:0001263",
-      "HP:0001252",
+      "HP:0008936",
       "HP:0001640",
-      "HP:0002093"
+      "HP:0002093",
+      "HP:0000260",
+      "HP:0011220",
+      "HP:0000369",
+      "HP:0005280",
+      "HP:0003196",
+      "HP:0000463",
+      "HP:0000445",
+      "HP:0034374",
+      "HP:0001591",
+      "HP:0001638",
+      "HP:0001635",
+      "HP:0003414",
+      "HP:0002176",
+      "HP:0002751",
+      "HP:0008445",
+      "HP:0001264",
+      "HP:0002540",
+      "HP:0001607"
     ],
     "frequencies": [],
     "genes": [
       "PAM16"
     ],
     "treatments": [
-      "Genetic counselling and cascade carrier testing"
+      "Genetic counselling and cascade carrier testing",
+      "Staged spinal surgery"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Spondylometaphyseal_Dysplasia_Megarbane_Type.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Spondylometaphyseal_Dysplasia,_Megarbane_Type.html",
-    "num_phenotypes": 26,
+    "num_phenotypes": 44,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 2,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Avascular Necrosis of Femoral Head, Primary, 2",
@@ -73761,6 +73937,85 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Combined Immunodeficiency Due To Moesin Deficiency",
+    "disease_id": "MONDO:0010514",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-12T14:05:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An X-linked combined immunodeficiency caused by hemizygous variants in MSN, which encodes moesin. Affected males have profound lymphopenia with hypogammaglobulinemia, fluctuating monocytopenia and neutropenia, poor vaccine responses, and susceptibility to bacterial and varicella zoster virus infection.\nThe mechanism is cytoskeletal rather than signalling, and that is the reason to curate it. Moesin is an ERM (ezrin-radixin-moesin) protein that cross-links the cortical actin cytoskeleton to the plasma membrane. Most inborn errors of immunity in this clinical space are defects of a receptor or a kinase; here the lesion is in the mechanical scaffold that lymphocytes need in order to reorganise their cortex. What follows is a set of defects that are all recognisably cytoskeletal: poor chemokine receptor expression, altered adhesion and migration, and impaired proliferation.\nTwo features are worth reading carefully.\nFirst, the proliferation defect is rescued by wild-type MSN. That is a complementation result in patient cells, and it is what raises the mechanism from an association between a genotype and a set of assays to a demonstrated dependency.\nSecond, and in contrast to several other entries in this knowledge base, the mouse works. Moesin-deficient mice show a lymphopenia phenotype similar to the human one, so the model is curated as RECAPITULATES rather than as a mismatch. The mouse also does something the human data do not: it identifies a specific IL-15-dependent CD8+ regulatory T cell population whose loss breaks self-tolerance. That is recorded as a separate link. Its model_scale is CELLULAR and the node it targets is also CELLULAR, so no upward extrapolation is involved. It still carries its own limitations, because the CD8+ Treg population has not been shown to be the relevant one in patients.\nTreatment is haematopoietic stem cell transplantation, which is mechanistically appropriate since moesin acts in haematopoietic lineages. The curated evidence for it is a single case report, and the treatment record says so rather than presenting it as established practice.\nNo pathophysiology node declares conforms_to. kb/modules/ was searched; no module covers ERM-protein or cortical-actin failure in lymphocytes.",
+    "pathophysiology": [
+      "Hemizygous MSN Loss-of-Function Variants",
+      "Loss of Cortical Actin-Membrane Cross-Linking",
+      "Impaired Lymphocyte Migration and Adhesion",
+      "Impaired Lymphocyte Proliferation",
+      "Profound Lymphopenia and Leukopenia"
+    ],
+    "cell_types": [
+      "lymphocyte",
+      "T cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000542",
+      "CL:0000084",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "cortical actin cytoskeleton organization",
+      "leukocyte migration",
+      "cell adhesion",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Decreased total lymphocyte count",
+      "Decreased total neutrophil count",
+      "Decreased total monocyte count",
+      "Decreased circulating IgG concentration",
+      "Recurrent bacterial infections",
+      "Varicella zoster virus susceptibility"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001888",
+      "HP:0001875",
+      "HP:0012312",
+      "HP:0004315",
+      "HP:0002718",
+      "HP:0004429"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MSN"
+    ],
+    "treatments": [
+      "Allogeneic hematopoietic stem cell transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Immunodeficiency_Due_To_Moesin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_To_Moesin_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined Malonic and Methylmalonic Aciduria",
     "disease_id": "MONDO:0013661",
     "category": "Mendelian",
@@ -76826,6 +77081,118 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Congenital Factor X Deficiency",
+    "disease_id": "MONDO:0009212",
+    "category": "Mendelian",
+    "parents": [
+      "Rare bleeding disorder",
+      "Vitamin K-dependent coagulation factor deficiency"
+    ],
+    "creation_date": "2026-09-12T12:52:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type I",
+      "Type II"
+    ],
+    "description": "An autosomal recessive bleeding disorder caused by biallelic variants in F10, the gene encoding coagulation factor X. It is among the rarest of the rare bleeding disorders, at roughly one in 500,000 to one in a million.\nThe mechanism is short and unusually well resolved, because factor X sits at a single, non-redundant point in the coagulation cascade. Factor X is the zymogen of factor Xa, and factor Xa is the protease component of the prothrombinase complex - the assembly of factor Xa with its cofactor factor Va on an anionic phospholipid surface that converts prothrombin to thrombin some five orders of magnitude faster than factor Xa can alone. Both the tissue-factor (extrinsic) and the contact-activated (intrinsic) arms of the cascade converge on factor X activation, so a defect here is downstream of both and cannot be bypassed by either. Less functional factor X means less prothrombinase, less thrombin, less fibrin, and a bleeding tendency whose severity broadly tracks residual factor X activity.\nThat convergence is also what makes the laboratory picture distinctive: because the lesion is in the common pathway rather than in one arm, both the prothrombin time and the activated partial thromboplastin time are prolonged, which is the finding that usually prompts factor-specific assays.\nTwo deficiency types are recognised and are modelled here as has_subtypes rather than as separate diseases, because they converge on the same prothrombinase defect and differ only in whether the defective protein is absent or present but non-functional. Type I is cross-reactive-material-negative, with factor X activity and antigen reduced together; type II is cross-reactive-material-positive, with activity reduced against preserved antigen.\nThree things in this entry are deliberately hedged rather than smoothed over. First, genotype-phenotype correlation is weak: the largest cohort curated here says in terms that clinical and laboratory phenotypes are poorly correlated, and the mutation-specific associations it reports for intracranial haemorrhage are described by its own authors as tentative. That hedge is carried into the evidence rather than dropped. Second, the type I/type II split is applied inconsistently in the primary literature - at least one curated cohort reports uniformly reduced antigen and then labels the patients type II, which inverts the usual convention - so the subtype records are anchored to a variant-database definition covering 427 case reports rather than to any single cohort's labelling. Third, no pathophysiology node declares conforms_to: kb/modules/ was searched for a coagulation-cascade module and none covers a single-factor common-pathway defect.\nHeterozygotes are not curated as a subtype. They are usually asymptomatic, but a minority bleed, and the entry records that inside the inheritance block rather than as a distinct disease state.",
+    "pathophysiology": [
+      "Biallelic F10 Loss-of-Function Variants",
+      "Reduced Functional Plasma Factor X",
+      "Impaired Prothrombinase Complex Activity",
+      "Reduced Thrombin Generation",
+      "Impaired Fibrin Clot Formation",
+      "Systemic Bleeding Tendency"
+    ],
+    "cell_types": [
+      "hepatocyte, the site of factor X synthesis",
+      "activated platelet providing the anionic phospholipid surface"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "blood coagulation, common pathway",
+      "blood coagulation",
+      "blood coagulation, fibrin clot formation"
+    ],
+    "phenotypes": [
+      "Bruising susceptibility",
+      "Subcutaneous hemorrhage",
+      "Epistaxis",
+      "Joint hemorrhage",
+      "Intracranial hemorrhage",
+      "Gastrointestinal hemorrhage",
+      "Abnormal umbilical stump bleeding",
+      "Gingival bleeding",
+      "Menorrhagia",
+      "Postpartum hemorrhage",
+      "Hemoperitoneum",
+      "Reduced factor X activity",
+      "Prolonged prothrombin time",
+      "Prolonged partial thromboplastin time"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Musculoskeletal",
+      "Neurologic",
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000978",
+      "HP:0001933",
+      "HP:0000421",
+      "HP:0005261",
+      "HP:0002170",
+      "HP:0002239",
+      "HP:0011884",
+      "HP:0000225",
+      "HP:0000132",
+      "HP:0011891",
+      "HP:0011854",
+      "HP:0008321",
+      "HP:0008151",
+      "HP:0003645"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "F10"
+    ],
+    "treatments": [
+      "Plasma-derived factor X concentrate",
+      "Prophylactic factor X replacement",
+      "Prothrombin complex concentrate",
+      "Fresh frozen plasma",
+      "Antifibrinolytic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Factor X coagulant activity (FX:C)"
+    ],
+    "source_file": "Congenital_Factor_X_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Factor_X_Deficiency.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Fibrosis of the Extraocular Muscles",
@@ -90229,15 +90596,17 @@ window.searchData = [
       "Genetic Counselling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts"
+    ],
     "source_file": "Dermatosparaxis_Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Dermatosparaxis_Ehlers-Danlos_Syndrome.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dermoid Cyst",
@@ -96800,6 +97169,97 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Dominant Beta-Thalassemia",
+    "disease_id": "MONDO:0011381",
+    "category": "Mendelian",
+    "parents": [
+      "Beta thalassemia",
+      "Hemoglobinopathy",
+      "Congenital hemolytic anemia"
+    ],
+    "creation_date": "2026-09-11T11:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dominant beta-thalassemia is a hemoglobinopathy in which a single mutant HBB allele produces overt disease in a heterozygote. That is the whole point of the entry, and it is the opposite of how beta-thalassemia usually behaves: in the common recessive forms a heterozygote has microcytosis and little or no hemolysis, because one working allele is enough.\nThe difference is not severity, it is mechanism. Ordinary beta-thalassemia is a quantitative deficit - less beta-globin is made, alpha chains are left unpartnered, and the disease follows from the imbalance. Here the mutant allele is translated into a hyperunstable beta-globin chain that still binds heme, precipitates into protease-resistant inclusion bodies, and escapes the erythroid quality-control machinery that would normally clear it. The mutant product is itself the insult. Most causative variants sit in exon 3, which is where a nonsense or frameshift change escapes nonsense-mediated decay and so gets translated rather than degraded.\nThe consequence is a proteostasis disease of the erythron dressed as a thalassemia: inclusion-laden erythroblasts die in the marrow, inclusion-laden red cells are pulled out by splenic macrophages, and the patient has a thalassemia-intermedia picture with hemolysis, reticulocytosis, splenomegaly and secondary iron overload.\nOne epidemiological consequence follows directly from the dominance and is worth stating, because it inverts the usual expectation for a haemoglobinopathy: because heterozygotes are symptomatic, these alleles get no malaria-related selective advantage, so the disorder occurs pan-ethnically as isolated families and de novo cases rather than clustering in historically malaria-endemic populations.\ndismech curates the recessive disease separately as Beta_Thalassemia. These are kept apart because the pathographs differ at the first step, not because of severity banding - see notes.",
+    "pathophysiology": [
+      "Heterozygous HBB Exon 3 Variant Producing a Hyperunstable Beta-Globin Chain",
+      "Heme-Bound Globin Precipitation into Protease-Resistant Inclusion Bodies",
+      "Excess Unpaired Alpha-Globin",
+      "Failure of Erythroid Protein Quality Control",
+      "Oxidative Injury of Erythroblasts and Erythrocytes",
+      "Ineffective Erythropoiesis",
+      "Splenic Destruction of Inclusion-Bearing Erythrocytes"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "macrophage",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0000235",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "autophagy",
+      "response to oxidative stress",
+      "erythrocyte maturation"
+    ],
+    "phenotypes": [
+      "Secondary iron overload",
+      "Reticulocytosis",
+      "Hemolytic anemia",
+      "Anemia",
+      "Splenomegaly",
+      "Abnormal erythrocyte morphology"
+    ],
+    "phenotype_categories": [
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0011031",
+      "HP:0001923",
+      "HP:0001878",
+      "HP:0001903",
+      "HP:0001744",
+      "HP:0001877"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HBB"
+    ],
+    "treatments": [
+      "Splenectomy",
+      "Red blood cell transfusion",
+      "Iron chelation therapy",
+      "Luspatercept",
+      "Mitapivat",
+      "Hydroxyurea for fetal haemoglobin induction",
+      "Allogeneic hematopoietic stem cell transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Fetal hemoglobin"
+    ],
+    "source_file": "Dominant_Beta-Thalassemia.yaml",
+    "page_url": "../pages/disorders/Dominant_Beta-Thalassemia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dominant Deafness-Onychodystrophy Syndrome",
@@ -154480,6 +154940,92 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Infantile Cerebellar-Retinal Degeneration",
+    "disease_id": "MONDO:0013802",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of energy metabolism",
+      "Neurodegenerative disease of infancy"
+    ],
+    "creation_date": "2026-09-12T13:50:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodegenerative disorder caused by biallelic variants in ACO2, which encodes mitochondrial aconitase - the Krebs-cycle enzyme that isomerises citrate to isocitrate. Children present at two to six months with truncal hypotonia, athetosis and seizures, lose visual tracking that was normal at birth, and go on to bilateral optic atrophy, retinal degeneration and cerebellar atrophy.\nThe mechanistically important finding, and the one that shapes this entry, is a negative result. In the original families the five respiratory-chain complexes and the pyruvate dehydrogenase complex were all normal in muscle mitochondria, while aconitase activity itself was severely reduced in lymphoblasts. So this is not, in that tissue and by that assay, a general oxidative-phosphorylation failure that happens to be caused by a mitochondrial gene. The pathograph is written accordingly: the node downstream of enzyme deficiency is TCA-cycle flux, not OXPHOS.\nThat exclusion is deliberately scoped rather than absolute. It rests on respiratory-chain assays in muscle mitochondria, and the same abstract records that glutamate oxidation there was slightly reduced. Patient fibroblasts, a different tissue, do show deficient cellular respiration and secondary mitochondrial DNA depletion. Both are curated. So the claim this entry makes is that the primary lesion is a Krebs-cycle block and that respiratory-chain failure is not the proximate mechanism, not that oxidative phosphorylation is untouched anywhere.\nWhy the cerebellum and retina specifically, when the enzyme is ubiquitous, is not explained by anything curated here, and the entry records that as a knowledge gap rather than inventing a selective-vulnerability mechanism.\nLump/split. ACO2 has a wide allelic spectrum and this entry deliberately covers only part of it. Biallelic variants also cause isolated recessive ophthalmological phenotypes without the neurological syndrome, and - separately and more commonly - monoallelic variants cause dominant isolated optic atrophy, with one European screen finding 50 dominant index cases against 11 biallelic. The dominant disorder is not modelled here as a subtype, because a different mode of inheritance is a split signal rather than a severity gradient: a has_subtypes entry under a recessive disease cannot carry a dominant inheritance. It is recorded in the genetic notes and in a discussion instead, as a separate entity that a future curator should create.\nNo pathophysiology node declares conforms_to. kb/modules/ was searched; the available mitochondrial modules concern respiratory-chain and mtDNA-maintenance failure, which is precisely what this disease was shown not to have.",
+    "pathophysiology": [
+      "Biallelic ACO2 Loss-of-Function Variants",
+      "Reduced Mitochondrial Aconitase Activity",
+      "Krebs Cycle Flux Block",
+      "Progressive Neuronal and Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "tricarboxylic acid cycle"
+    ],
+    "phenotypes": [
+      "Axial hypotonia",
+      "Truncal ataxia",
+      "Athetosis",
+      "Seizure",
+      "Optic atrophy",
+      "Retinal dystrophy",
+      "Esotropia",
+      "Cerebellar atrophy",
+      "Progressive microcephaly",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Cerebral atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008936",
+      "HP:0002078",
+      "HP:0002305",
+      "HP:0001250",
+      "HP:0000648",
+      "HP:0000556",
+      "HP:0000565",
+      "HP:0001272",
+      "HP:0000253",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0002059"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ACO2"
+    ],
+    "treatments": [
+      "Triheptanoin anaplerotic therapy",
+      "Supportive and rehabilitative care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Infantile_Cerebellar-Retinal_Degeneration.yaml",
+    "page_url": "../pages/disorders/Infantile_Cerebellar-Retinal_Degeneration.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Infantile Hypercalcemia",
     "disease_id": "MONDO:0000212",
     "category": "Mendelian",
@@ -170838,7 +171384,7 @@ window.searchData = [
       "HP:0001249",
       "HP:0032794",
       "HP:0002069",
-      "HP:0002133",
+      "HP:0031475",
       "HP:0001263",
       "HP:0000708"
     ],
@@ -188136,7 +188682,7 @@ window.searchData = [
     "creation_date": "2026-08-31T10:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "cblA is the complementation group in which isolated methylmalonic aciduria arises not from a broken enzyme but from a broken hand-off. MMAA is a mitochondrial G-protein that never touches methylmalonyl-CoA. Its job is to stand between the adenosyltransferase MMAB, which makes adenosylcobalamin, and methylmalonyl-CoA mutase (MMUT), which consumes it, and to decide when the cofactor is transferred. It does this twice over: it gates the loading of adenosylcobalamin onto the apo-mutase in a GTP-dependent cycle, and then, once catalysis has begun, it guards the bound cofactor against oxidative damage and exchanges the inactivated cobalamin for a fresh one. MMAA is therefore a cofactor quality-control device, and cblA is what a metabolic pathway looks like when that device fails while every enzyme in the pathway remains intact.\nThis distinction is not decorative, because it explains the two things that separate cblA from the mutase-deficient forms of isolated methylmalonic acidemia. The first is that the biochemical lesion is bypassable: flooding the mitochondrion with cobalamin drives adenosylcobalamin onto the mutase by mass action even when the gatekeeper cannot present it, which is why cblA is the most reliably vitamin B12-responsive form of isolated methylmalonic acidemia and why almost every patient tested has proven responsive. The second is that the failure is partial rather than absolute, so methylmalonate loads are lower, renal function is better preserved, and survival is better than in mut-type or cblB disease.\nWhat the missense alleles reveal is more specific still. Purified mutant MMAA proteins retain essentially normal intrinsic GTPase activity; what they lose is the ability to have that activity stimulated by the mutase, to bind the mutase physically, or to gate the transfer of adenosylcobalamin from MMAB. Roughly a third are additionally unstable. cblA is thus a disease of a lost protein-protein interaction rather than a lost enzymatic activity, which is an unusual mechanism for an organic aciduria and part of the reason the disorder is curated in its own right rather than folded into the mutase entry.\nThe clinical consequence of a partially bypassable defect is a disease that is real but attenuated, and one that is easy to under-recognise. Presentation is usually infantile metabolic crisis, but about a third of patients never present acutely and instead surface later with chronic kidney disease, intellectual disability, or growth failure. Cobalamin replacement is genuinely disease-modifying and appears to protect the kidney, yet it does not abolish long-term neurodevelopmental impairment or renal decline, so cblA remains a chronic disease under treatment rather than a corrected one.",
+    "description": "Biallelic pathogenic MMAA variants cause an adenosylcobalamin-handling defect that reduces effective methylmalonyl-CoA mutase (MMUT) activity. MMAA is a mitochondrial GTPase chaperone involved in cofactor loading, protection and repair. Recombinant patient-variant studies identify impaired functional interaction with MMUT and, for some alleles, protein instability. These mechanisms differ from the primary MMUT apoenzyme defect and from MMAB-associated cblB disease.\n\nThe resulting isolated methylmalonic aciduria can present with severe neonatal or infantile metabolic decompensation, or with chronic developmental, growth or renal problems. Hydroxocobalamin responsiveness was reported in 27/28 cblA patients in a registry comparison with 95 mut patients, with lower methylmalonate concentrations and milder subsequent disease in cblA. Responsiveness does not exclude severe onset or later complications. The precise biochemical route of pharmacologic rescue is not established for every MMAA genotype.\n\nIn a separate retrospective series of 23 adults, 8/23 presented with chronic symptoms, but only 4/23 never experienced acute decompensation. Intellectual disability and chronic renal failure occurred in 9/23 and 7/23, respectively. These historical adult-survivor data should not be treated as untreated or contemporary birth-cohort risks. Early B12 treatment was associated with less severe renal disease; the small, nonrandomized comparison cannot establish renal protection or exclude neurodevelopmental benefit.",
     "pathophysiology": [
       "Biallelic MMAA Loss of Function",
       "Loss of MMAA-Mutase Functional Interaction",
@@ -188146,14 +188692,14 @@ window.searchData = [
       "Methylmalonic Acid and Propionyl-CoA Accumulation",
       "Acute Metabolic Decompensation",
       "Renal Tubulointerstitial Injury",
-      "Neurologic Injury"
+      "Neurologic Injury",
+      "Secondary impairment of ureagenesis",
+      "Secondary renal mitochondrial dysfunction",
+      "Basal ganglia injury",
+      "Chronic illness and inadequate nutritional intake"
     ],
-    "cell_types": [
-      "proximal tubule epithelial cell"
-    ],
-    "cell_type_ids": [
-      "CL:0002306"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "mitochondrial adenosylcobalamin handling",
       "propionate catabolic process"
@@ -188161,13 +188707,13 @@ window.searchData = [
     "phenotypes": [
       "Methylmalonic aciduria",
       "Decreased methylmalonyl-CoA mutase activity",
-      "Metabolic acidosis",
+      "Episodic metabolic acidosis",
       "Vomiting",
       "Global developmental delay",
       "Intellectual disability",
       "Chronic kidney disease",
       "Tubulointerstitial nephritis",
-      "Growth delay",
+      "Short stature",
       "Optic atrophy",
       "Hyperuricemia",
       "Abnormality of extrapyramidal motor function",
@@ -188177,7 +188723,29 @@ window.searchData = [
       "Failure to thrive",
       "Hyperammonemia",
       "Cerebral atrophy",
-      "Ventriculomegaly"
+      "Ventriculomegaly",
+      "Dystonia",
+      "Choreoathetosis",
+      "Spasticity",
+      "Ataxia",
+      "Developmental regression",
+      "Hypertension",
+      "Left ventricular hypertrophy",
+      "Visual impairment",
+      "Reduced consciousness",
+      "Lethargy",
+      "Dehydration",
+      "Hypothermia",
+      "Anemia",
+      "Hyperglycemia",
+      "Ketonuria",
+      "Elevated circulating hepatic transaminase concentration",
+      "Osteoporosis",
+      "Osteopenia",
+      "Diminished ability to concentrate",
+      "Atrioventricular block",
+      "Prolonged QT interval",
+      "Decreased body weight"
     ],
     "phenotype_categories": [
       "Biochemical",
@@ -188186,9 +188754,16 @@ window.searchData = [
       "Renal",
       "Growth",
       "Ophthalmologic",
-      "Metabolic"
+      "Metabolic",
+      "Cardiovascular",
+      "Constitutional",
+      "Hematologic",
+      "Skeletal",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
       "Digestive",
       "Eye",
       "Genitourinary",
@@ -188200,13 +188775,13 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0012120",
       "HP:0003210",
-      "HP:0001942",
+      "HP:0004911",
       "HP:0002013",
       "HP:0001263",
       "HP:0001249",
       "HP:0012622",
       "HP:0001970",
-      "HP:0001510",
+      "HP:0004322",
       "HP:0000648",
       "HP:0002149",
       "HP:0002071",
@@ -188216,7 +188791,29 @@ window.searchData = [
       "HP:0001508",
       "HP:0001987",
       "HP:0002059",
-      "HP:0002119"
+      "HP:0002119",
+      "HP:0001332",
+      "HP:0001266",
+      "HP:0001257",
+      "HP:0001251",
+      "HP:0002376",
+      "HP:0000822",
+      "HP:0001712",
+      "HP:0000505",
+      "HP:0004372",
+      "HP:0001254",
+      "HP:0001944",
+      "HP:0002045",
+      "HP:0001903",
+      "HP:0003074",
+      "HP:0002919",
+      "HP:0002910",
+      "HP:0000939",
+      "HP:0000938",
+      "HP:0031987",
+      "HP:0001678",
+      "HP:0001657",
+      "HP:0004325"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -188243,12 +188840,12 @@ window.searchData = [
     ],
     "source_file": "Methylmalonic_Aciduria_cblA_Type.yaml",
     "page_url": "../pages/disorders/Methylmalonic_Aciduria,_cblA_Type.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 41,
+    "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Mevalonate Kinase Deficiency",
@@ -203081,9 +203678,11 @@ window.searchData = [
       "Purkinje Cell Endoplasmic Reticulum Stress",
       "Purkinje Neuron Degeneration",
       "Lower Motor Neuron and Peripheral Motor Axon Degeneration",
-      "Progressive Cerebellar Atrophy",
       "Cerebellar Ataxia and Movement Disorder",
-      "Motor Neuronopathy and Progressive Weakness"
+      "Motor Neuronopathy and Progressive Weakness",
+      "Neuronal Maintenance Failure",
+      "Absent Thymic Tissue",
+      "Callosal White Matter Loss"
     ],
     "cell_types": [
       "cerebellar Purkinje cell",
@@ -203116,32 +203715,61 @@ window.searchData = [
       "Spasticity",
       "Dystonia",
       "Microcephaly",
-      "Corpus Callosum Dysplasia",
+      "Abnormal Corpus Callosum Morphology",
       "Feeding Difficulties",
       "Abnormal Eye Movements",
       "Respiratory Insufficiency",
-      "Abnormal Tendon Reflexes",
+      "Reduced Tendon Reflexes",
       "Neurogenic Muscle Atrophy",
       "Tongue Fasciculations",
       "Motor Axonal Neuropathy",
       "Lower Motor Neuron Degeneration",
       "Intellectual Disability",
-      "Progressive Neurological Deterioration"
+      "Progressive Neurological Deterioration",
+      "Developmental Regression",
+      "Areflexia",
+      "Thin Corpus Callosum",
+      "Oculomotor Apraxia",
+      "Esotropia",
+      "Weak Cry",
+      "Poor Suck",
+      "Dysphagia",
+      "Aspiration",
+      "Failure to Thrive",
+      "Hand Tremor",
+      "Hearing Impairment",
+      "Seizures",
+      "Dilated Cardiomyopathy",
+      "Caudate Atrophy",
+      "Putaminal Atrophy",
+      "Thymic Aplasia",
+      "Lymphopenia"
     ],
     "phenotype_categories": [
       "Neurological",
       "Gastrointestinal",
       "Ophthalmological",
       "Respiratory",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Growth",
+      "Otological",
+      "Cardiovascular",
+      "Immunological"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
       "Digestive",
+      "Ear",
+      "Endocrine",
       "Eye",
+      "Growth",
       "Head and Neck",
+      "Immune",
       "Musculoskeletal",
       "Nervous System",
-      "Respiratory"
+      "Respiratory",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0001263",
@@ -203157,18 +203785,33 @@ window.searchData = [
       "HP:0011968",
       "HP:0000496",
       "HP:0002093",
-      "HP:0031826",
+      "HP:0001315",
       "HP:0003202",
       "HP:0001308",
       "HP:0007002",
       "HP:0002398",
       "HP:0001249",
-      "HP:0002180"
+      "HP:0002180",
+      "HP:0002376",
+      "HP:0001284",
+      "HP:0033725",
+      "HP:0000657",
+      "HP:0000565",
+      "HP:0001612",
+      "HP:0002033",
+      "HP:0002015",
+      "HP:0002835",
+      "HP:0001508",
+      "HP:0002378",
+      "HP:0000365",
+      "HP:0001250",
+      "HP:0001644",
+      "HP:0002340",
+      "HP:0031982",
+      "HP:0005359",
+      "HP:0001888"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "Biallelic AGTPBP1 pathogenic variants"
     ],
@@ -203188,12 +203831,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.yaml",
     "page_url": "../pages/disorders/Neurodegeneration_Childhood-onset_With_Cerebellar_Atrophy.html",
-    "num_phenotypes": 20,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 38,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Neurodegeneration With Brain Iron Accumulation",
@@ -224735,7 +225378,8 @@ window.searchData = [
       "REM Sleep Behavior Disorder",
       "Cognitive Impairment",
       "Dystonia",
-      "Weight Loss"
+      "Weight Loss",
+      "Impulse Control Behaviors"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -224764,11 +225408,13 @@ window.searchData = [
       "HP:5200291",
       "HP:0100543",
       "HP:0001332",
-      "HP:0001824"
+      "HP:0001824",
+      "HP:0100710"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "SNCA",
@@ -224782,6 +225428,7 @@ window.searchData = [
     "treatments": [
       "Levodopa/Carbidopa",
       "Dopamine Agonists",
+      "Impulse Control Behavior Management",
       "MAO-B Inhibitors",
       "COMT Inhibitors",
       "Deep Brain Stimulation",
@@ -224796,11 +225443,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 12,
     "num_pathophysiology": 24,
     "num_genes": 7,
-    "num_treatments": 7,
-    "causal_graph_edges": "63",
+    "num_treatments": 8,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "9"
   },
   {
@@ -235309,6 +235956,9 @@ window.searchData = [
       "Defective Trophoblast Invasion and Spiral Artery Remodeling",
       "Placental Anti-Angiogenic Factor Release",
       "NLRP3 Inflammasome Activation and Inflammatory Cascade",
+      "Cytokine-Induced Tissue Factor Expression and Coagulation Cascade Activation",
+      "Platelet Activation and NET-Amplified Thrombus Propagation",
+      "Microvascular Thrombosis and Maternal Organ Ischemia",
       "Maternal Endothelial Dysfunction",
       "Glomerular Endotheliosis and Proteinuria",
       "Hepatic Sinusoidal Obstruction and HELLP",
@@ -235320,7 +235970,9 @@ window.searchData = [
       "blood vessel endothelial cell",
       "syncytiotrophoblast",
       "placental macrophage",
+      "monocyte",
       "platelet",
+      "neutrophil",
       "glomerular endothelial cell",
       "hepatic sinusoidal endothelial cell",
       "cerebral blood vessel endothelial cell"
@@ -235331,7 +235983,9 @@ window.searchData = [
       "CL:0000071",
       "CL:0000525",
       "CL:0000235",
+      "CL:0000576",
       "CL:0000233",
+      "CL:0000775",
       "CL:0002188",
       "CL:1000398",
       "CL:2000044"
@@ -235354,9 +236008,12 @@ window.searchData = [
       "interleukin-1 beta production",
       "inflammatory response",
       "response to oxidative stress",
+      "blood coagulation",
+      "fibrin clot formation",
+      "fibrinolysis",
+      "platelet activation",
       "innate immune response",
-      "glomerular filtration",
-      "blood coagulation"
+      "glomerular filtration"
     ],
     "phenotypes": [
       "Hypertension",
@@ -235424,11 +236081,11 @@ window.searchData = [
     "source_file": "Preeclampsia.yaml",
     "page_url": "../pages/disorders/Preeclampsia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 13,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Premenstrual Dysphoric Disorder",
@@ -284572,6 +285229,86 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Torsion Dystonia 6",
+    "disease_id": "MONDO:0011264",
+    "category": "Mendelian",
+    "parents": [
+      "Isolated dystonia",
+      "Monogenic dystonia"
+    ],
+    "creation_date": "2026-09-12T13:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant isolated dystonia with markedly reduced penetrance, caused by heterozygous variants in THAP1. It was the first dystonia attributed to a transcription factor, and that is still the defining fact about its mechanism: THAP1 is a THAP-domain zinc-finger DNA-binding protein, so the primary lesion is a failure of gene regulation rather than of a channel, an enzyme, or a structural protein.\nThe chain that follows is unusually well characterised at its molecular end and unusually poorly closed at its clinical end, and this entry is built to show that asymmetry rather than to paper over it. Reduced THAP1 DNA binding and disrupted cofactor recruitment lead to broad transcriptional dysregulation, executed substantially through the SP1 and SP4 transcription factors and in a cell-type-dependent way. Downstream of that, patient-derived striatal medium spiny neurons show reduced GABA-A receptor alpha2 expression and decreased GABAergic transmission, which is a concrete cellular defect measured in human cells. What is not established is the step from there to dystonic movement: the basal ganglia and cerebellar network dysfunction that is presumed to intervene is supported by imaging and by rodent circuit findings, not by a demonstrated causal path in humans.\nTwo features make this entry worth reading carefully.\nFirst, the mouse does not get the disease. Germline Thap1 deletion is embryonic lethal, and the heterozygote - the genotype that should model human haploinsufficiency - has no discernable phenotype, because the mouse upregulates the remaining allele. Conditional nervous-system deletion produces locomotor deficits but still no dystonia. That is recorded structurally, as a FAILS_TO_RECAPITULATE model link and a HUMAN_MODEL_MISMATCH discussion, rather than as a caveat in prose.\nSecond, whether a genotype-phenotype correlation exists is contested, and this entry records the disagreement rather than picking a side. A 2011 systematic review of 56 published THAP1 families reports no such relationship. A later screen of more than 1800 subjects reports the opposite: truncating variants and missense variants inside the THAP domain manifest earlier and spread further than variants elsewhere in the gene. The larger and later study is not obviously wrong, so the entry states both and makes no variant-specific severity claim of its own.\nRelationship to the existing Cervical_Dystonia entry: that entry covers common adult-onset sporadic focal cervical dystonia, deliberately binds no causal gene, and types THAP1 as SUSCEPTIBILITY because these genes explain a small minority of unselected cases. This entry is the Mendelian entity itself - one gene, dominant transmission, characteristic early-onset craniocervical and laryngeal involvement with limb spread. They are different diseases that share a phenotypic region.\nNo pathophysiology node declares conforms_to. kb/modules/ was searched and no module covers transcription-factor haploinsufficiency or basal ganglia motor network imbalance.",
+    "pathophysiology": [
+      "Heterozygous THAP1 Loss-of-Function Variants",
+      "Reduced THAP1 Transcriptional Regulatory Function",
+      "Derepression of TOR1A",
+      "Transcriptional Dysregulation Through the SP1 Family",
+      "Reduced Striatal GABAergic Transmission",
+      "Basal Ganglia and Cerebellar Motor Network Dysfunction",
+      "Isolated Dystonia"
+    ],
+    "cell_types": [
+      "neuron",
+      "striatal medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "synaptic transmission, GABAergic"
+    ],
+    "phenotypes": [
+      "Torticollis",
+      "Laryngeal dystonia",
+      "Dysarthria",
+      "Writer's cramp",
+      "Oromandibular dystonia",
+      "Blepharospasm",
+      "Generalized dystonia"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000473",
+      "HP:0012049",
+      "HP:0001260",
+      "HP:0002356",
+      "HP:0012048",
+      "HP:0000643",
+      "HP:0007325"
+    ],
+    "frequencies": [],
+    "genes": [
+      "THAP1"
+    ],
+    "treatments": [
+      "Oral pharmacotherapy",
+      "Botulinum toxin chemodenervation",
+      "Deep brain stimulation of the globus pallidus internus"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Torsion_Dystonia_6.yaml",
+    "page_url": "../pages/disorders/Torsion_Dystonia_6.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Tourette Syndrome",
     "disease_id": "MONDO:0007661",
     "category": "Psychiatric",
@@ -301782,17 +302519,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2909,
-  "total_subtypes": 3726,
-  "total_disorders_and_subtypes": 6635,
-  "total_unique_evidence_sources": 40931,
-  "total_unique_publications": 38575,
+  "total_disorder_pages": 2915,
+  "total_subtypes": 3728,
+  "total_disorders_and_subtypes": 6643,
+  "total_unique_evidence_sources": 41027,
+  "total_unique_publications": 38668,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2904,
-  "total_unique_pathological_events": 17522,
+  "total_pathographs": 2910,
+  "total_unique_pathological_events": 17568,
   "total_modules": 174,
-  "total_research_reports": 3033,
+  "total_research_reports": 3039,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
