@@ -629,6 +629,10 @@ def print_summary(findings: list[Finding], coverage: Coverage) -> None:
     print(
         f"Tier B coverage: {coverage.mesh_indexed} item(s) cite a MeSH-indexed record"
     )
+    print(
+        f"already assessed: {coverage.already_assessed} item(s) carry a quote_role "
+        "and are off the worklist (--include-assessed keeps them)"
+    )
     print()
     for tier in _TIERS:
         tier_findings = [f for f in findings if f.tier == tier]
