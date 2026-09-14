@@ -16,10 +16,6 @@ alternatives, and identify the evidence for a correction. Boomer checks
 consistency under supplied constraints and priors; it does not establish
 clinical equivalence or infer gene associations.
 
-This skill is self-contained for the dismech workflow. It does not require a
-personal `pyboomer` skill. Paths in commands below are relative to the repo root
-unless a command explicitly changes directory.
-
 ## Start with the question and saved evidence
 
 Identify the disease entry, subtype, grouping, or cross-source mapping at issue.
