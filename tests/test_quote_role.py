@@ -263,6 +263,44 @@ def test_a_record_indexed_with_humans_is_not_animal_only(tmp_path: Path) -> None
     assert not facts["animal_only"]
 
 
+#: The two mouse-therapy papers the DFNA2A worked example quotes background from.
+#: Named here rather than inlined so the pin below says which records it is about.
+DFNA2A_BACKGROUND_SOURCES = ("PMID_42162447", "PMID_40898620")
+
+
+@pytest.mark.parametrize("stem", DFNA2A_BACKGROUND_SOURCES)
+def test_neither_tier_can_see_the_dfna2a_background_pair(stem: str) -> None:
+    """The real records, not a fixture: both tiers are blind to this case.
+
+    ``test_a_record_indexed_with_humans_is_not_animal_only`` pins the *behaviour*
+    on a synthetic cache. This pins the *claim made about these two papers* in
+    #10262 and in the PR that added this slot, so a future change to either tier
+    (or a re-fetch that changes their MeSH) shows up as a failure here rather
+    than as a quietly stale sentence in the docs.
+
+    Tier B is silent because NLM indexed both with ``Humans`` alongside ``Mice``.
+    Tier A is silent because both cached bodies are full text with no NLM
+    structured-abstract labels. So the two items that motivated half the issue
+    are found by neither, which is why the slot is curated and not derived.
+    """
+    cache_path = ROOT / "references_cache" / f"{stem}.md"
+    if not cache_path.is_file():
+        pytest.skip(f"{stem} is not in references_cache on this checkout")
+    refs = ReferenceFacts(ROOT / "references_cache")
+    facts = refs.facts(f"PMID:{stem.removeprefix('PMID_')}")
+
+    assert facts is not None
+    assert facts["mesh_indexed"], "expected MeSH indexing on this record"
+    assert not facts["animal_only"], (
+        "tier B is only silent on this record while NLM indexes it with Humans; "
+        "if that changed, the claim in docs/ and in #10262 needs revisiting"
+    )
+    assert facts["sections"] == [], (
+        "tier A is only silent on this record while its cached body carries no "
+        "NLM structured-abstract labels"
+    )
+
+
 def test_evidence_items_are_found_by_shape_anywhere_in_a_document() -> None:
     """Reference + snippet, wherever they nest -- not an enumerated slot list."""
     data = {

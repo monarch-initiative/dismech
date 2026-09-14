@@ -1540,6 +1540,14 @@ has the same remedy: split it.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
+That rule is about *how the curation was done*, and it is unchanged. It does not
+decide the case where the quoted sentence describes one kind of evidence and the
+citing paper ran another: for that, grade `evidence_source` from the quoted text
+and record the mismatch in `quote_role` (see
+[`quote_role` is document provenance](#quote_role-is-document-provenance-and-a-third-separate-axis)
+above). Pushing such an item to `OTHER` on the strength of this paragraph alone
+throws away both facts, which is the defect #10262 was filed about.
+
 Set `evidence_source` to clarify the publication's evidence type:
 - HUMAN_CLINICAL for direct human observations (default when not specified)
 - MODEL_ORGANISM when citing animal model recapitulation
