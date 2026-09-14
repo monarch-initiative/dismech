@@ -16,6 +16,7 @@ year: '2018'
 doi: 10.1073/pnas.1720352115
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # SHOC2–MRAS–PP1 complex positively regulates RAF activity and contributes to Noonan syndrome pathogenesis

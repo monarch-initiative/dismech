@@ -17,6 +17,7 @@ year: '2017'
 doi: 10.1093/hmg/ddx232
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # SLC44A4 mutation causes autosomal dominant hereditary postlingual non-syndromic mid-frequency hearing loss

@@ -14,6 +14,7 @@ year: '1999'
 doi: 10.1056/NEJM199903043400901
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Multicomponent Intervention to Prevent Delirium in Hospitalized Older Patients

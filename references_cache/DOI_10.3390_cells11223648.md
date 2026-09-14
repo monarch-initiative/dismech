@@ -15,6 +15,7 @@ year: '2022'
 doi: 10.3390/cells11223648
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expression and Interaction Proteomics of GluA1- and GluA3-Subunit-Containing AMPARs Reveal Distinct Protein Composition

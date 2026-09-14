@@ -16,6 +16,7 @@ year: '2011'
 doi: 10.1016/j.ajhg.2011.08.011
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in Iron-Sulfur Cluster Scaffold Genes NFU1 and BOLA3 Cause a Fatal Deficiency of Multiple Respiratory Chain and 2-Oxoacid Dehydrogenase Enzymes

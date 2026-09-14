@@ -22,6 +22,7 @@ year: '2022'
 doi: 10.3389/fimmu.2022.987666
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A synonymous mutation in PI4KA impacts the transcription and translation process of gene expression

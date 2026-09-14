@@ -13,6 +13,7 @@ year: '2014'
 doi: 10.1136/jmedgenet-2014-102282
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TRMT10A dysfunction is associated with abnormalities in glucose homeostasis, short stature and microcephaly

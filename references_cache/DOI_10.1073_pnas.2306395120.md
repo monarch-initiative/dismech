@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.2306395120
-title: "The CRL3
-                    <sup>gigaxonin</sup>
-                    ubiquitin ligase–USP15 pathway governs the destruction of neurofilament proteins"
+title: "The CRL3 <sup>gigaxonin</sup> ubiquitin ligase–USP15 pathway governs the destruction of neurofilament proteins"
 authors:
 - Hyoung-Min Park
 - Ly Le
@@ -16,11 +14,10 @@ year: '2023'
 doi: 10.1073/pnas.2306395120
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# The CRL3
-                    <sup>gigaxonin</sup>
-                    ubiquitin ligase–USP15 pathway governs the destruction of neurofilament proteins
+# The CRL3 <sup>gigaxonin</sup> ubiquitin ligase–USP15 pathway governs the destruction of neurofilament proteins
 **Authors:** Hyoung-Min Park, Ly Le, Thao T. Nguyen, Ki Hong Nam, Alban Ordureau, J. Eugene Lee, Thang Van Nguyen
 **Journal:** Proceedings of the National Academy of Sciences (2023)
 **DOI:** [10.1073/pnas.2306395120](https://doi.org/10.1073/pnas.2306395120)

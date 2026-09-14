@@ -14,6 +14,7 @@ year: '2020'
 doi: 10.1097/WNO.0000000000000799
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Features of Chinese Sporadic Leber Hereditary Optic Neuropathy Caused by Rare Primary mtDNA Mutations

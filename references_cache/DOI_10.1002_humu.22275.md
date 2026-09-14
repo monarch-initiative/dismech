@@ -31,6 +31,7 @@ year: '2013'
 doi: 10.1002/humu.22275
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genotype-Phenotype Correlations Emerging from the Identification of Missense Mutations in<i>MBTPS2</i>

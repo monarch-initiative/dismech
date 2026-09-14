@@ -1,10 +1,6 @@
 ---
 reference_id: DOI:10.1158/1535-7163.mct-16-0678
-title: "Selective Killing of SMARCA2- and SMARCA4-deficient Small Cell Carcinoma of the Ovary, Hypercalcemic Type Cells by Inhibition of EZH2:
-                    <i>In Vitro</i>
-                    and
-                    <i>In Vivo</i>
-                    Preclinical Models"
+title: "Selective Killing of SMARCA2- and SMARCA4-deficient Small Cell Carcinoma of the Ovary, Hypercalcemic Type Cells by Inhibition of EZH2: <i>In Vitro</i> and <i>In Vivo</i> Preclinical Models"
 authors:
 - Elayne Chan-Penebre
 - Kelli Armstrong
@@ -26,13 +22,10 @@ year: '2017'
 doi: 10.1158/1535-7163.mct-16-0678
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Selective Killing of SMARCA2- and SMARCA4-deficient Small Cell Carcinoma of the Ovary, Hypercalcemic Type Cells by Inhibition of EZH2:
-                    <i>In Vitro</i>
-                    and
-                    <i>In Vivo</i>
-                    Preclinical Models
+# Selective Killing of SMARCA2- and SMARCA4-deficient Small Cell Carcinoma of the Ovary, Hypercalcemic Type Cells by Inhibition of EZH2: <i>In Vitro</i> and <i>In Vivo</i> Preclinical Models
 **Authors:** Elayne Chan-Penebre, Kelli Armstrong, Allison Drew, Alexandra R. Grassian, Igor Feldman, Sarah K. Knutson, Kristy Kuplast-Barr, Maria Roche, John Campbell, Peter Ho, Robert A. Copeland, Richard Chesworth, Jesse J. Smith, Heike Keilhack, Scott A. Ribich
 **Journal:** Molecular Cancer Therapeutics (2017)
 **DOI:** [10.1158/1535-7163.mct-16-0678](https://doi.org/10.1158/1535-7163.mct-16-0678)

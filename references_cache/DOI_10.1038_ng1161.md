@@ -33,6 +33,7 @@ year: '2003'
 doi: 10.1038/ng1161
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in PCSK9 cause autosomal dominant hypercholesterolemia

@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.1111/anec.70040
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ventricular Tachycardia Possibly Originated From the His‐Purkinje System May Result From Aconitine Poisoning

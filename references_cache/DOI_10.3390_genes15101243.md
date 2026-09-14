@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.3390/genes15101243
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # MicroRNA and Rare Human Diseases

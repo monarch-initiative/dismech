@@ -37,6 +37,7 @@ year: '2021'
 doi: 10.1210/jendso/bvab086
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Analysis of Pediatric Primary Adrenal Insufficiency of Unknown Etiology: 25 Years’ Experience in the UK

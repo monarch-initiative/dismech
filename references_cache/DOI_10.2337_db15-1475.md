@@ -15,6 +15,7 @@ year: '2016'
 doi: 10.2337/db15-1475
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Hypoglycemic Phenotype Is Islet Cell–Autonomous in Short-Chain Hydroxyacyl-CoA Dehydrogenase–Deficient Mice

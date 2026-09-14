@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.21037/tau.2020.03.33
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of hypogonadotropic hypogonadism

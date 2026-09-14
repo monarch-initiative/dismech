@@ -17,6 +17,7 @@ year: '2023'
 doi: 10.1093/hmg/ddac267
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A mutation in<i>ATP11A</i>causes autosomal-dominant auditory neuropathy type 2

@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.1093/ehjqcco/qcae109
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnosis and management of dilated cardiomyopathy: a systematic review of clinical practice guidelines and recommendations

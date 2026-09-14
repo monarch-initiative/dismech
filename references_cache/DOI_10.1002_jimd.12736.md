@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1002/jimd.12736
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Long term survival in patients with classic infantile Pompe disease reveals a spectrum with progressive brain abnormalities and changes in cognitive functioning

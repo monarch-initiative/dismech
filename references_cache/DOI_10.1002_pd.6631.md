@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.1002/pd.6631
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Gnathodiaphyseal dysplasia: Diagnostic clues from two fetal cases and literature review

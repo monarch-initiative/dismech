@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1159/000540109
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inherited Telomere Biology Disorders: Pathophysiology, Clinical Presentation, Diagnostics, and Treatment

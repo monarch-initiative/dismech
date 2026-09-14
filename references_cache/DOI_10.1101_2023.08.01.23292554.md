@@ -28,6 +28,7 @@ doi: 10.1101/2023.08.01.23292554
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Small-molecule functional rescue of PIEZO1 channel variants associated with generalised lymphatic dysplasia

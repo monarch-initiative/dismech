@@ -20,6 +20,7 @@ year: '2020'
 doi: 10.3390/genes11111237
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Lights and Shadows in the Genetics of Syndromic and Non-Syndromic Hearing Loss in the Italian Population

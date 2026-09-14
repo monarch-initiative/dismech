@@ -27,6 +27,7 @@ year: '2021'
 doi: 10.1212/NXG.0000000000000623
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Investigating Late-Onset Pompe Prevalence in Neuromuscular Medicine Academic Practices

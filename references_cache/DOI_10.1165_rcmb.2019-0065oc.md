@@ -16,6 +16,7 @@ year: '2020'
 doi: 10.1165/rcmb.2019-0065oc
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rats with a Human Mutation of NFU1 Develop Pulmonary Hypertension

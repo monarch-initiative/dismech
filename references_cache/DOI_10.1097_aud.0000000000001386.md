@@ -28,6 +28,7 @@ year: '2023'
 doi: 10.1097/aud.0000000000001386
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Variability in Cochlear Implantation Outcomes in a Large German Cohort With a Genetic Etiology of Hearing Loss

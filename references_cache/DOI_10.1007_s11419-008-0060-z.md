@@ -15,6 +15,7 @@ year: '2009'
 doi: 10.1007/s11419-008-0060-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Simultaneous analysis of aconitine, mesaconitine, hypaconitine, and jesaconitine in whole blood by LC-MS-MS using a new polymer column

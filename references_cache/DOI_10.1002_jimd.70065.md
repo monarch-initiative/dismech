@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.1002/jimd.70065
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapies for Mitochondrial Disease: Past, Present, and Future

@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.3390/cells12182328
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel Variant in CEP250 Causes Protein Mislocalization and Leads to Nonsyndromic Autosomal Recessive Type of Progressive Hearing Loss

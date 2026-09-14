@@ -22,6 +22,7 @@ year: '2005'
 doi: 10.1002/humu.9383
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel mutations of thePCSK9 gene cause variable phenotype of autosomal dominant hypercholesterolemia

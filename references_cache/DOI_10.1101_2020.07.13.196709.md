@@ -18,6 +18,7 @@ doi: 10.1101/2020.07.13.196709
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # DHX30 coordinates cytoplasmic translation and mitochondrial function contributing to cancer cell survival

@@ -21,6 +21,7 @@ year: '2024'
 doi: 10.1007/s00428-024-03854-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # An extensive immunohistochemical analysis of 290 ovarian adult granulosa cell tumors with 29 markers

@@ -11,6 +11,7 @@ doi: 10.1101/2023.01.18.524550
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Reduced glycolysis links resting zone chondrocyte proliferation in the growth plate

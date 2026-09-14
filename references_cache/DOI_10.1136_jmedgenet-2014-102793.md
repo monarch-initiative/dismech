@@ -16,6 +16,7 @@ year: '2015'
 doi: 10.1136/jmedgenet-2014-102793
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous missense mutation in <i>MED25</i> segregates with syndromic intellectual disability in a large consanguineous family

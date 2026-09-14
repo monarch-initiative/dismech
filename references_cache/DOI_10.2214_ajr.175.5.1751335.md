@@ -10,6 +10,7 @@ year: '2000'
 doi: 10.2214/ajr.175.5.1751335
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Lymphomatoid Granulomatosis

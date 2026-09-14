@@ -58,6 +58,7 @@ year: '2024'
 doi: 10.1182/bloodadvances.2023012331
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Unraveling facets of MECOM-associated syndrome: somatic genetic rescue, clonal hematopoiesis, and phenotype expansion

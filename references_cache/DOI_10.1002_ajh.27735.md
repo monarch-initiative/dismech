@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.1002/ajh.27735
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mycosis Fungoides, Sézary Syndrome, and Cutaneous B‐Cell Lymphomas: 2025 Update on Diagnosis, Risk‐Stratification, and Management

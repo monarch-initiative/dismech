@@ -151,6 +151,7 @@ year: '2024'
 doi: 10.1161/jaha.124.035993
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dosing and Safety Profile of Aficamten in Symptomatic Obstructive Hypertrophic Cardiomyopathy: Results From SEQUOIA‐HCM

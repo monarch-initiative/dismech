@@ -13,6 +13,7 @@ year: '2003'
 doi: 10.1093/jn/133.6.2063s
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animal Models Reveal Pathophysiologies of Tyrosinemias

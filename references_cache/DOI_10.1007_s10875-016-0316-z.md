@@ -11,6 +11,7 @@ year: '2016'
 doi: 10.1007/s10875-016-0316-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Long-Term Outcomes of Hematopoietic Stem Cell Transplantation for ZAP70 Deficiency

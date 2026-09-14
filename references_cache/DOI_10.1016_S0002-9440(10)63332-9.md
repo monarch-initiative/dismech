@@ -15,6 +15,7 @@ year: '2004'
 doi: 10.1016/S0002-9440(10)63332-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mice Deficient in Glutathione Transferase Zeta/Maleylacetoacetate Isomerase Exhibit a Range of Pathological Changes and Elevated Expression of Alpha, Mu, and Pi Class Glutathione Transferases

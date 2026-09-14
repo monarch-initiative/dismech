@@ -18,6 +18,7 @@ year: '2026'
 doi: 10.1002/pd.70134
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypertrophic Cardiomyopathy as a Key Feature of MRAS‐Related Noonan Syndrome: New Case and Comprehensive Literature Review

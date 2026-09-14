@@ -19,6 +19,7 @@ year: '2025'
 doi: 10.1084/jem.20240272
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dominant interfering CARD11 variants disrupt JNK signaling to promote GATA3 expression in T cells

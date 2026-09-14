@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1167/iovs.65.13.29
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Potential Prognostic Protein Biomarkers in Tears From Noninfectious Uveitis Patients Under Biologic Treatment as a Prelude to Personalized Medicine

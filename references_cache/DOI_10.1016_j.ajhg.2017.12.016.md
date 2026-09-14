@@ -50,6 +50,7 @@ year: '2018'
 doi: 10.1016/j.ajhg.2017.12.016
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # De Novo Missense Mutations in DHX30 Impair Global Translation and Cause a Neurodevelopmental Disorder

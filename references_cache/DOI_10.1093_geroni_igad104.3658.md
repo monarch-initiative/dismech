@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1093/geroni/igad104.3658
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # THE RELATIONSHIPS BETWEEN INTRINSIC CAPACITY AND FRAILTY AND DISABILITY IN OLDER OUTPATIENTS

@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1016/j.celrep.2024.113861
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Identifying potential dietary treatments for inherited metabolic disorders using Drosophila nutrigenomics

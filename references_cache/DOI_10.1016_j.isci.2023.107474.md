@@ -16,6 +16,7 @@ year: '2023'
 doi: 10.1016/j.isci.2023.107474
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TRAF7 is an essential regulator of blood vessel integrity during mouse embryonic and neonatal development

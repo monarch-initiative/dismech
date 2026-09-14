@@ -10,6 +10,7 @@ year: '1958'
 doi: 10.1148/71.5.732
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Fibrous Stricture of the Stomach Due to Iron (Feosol) Poisoning

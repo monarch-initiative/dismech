@@ -18,6 +18,7 @@ year: '2010'
 doi: 10.1016/j.ajhg.2010.06.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in C12orf65 in Patients with Encephalomyopathy and a Mitochondrial Translation Defect

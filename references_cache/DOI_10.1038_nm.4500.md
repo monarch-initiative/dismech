@@ -30,6 +30,7 @@ year: '2018'
 doi: 10.1038/nm.4500
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Selective modulation of the androgen receptor AF2 domain rescues degeneration in spinal bulbar muscular atrophy

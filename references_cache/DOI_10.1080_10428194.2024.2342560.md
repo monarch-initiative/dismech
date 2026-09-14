@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1080/10428194.2024.2342560
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Targets and treatments in primary CNS lymphoma

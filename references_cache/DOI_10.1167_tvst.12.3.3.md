@@ -19,6 +19,7 @@ year: '2023'
 doi: 10.1167/tvst.12.3.3
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous Knockout of <i>Cep250</i> Leads to a Relatively Late-Onset Retinal Degeneration and Sensorineural Hearing Loss in Mice

@@ -2,6 +2,7 @@
 reference_id: GEO:GSE42986
 title: Transcriptome profiling in human primary mitochondrial respiratory chain disease
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcriptome profiling in human primary mitochondrial respiratory chain disease

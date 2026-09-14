@@ -30,6 +30,7 @@ year: '2022'
 doi: 10.3389/fimmu.2022.1020927
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding spectrum, intrafamilial diversity, and therapeutic challenges from 15 patients with heterozygous CARD11-associated diseases: A single center experience

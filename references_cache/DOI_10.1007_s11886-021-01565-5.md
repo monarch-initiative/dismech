@@ -9,6 +9,7 @@ year: '2021'
 doi: 10.1007/s11886-021-01565-5
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familial Hypercholesterolemia: Global Burden and Approaches

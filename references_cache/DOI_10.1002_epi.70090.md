@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1002/epi.70090
-title: "Memantine treatment in individuals with
-                    <scp>GRIN</scp>
-                    gain‐of‐function variants is associated with improvements in behavior, development, and seizure frequency"
+title: "Memantine treatment in individuals with <scp>GRIN</scp> gain‐of‐function variants is associated with improvements in behavior, development, and seizure frequency"
 authors:
 - Maike Karnstedt
 - Riley E. Perszyk
@@ -27,11 +25,10 @@ year: '2026'
 doi: 10.1002/epi.70090
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Memantine treatment in individuals with
-                    <scp>GRIN</scp>
-                    gain‐of‐function variants is associated with improvements in behavior, development, and seizure frequency
+# Memantine treatment in individuals with <scp>GRIN</scp> gain‐of‐function variants is associated with improvements in behavior, development, and seizure frequency
 **Authors:** Maike Karnstedt, Riley E. Perszyk, Scott J. Myers, Ellington McDaniels, Marta Somorai, Ingo Borggraefe, Danielle C. M. Veenma, An‐Sofie Schoonjans, Pasquale Striano, Tadeu A. Fantaneanu, Steffen Syrbe, Kristen Park, Wenjuan Chen, Hongjie Yuan, Stephen F. Traynelis, Timothy A. Benke, Johannes R. Lemke, Ilona Krey
 **Journal:** Epilepsia (2026)
 **DOI:** [10.1002/epi.70090](https://doi.org/10.1002/epi.70090)

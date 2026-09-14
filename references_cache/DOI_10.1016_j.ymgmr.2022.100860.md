@@ -21,6 +21,7 @@ year: '2022'
 doi: 10.1016/j.ymgmr.2022.100860
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A novel HADHA variant associated with an atypical moderate and late-onset LCHAD deficiency

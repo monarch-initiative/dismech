@@ -9,6 +9,7 @@ year: '2008'
 doi: 10.1146/annurev.pharmtox.48.061807.154729
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Role of CYP1B1 in Glaucoma

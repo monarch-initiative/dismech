@@ -23,6 +23,7 @@ year: '2019'
 doi: 10.1093/hmg/ddz002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in MAP3K1 that cause 46,XY disorders of sex development disrupt distinct structural domains in the protein

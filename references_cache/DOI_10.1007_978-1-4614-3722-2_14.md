@@ -14,6 +14,7 @@ year: '2013'
 doi: 10.1007/978-1-4614-3722-2_14
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial Complex III Deficiency of Nuclear Origin:

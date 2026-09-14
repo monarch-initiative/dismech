@@ -25,6 +25,7 @@ year: '2009'
 doi: 10.1016/j.ajhg.2009.06.002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Loss-of-Function Mutation in the Dioxygenase-Encoding FTO Gene Causes Severe Growth Retardation and Multiple Malformations

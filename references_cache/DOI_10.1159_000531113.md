@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1159/000531113
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotype-Genotype Correlations of &lt;i&gt;GH1&lt;/i&gt; Gene Variants in Patients with Isolated Growth Hormone Deficiency or Multiple Pituitary Hormone Deficiency

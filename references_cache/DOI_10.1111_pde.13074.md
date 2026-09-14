@@ -13,6 +13,7 @@ year: '2017'
 doi: 10.1111/pde.13074
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Novel Homozygous Missense Mutation in <i><scp>HOXC</scp>13</i> Leads to Autosomal Recessive Pure Hair and Nail Ectodermal Dysplasia

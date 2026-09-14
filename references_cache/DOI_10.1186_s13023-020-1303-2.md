@@ -17,6 +17,7 @@ year: '2020'
 doi: 10.1186/s13023-020-1303-2
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Compound heterozygous IFT140 variants in two Polish families with Sensenbrenner syndrome and early onset end-stage renal disease

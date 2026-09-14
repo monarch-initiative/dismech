@@ -16,6 +16,7 @@ year: '1991'
 doi: 10.1056/NEJM199112193252502
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Elevated Blood Cyanide Concentrations in Victims of Smoke Inhalation

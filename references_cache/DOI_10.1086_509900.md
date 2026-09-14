@@ -20,6 +20,7 @@ year: '2006'
 doi: 10.1086/509900
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations of Presenilin Genes in Dilated Cardiomyopathy and Heart Failure

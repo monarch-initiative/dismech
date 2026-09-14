@@ -8,6 +8,7 @@ year: '2003'
 doi: 10.1093/nar/gkg874
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The complete genome sequence and analysis of Corynebacterium diphtheriae NCTC13129

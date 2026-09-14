@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.3389/fphys.2023.1288246
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Computed tomography-based imaging biomarker identifies coal workers’ pneumoconiosis

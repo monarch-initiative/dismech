@@ -12,6 +12,7 @@ year: '2008'
 doi: 10.1590/S0100-879X2008001000002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Griscelli syndrome-type 2 in twin siblings: case report and update on RAB27A human mutations and gene structure

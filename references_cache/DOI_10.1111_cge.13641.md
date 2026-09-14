@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1111/cge.13641
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Growth factor and receptor malfunctions associated with human genetic deafness

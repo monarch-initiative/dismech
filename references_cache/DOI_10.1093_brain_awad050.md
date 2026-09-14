@@ -126,6 +126,7 @@ year: '2023'
 doi: 10.1093/brain/awad050
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Unexpected frequency of the pathogenic <i>AR</i> CAG repeat expansion in the general population

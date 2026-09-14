@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1016/j.ejpn.2019.12.007
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GRIN2D/GluN2D NMDA receptor: Unique features and its contribution to pediatric developmental and epileptic encephalopathy

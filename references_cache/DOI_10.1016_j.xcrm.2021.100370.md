@@ -22,6 +22,7 @@ year: '2021'
 doi: 10.1016/j.xcrm.2021.100370
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Compromised mitochondrial quality control triggers lipin1-related rhabdomyolysis

@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1016/j.jhepr.2023.100692
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genomic analysis of lean individuals with NAFLD identifies monogenic disorders in a prospective cohort study

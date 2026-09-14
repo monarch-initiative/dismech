@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1098/rsob.230407
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A critical threshold of MCM10 is required to maintain genome stability during differentiation of induced pluripotent stem cells into natural killer cells

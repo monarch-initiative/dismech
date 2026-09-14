@@ -16,6 +16,7 @@ year: '2010'
 doi: 10.1002/ajmg.a.33402
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Array CGH in molecular diagnosis of mental retardation—A study of 150 Finnish patients

@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1126/science.ady7186
-title: "The functional landscape of coding variation in the familial hypercholesterolemia gene
-                    <i>LDLR</i>"
+title: "The functional landscape of coding variation in the familial hypercholesterolemia gene <i>LDLR</i>"
 authors:
 - Daniel R. Tabet
 - Atina G. Coté
@@ -42,10 +41,10 @@ year: '2026'
 doi: 10.1126/science.ady7186
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# The functional landscape of coding variation in the familial hypercholesterolemia gene
-                    <i>LDLR</i>
+# The functional landscape of coding variation in the familial hypercholesterolemia gene <i>LDLR</i>
 **Authors:** Daniel R. Tabet, Atina G. Coté, Megan C. Lancaster, Jochen Weile, Ashyad Rayhan, Iosifina Fotiadou, Nishka Kishore, Roujia Li, Da Kuang, Jennifer J. Knapp, Carmela S. Carrero, Olivia Taverniti, Anna Axakova, Jack M. P. Castelli, Mohammad M. Islam, Shahin Sowlati-Hashjin, Aanshi Gandhi, Ranim Maaieh, Michael Garton, Kenneth Matreyek, Douglas M. Fowler, Mafalda Bourbon, Simon G. Pfisterer, Andrew M. Glazer, Brett M. Kroncke, Victoria N. Parikh, Euan A. Ashley, Joshua W. Knowles, Melina Claussnitzer, Elizabeth T. Cirulli, Robert A. Hegele, Dan M. Roden, Calum A. MacRae, Frederick P. Roth
 **Journal:** Science (2026)
 **DOI:** [10.1126/science.ady7186](https://doi.org/10.1126/science.ady7186)

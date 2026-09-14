@@ -94,6 +94,7 @@ year: '2024'
 doi: 10.1093/brain/awad403
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Gain-of-function and loss-of-function variants in <i>GRIA3</i> lead to distinct neurodevelopmental phenotypes

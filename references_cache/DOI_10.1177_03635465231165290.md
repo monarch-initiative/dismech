@@ -27,6 +27,7 @@ year: '2023'
 doi: 10.1177/03635465231165290
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Transarticular Versus Retroarticular Drilling of Stable Osteochondritis Dissecans of the Knee: A Prospective Multicenter Randomized Controlled Trial by the ROCK Group

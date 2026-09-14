@@ -11,6 +11,7 @@ year: '2007'
 doi: 10.1073/pnas.0702884104
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Vitamin D receptor is essential for normal keratinocyte stem cell function

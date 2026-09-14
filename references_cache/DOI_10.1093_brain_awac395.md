@@ -50,6 +50,7 @@ year: '2023'
 doi: 10.1093/brain/awac395
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The top 10 most frequently involved genes in hereditary optic neuropathies in 2186 probands

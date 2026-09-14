@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1136/jnnp-2023-332031
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ultrasensitive assay technology and fluid biomarkers for the evaluation of peripheral nerve disease

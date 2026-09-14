@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1177/15230864251411565
-title: "Activation of Mitophagy by Kinetin Mitigates Coal–Silica Mixed Dust-Induced Pulmonary Fibrosis
-                    <i>via</i>
-                    Modulating Macrophage Mitochondrial Function in Mice"
+title: "Activation of Mitophagy by Kinetin Mitigates Coal–Silica Mixed Dust-Induced Pulmonary Fibrosis <i>via</i> Modulating Macrophage Mitochondrial Function in Mice"
 authors:
 - Meiyu Chang
 - Qiang Zhou
@@ -20,11 +18,10 @@ year: '2026'
 doi: 10.1177/15230864251411565
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Activation of Mitophagy by Kinetin Mitigates Coal–Silica Mixed Dust-Induced Pulmonary Fibrosis
-                    <i>via</i>
-                    Modulating Macrophage Mitochondrial Function in Mice
+# Activation of Mitophagy by Kinetin Mitigates Coal–Silica Mixed Dust-Induced Pulmonary Fibrosis <i>via</i> Modulating Macrophage Mitochondrial Function in Mice
 **Authors:** Meiyu Chang, Qiang Zhou, Yi Guan, Yingzheng Zhao, Shuhan Guo, Qiufang Qu, Le Liu, Zhiheng Li, Xiangwei Zhao, Hong Cao, Sanqiao Yao
 **Journal:** Antioxidants &amp; Redox Signaling (2026)
 **DOI:** [10.1177/15230864251411565](https://doi.org/10.1177/15230864251411565)

@@ -13,6 +13,7 @@ year: '2011'
 doi: 10.1021/tx1004166
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Determination of <i>N</i><sup><i>2</i></sup>-Hydroxymethyl-dG Adducts in the Nasal Epithelium and Bone Marrow of Nonhuman Primates Following <sup>13</sup>CD<sub>2</sub>-Formaldehyde Inhalation Exposure

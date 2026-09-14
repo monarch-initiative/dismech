@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.3389/fendo.2024.1363050
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The clinical and genetic aspects of six individuals with GH1 variants and isolated growth hormone deficiency type II

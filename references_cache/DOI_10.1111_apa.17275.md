@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1111/apa.17275
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mortality rates, cause and risk factors in people with spina bifida, register‐based study over five decades

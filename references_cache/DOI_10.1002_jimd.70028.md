@@ -1,9 +1,6 @@
 ---
 reference_id: DOI:10.1002/jimd.70028
-title: "<scp>iPSC</scp>
-                    ‐Derived Liver Organoids as a Tool to Study Medium Chain Acyl‐
-                    <scp>CoA</scp>
-                    Dehydrogenase Deficiency"
+title: "<scp>iPSC</scp> ‐Derived Liver Organoids as a Tool to Study Medium Chain Acyl‐ <scp>CoA</scp> Dehydrogenase Deficiency"
 authors:
 - Ligia A. Kiyuna
 - José M. Horcas‐Nieto
@@ -24,12 +21,10 @@ year: '2025'
 doi: 10.1002/jimd.70028
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <scp>iPSC</scp>
-                    ‐Derived Liver Organoids as a Tool to Study Medium Chain Acyl‐
-                    <scp>CoA</scp>
-                    Dehydrogenase Deficiency
+# <scp>iPSC</scp> ‐Derived Liver Organoids as a Tool to Study Medium Chain Acyl‐ <scp>CoA</scp> Dehydrogenase Deficiency
 **Authors:** Ligia A. Kiyuna, José M. Horcas‐Nieto, Christoff Odendaal, Miriam Langelaar‐Makkinje, Albert Gerding, Mathilde J. C. Broekhuis, Flavio Bonanini, Madhulika Singh, Dorota Kurek, Amy C. Harms, Thomas Hankemeier, Floris Foijer, Terry G. J. Derks, Barbara M. Bakker
 **Journal:** Journal of Inherited Metabolic Disease (2025)
 **DOI:** [10.1002/jimd.70028](https://doi.org/10.1002/jimd.70028)

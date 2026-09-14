@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.3390/ijns10010017
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # New Cases of Maleylacetoacetate Isomerase Deficiency with Detection by Newborn Screening and Natural History over 32 Years: Experience from a German Newborn Screening Center

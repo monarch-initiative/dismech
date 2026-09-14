@@ -12,6 +12,7 @@ year: '2019'
 doi: 10.3233/RNN-180886
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Investigations on maladaptive plasticity in the sensorimotor cortex of unilateral upper limb CRPS I patients

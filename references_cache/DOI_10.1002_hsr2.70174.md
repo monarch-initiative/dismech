@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1002/hsr2.70174
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # PCSK9 Inhibitors: The Evolving Future

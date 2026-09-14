@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1055/s-0043-1777769
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Acute Invasive Pulmonary Aspergillosis: Clinical Presentation and Treatment

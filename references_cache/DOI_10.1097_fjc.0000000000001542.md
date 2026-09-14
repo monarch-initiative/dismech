@@ -23,6 +23,7 @@ year: '2024'
 doi: 10.1097/fjc.0000000000001542
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Current Treatment and Immunomodulation Strategies in Acute Myocarditis

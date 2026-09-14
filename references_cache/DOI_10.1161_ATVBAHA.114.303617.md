@@ -17,6 +17,7 @@ year: '2015'
 doi: 10.1161/ATVBAHA.114.303617
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Induction of Sustained Hypercholesterolemia by Single Adeno-Associated Virus–Mediated Gene Transfer of Mutant hPCSK9

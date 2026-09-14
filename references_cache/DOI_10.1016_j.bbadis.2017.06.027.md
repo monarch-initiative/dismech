@@ -11,6 +11,7 @@ year: '2018'
 doi: 10.1016/j.bbadis.2017.06.027
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animal models of biliary injury and altered bile acid metabolism

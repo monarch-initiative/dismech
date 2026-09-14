@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1515/jpem-2023-0407
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Outcomes and experiences of adults with congenital hypogonadism can inform improvements in the management of delayed puberty

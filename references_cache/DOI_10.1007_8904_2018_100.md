@@ -17,6 +17,7 @@ year: '2018'
 doi: 10.1007/8904_2018_100
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Severe Leukoencephalopathy with Clinical Recovery Caused by Recessive BOLA3 Mutations

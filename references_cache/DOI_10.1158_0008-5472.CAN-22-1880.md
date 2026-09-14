@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.1158/0008-5472.CAN-22-1880
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Oncogenic FOXL2 C134W Mutation Is a Key Driver of Granulosa Cell Tumors

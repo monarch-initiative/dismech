@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00429-009-0221-9"
+reference_id: DOI:10.1007/s00429-009-0221-9
 title: Modeling familial British and Danish dementia
 authors:
 - Holly J. Garringer
@@ -11,6 +11,7 @@ journal: Brain Structure and Function
 year: '2010'
 doi: 10.1007/s00429-009-0221-9
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Modeling familial British and Danish dementia

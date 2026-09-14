@@ -23,6 +23,7 @@ year: '2026'
 doi: 10.1155/humu/6864813
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Long‐Chain Fatty Acid Oxidation Disorder Genes: A Comprehensive Genetic Database of LC‐FAOD Variants, Genotypes, and Phenotypes

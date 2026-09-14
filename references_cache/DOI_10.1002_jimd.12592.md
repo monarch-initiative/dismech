@@ -34,6 +34,7 @@ year: '2023'
 doi: 10.1002/jimd.12592
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systemic corticosteroids for the treatment of acute episodes of rhabdomyolysis in lipin‐1‐deficient patients

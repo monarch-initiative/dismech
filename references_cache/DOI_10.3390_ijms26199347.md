@@ -15,6 +15,7 @@ year: '2025'
 doi: 10.3390/ijms26199347
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cardiac Myosin Inhibitors in Hypertrophic Cardiomyopathy: From Sarcomere to Clinic

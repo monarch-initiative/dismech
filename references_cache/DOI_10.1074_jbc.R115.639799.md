@@ -9,6 +9,7 @@ year: '2015'
 doi: 10.1074/jbc.R115.639799
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systemic Amyloidosis: Lessons from β2-Microglobulin

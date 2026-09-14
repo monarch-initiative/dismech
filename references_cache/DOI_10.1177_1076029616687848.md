@@ -12,6 +12,7 @@ year: '2018'
 doi: 10.1177/1076029616687848
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spectrum of Molecular Defects in 216 Chinese Families With Hemophilia A: Identification of Noninversion Mutation Hot Spots and 42 Novel Mutations

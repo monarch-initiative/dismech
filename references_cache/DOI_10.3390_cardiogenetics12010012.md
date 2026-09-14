@@ -21,6 +21,7 @@ year: '2022'
 doi: 10.3390/cardiogenetics12010012
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and Molecular Characteristics of Patients with PLN R14del Cardiomyopathy: State-of-the-Art Review

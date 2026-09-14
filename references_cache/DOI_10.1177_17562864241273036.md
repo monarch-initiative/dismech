@@ -23,6 +23,7 @@ year: '2024'
 doi: 10.1177/17562864241273036
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy and safety of rozanolixizumab in patients with muscle-specific tyrosine kinase autoantibody-positive generalised myasthenia gravis: a subgroup analysis of the randomised, double-blind, placebo-controlled, adaptive phase III MycarinG study

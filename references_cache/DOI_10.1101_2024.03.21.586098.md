@@ -10,6 +10,7 @@ doi: 10.1101/2024.03.21.586098
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Bone Mineralization Regulation: Using Zebrafish as a Model to Study ANKH-associated Mineralization Disorders

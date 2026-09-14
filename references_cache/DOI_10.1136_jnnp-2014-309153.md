@@ -28,6 +28,7 @@ year: '2015'
 doi: 10.1136/jnnp-2014-309153
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spinocerebellar ataxia type 36 exists in diverse populations and can be caused by a short hexanucleotide GGCCTG repeat expansion

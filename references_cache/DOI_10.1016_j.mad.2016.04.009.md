@@ -9,6 +9,7 @@ year: '2017'
 doi: 10.1016/j.mad.2016.04.009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Polynucleotide kinase-phosphatase (PNKP) mutations and neurologic disease

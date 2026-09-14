@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.3390/ijms25094809
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Antisense Oligonucleotides (ASOs) in Motor Neuron Diseases: A Road to Cure in Light and Shade

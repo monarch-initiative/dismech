@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.3390/ijns10010003
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Light and Shadows in Newborn Screening for Lysosomal Storage Disorders: Eight Years of Experience in Northeast Italy

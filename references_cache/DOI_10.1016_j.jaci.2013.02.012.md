@@ -19,6 +19,7 @@ year: '2013'
 doi: 10.1016/j.jaci.2013.02.012
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Whole-exome sequencing links caspase recruitment domain 11 (CARD11) inactivation to severe combined immunodeficiency

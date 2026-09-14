@@ -10,6 +10,7 @@ year: '2016'
 doi: 10.1177/0194599816655310
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Stapedotomy vs Cochlear Implantation for Advanced Otosclerosis

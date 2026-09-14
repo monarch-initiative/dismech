@@ -20,6 +20,7 @@ doi: 10.1101/2024.09.04.610987
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # RTN4IP1 is essential for the final stages of mitochondrial complex I assembly and coenzyme Q biosynthesis

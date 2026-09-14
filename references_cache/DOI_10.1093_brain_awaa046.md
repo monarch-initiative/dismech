@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.1093/brain/awaa046
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recurrent bi-allelic splicing variant c.454+3A&amp;gt;G in TRAPPC4 is associated with progressive encephalopathy and muscle involvement

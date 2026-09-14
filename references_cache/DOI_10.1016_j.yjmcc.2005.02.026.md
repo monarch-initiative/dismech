@@ -12,6 +12,7 @@ year: '2005'
 doi: 10.1016/j.yjmcc.2005.02.026
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cardiac K channels in health and disease

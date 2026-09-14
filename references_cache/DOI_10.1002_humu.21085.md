@@ -19,6 +19,7 @@ year: '2009'
 doi: 10.1002/humu.21085
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # RFT1 deficiency in three novel CDG patients

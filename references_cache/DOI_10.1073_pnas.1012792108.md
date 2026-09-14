@@ -9,6 +9,7 @@ year: '2011'
 doi: 10.1073/pnas.1012792108
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Structural basis for the nucleotide-dependent dimerization of the large G protein atlastin-1/SPG3A

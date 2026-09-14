@@ -18,6 +18,7 @@ year: '2017'
 doi: 10.1136/jmedgenet-2016-104289
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypersuccinylacetonaemia and normal liver function in maleylacetoacetate isomerase deficiency

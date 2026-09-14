@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1002/ajh.26966
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The international consensus classification of eosinophilic disorders and systemic mastocytosis

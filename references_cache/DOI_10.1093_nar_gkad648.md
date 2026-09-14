@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1093/nar/gkad648
-title: "<i>Pot1b</i>
-          −/− tumors activate G-quadruplex-induced DNA damage to promote telomere hyper-elongation"
+title: "<i>Pot1b</i> −/− tumors activate G-quadruplex-induced DNA damage to promote telomere hyper-elongation"
 authors:
 - Taylor Takasugi
 - Peili Gu
@@ -13,10 +12,10 @@ year: '2023'
 doi: 10.1093/nar/gkad648
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>Pot1b</i>
-          −/− tumors activate G-quadruplex-induced DNA damage to promote telomere hyper-elongation
+# <i>Pot1b</i> −/− tumors activate G-quadruplex-induced DNA damage to promote telomere hyper-elongation
 **Authors:** Taylor Takasugi, Peili Gu, Fengshan Liang, Isabelle Staco, Sandy Chang
 **Journal:** Nucleic Acids Research (2023)
 **DOI:** [10.1093/nar/gkad648](https://doi.org/10.1093/nar/gkad648)

@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1016/j.ekir.2024.09.007
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Characterization of a National Cohort of Patients With Germline WT1 Variants Including Late-Onset Phenotypes

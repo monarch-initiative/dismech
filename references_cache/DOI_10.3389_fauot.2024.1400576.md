@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.3389/fauot.2024.1400576
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A cell type–specific approach to elucidate the role of miR-96 in inner ear hair cells

@@ -9,6 +9,7 @@ year: '1998'
 doi: 10.1074/jbc.273.1.329
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Characterization of a Fungal Maleylacetoacetate Isomerase Gene and Identification of Its Human Homologue

@@ -15,6 +15,7 @@ year: '2025'
 doi: 10.1111/echo.70099
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Acute Myocarditis and Inflammatory Cardiomyopathies: Insights From Cardiac Magnetic Resonance Findings

@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1182/bloodadvances.2023010511
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hemophilia B and gene therapy: a new chapter with etranacogene dezaparvovec

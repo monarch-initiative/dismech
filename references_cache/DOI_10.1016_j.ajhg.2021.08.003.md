@@ -112,6 +112,7 @@ year: '2021'
 doi: 10.1016/j.ajhg.2021.08.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Bi-allelic variants in SPATA5L1 lead to intellectual disability, spastic-dystonic cerebral palsy, epilepsy, and hearing loss

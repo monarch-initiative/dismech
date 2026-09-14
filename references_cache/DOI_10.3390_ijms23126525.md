@@ -8,6 +8,7 @@ year: '2022'
 doi: 10.3390/ijms23126525
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rare Monogenic Diseases: Molecular Pathophysiology and Novel Therapies
