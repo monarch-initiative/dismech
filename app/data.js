@@ -187274,6 +187274,95 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Megacystis-Microcolon-Intestinal Hypoperistalsis Syndrome 2",
+    "disease_id": "MONDO:0025708",
+    "category": "Mendelian",
+    "parents": [
+      "visceral myopathy",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Megacystis-microcolon-intestinal hypoperistalsis syndrome 2 (MMIHS2) is the autosomal recessive, MYH11-related form of MMIHS. MYH11 encodes smooth muscle myosin heavy chain, the motor of the visceral smooth muscle contractile apparatus. Biallelic loss-of-function alleles leave bladder and bowel smooth muscle unable to generate force, so both hollow organs fail functionally while remaining anatomically patent: a hugely distended bladder with no outlet obstruction, an unused and therefore microscopic colon, and intestine that does not propel.\nMMIHS as a clinical syndrome is genetically heterogeneous. Most cases are dominant and caused by de novo ACTG2 variants; the recessive forms implicate LMOD1, MYLK, MYL9, MYH9 and MYH11. What these genes share is the contractile apparatus, which is the evidence for a myopathic rather than a neuropathic basis for the syndrome. This entry covers the MYH11 form specifically.\nTwo things make the MYH11 form worth curating in its own right. First, MYH11 is already a disease gene for thoracic aortic aneurysm and dissection - but through dominant-negative missense alleles, not biallelic nulls. The same gene produces a vascular disease one way and a visceral disease the other, which is a statement about how the lesion works rather than about which organ the gene is expressed in. Second, the severity is allele-dependent in a legible way: a hypomorphic allele in trans with a whole-gene deletion has produced a visceral myopathy presenting in adulthood rather than the neonatal syndrome.",
+    "pathophysiology": [
+      "Biallelic MYH11 Loss of Function",
+      "Loss of Smooth Muscle Myosin Heavy Chain Protein",
+      "Failure of Visceral Smooth Muscle Contraction",
+      "Bladder Failure with Megacystis",
+      "Intestinal Hypoperistalsis and Microcolon",
+      "Neonatal Respiratory Failure from Pulmonary Hypoplasia",
+      "Parenteral Nutrition Dependence and Its Complications"
+    ],
+    "cell_types": [
+      "smooth muscle cell",
+      "enteric smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000192",
+      "CL:0002504"
+    ],
+    "biological_processes": [
+      "smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Megacystis",
+      "Intestinal hypoperistalsis",
+      "Microcolon",
+      "Malrotation or non-rotation of the intestine",
+      "Hydronephrosis",
+      "Renal dysplasia",
+      "Prune belly phenotype",
+      "Tonically dilated pupil with accommodation deficit"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Gastrointestinal",
+      "Renal",
+      "Musculoskeletal",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000021",
+      "HP:0004389",
+      "HP:0004388",
+      "HP:0004794",
+      "HP:0000126",
+      "HP:0000110",
+      "HP:0010318",
+      "HP:0012074"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYH11"
+    ],
+    "treatments": [
+      "Total Parenteral Nutrition",
+      "Multivisceral Transplantation",
+      "Decompressive Enterostomy",
+      "Gastrostomy",
+      "Cutaneous Vesicostomy",
+      "Clean Intermittent Catheterisation",
+      "Isolated Intestinal Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Megacystis-Microcolon-Intestinal_Hypoperistalsis_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Megacystis-Microcolon-Intestinal_Hypoperistalsis_Syndrome_2.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Meier-Gorlin syndrome",
     "disease_id": "MONDO:0016817",
     "category": "Mendelian",
@@ -299583,7 +299672,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "91",
+    "causal_graph_edges": "92",
     "causal_graph_longest_path": "8"
   },
   {
@@ -304454,17 +304543,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2932,
+  "total_disorder_pages": 2933,
   "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6661,
-  "total_unique_evidence_sources": 41208,
-  "total_unique_publications": 38839,
+  "total_disorders_and_subtypes": 6662,
+  "total_unique_evidence_sources": 41226,
+  "total_unique_publications": 38857,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2927,
-  "total_unique_pathological_events": 17696,
+  "total_pathographs": 2928,
+  "total_unique_pathological_events": 17703,
   "total_modules": 174,
-  "total_research_reports": 3053,
+  "total_research_reports": 3054,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
