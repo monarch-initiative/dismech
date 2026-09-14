@@ -122230,6 +122230,8 @@ window.searchData = [
     "description": "Gastroesophageal reflux disease (GERD) is a chronic condition in which retrograde movement of gastric contents into the esophagus produces troublesome symptoms or mucosal injury. The principal mechanism is incompetence of the lower esophageal sphincter, often via transient sphincter relaxations, compounded by impaired esophageal acid clearance and, in some patients, visceral hypersensitivity. Heartburn and regurgitation are the cardinal symptoms, and chronic acid exposure can lead to erosive esophagitis and Barrett's esophagus, a metaplastic adaptation that carries an increased risk of esophageal adenocarcinoma.",
     "pathophysiology": [
       "Lower Esophageal Sphincter Dysfunction",
+      "Tight Junction Protein Loss",
+      "Dilated Intercellular Spaces",
       "Esophageal Mucosal Injury",
       "Impaired Esophageal Clearance",
       "Visceral Hypersensitivity",
@@ -122244,6 +122246,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "Smooth Muscle Contraction",
+      "Tight junction organization",
       "Digestion"
     ],
     "phenotypes": [
@@ -122286,7 +122289,8 @@ window.searchData = [
       "Antacids",
       "Lifestyle Modifications",
       "Fundoplication",
-      "LINX Device"
+      "LINX Device",
+      "Na+,K+-ATPase Beta1 Gene Therapy"
     ],
     "environmental": [
       "Obesity",
@@ -122302,11 +122306,11 @@ window.searchData = [
     "source_file": "Gastroesophageal_Reflux_Disease.yaml",
     "page_url": "../pages/disorders/Gastroesophageal_Reflux_Disease.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 7,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Gastrointestinal Lymphoma",
@@ -124186,6 +124190,7 @@ window.searchData = [
     "pathophysiology": [
       "Ingestion of infectious Giardia cysts",
       "Trophozoite colonization of the proximal small-intestinal epithelial surface",
+      "Brush-Border Disaccharidase Deficiency",
       "Assemblage-specific trophozoite-epithelial injury signaling",
       "Caspase-3-dependent enterocyte apoptosis",
       "Tight-junction disassembly in infected enterocytes",
@@ -124205,6 +124210,7 @@ window.searchData = [
       "CL:0000584"
     ],
     "biological_processes": [
+      "disaccharide catabolic process",
       "apoptotic process",
       "tight junction disassembly",
       "response to hypoxia"
@@ -124260,6 +124266,7 @@ window.searchData = [
       "Nitroimidazole pharmacotherapy (tinidazole or metronidazole)",
       "Nitazoxanide alternative therapy",
       "Paromomycin in pregnancy or nitroimidazole-constrained settings",
+      "Second-line agents for refractory or poorly tolerated giardiasis (albendazole, quinacrine, furazolidone)",
       "Investigational therapy for resistant/refractory giardiasis"
     ],
     "environmental": [
@@ -124271,10 +124278,10 @@ window.searchData = [
     "source_file": "Giardiasis.yaml",
     "page_url": "../pages/disorders/Giardiasis.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "24",
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "9"
   },
   {
@@ -141443,7 +141450,12 @@ window.searchData = [
     ],
     "genes": [],
     "treatments": [
-      "Fexinidazole therapy"
+      "Fexinidazole therapy",
+      "Pentamidine therapy",
+      "Suramin therapy",
+      "Melarsoprol therapy",
+      "Nifurtimox-eflornithine combination therapy (NECT)",
+      "Acoziborole therapy"
     ],
     "environmental": [],
     "biochemical": [],
@@ -141452,7 +141464,7 @@ window.searchData = [
     "num_phenotypes": 1,
     "num_pathophysiology": 1,
     "num_genes": 0,
-    "num_treatments": 1,
+    "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -152678,6 +152690,106 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Immunodeficiency 18",
+    "disease_id": "MONDO:0014278",
+    "category": "Mendelian",
+    "parents": [
+      "Severe combined immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 18 is an ultra-rare autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in CD3E, the gene encoding the CD3epsilon invariant chain of the T-cell receptor (TCR)/CD3 complex. CD3epsilon is the chain around which the CD3 core is built: it partners both CD3gamma and CD3delta, so losing it removes two of the three signalling dimers from the pre-TCR and the mature TCR at once.\nSeverity tracks how much functional CD3epsilon is left, and the reported spectrum runs from severe combined immunodeficiency to a considerably milder disorder. At the null end, complete absence of CD3epsilon abrogates human T-cell development: patients have no circulating T cells with normal B and NK cells - the T-B+NK+ pattern - and present in the first months of life with candidiasis, protracted diarrhoea, pneumonitis and failure to thrive, dying of disseminated viral infection unless transplanted. At the hypomorphic end, the child in whom the first CD3E mutations were found carried two different alleles that left an unstable chain and roughly a tenth of the normal surface receptor; that patient had T cells, and an immunodeficiency defined by unresponsiveness to receptor stimulation rather than by the absence of the compartment. Both ends are the same disorder and the same MONDO concept, and the entry is curated as a single graded entity rather than as a uniformly severe one.\nThe boundary that matters clinically is with CD3gamma deficiency, the sibling chain of the same complex. That disorder does not block thymocyte development: patients keep normal T-cell numbers with reduced surface receptor, and their dominant problem is autoimmunity. CD3epsilon and CD3delta deficiency block development; CD3gamma deficiency does not. The one place the two disorders come close is the hypomorphic end of the CD3epsilon spectrum, where reduced rather than absent surface receptor is what is measured - and there the distinction rests on which gene is mutated, not on the flow cytometry.\nWhere the developmental block sits in humans has never been shown directly. No thymus was available from the CD3epsilon-deficient family, so the arrest point is carried over from the mouse, where Cd3e inactivation stops thymocytes at the CD44-low CD25-positive double-negative stage.",
+    "pathophysiology": [
+      "Biallelic CD3E Loss-of-Function Variants",
+      "Loss of the CD3epsilon Chain",
+      "Residual Unstable CD3epsilon in Partial Deficiency",
+      "Failure of pre-TCR and TCR Complex Assembly",
+      "Blocked Pre-TCR Signaling at Beta-Selection",
+      "Arrest of Thymocyte Development",
+      "Absent Peripheral T Cells",
+      "Reduced Surface TCR/CD3 with Impaired T-Cell Activation",
+      "Failure of Cellular Immunity",
+      "Loss of T-Cell Help to B Cells"
+    ],
+    "cell_types": [
+      "double negative thymocyte",
+      "thymocyte",
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002489",
+      "CL:0000893",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "T cell differentiation in thymus",
+      "isotype switching"
+    ],
+    "phenotypes": [
+      "Severe combined immunodeficiency",
+      "Absent circulating T cells with normal B and NK cells",
+      "Reduced surface TCR/CD3 expression with preserved T cells",
+      "Hypogammaglobulinemia",
+      "Recurrent opportunistic infection",
+      "Failure to thrive",
+      "Oral candidiasis",
+      "Persistent diarrhea",
+      "Pneumonia"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Growth",
+      "Infectious",
+      "Gastrointestinal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004430",
+      "HP:0025805",
+      "HP:0011840",
+      "HP:0004313",
+      "HP:0005390",
+      "HP:0001508",
+      "HP:0009098",
+      "HP:0002014",
+      "HP:0002090"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CD3E"
+    ],
+    "treatments": [
+      "Protective isolation and anti-infectious prophylaxis",
+      "Allogeneic haematopoietic stem cell transplantation",
+      "Immunoglobulin replacement therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_18.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_18.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 25",
@@ -207995,6 +208107,123 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurodevelopmental Disorder with Poor Growth, Spastic Tetraplegia, and Hearing Loss",
+    "disease_id": "MONDO:0859296",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with poor growth, spastic tetraplegia, and hearing loss (OMIM:620071) is an ultra-rare autosomal recessive syndrome caused by a biallelic missense variant in PSMC1, which encodes Rpt2, one of the six AAA+ ATPases of the base of the 19S regulatory particle of the 26S proteasome. It belongs to the small family of neurodevelopmental proteasomopathies, and was only the second of them to be traced to a base subunit of the regulatory particle rather than to the 20S core or the 19S lid. Affected individuals have failure to thrive, severe global developmental delay and intellectual disability, spastic tetraplegia on a background of central hypotonia, chorea, hearing loss, micropenis with undescended testes and mildly elevated liver enzymes; none achieved speech or independent ambulation, and brain MRI shows ventriculomegaly without a malformation. Mechanistically the reported homozygous p.I328T substitution sits in the conserved AAA+ ATP binding and hydrolysis domain and is predicted to disrupt a hydrophobic core of the protein, so the folded ATPase is destabilised and ubiquitin-dependent degradation through the 26S proteasome falls. The functional consequence was shown in vivo rather than in patient cells: an eye phenotype caused by silencing the Drosophila orthologue Rpt2 was almost fully rescued by wild-type human PSMC1 but only partly by the mutant, so the allele is hypomorphic rather than null - which fits the observation that complete loss of the orthologue is embryonic lethal in mice. The entity rests on three affected siblings of one consanguineous Bedouin Israeli kindred plus that functional validation, so its phenotypic boundaries remain provisional. The hypogonadism is the feature that distinguishes it from the rest of the class.",
+    "pathophysiology": [
+      "Biallelic PSMC1 p.I328T Substitution",
+      "Destabilised PSMC1 AAA+ ATPase Fold",
+      "Reduced 26S Proteasome Proteolytic Capacity",
+      "Accumulation of Ubiquitinated Substrates",
+      "Neuronal Proteostasis Failure"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "ubiquitin-dependent protein catabolic process"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Severe Intellectual Disability",
+      "Spastic Tetraplegia",
+      "Central Hypotonia",
+      "Chorea",
+      "Absent Speech",
+      "Inability to Walk",
+      "Ventriculomegaly",
+      "Failure to Thrive",
+      "Hearing Impairment",
+      "Micropenis",
+      "Cryptorchidism",
+      "Macrocytic Anemia",
+      "Neonatal Cholestasis",
+      "Elevated Hepatic Transaminases",
+      "Abnormal Facial Shape",
+      "Widened Subarachnoid Space",
+      "Feeding Difficulties",
+      "Dolichocephaly",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Neurosensory",
+      "Genitourinary",
+      "Hematologic",
+      "Hepatic",
+      "Craniofacial",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0010864",
+      "HP:0002510",
+      "HP:0001252",
+      "HP:0002072",
+      "HP:0001344",
+      "HP:0002540",
+      "HP:0002119",
+      "HP:0001508",
+      "HP:0000365",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0001972",
+      "HP:0001396",
+      "HP:0002910",
+      "HP:0001999",
+      "HP:0012704",
+      "HP:0011968",
+      "HP:0000268",
+      "HP:0000252"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PSMC1"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Gastrostomy Feeding",
+      "Physical Therapy",
+      "Speech and Language Therapy",
+      "Occupational Therapy",
+      "Audiological Assessment and Hearing Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_with_Poor_Growth_Spastic_Tetraplegia_and_Hearing_Loss.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_with_Poor_Growth,_Spastic_Tetraplegia,_and_Hearing_Loss.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Neurodevelopmental Disorder with Severe Motor Impairment and Absent Language",
     "disease_id": "MONDO:0060622",
     "category": "Mendelian",
@@ -228396,6 +228625,128 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Pelger-Huet-like Anomaly and Episodic Fever with Abdominal Pain",
+    "disease_id": "MONDO:0009842",
+    "category": "Mendelian",
+    "parents": [
+      "autoinflammatory syndrome",
+      "primary immunodeficiency disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive combined autoinflammatory and immunodeficiency syndrome caused by biallelic missense variants in CEBPE, the gene encoding the late myeloid transcription factor C/EBP-epsilon. The clinical picture, described in a Finnish kindred from the 1970s onward and long labelled an atypical Pelger-Huet anomaly, combines recurrent multi-day attacks of aseptic fever, abdominal pain and systemic inflammation with a neutrophil defect: hyposegmented nuclei, impaired chemotaxis, abscesses, purulent paronychia, mucosal ulceration and a mild bleeding diathesis. The molecular basis was resolved in 2019 as a homozygous p.Arg219His substitution in the basic-leucine-zipper DNA-binding domain of C/EBP-epsilon, which the authors named CAIN (C/EBP-epsilon-associated autoinflammation and immune impairment of neutrophils). The mechanism is neomorphic rather than simply loss- or gain-of-dosage: the mutant factor loses association with more than a hundred protein partners, many of them transcriptional repressors, and consequently occupies roughly three times as many chromatin sites as wild type without any change in its recognition motif. The resulting genome-wide transcriptional dysregulation includes constitutive expression of caspase-5 in resting macrophages, which primes the noncanonical caspase-4/5 inflammasome so that intracellular bacterial LPS provokes an exaggerated IL-1-beta and IL-18 response. The disorder is therefore the first reported human monogenic noncanonical inflammasomopathy. The MONDO label preserves the 1970s clinical description; the same concept (OMIM 260570) also carries the synonym \"immunodeficiency 108 with autoinflammation\", and the recent literature refers to it that way.",
+    "pathophysiology": [
+      "CEBPE p.Arg219His Substitution in the DNA-Binding Domain",
+      "Loss of C/EBP-epsilon Association with Transcriptional Repressors",
+      "Increased C/EBP-epsilon Chromatin Occupancy",
+      "Genome-Wide Transcriptional Dysregulation in Granulocytes",
+      "Constitutive Caspase-5 Expression and Noncanonical Inflammasome Priming",
+      "Hyperinflammatory Response to Bacterial Stimuli",
+      "Impaired Neutrophil Chemotaxis with Reduced CD66b",
+      "Neutrophil Nuclear Hyposegmentation",
+      "Preserved Neutrophil Granule Content",
+      "Mild Bleeding Diathesis of Unresolved Mechanism"
+    ],
+    "cell_types": [
+      "granulocyte",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000094",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "regulation of DNA-templated transcription",
+      "response to type I interferon",
+      "response to type II interferon",
+      "non-canonical inflammasome complex assembly",
+      "neutrophil chemotaxis"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Abdominal pain",
+      "Elevated circulating C-reactive protein concentration",
+      "Pyoderma gangrenosum",
+      "Intra-abdominal granuloma",
+      "Impaired neutrophil chemotaxis",
+      "Hyposegmentation of neutrophil nuclei",
+      "Recurrent abscess formation",
+      "Osteomyelitis",
+      "Paronychia",
+      "Recurrent aphthous stomatitis",
+      "Recurrent upper respiratory tract infections",
+      "Poor wound healing",
+      "Epistaxis",
+      "Bruising susceptibility",
+      "Increased total leukocyte count",
+      "Anemia",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Gastrointestinal",
+      "Laboratory",
+      "Dermatological",
+      "Immunological",
+      "Hematological",
+      "Musculoskeletal",
+      "Mucosal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0002027",
+      "HP:0011227",
+      "HP:0025452",
+      "HP:0032252",
+      "HP:0040238",
+      "HP:0011447",
+      "HP:0002722",
+      "HP:0002754",
+      "HP:0001818",
+      "HP:0011107",
+      "HP:0002788",
+      "HP:0001058",
+      "HP:0000421",
+      "HP:0000978",
+      "HP:0001974",
+      "HP:0001903",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CEBPE"
+    ],
+    "treatments": [
+      "Baricitinib",
+      "Prednisolone"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pelger-Huet-like_Anomaly_And_Episodic_Fever_With_Abdominal_Pain.yaml",
+    "page_url": "../pages/disorders/Pelger-Huet-like_Anomaly_and_Episodic_Fever_with_Abdominal_Pain.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Pelger-Huet Anomaly",
     "disease_id": "MONDO:0008214",
     "category": "Mendelian",
@@ -238456,7 +238807,7 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0000236",
-      "CL:0000182",
+      "CL:0002538",
       "CL:0000625"
     ],
     "biological_processes": [
@@ -238488,12 +238839,12 @@ window.searchData = [
       "HP:0002240"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "rs57494551 (CXCR5)",
       "HLA-DRB1*08",
+      "HLA-DQB1",
       "IL12A",
       "IL12RB2"
     ],
@@ -238515,9 +238866,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Primary_Biliary_Cholangitis.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 5,
-    "num_genes": 4,
+    "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "2"
   },
   {
@@ -248149,7 +248500,7 @@ window.searchData = [
       "HP:0007359",
       "HP:0001269",
       "HP:0002448",
-      "HP:0002059"
+      "HP:0100308"
     ],
     "frequencies": [],
     "genes": [],
@@ -248166,7 +248517,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "8"
   },
   {
@@ -304747,17 +305098,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2935,
+  "total_disorder_pages": 2938,
   "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6664,
-  "total_unique_evidence_sources": 41262,
-  "total_unique_publications": 38893,
+  "total_disorders_and_subtypes": 6667,
+  "total_unique_evidence_sources": 41300,
+  "total_unique_publications": 38930,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2930,
-  "total_unique_pathological_events": 17718,
+  "total_pathographs": 2933,
+  "total_unique_pathological_events": 17745,
   "total_modules": 174,
-  "total_research_reports": 3054,
+  "total_research_reports": 3056,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
