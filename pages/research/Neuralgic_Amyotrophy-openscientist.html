@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuralgic Amyotrophy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Neuralgic Amyotrophy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Neuralgic Amyotrophy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017362" target="_blank" rel="noopener noreferrer">MONDO:0017362</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">40 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Neuralgic Amyotrophy is an uncommon-to-underrecognized peripheral nervous-system disorder characterized by episodes ("attacks") of extreme neuropathic pain followed by rapid, multifocal, patchy weakness and atrophy predominantly in the upper limbs. In its classic presentation it is a brachial plexopathy or multifocal motor-predominant neuropathy with a monophasic course, though sensory involvement is common and extra-plexus nerves are frequently affected.</p>
+<p><strong>Key identifiers (as commonly catalogued):</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100053" target="_blank" rel="noopener noreferrer">MONDO:0100053</a> (neuralgic amyotrophy) — suggested; confirm in current release
+- <strong>OMIM:</strong> 162100 (Neuralgic amyotrophy / hereditary brachial plexus neuropathy, HNA)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:2901" target="_blank" rel="noopener noreferrer">ORPHA:2901</a> (Neuralgic amyotrophy)
+- <strong>ICD-10:</strong> G54.5 (Neuralgic amyotrophy)
+- <strong>ICD-11:</strong> 8B93 / brachial plexus disorder region (neuralgic amyotrophy)
+- <strong>MeSH:</strong> D020968 (Brachial Plexus Neuritis)
+- <strong>Gene (HNA):</strong> SEPT9 / SEPTIN9, <a href="https://bioregistry.io/HGNC:7323" target="_blank" rel="noopener noreferrer">HGNC:7323</a>, chromosome 17q25</p>
+<p><strong>Synonyms and alternative names:</strong> Parsonage–Turner syndrome; brachial plexus neuritis; brachial neuritis; brachial neuralgic amyotrophy; idiopathic brachial plexopathy; acute brachial neuropathy; hereditary brachial plexus neuropathy (HBPN, hereditary form); shoulder-girdle syndrome. Parsonage and Turner unified previously separate descriptions under the term "neuralgic amyotrophy" in 1948, highlighting the combination of neuropathic pain and muscular atrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/39070412/">PMID: 39070412</a>).</p>
+<p><strong>Source of information.</strong> The knowledge in this report is derived from <strong>aggregated disease-level resources</strong> — cohort studies, case-control studies, clinical reviews, and case reports/series — rather than individual EHR extraction. The largest supporting cohort comprised 246 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> NA is a <strong>complex disease</strong> arising from the interaction of genetic predisposition, mechanical vulnerability, and immune-mediated triggering. There is no single cause; rather, the current, well-supported model is a <strong>triad</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21556032/">PMID: 21556032</a>):</p>
+<blockquote>
+<p>"The disease is thought to result from an underlying genetic predisposition, a susceptibility to mechanical injury of the brachial plexus (possibly representing disturbance of the epineurial blood-nerve barrier), and an immune or autoimmune trigger for the attacks."</p>
+</blockquote>
+<p><strong>Genetic risk factors.</strong> In the hereditary form (HNA), <strong>SEPT9</strong> point mutations and duplications on 17q25 are causal in ~55% of families (see Section 4). SEPT9 variants have also been linked to a broader phenotypic spectrum, including a Charcot–Marie–Tooth-like presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/32122354/">PMID: 32122354</a>). In idiopathic NA, a genetic susceptibility is inferred but not molecularly defined; recurrence and family history predict a discoverable genetic cause (<a href="https://pubmed.ncbi.nlm.nih.gov/30560241/">PMID: 30560241</a>).</p>
+<p><strong>Environmental / triggering risk factors.</strong> Attacks are frequently preceded by immunologically active events:
+- <strong>Infection</strong> — the single most-cited category; HEV genotype 3 is a recurrent, characteristic trigger (Section 5).
+- <strong>Vaccination</strong> — COVID-19 mRNA and viral-vector vaccines; also post-exposure prophylaxis and influenza vaccine (<a href="https://pubmed.ncbi.nlm.nih.gov/38543940/">PMID: 38543940</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25098693/">PMID: 25098693</a>).
+- <strong>Surgery, trauma, childbirth/peripartum period, strenuous exercise, cold, and psychological stress</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21556032/">PMID: 21556032</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31619932/">PMID: 31619932</a>).
+- <strong>Age and sex</strong> — idiopathic NA typically presents in adulthood (mean ~41 years) with a male predominance; hereditary NA presents earlier (mean ~28 years).</p>
+<p><strong>Protective factors.</strong> No genetic or environmental protective factors have been established in the literature reviewed. This is a genuine knowledge gap. Prophylactic corticosteroids or IVIG may reduce surgical- or childbirth-induced attacks in HNA, functioning as a preventive (not naturally protective) intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>).</p>
+<p><strong>Gene–environment interactions.</strong> The triad model is itself a gene–environment interaction: an immune trigger acting upon a genetically/mechanically predisposed plexus precipitates the focal neuritis. In HNA, external stimuli (infections, vaccinations, cold, stress, surgery, exercise) provoke recurrent attacks on the SEPT9-predisposed background (<a href="https://pubmed.ncbi.nlm.nih.gov/31619932/">PMID: 31619932</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>NA's phenotype evolves through <strong>three consecutive pain phases</strong>, beginning with an initial severe, continuous pain lasting approximately 4 weeks on average (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>):</p>
+<blockquote>
+<p>"the course of the pain manifests itself in three consecutive phases with an initial severe, continuous pain lasting for approximately 4 weeks on average. Sensory involvement was quite common and found in 78.4% of patients"</p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency / characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe shoulder/arm neuropathic pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" rel="noopener noreferrer">HP:0012532</a> (Chronic pain) / <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia); neuropathic pain</td>
+<td>Near-universal at onset; acute, continuous ~4 weeks</td>
+</tr>
+<tr>
+<td>Multifocal muscle weakness/paresis</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" rel="noopener noreferrer">HP:0003484</a> (Upper limb muscle weakness)</td>
+<td>Follows pain; patchy, motor-predominant</td>
+</tr>
+<tr>
+<td>Muscle atrophy</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" rel="noopener noreferrer">HP:0003202</a> (Skeletal muscle atrophy)</td>
+<td>Common; early</td>
+</tr>
+<tr>
+<td>Sensory loss/paresthesia</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003390" target="_blank" rel="noopener noreferrer">HP:0003390</a> (Sensory neuropathy) / <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" rel="noopener noreferrer">HP:0003401</a> (Paresthesia)</td>
+<td>78.4%</td>
+</tr>
+<tr>
+<td>Scapular winging / dyskinesia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" rel="noopener noreferrer">HP:0003691</a> (Scapular winging)</td>
+<td>&gt;60% residual (Sections 6/11)</td>
+</tr>
+<tr>
+<td>Phrenic nerve palsy / diaphragmatic paralysis</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea); diaphragmatic paralysis</td>
+<td>Subset, esp. HEV-associated; orthopnea</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (Fatigue)</td>
+<td>~1/3 long-term</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Distribution.</strong> The upper/middle trunk pattern — long thoracic and/or suprascapular nerve — is most frequent (71.1%) (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>). Involvement is typically <strong>unilateral and asymmetric</strong>, though bilateral involvement occurs, particularly after acute viral infection.</p>
+<p><strong>Age of onset, severity, progression.</strong> Onset is predominantly adult in INA (mean 41.3 yrs) and earlier in HNA (mean 28.4 yrs), spanning infancy to adulthood (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31619932/">PMID: 31619932</a>). Severity is variable; the course is classically <strong>monophasic/episodic</strong>, with recurrence in 26.1% of INA over ~6-year follow-up and a mean of 3.5 attacks in HNA versus 1.5 in INA.</p>
+<p><strong>Quality-of-life impact.</strong> About a quarter to a third of patients report significant long-term pain and fatigue, and half to two-thirds experience persistent impairments in daily life; symptoms correlate with residual shoulder/arm dysfunction rather than psychological distress (<a href="https://pubmed.ncbi.nlm.nih.gov/19254608/">PMID: 19254608</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> Hereditary NA is autosomal dominant and associated with a point mutation or duplication in <strong>SEPT9 (SEPTIN9)</strong> on chromosome <strong>17q25</strong> in <strong>55% of affected families</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21556032/">PMID: 21556032</a>):</p>
+<blockquote>
+<p>"in 55% of affected families, neuralgic amyotrophy is associated with a point mutation or duplication in the SEPT9 gene on chromosome 17q25"</p>
+</blockquote>
+<ul>
+<li><strong>Gene:</strong> SEPT9 / SEPTIN9, <a href="https://bioregistry.io/HGNC:7323" target="_blank" rel="noopener noreferrer">HGNC:7323</a>, OMIM *604061; HNA phenotype OMIM #162100.</li>
+<li><strong>Variant types:</strong> missense point mutations (e.g., <strong>p.Arg106Trp / R106W</strong>), intragenic <strong>duplications</strong> (including duplication of exon 2), and CNVs. Classification: pathogenic/likely pathogenic per ACMG in segregating families.</li>
+<li><strong>Population frequency:</strong> rare; HNA is a rare Mendelian disorder. Specific gnomAD allele frequencies were not established in the reviewed literature.</li>
+<li><strong>Origin:</strong> germline, autosomal dominant.</li>
+</ul>
+<p><strong>Functional consequences.</strong> SEPT9 mediates septin binding to microtubules. HNA mutations impair this function (<a href="https://pubmed.ncbi.nlm.nih.gov/34854883/">PMID: 34854883</a>):</p>
+<blockquote>
+<p>"HNA mutations abrogate this association, identifying a putative regulatory domain"</p>
+</blockquote>
+<p>A MAP-like motif unique to septin-9 isoform 1 drives septin octamer–microtubule interaction, and HNA mutations abrogate this. Molecular-dynamics simulation shows the mutation significantly alters septin-9 conformation, impairing microtubule binding and bundling (<a href="https://pubmed.ncbi.nlm.nih.gov/39428775/">PMID: 39428775</a>):</p>
+<blockquote>
+<p>"Molecular simulation study has revealed that the mutation has significantly altered the conformation of septin-9 protein, thereby impairing the microtubule binding and bundling ability"</p>
+</blockquote>
+<p>This constitutes a <strong>loss/alteration of function</strong> in cytoskeletal regulation (cytokinesis, membrane trafficking, stress-fiber tuning).</p>
+<p><strong>Phenotype extensions.</strong> SEPT9 variants can produce dysmorphic features (hypotelorism, cleft palate, long nasal bridge, hypertelorism, epicanthal folds), and a childhood-onset family showed <strong>platelet dysfunction</strong> (reduced ADP/epinephrine-induced aggregation, impaired δ-secretion) and kidney cysts alongside an exon-2 duplication (<a href="https://pubmed.ncbi.nlm.nih.gov/30019529/">PMID: 30019529</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40852410/">PMID: 40852410</a>).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No modifier genes, disease-specific epigenetic marks, or large-scale chromosomal abnormalities have been established for NA in the reviewed literature — genuine knowledge gaps.</p>
+<p><strong>Suggested ontology terms:</strong> Gene <a href="https://bioregistry.io/HGNC:7323" target="_blank" rel="noopener noreferrer">HGNC:7323</a> (SEPTIN9); <a href="http://purl.obolibrary.org/obo/GO_0005819" target="_blank" rel="noopener noreferrer">GO:0005819</a> (spindle), <a href="http://purl.obolibrary.org/obo/GO_0000910" target="_blank" rel="noopener noreferrer">GO:0000910</a> (cytokinesis), <a href="http://purl.obolibrary.org/obo/GO_0008017" target="_blank" rel="noopener noreferrer">GO:0008017</a> (microtubule binding).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental / infectious triggers.</strong> Immune events preceding NA are well documented. In a prospective matched case-control study (n=57), a symptomatic infectious trigger confirmed microbiologically preceded NA in 26.3% of patients, and COVID-19 vaccination was a potential trigger in 12.3% (<a href="https://pubmed.ncbi.nlm.nih.gov/39364568/">PMID: 39364568</a>):</p>
+<blockquote>
+<p>"NA onset was preceded by a symptomatic infectious trigger confirmed by microbiological tests in 15/57 (26.3%) patients. Coronavirus disease 2019 vaccination was considered a potential trigger in 7/57 (12.3%) subjects. An acute viral infection was associated with a bilateral involvement of the brachial plexus (p = 0.003, Cramèr's V = 0.43)"</p>
+</blockquote>
+<p><strong>Hepatitis E virus (HEV, genotype 3)</strong> is a recurrently reported and clinically distinctive trigger, characteristically causing NA with <strong>phrenic nerve involvement and diaphragmatic paralysis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40534221/">PMID: 40534221</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38657646/">PMID: 38657646</a>):</p>
+<blockquote>
+<p>"Electromyography showed severe bilateral phrenic nerve involvement. The diagnosis of neuralgic amyotrophy with diaphragmatic paralysis secondary to HEV was made"</p>
+<p>"NA that shows involvement of the phrenic nerve resulting in diaphragmatic dysfunction and dyspnoea, may be associated with HEV infection"</p>
+</blockquote>
+<p>Agents tested/reported in NA workups include HEV, HIV, SARS-CoV-2, EBV, CMV, parvovirus B19, VZV, <em>Borrelia</em>, <em>Mycoplasma</em>, and <em>Bartonella</em>. Livestock-associated HEV exposure has been implicated (<a href="https://pubmed.ncbi.nlm.nih.gov/35379662/">PMID: 35379662</a>).</p>
+<p><strong>Occupational/toxic factors.</strong> A rare report links epidemic dropsy (argemone-oil-adulterated mustard oil) with brachial neuritis, but toxic causes are not a recognized major etiology (<a href="https://pubmed.ncbi.nlm.nih.gov/22231775/">PMID: 22231775</a>).</p>
+<p><strong>Lifestyle factors.</strong> Strenuous physical exercise and unaccustomed exertion of the shoulder girdle are reported precipitants; smoking/diet/alcohol are not established risk factors.</p>
+<p><strong>Suggested ontology term:</strong> NCBI Taxonomy Orthohepevirus A (HEV).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Genetic predisposition</strong> (SEPT9 mutation in HNA; undefined susceptibility in INA) → <strong>leads to</strong> an intrinsically vulnerable brachial plexus, plausibly via altered septin–microtubule cytoskeletal regulation in nerve/supporting cells <em>(tissue-level mechanism inferred, not fully demonstrated)</em>.</li>
+<li>Predisposition <strong>plus</strong> a <strong>mechanical susceptibility</strong> of the plexus — possibly a disturbed epineurial blood–nerve barrier — <strong>results in</strong> a nerve segment prone to immune access and injury (<a href="https://pubmed.ncbi.nlm.nih.gov/21556032/">PMID: 21556032</a>).</li>
+<li>An <strong>immune/autoimmune trigger</strong> (infection—especially HEV—vaccination, surgery, trauma, childbirth, exercise) <strong>activates</strong> a focal immune response directed at the brachial plexus (<a href="https://pubmed.ncbi.nlm.nih.gov/39364568/">PMID: 39364568</a>).</li>
+<li>The immune response <strong>produces</strong> multifocal <strong>mononuclear inflammatory-cell infiltration</strong> of nerve fascicles (demonstrated on biopsy) (<a href="https://pubmed.ncbi.nlm.nih.gov/8614534/">PMID: 8614534</a>).</li>
+<li>Inflammation and focal swelling <strong>lead to</strong> the pathognomonic <strong>hourglass-like constriction / nerve torsion</strong> at vulnerable segments, with proximal/distal thickening (<a href="https://pubmed.ncbi.nlm.nih.gov/36214185/">PMID: 36214185</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38248282/">PMID: 38248282</a>).</li>
+<li>Focal constriction and axonal injury <strong>cause</strong> the acute severe neuropathic <strong>pain</strong> (phase 1).</li>
+<li>Axonal degeneration <strong>results in</strong> <strong>multifocal flaccid paresis, muscle atrophy, and sensory loss</strong> (phase 2), branching by nerve territory:</li>
+<li>Long thoracic/suprascapular → <strong>scapular winging and dyskinesia</strong>.</li>
+<li>Phrenic nerve → <strong>diaphragmatic paralysis, orthopnea, respiratory failure</strong> (branch strongly associated with HEV).</li>
+<li>Incomplete axonal regeneration and compensatory abnormal motor control <strong>lead to</strong> <strong>chronic scapular dyskinesia, residual weakness, pain, and fatigue</strong> (phase 3) (<a href="https://pubmed.ncbi.nlm.nih.gov/36697215/">PMID: 36697215</a>).</li>
+</ol>
+<pre><code>SEPT9 mutation / susceptibility  ─┐
+Mechanical vulnerability          ─┼──► predisposed plexus segment
+(blood–nerve barrier disturbance) ─┘             │
+                                 ▼
+Immune trigger (HEV, vaccine, surgery, exercise…)
+                                 │
+                                 ▼
+Multifocal mononuclear inflammatory infiltrate
+                                 │
+                                 ▼
+Hourglass constriction / nerve torsion + axonal injury
+          │                          │
+          ▼                          ▼
+  Acute neuropathic pain (~4 wk)   Patchy paresis / atrophy / sensory loss
+                                 │
+    ┌────────────────────────────┼───────────────────────┐
+    ▼                            ▼                        ▼
+Long thoracic/suprascapular     Phrenic nerve            Other plexus/extra-plexus
+→ scapular winging/dyskinesia   → diaphragm paralysis    → multifocal deficits
+                          (HEV-linked)
+                                 │
+                                 ▼
+Incomplete regeneration + abnormal motor control → chronic disability
+</code></pre>
+<p><strong>Molecular pathways / protein dysfunction.</strong> Upstream: SEPT9 loss of microtubule-binding/bundling disrupts cytoskeletal regulation (cytokinesis, membrane trafficking, stress fibers) (<a href="https://pubmed.ncbi.nlm.nih.gov/34854883/">PMID: 34854883</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39428775/">PMID: 39428775</a>). Downstream: an inflammatory-immune cascade drives the attack.</p>
+<p><strong>Cellular processes / immune involvement.</strong> The core downstream mechanism is <strong>inflammation</strong> with mononuclear (lymphocytic/macrophage) infiltration and axonal degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/8614534/">PMID: 8614534</a>):</p>
+<blockquote>
+<p>"There were florid multifocal mononuclear inflammatory cell infiltrates. Present evidence suggests that these brachial neuropathies have an immune basis"</p>
+</blockquote>
+<p><strong>Tissue damage mechanisms.</strong> Focal constriction/torsion with ischemic and mechanical axonal injury; denervation muscle edema is seen on MRN in 91% of acute cases (<a href="https://pubmed.ncbi.nlm.nih.gov/36214185/">PMID: 36214185</a>).</p>
+<p><strong>Cell types and biological processes (ontology suggestions):</strong>
+- <strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong> (inflammatory response); <strong><a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" rel="noopener noreferrer">GO:0002250</a></strong> (adaptive immune response) — biological processes.
+- <strong><a href="http://purl.obolibrary.org/obo/GO_0008017" target="_blank" rel="noopener noreferrer">GO:0008017</a></strong> (microtubule binding), <strong><a href="http://purl.obolibrary.org/obo/GO_0000910" target="_blank" rel="noopener noreferrer">GO:0000910</a></strong> (cytokinesis) — SEPT9 molecular function/process.
+- <strong><a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" rel="noopener noreferrer">CL:0000101</a></strong> (sensory neuron); <strong><a href="http://purl.obolibrary.org/obo/CL_0011001" target="_blank" rel="noopener noreferrer">CL:0011001</a></strong> (spinal cord motor neuron); <strong><a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a></strong> (Schwann cell); <strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong> (macrophage); <strong><a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a></strong> (lymphocyte) — cell types.</p>
+<p>Molecular profiling specific to NA nerve tissue (transcriptomics, proteomics, metabolomics, single-cell, spatial, CRISPR/RNAi screens) was <strong>not available</strong> in the reviewed literature — a substantial knowledge gap.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ / system level.</strong> Primary target: the <strong>peripheral nervous system</strong>, specifically the <strong>brachial plexus</strong> and its branches (long thoracic, suprascapular, axillary, musculocutaneous, radial, median nerves). Secondary involvement: the <strong>respiratory system</strong> via phrenic nerve → diaphragm; the <strong>musculoskeletal system</strong> (shoulder girdle) via denervation atrophy and dyskinesia.</p>
+<p><strong>Nerve territories.</strong> Upper/middle trunk pattern (long thoracic and/or suprascapular) is most frequent (71.1%) (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>). Extra-plexus nerves are commonly involved, more so in HNA (55.8% vs 17.3% in INA). Lesions distal to the brachial plexus (e.g., median nerve, mimicking carpal tunnel) can occur in HNA (<a href="https://pubmed.ncbi.nlm.nih.gov/37587058/">PMID: 37587058</a>).</p>
+<p><strong>Tissue / cell level.</strong> Peripheral nerve tissue (axons, Schwann cells, epineurium/perineurium) and skeletal muscle (secondary denervation atrophy and edema). Inflammatory infiltrate composed of mononuclear cells.</p>
+<p><strong>Subcellular level.</strong> SEPT9 dysfunction implicates the <strong>microtubule cytoskeleton</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005874" target="_blank" rel="noopener noreferrer">GO:0005874</a>) and associated stress fibers; axonal transport machinery is plausibly affected (inferred).</p>
+<p><strong>Localization and lateralization.</strong> Predominantly <strong>unilateral and asymmetric</strong>; <strong>bilateral</strong> involvement occurs, associated with acute viral infection (p=0.003) and characteristically with HEV-linked phrenic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/39364568/">PMID: 39364568</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40534221/">PMID: 40534221</a>).</p>
+<p><strong>Suggested UBERON/CL terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001824" target="_blank" rel="noopener noreferrer">UBERON:0001824</a> (brachial plexus); <a href="http://purl.obolibrary.org/obo/UBERON_0003732" target="_blank" rel="noopener noreferrer">UBERON:0003732</a> (phrenic nerve); <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue); <a href="http://purl.obolibrary.org/obo/UBERON_0001379" target="_blank" rel="noopener noreferrer">UBERON:0001379</a> (deltoid); <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" rel="noopener noreferrer">CL:0000101</a> (sensory neuron); <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a> (Schwann cell).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Typically <strong>adult-onset</strong> (INA mean 41.3 yrs) but ranges from infancy to old age; HNA onsets earlier (mean 28.4 yrs) and may present in early childhood (e.g., age 2–9 yrs) (<a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30019529/">PMID: 30019529</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40852410/">PMID: 40852410</a>). Onset pattern is <strong>acute/subacute</strong> — sudden severe pain within hours to two weeks.</p>
+<p><strong>Progression (three-phase course):</strong>
+1. <strong>Acute pain phase</strong> — severe continuous pain, ~4 weeks average.
+2. <strong>Paresis phase</strong> — as pain subsides, patchy weakness, atrophy, sensory loss emerge.
+3. <strong>Recovery/chronic phase</strong> — slow recovery over months to years; frequently incomplete.</p>
+<p><strong>Course pattern.</strong> Classically <strong>monophasic/episodic</strong>; recurrence in INA is 26.1% over ~6 years, higher in HNA (mean 3.5 attacks). Serratus anterior winging from NA resolves spontaneously within 3 years in a substantial fraction, but no full recovery was seen if winging persisted beyond 3 years (<a href="https://pubmed.ncbi.nlm.nih.gov/33675974/">PMID: 33675974</a>).</p>
+<p><strong>Critical windows.</strong> Early corticosteroid administration (first month) shortens pain and improves recovery (<a href="https://pubmed.ncbi.nlm.nih.gov/19321467/">PMID: 19321467</a>). Surgical neurolysis is considered after 6–12 months of non-recovery (<a href="https://pubmed.ncbi.nlm.nih.gov/32868098/">PMID: 32868098</a>). Imaging abnormalities appear early — as early as 12 h on ultrasound and ~3 days on MRN.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Historically considered rare, NA's true incidence is <strong>~1 per 1,000 per year</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33823638/">PMID: 33823638</a>):</p>
+<blockquote>
+<p>"its actual incidence rate is about 1 per 1000 per year"</p>
+</blockquote>
+<p>Combined INA + HBPN incidence has been cited as 3–100 per 100,000 persons per year (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>). Most cases are diagnosed late or not at all.</p>
+<p><strong>Inheritance (HNA).</strong> <strong>Autosomal dominant</strong>, caused by SEPT9 mutations/duplications in ~55% of families. Features consistent with:
+- <strong>Incomplete/variable penetrance and variable expressivity</strong> — inferred from wide intrafamilial clinical variability (e.g., R106W pedigrees) (<a href="https://pubmed.ncbi.nlm.nih.gov/39428775/">PMID: 39428775</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42644177/">PMID: 42644177</a>).
+- <strong>Anticipation, germline mosaicism, founder effects, consanguinity, carrier frequency</strong> — not established in the reviewed literature (knowledge gaps).</p>
+<p><strong>Demographics.</strong> INA shows a male predominance; HNA affects both sexes. Post-COVID-vaccination PTS occurred more frequently in males (61.1% mRNA; 83.3% viral vector) (<a href="https://pubmed.ncbi.nlm.nih.gov/38543940/">PMID: 38543940</a>). No strong ethnic or geographic clustering is established, though HNA families are reported across diverse populations (Lebanese, Chinese, Italian, German, Turkish).</p>
+<p><strong>INA vs HNA comparison:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Idiopathic (INA)</th>
+<th>Hereditary (HNA)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>n (reference cohort)</td>
+<td>199</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Mean age at onset</td>
+<td>41.3 yrs</td>
+<td>28.4 yrs</td>
+</tr>
+<tr>
+<td>Mean number of attacks</td>
+<td>1.5</td>
+<td>3.5</td>
+</tr>
+<tr>
+<td>Extra-plexus involvement</td>
+<td>17.3%</td>
+<td>55.8%</td>
+</tr>
+<tr>
+<td>Genetic cause</td>
+<td>undefined</td>
+<td>SEPT9 (~55% of families)</td>
+</tr>
+<tr>
+<td>Outcome</td>
+<td>better</td>
+<td>poorer</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Source: <a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">PMID: 16371410</a>.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnosis is clinical and one of exclusion</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32140911/">PMID: 32140911</a>):</p>
+<blockquote>
+<p>"The diagnosis is clinical, through a comprehensive history and neurological examination"</p>
+</blockquote>
+<p>Conditions to exclude: cervical radiculopathy, rotator cuff tear, CIDP, compressive plexopathy, and <strong>neurolymphomatosis</strong> (recurrent "attacks" can herald B-cell lymphoma) (<a href="https://pubmed.ncbi.nlm.nih.gov/30560241/">PMID: 30560241</a>).</p>
+<p><strong>Electrodiagnostics (EMG/NCS).</strong> Show multifocal axonal denervation (fibrillations in ~73%), confirming the pattern and distribution.</p>
+<p><strong>Imaging — the modern confirmatory pillar.</strong> High-resolution ultrasound and MR neurography detect nerve abnormalities in ~90% of patients within one month, including <strong>hourglass constrictions in 74%</strong> and denervation muscle edema on MRN in 91% (<a href="https://pubmed.ncbi.nlm.nih.gov/36214185/">PMID: 36214185</a>):</p>
+<blockquote>
+<p>"US and MRN showed nerve abnormalities within 1 mo from NA onset in 90% of patients. HGCs were found in 74% (29/39) of the patients"</p>
+</blockquote>
+<p>Gadolinium-enhanced MRI/MRN help confirm the diagnosis and guide treatment (<a href="https://pubmed.ncbi.nlm.nih.gov/33823638/">PMID: 33823638</a>):</p>
+<blockquote>
+<p>"Gadolinium-enhanced magnetic resonance imaging and high-resolution magnetic resonance neurography are useful for confirming the diagnosis and choosing the appropriate treatment"</p>
+</blockquote>
+<p>Diaphragm ultrasound improves detection of phrenic involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>).</p>
+<p><strong>Laboratory / biomarkers.</strong> No specific serum biomarker exists. <strong>HEV serology (IgM/IgG plus serum HEV RNA) and transaminases</strong> should be checked, especially with phrenic/diaphragmatic involvement, to identify a treatable trigger. CSF may show albuminocytological dissociation in vaccine-associated cases.</p>
+<p><strong>Genetic testing.</strong> <strong>SEPT9 single-gene testing</strong> (sequencing plus copy-number/duplication analysis) confirms HNA; WES/WGS is useful in atypical or pediatric cases (<a href="https://pubmed.ncbi.nlm.nih.gov/42644177/">PMID: 42644177</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40852410/">PMID: 40852410</a>). Indicated with recurrent attacks, family history, early onset, or dysmorphic features.</p>
+<p><strong>Differential diagnosis (distinguishing features):</strong> cervical radiculopathy (dermatomal, neck-movement-related), rotator cuff pathology (mechanical, no denervation), CIDP (symmetric, demyelinating, chronic), compressive plexopathy/neoplasm (progressive, mass), hereditary neuropathy with liability to pressure palsies.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Prognosis is guarded</strong>, contrary to older "benign self-limited" characterizations (<a href="https://pubmed.ncbi.nlm.nih.gov/38835178/">PMID: 38835178</a>):</p>
+<blockquote>
+<p>"The prognosis of untreated NA is poor, with 25% of patients remaining unable to work at three years. The main form of treatment is with corticosteroids that are administered as early as possible"</p>
+</blockquote>
+<p><strong>Morbidity and function.</strong> Over <strong>60% of patients have residual complaints and functional limitations</strong>, correlated with scapular dyskinesia (<a href="https://pubmed.ncbi.nlm.nih.gov/36697215/">PMID: 36697215</a>):</p>
+<blockquote>
+<p>"leading to severe pain and multifocal paresis resulting in &gt;60% of patients having residual complaints and functional limitations correlated with scapular dyskinesia"</p>
+</blockquote>
+<p>About a quarter to a third report significant long-term pain and fatigue; half to two-thirds retain impairments; symptoms are not correlated with residual MRC-scale paresis or psychological distress but with mechanical shoulder/arm dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/19254608/">PMID: 19254608</a>).</p>
+<p><strong>Mortality.</strong> NA is not directly fatal, but bilateral diaphragmatic paralysis (e.g., HEV-associated or severe PTS) can cause hypercapnic respiratory failure requiring ventilatory support (<a href="https://pubmed.ncbi.nlm.nih.gov/41428787/">PMID: 41428787</a>).</p>
+<p><strong>Recovery potential.</strong> Slow recovery over months to years; many never achieve full recovery. Serratus anterior winging resolves spontaneously within 3 years in some but not if it persists beyond 3 years (<a href="https://pubmed.ncbi.nlm.nih.gov/33675974/">PMID: 33675974</a>). Surgical neurolysis rescues motor function in chronic HGC cases (Section 12).</p>
+<p><strong>Prognostic factors.</strong> Hereditary form, extra-plexus involvement, greater winging severity, comorbidity, and delayed treatment predict worse outcomes. No validated molecular prognostic biomarker exists.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (acute phase).</strong> <strong>Corticosteroids</strong> (oral prednisolone/prednisone; high-dose pulsed steroids) given as early as possible shorten the initial pain and may accelerate recovery in some patients (<a href="https://pubmed.ncbi.nlm.nih.gov/19321467/">PMID: 19321467</a>):</p>
+<blockquote>
+<p>"The median time until initial pain relief was lower in the study group (12.5 days vs 20.5 days), and a significantly higher percentage already recovered strength in the first month of treatment (18% vs 6.3%; p = 0.011)"</p>
+</blockquote>
+<p>The Cochrane review found no randomized trials but concluded open-label evidence supports early oral prednisone shortening initial pain (<a href="https://pubmed.ncbi.nlm.nih.gov/19588414/">PMID: 19588414</a>). Adjunct <strong>non-narcotic analgesics</strong> for neuropathic pain; opioids are generally avoided. NCIT suggestions: NCIT:C769 (Prednisolone), NCIT:C198 (Prednisone), NCIT:C1409 (Corticosteroid).</p>
+<p><strong>Immunotherapy.</strong> In pediatric NA, immunotherapy (IVIG/steroids) appears effective, with improvement continuing over one year (<a href="https://pubmed.ncbi.nlm.nih.gov/32228355/">PMID: 32228355</a>). Prophylactic steroids or <strong>IVIG</strong> may reduce surgery- or childbirth-induced attacks in HNA (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>). NCIT:C579 (Immunoglobulin therapy).</p>
+<p><strong>Etiologic treatment.</strong> When HEV is the trigger, recognition allows targeted management/monitoring and respiratory support.</p>
+<p><strong>Surgical / interventional.</strong> <strong>Microsurgical epineurolysis and perineurolysis of hourglass constrictions</strong> improves recovery in chronic NA that fails conservative management: 9/11 operative vs 3/13 nonsurgical patients recovered clinically, with EMG-confirmed axonal regeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/32868098/">PMID: 32868098</a>). Surgery is generally considered after ~6–12 months without recovery. Nerve resection/direct suture or grafting is used for unsalvageable segments (<a href="https://pubmed.ncbi.nlm.nih.gov/41163648/">PMID: 41163648</a>). <strong>Phrenic nerve reconstruction</strong> is an option for symptomatic diaphragmatic paralysis (<a href="https://pubmed.ncbi.nlm.nih.gov/36031309/">PMID: 36031309</a>). Tendon transfers when recovery does not occur after ~18 months. Early neurolysis/nerve grafts remain controversial (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>). NCIT:C15329 (Surgical Procedure), NCIT:C157810 (Neurolysis).</p>
+<p><strong>Rehabilitation.</strong> Modern multidisciplinary rehabilitation targeting <strong>motor relearning, energy conservation, and self-management of pain/fatigue</strong> — not strength training — improves functional outcomes. An RCT (n=47) showed an adjusted mean SRQ-DLV group difference of <strong>8.60 (95% CI 0.26–16.94, p=0.044)</strong>, with clinically relevant improvement in 59% (rehab) vs 33% (usual care), NNT = 4 (<a href="https://pubmed.ncbi.nlm.nih.gov/36697215/">PMID: 36697215</a>):</p>
+<blockquote>
+<p>"The mean group difference adjusted for sex, age and SRQ-DLV baseline score was 8.60 (95%CI: 0.26 to 16.94, p=0.044)"</p>
+</blockquote>
+<p>The recommended strategy explicitly avoids strength training (<a href="https://pubmed.ncbi.nlm.nih.gov/39402917/">PMID: 39402917</a>):</p>
+<blockquote>
+<p>"target compensatory abnormal motor control and fatigue by focusing on motor coordination, energy conservation strategies, and behavioral change, rather than strength training which may worsen the symptoms"</p>
+</blockquote>
+<p>Multimodal programs (physiotherapy, scapular stabilization) show benefit in case reports (<a href="https://pubmed.ncbi.nlm.nih.gov/40213747/">PMID: 40213747</a>). NCIT:C15296 (Physical Therapy), NCIT:C15315 (Rehabilitation Therapy).</p>
+<p><strong>Not established for NA (not applicable at present):</strong> pharmacogenomics, gene therapy, RNA-based therapy, cell therapy, targeted molecular immunotherapy.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> No population-level primary prevention exists for sporadic NA. Trigger awareness/avoidance and, in HNA, avoidance of provocations before elective surgery may help.</p>
+<p><strong>Secondary prevention / early detection.</strong> Early clinical recognition plus imaging (US/MRN) enables timely corticosteroids within the critical first-month window, which improves outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/19321467/">PMID: 19321467</a>). Increased awareness in orthopedic and primary-care settings is emphasized to prevent misdiagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/34435146/">PMID: 34435146</a>).</p>
+<p><strong>Tertiary prevention.</strong> Rehabilitation to prevent chronic scapular dyskinesia, contractures, and disability; energy-conservation strategies to manage fatigue; prophylactic steroids/IVIG to reduce peri-procedural or peripartum attacks in HNA (<a href="https://pubmed.ncbi.nlm.nih.gov/38176820/">PMID: 38176820</a>).</p>
+<p><strong>Genetic counseling.</strong> Appropriate for HNA families — autosomal dominant inheritance, ~50% offspring risk, variable expressivity; SEPT9 testing informs family planning and pre-procedure prophylaxis.</p>
+<p><strong>Immunization / public-health / environmental interventions.</strong> No vaccine prevents NA; conversely, certain vaccinations are recognized (rare) triggers. HEV exposure reduction (food safety, livestock-contact awareness) is a plausible environmental measure given HEV's trigger role.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>A <strong>naturally occurring inflammatory brachial plexus neuritis exists in cats (<em>Felis catus</em>, NCBI:txid9685)</strong>, providing a comparative-species analogue (<a href="https://pubmed.ncbi.nlm.nih.gov/29925717/">PMID: 29925717</a>):</p>
+<blockquote>
+<p>"A postmortem examination revealed swollen radial nerves and cervical nerve roots in which infiltration of inflammatory cells was histologically confirmed"</p>
+</blockquote>
+<p>This hypertrophic neuritis caused tetraparesis with histologically confirmed inflammatory infiltration, paralleling the human immune/inflammatory mechanism. <strong>Orthologous gene:</strong> Sept9/SEPTIN9 is conserved across mammals (human <a href="https://bioregistry.io/HGNC:7323" target="_blank" rel="noopener noreferrer">HGNC:7323</a>; mouse Sept9). <strong>Comparative biology:</strong> conservation of septin cytoskeletal function and of immune-mediated peripheral neuritis supports cross-species mechanistic relevance. <strong>Zoonotic angle:</strong> HEV is zoonotic (swine reservoir), relevant to the trigger rather than to NA transmission; NA is not itself transmissible. Formal OMIA/veterinary registry entries were not established in the reviewed literature — a knowledge gap.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>No dedicated animal model that recapitulates the full NA phenotype was identified in the reviewed literature. Relevant systems include:</p>
+<ul>
+<li><strong>In vitro / molecular models:</strong> Molecular-dynamics simulation of mutant septin-9 demonstrates impaired microtubule binding/bundling (<a href="https://pubmed.ncbi.nlm.nih.gov/39428775/">PMID: 39428775</a>); cell-based assays of septin–microtubule association define the isoform-1 MAP-like motif and show HNA mutations abrogate it (<a href="https://pubmed.ncbi.nlm.nih.gov/34854883/">PMID: 34854883</a>). Evidence type: computational and in vitro.</li>
+<li><strong>Naturally occurring animal analogue:</strong> feline hypertrophic brachial plexus neuritis (spontaneous, not engineered) (<a href="https://pubmed.ncbi.nlm.nih.gov/29925717/">PMID: 29925717</a>).</li>
+<li><strong>Genetic models (knockout/knock-in/transgenic Sept9):</strong> not established for the NA phenotype in the reviewed literature.</li>
+</ul>
+<p><strong>Limitations of available models:</strong> they capture the molecular (septin/microtubule) dimension or the inflammatory-pathology dimension separately, but no single model reproduces the triad (genetic predisposition + mechanical vulnerability + immune trigger) with hourglass-constriction formation. <strong>Recommended resources for future work:</strong> MGI (mouse Sept9), IMPC/KOMP, Cellosaurus/ATCC and patient-derived iPSC-neuron models.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>NA is best understood as a <strong>"three-hit" focal inflammatory neuropathy</strong>. The first hit is a <strong>predisposing background</strong> — a SEPT9 mutation compromising microtubule-based cytoskeletal regulation in HNA, or an undefined susceptibility in INA. The second hit is a <strong>mechanical/anatomical vulnerability</strong> of specific plexus segments, possibly through a leaky epineurial blood–nerve barrier that grants immune cells access. The third hit is an <strong>immune trigger</strong> — most compellingly an infection such as HEV, but also vaccination, surgery, childbirth, or exertion — that ignites a <strong>multifocal mononuclear inflammatory attack</strong>. The convergence produces the disease's structural signature, the <strong>hourglass constriction/nerve torsion</strong>, and drives the stereotyped clinical sequence of severe pain → patchy paresis/atrophy/sensory loss → slow, often incomplete recovery.</p>
+<p>This model unifies otherwise disparate observations: why NA recurs and starts earlier in SEPT9 carriers (stronger first hit); why bilateral and phrenic disease cluster with viral infection/HEV (a systemic third hit reaching multiple vulnerable segments); why nerve biopsies show inflammation (the effector mechanism); and why steroids help acutely (dampening the immune hit) but weakness responds mainly to time, rehabilitation, and — for fixed constrictions — surgery (repairing the structural end-lesion). The <strong>directionality is clear</strong>: genetic/mechanical predisposition is upstream and permissive; the immune trigger is the proximate initiator; hourglass constriction and axonal loss are the downstream lesions producing symptoms; chronic scapular dyskinesia is the tertiary consequence of incomplete regeneration and maladaptive motor control.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16371410/">16371410</a></td>
+<td>246-case clinical spectrum; three-phase pain; INA vs HNA</td>
+<td>F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21556032/">21556032</a></td>
+<td>SEPT9 in 55% of HNA families; triad pathophysiology</td>
+<td>F002, F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34854883/">34854883</a></td>
+<td>Septin-9 isoform-1 MAP motif; HNA mutations abrogate MT binding</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39428775/">39428775</a></td>
+<td>MD simulation: mutation impairs MT binding/bundling</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30019529/">30019529</a></td>
+<td>Childhood HNA, exon-2 duplication, platelet dysfunction</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36214185/">36214185</a></td>
+<td>Acute-phase US/MRN; HGCs 74%, muscle edema 91%</td>
+<td>F003, F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33823638/">33823638</a></td>
+<td>Incidence ~1/1000/yr; Gd-MRI/MRN confirmatory</td>
+<td>F004, F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38835178/">38835178</a></td>
+<td>Poor prognosis (25% unable to work at 3 yr); steroids first</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19321467/">19321467</a></td>
+<td>Prednisolone shortens pain (12.5 vs 20.5 d)</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39364568/">39364568</a></td>
+<td>Infectious trigger 26.3%; viral infection → bilateral (p=0.003)</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40534221/">40534221</a></td>
+<td>HEV NA with bilateral phrenic/diaphragm paralysis</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38657646/">38657646</a></td>
+<td>HEV → phrenic/diaphragmatic dysfunction</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36697215/">36697215</a></td>
+<td>&gt;60% residual; rehab RCT (Δ8.60, p=0.044)</td>
+<td>F006, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39402917/">39402917</a></td>
+<td>Motor-relearning strategy, not strength training</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8614534/">8614534</a></td>
+<td>Nerve biopsy: multifocal mononuclear infiltrates</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29925717/">29925717</a></td>
+<td>Feline inflammatory brachial plexus neuritis analogue</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32140911/">32140911</a></td>
+<td>Diagnosis is clinical</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32868098/">32868098</a></td>
+<td>Microneurolysis of HGCs (9/11 vs 3/13 recover)</td>
+<td>Treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38543940/">38543940</a></td>
+<td>Systematic review: PTS after COVID-19 vaccines</td>
+<td>Etiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19588414/">19588414</a></td>
+<td>Cochrane: no RCTs; steroid open-label evidence</td>
+<td>Treatment</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Challenges / caveats in the evidence base.</strong> The prednisolone and rehabilitation data come from observational studies and a single small RCT (n=47), respectively; the Cochrane review found no RCTs of drug therapy. HGC prevalence figures derive from modest imaging series. These limit the strength of causal treatment claims.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No high-level RCT evidence for pharmacotherapy</strong> — corticosteroid benefit rests on observational data (<a href="https://pubmed.ncbi.nlm.nih.gov/19588414/">PMID: 19588414</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19321467/">PMID: 19321467</a>).</li>
+<li><strong>Molecular profiling absent</strong> — no NA-specific transcriptomic, proteomic, metabolomic, single-cell, or CRISPR/RNAi data were identified; the immune effector cells and antigens remain undefined.</li>
+<li><strong>INA genetics undefined</strong> — the "genetic predisposition" in idiopathic NA is inferred, not mapped; no GWAS/susceptibility loci established.</li>
+<li><strong>Modifier genes, epigenetics, penetrance/expressivity metrics, carrier frequency</strong> for SEPT9-HNA are not quantified.</li>
+<li><strong>Mechanism of hourglass constriction</strong> — the link from inflammation to focal constriction/torsion is described but not mechanistically demonstrated.</li>
+<li><strong>No engineered animal model</strong> recapitulating the full triad; the feline analogue is naturally occurring and incompletely characterized.</li>
+<li><strong>Identifier confirmation</strong> — MONDO/OMIM/Orphanet/ICD codes should be verified against current ontology releases before database ingestion.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Randomized controlled trial of early corticosteroids ± IVIG</strong> in acute NA, powered for functional recovery and pain outcomes, to convert observational signals into Level-I evidence.</li>
+<li><strong>Multi-omic characterization of NA nerve/biopsy and blood</strong> (bulk + single-cell RNA-seq, proteomics) during acute attacks to identify immune effector populations, candidate autoantigens, and biomarkers — populating the currently empty molecular-profiling domain.</li>
+<li><strong>SEPT9 genotype–phenotype and penetrance study</strong> across HNA registries, including CNV analysis, to quantify penetrance, expressivity, and modifier loci; establish carrier frequency in gnomAD-linked cohorts.</li>
+<li><strong>Prospective HEV-screening protocol</strong> in all new NA cases (IgM/IgG + RNA + transaminases), especially with phrenic/bilateral involvement, to define the treatable-trigger fraction and guide etiologic management.</li>
+<li><strong>Engineered Sept9 knock-in mouse (e.g., R106W)</strong> with an inducible immune/inflammatory challenge to test the three-hit model and reproduce hourglass-constriction formation.</li>
+<li><strong>Standardized imaging staging</strong> (US/MRN) with defined timing to predict which HGCs spontaneously resolve versus require early neurolysis, refining the 6–12-month surgical decision window.</li>
+<li><strong>Ontology reconciliation</strong> — verify and finalize MONDO, OMIM, Orphanet, ICD-10/11, MeSH, HPO, GO, CL, and UBERON term assignments for knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings and 47 reviewed papers across a 5-iteration autonomous investigation. Evidence types span human clinical cohorts, case-control and observational studies, one small RCT, nerve-biopsy histopathology, in vitro/computational molecular studies, and a naturally occurring veterinary analogue.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Neuralgic_Amyotrophy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Neuralgic_Amyotrophy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>40</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:40213747</code> (3 mentions) - Functional Restoring in Parsonage-Turner Syndrome With a Multimodal Rehabilitation Program: A Case Report.</li>
+<li>shared terms: pain</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>hna</code>, <code>sept9</code>, <code>nerve</code>, <code>attack</code>, <code>trigger</code>, <code>pain</code>, <code>plexus</code>, <code>hev</code>, <code>genetic</code>, <code>phrenic</code>, <code>brachial</code>, <code>immune</code>, <code>involvement</code>, <code>ina</code>, <code>clinical</code>, <code>acute</code>, <code>mutation</code>, <code>chronic</code>, <code>multifocal</code>, <code>infection</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0100053</code> (1 mention) - the report calls it "neuralgic amyotrophy"; MONDO calls it <strong>anaphylaxis</strong></li>
+<li><code>UBERON:0001824</code> (1 mention) - the report calls it "brachial plexus"; UBERON calls it <strong>mucosa of larynx</strong></li>
+<li><code>UBERON:0001379</code> (1 mention) - the report calls it "deltoid"; UBERON calls it <strong>vastus lateralis</strong></li>
+<li><code>NCIT:C198</code> (1 mention) - the report calls it "Prednisone"; NCIT calls it <strong>Acetaminophen</strong></li>
+<li><code>NCIT:C1409</code> (1 mention) - the report calls it "Corticosteroid"; NCIT calls it <strong>Carbenicillin Indanyl Sodium</strong></li>
+<li><code>NCIT:C579</code> (1 mention) - the report calls it "Immunoglobulin therapy"; NCIT calls it <strong>Inorganic Chemical</strong></li>
+<li><code>NCIT:C157810</code> (1 mention) - the report calls it "Neurolysis"; NCIT calls it <strong>Cervical Cancer Surgery</strong></li>
+<li><code>NCIT:C15296</code> (1 mention) - the report calls it "Physical Therapy"; NCIT calls it <strong>Isolated Chemotherapeutic Perfusion</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>UBERON:0003732</code> (1 mention), reported as "phrenic nerve" - UBERON does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0005874</code> (1 mention) - the report calls it "microtubule cytoskeleton"; GO calls it <strong>microtubule</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Netherton_Syndrome-falcon.html">← Netherton syndrome (Falcon)</a>
+                
+                
+                <a href="Neuroblastoma-cyberian-codex.html">Neuroblastoma (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Neuralgic_Amyotrophy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Neuralgic_Amyotrophy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
