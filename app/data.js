@@ -7897,7 +7897,7 @@ window.searchData = [
       "HP:0002194",
       "HP:0000750",
       "HP:0034391",
-      "HP:0005070",
+      "HP:0003083",
       "HP:0002938",
       "HP:0001156",
       "HP:0005819",
@@ -7945,7 +7945,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "50",
     "causal_graph_longest_path": "8"
   },
   {
@@ -17486,7 +17486,7 @@ window.searchData = [
     "creation_date": "2026-04-16T18:42:24Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Alternating hemiplegia of childhood is a rare early-onset neurologic disorder characterized by recurrent episodes of hemiplegia, paroxysmal dystonia, oculomotor abnormalities, developmental delay, and epilepsy. Most cases are caused by pathogenic variants in ATP1A3, which impair neuronal sodium- potassium transport and destabilize excitability in motor and autonomic networks.",
+    "description": "Alternating hemiplegia of childhood is a rare early-onset neurologic disorder characterized by recurrent episodes of hemiplegia, paroxysmal dystonia, oculomotor abnormalities, developmental delay, and epilepsy. Most cases are caused by pathogenic variants in ATP1A3, which impair neuronal sodium-potassium transport and destabilize excitability in motor and autonomic networks.",
     "pathophysiology": [
       "ATP1A3-dependent neuronal membrane transport dysfunction",
       "Paroxysmal motor and oculomotor network instability",
@@ -22929,7 +22929,7 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Aromatase deficiency is a rare autosomal recessive disorder caused by biallelic CYP19A1 loss-of-function variants. Deficient aromatase activity impairs conversion of androgen precursors to estrogens, producing congenital estrogen deficiency with androgen excess. The phenotype is sex- and age- dependent: 46,XX individuals can present with maternal antenatal virilization, ambiguous genitalia, hypergonadotropic hypogonadism, poor pubertal development, primary amenorrhea, and ovarian cysts, while 46,XY individuals can present later with tall stature, delayed skeletal maturation, osteoporosis, and metabolic impairment.",
+    "description": "Aromatase deficiency is a rare autosomal recessive disorder caused by biallelic CYP19A1 loss-of-function variants. Deficient aromatase activity impairs conversion of androgen precursors to estrogens, producing congenital estrogen deficiency with androgen excess. The phenotype is sex- and age-dependent: 46,XX individuals can present with maternal antenatal virilization, ambiguous genitalia, hypergonadotropic hypogonadism, poor pubertal development, primary amenorrhea, and ovarian cysts, while 46,XY individuals can present later with tall stature, delayed skeletal maturation, osteoporosis, and metabolic impairment.",
     "pathophysiology": [
       "CYP19A1 Loss-of-Function and Aromatase Deficiency",
       "Estrogen Deficiency and Androgen Excess",
@@ -28873,7 +28873,7 @@ window.searchData = [
       "MAR",
       "npAIR"
     ],
-    "description": "Autoimmune retinopathy (AIR) is a group of rare autoimmune disorders causing retinal degeneration, characterized by rapid vision deterioration linked to circulating anti-retinal autoantibodies (ARAs). The spectrum includes paraneoplastic forms\u2014cancer- associated retinopathy (CAR) and melanoma-associated retinopathy (MAR)\u2014and a nonparaneoplastic variant (npAIR). Diagnosis is challenging due to overlapping phenotypes with inherited retinal dystrophies, absent standardized diagnostic criteria, and limited availability of specialized serological testing. No international consensus on treatment protocols exists; immunosuppression remains the mainstay of therapy.",
+    "description": "Autoimmune retinopathy (AIR) is a group of rare autoimmune disorders causing retinal degeneration, characterized by rapid vision deterioration linked to circulating anti-retinal autoantibodies (ARAs). The spectrum includes paraneoplastic forms\u2014cancer-associated retinopathy (CAR) and melanoma-associated retinopathy (MAR)\u2014and a nonparaneoplastic variant (npAIR). Diagnosis is challenging due to overlapping phenotypes with inherited retinal dystrophies, absent standardized diagnostic criteria, and limited availability of specialized serological testing. No international consensus on treatment protocols exists; immunosuppression remains the mainstay of therapy.",
     "pathophysiology": [
       "Anti-Retinal Antibody Production via Molecular Mimicry",
       "Photoreceptor and Bipolar Cell Injury by Autoantibodies"
@@ -55024,7 +55024,7 @@ window.searchData = [
     "creation_date": "2026-06-21T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COX4I2-related pancreatic insufficiency-anemia-hyperostosis syndrome (EPIDACH; exocrine pancreatic insufficiency, dyserythropoietic anemia, and calvarial hyperostosis) is a rare autosomal recessive mitochondrial cytochrome c oxidase (COX, Complex IV) disorder caused by biallelic variants in COX4I2. COX4 is an essential structural subunit of cytochrome c oxidase and exists as two tissue- biased isoforms encoded by separate genes: the ubiquitous COX4I1 and the hypoxia-responsive COX4I2, whose mRNA is relatively enriched in human pancreatic acinar cells. Loss-of-function of COX4I2 markedly reduces its expression and blunts the physiologic isoform response to hypoxia, producing a tissue-biased Complex IV deficiency. Unlike the encephalomyopathic / Leigh-like presentation typical of other nuclear COX-assembly defects, the founding cohort of four patients presented with a distinctive non-neurological triad: congenital exocrine pancreatic insufficiency with steatorrhea and malabsorption of lipid-soluble vitamins, dyserythropoietic anemia, and calvarial hyperostosis. The disorder was mapped by homozygosity mapping and conforms to the conserved Complex IV biogenesis-failure mechanism, with the lesion in a nuclear-encoded, acinar-biased COX structural subunit.\n",
+    "description": "COX4I2-related pancreatic insufficiency-anemia-hyperostosis syndrome (EPIDACH; exocrine pancreatic insufficiency, dyserythropoietic anemia, and calvarial hyperostosis) is a rare autosomal recessive mitochondrial cytochrome c oxidase (COX, Complex IV) disorder caused by biallelic variants in COX4I2. COX4 is an essential structural subunit of cytochrome c oxidase and exists as two tissue-biased isoforms encoded by separate genes: the ubiquitous COX4I1 and the hypoxia-responsive COX4I2, whose mRNA is relatively enriched in human pancreatic acinar cells. Loss-of-function of COX4I2 markedly reduces its expression and blunts the physiologic isoform response to hypoxia, producing a tissue-biased Complex IV deficiency. Unlike the encephalomyopathic / Leigh-like presentation typical of other nuclear COX-assembly defects, the founding cohort of four patients presented with a distinctive non-neurological triad: congenital exocrine pancreatic insufficiency with steatorrhea and malabsorption of lipid-soluble vitamins, dyserythropoietic anemia, and calvarial hyperostosis. The disorder was mapped by homozygosity mapping and conforms to the conserved Complex IV biogenesis-failure mechanism, with the lesion in a nuclear-encoded, acinar-biased COX structural subunit.\n",
     "pathophysiology": [
       "COX4I2 Subunit Loss and Failed Complex IV Assembly",
       "Impaired Terminal Electron Transfer and ATP Synthesis",
@@ -62377,7 +62377,7 @@ window.searchData = [
       "HPV-Independent (HPVI)",
       "Gastric-Type"
     ],
-    "description": "Cervical adenocarcinoma is the second most common histologic type of cervical cancer, accounting for approximately 20-25% of cases. It arises from the glandular epithelium of the endocervical canal rather than from the squamous epithelium of the ectocervix. The majority of cases are associated with high-risk human papillomavirus infection, with HPV-18 over- represented relative to squamous cell carcinoma. A subset, particularly gastric-type adenocarcinoma, is HPV-independent. Because adenocarcinoma arises higher in the endocervical canal, it is more often missed by cytology-based screening and tends to present at later stage than squamous cell carcinoma.",
+    "description": "Cervical adenocarcinoma is the second most common histologic type of cervical cancer, accounting for approximately 20-25% of cases. It arises from the glandular epithelium of the endocervical canal rather than from the squamous epithelium of the ectocervix. The majority of cases are associated with high-risk human papillomavirus infection, with HPV-18 over-represented relative to squamous cell carcinoma. A subset, particularly gastric-type adenocarcinoma, is HPV-independent. Because adenocarcinoma arises higher in the endocervical canal, it is more often missed by cytology-based screening and tends to present at later stage than squamous cell carcinoma.",
     "pathophysiology": [
       "HPV E6/E7-Mediated Oncogenesis in Glandular Epithelium",
       "HPV-Independent Oncogenesis (Gastric-Type, Clear-Cell, Mesonephric)",
@@ -64922,7 +64922,7 @@ window.searchData = [
     "creation_date": "2026-04-13T22:47:36Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charlevoix-Saguenay spastic ataxia, also known as autosomal recessive spastic ataxia of Charlevoix-Saguenay (ARSACS), is a SACS-related childhood- onset neurodegenerative disorder characterized by progressive cerebellar ataxia, lower-limb spasticity, peripheral neuropathy, dysarthria, ocular motor abnormalities, retinal nerve-fiber-layer thickening, pes cavus, and progressive functional decline. Pathogenesis is driven by loss of sacsin function with downstream defects in cytoskeletal organization, protein quality control, cellular bioenergetics, and emerging calcium/lipid-homeostasis abnormalities.",
+    "description": "Charlevoix-Saguenay spastic ataxia, also known as autosomal recessive spastic ataxia of Charlevoix-Saguenay (ARSACS), is a SACS-related childhood-onset neurodegenerative disorder characterized by progressive cerebellar ataxia, lower-limb spasticity, peripheral neuropathy, dysarthria, ocular motor abnormalities, retinal nerve-fiber-layer thickening, pes cavus, and progressive functional decline. Pathogenesis is driven by loss of sacsin function with downstream defects in cytoskeletal organization, protein quality control, cellular bioenergetics, and emerging calcium/lipid-homeostasis abnormalities.",
     "pathophysiology": [
       "Sacsin loss of function",
       "Cytoskeletal disorganization",
@@ -87925,7 +87925,7 @@ window.searchData = [
     "creation_date": "2026-04-15T23:36:42Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DK1-congenital disorder of glycosylation is an autosomal recessive DOLK- related congenital disorder of glycosylation characterized by impaired dolichol phosphate biosynthesis, abnormal N-linked glycosylation, and variable neonatal-onset multisystem disease featuring dilated cardiomyopathy, ichthyosis, hypotonia, seizures, and early death.",
+    "description": "DK1-congenital disorder of glycosylation is an autosomal recessive DOLK-related congenital disorder of glycosylation characterized by impaired dolichol phosphate biosynthesis, abnormal N-linked glycosylation, and variable neonatal-onset multisystem disease featuring dilated cardiomyopathy, ichthyosis, hypotonia, seizures, and early death.",
     "pathophysiology": [
       "DOLK deficiency",
       "Reduced dolichol phosphate-dependent glycosylation",
@@ -88230,6 +88230,7 @@ window.searchData = [
     ],
     "treatments": [
       "Antiseizure Medication",
+      "Ketogenic Diet Therapy",
       "Supportive and Developmental Care",
       "Genetic Counseling"
     ],
@@ -88240,7 +88241,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
@@ -112506,7 +112507,7 @@ window.searchData = [
     "creation_date": "2026-06-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Ataxia with vitamin E deficiency (AVED), also called familial isolated vitamin E deficiency, is a rare autosomal recessive neurodegenerative disease caused by biallelic loss-of-function variants in TTPA, encoding the hepatic alpha-tocopherol transfer protein (alpha-TTP). Loss of alpha-TTP activity prevents incorporation of alpha-tocopherol (vitamin E) into nascent very-low- density lipoproteins secreted by the liver, producing severe systemic vitamin E deficiency despite normal dietary intake and intestinal absorption. The resulting failure of lipid-soluble antioxidant protection causes oxidative damage to large myelinated sensory neurons, dorsal columns, and cerebellar pathways, producing a progressive spinocerebellar ataxia that closely resembles Friedreich ataxia. Lifelong high-dose oral vitamin E supplementation is disease-modifying and, when started presymptomatically, prevents clinical manifestations.\n",
+    "description": "Ataxia with vitamin E deficiency (AVED), also called familial isolated vitamin E deficiency, is a rare autosomal recessive neurodegenerative disease caused by biallelic loss-of-function variants in TTPA, encoding the hepatic alpha-tocopherol transfer protein (alpha-TTP). Loss of alpha-TTP activity prevents incorporation of alpha-tocopherol (vitamin E) into nascent very-low-density lipoproteins secreted by the liver, producing severe systemic vitamin E deficiency despite normal dietary intake and intestinal absorption. The resulting failure of lipid-soluble antioxidant protection causes oxidative damage to large myelinated sensory neurons, dorsal columns, and cerebellar pathways, producing a progressive spinocerebellar ataxia that closely resembles Friedreich ataxia. Lifelong high-dose oral vitamin E supplementation is disease-modifying and, when started presymptomatically, prevents clinical manifestations.\n",
     "pathophysiology": [
       "Alpha-Tocopherol Transfer Protein Deficiency",
       "Systemic Vitamin E Deficiency",
@@ -121668,6 +121669,112 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Gamma-Glutamylcysteine Synthetase Deficiency",
+    "disease_id": "MONDO:0009259",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Glutathione Metabolism Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-08-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Gamma-glutamylcysteine synthetase deficiency (glutamate-cysteine ligase, GCL, deficiency) is an ultra-rare autosomal recessive inborn error of the gamma-glutamyl cycle caused by biallelic variants in GCLC, the catalytic subunit of glutamate-cysteine ligase. GCL catalyses the first and rate-limiting step of glutathione biosynthesis, the ATP-dependent ligation of glutamate and cysteine to form gamma-glutamylcysteine; the holoenzyme is a heterodimer of the GCLC catalytic subunit and the GCLM regulatory subunit. Loss of activity depletes cellular glutathione, and because the erythrocyte depends on glutathione as its principal antioxidant, the constant and defining manifestation is chronic non-spherocytic hemolytic anemia, typically presenting in the neonatal period. A minority of reported patients additionally develop progressive neurological disease (spinocerebellar degeneration, ataxia, spasticity, peripheral neuropathy, cognitive impairment, myopathy) and generalized aminoaciduria; no genotype has been shown to predict that neurological arm, and its mechanism is unresolved. The disorder is distinguished from glutathione synthetase deficiency, the other glutathione biosynthetic defect, by the absence of 5-oxoprolinuria: because the enzymatic block is at the first step, gamma-glutamylcysteine is not overproduced and cannot be cyclised to 5-oxoproline.\n",
+    "pathophysiology": [
+      "Destabilized GCLC-GCLM holoenzyme",
+      "Reduced glutamate-cysteine ligase activity",
+      "Cellular glutathione depletion",
+      "Oxidative erythrocyte injury",
+      "Premature erythrocyte destruction",
+      "Chronic non-spherocytic hemolytic anemia",
+      "Progressive neurological dysfunction"
+    ],
+    "cell_types": [
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "glutathione biosynthetic process",
+      "glutathione metabolic process",
+      "cell redox homeostasis",
+      "response to oxidative stress",
+      "erythrocyte clearance"
+    ],
+    "phenotypes": [
+      "Hemolytic anemia",
+      "Reticulocytosis",
+      "Prolonged neonatal jaundice",
+      "Hepatosplenomegaly",
+      "Progressive cerebellar ataxia",
+      "Cerebellar atrophy",
+      "Spasticity",
+      "Peripheral neuropathy",
+      "Cognitive impairment",
+      "Myopathy",
+      "Aminoaciduria"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Hepatic",
+      "Neurologic",
+      "Musculoskeletal",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0001923",
+      "HP:0006579",
+      "HP:0001433",
+      "HP:0002073",
+      "HP:0001272",
+      "HP:0001257",
+      "HP:0009830",
+      "HP:0100543",
+      "HP:0003198",
+      "HP:0002909"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GCLC variants"
+    ],
+    "treatments": [
+      "Antioxidant supplementation and avoidance of oxidative triggers",
+      "Red blood cell transfusion for severe neonatal anemia",
+      "High-dose alpha-lipoic acid and glutathione supplementation with physical therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced erythrocyte glutathione",
+      "Reduced erythrocyte glutamate-cysteine ligase activity",
+      "Reduced erythrocyte gamma-glutamylcysteine"
+    ],
+    "source_file": "Gamma-Glutamylcysteine_Synthetase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Gamma-Glutamylcysteine_Synthetase_Deficiency.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Gastric Adenocarcinoma",
@@ -142313,7 +142420,7 @@ window.searchData = [
       "Partial Mole",
       "Familial Biparental Mole"
     ],
-    "description": "Hydatidiform mole is the benign, premalignant end of the gestational trophoblastic disease spectrum: an abnormal pregnancy characterized by hydropic swelling of the chorionic villi and proliferation of villous trophoblast. It arises from aberrant fertilization that produces an imbalance of parental genomes. Complete hydatidiform mole is typically diploid and androgenetic (entirely paternal genome, most often from duplication of a single sperm in an ovum lacking maternal chromosomes), with no fetal tissue and diffuse villous hydrops; partial hydatidiform mole is typically triploid and diandric (two paternal genome complements plus one maternal), with focal villous hydrops and a non-viable fetus. The androgenetic/diandric excess of paternally expressed genes and loss of maternally imprinted CDKN1C/p57 drive trophoblastic hyperplasia. A rare familial biparental form (recurrent complete mole) is caused by biallelic maternal-effect variants in NLRP7 or KHDC3L that disrupt the maternal imprinting machinery despite a normal biparental genome. Hydatidiform mole presents with first- trimester bleeding and markedly elevated hCG, is treated by uterine evacuation, and confers a risk of progression to gestational trophoblastic neoplasia, requiring serial hCG surveillance.",
+    "description": "Hydatidiform mole is the benign, premalignant end of the gestational trophoblastic disease spectrum: an abnormal pregnancy characterized by hydropic swelling of the chorionic villi and proliferation of villous trophoblast. It arises from aberrant fertilization that produces an imbalance of parental genomes. Complete hydatidiform mole is typically diploid and androgenetic (entirely paternal genome, most often from duplication of a single sperm in an ovum lacking maternal chromosomes), with no fetal tissue and diffuse villous hydrops; partial hydatidiform mole is typically triploid and diandric (two paternal genome complements plus one maternal), with focal villous hydrops and a non-viable fetus. The androgenetic/diandric excess of paternally expressed genes and loss of maternally imprinted CDKN1C/p57 drive trophoblastic hyperplasia. A rare familial biparental form (recurrent complete mole) is caused by biallelic maternal-effect variants in NLRP7 or KHDC3L that disrupt the maternal imprinting machinery despite a normal biparental genome. Hydatidiform mole presents with first-trimester bleeding and markedly elevated hCG, is treated by uterine evacuation, and confers a risk of progression to gestational trophoblastic neoplasia, requiring serial hCG surveillance.",
     "pathophysiology": [
       "Aberrant Fertilization and Parental Genome Imbalance",
       "Loss of Genomic Imprinting and p57 Silencing",
@@ -147781,7 +147888,7 @@ window.searchData = [
       "IDH1-Mutated AML",
       "IDH2-Mutated AML"
     ],
-    "description": "IDH-mutated acute myeloid leukemia is characterized by mutations in isocitrate dehydrogenase genes IDH1 (6-10% of AML) or IDH2 (8-12% of AML). These mutations confer neomorphic enzymatic activity, producing the oncometabolite 2-hydroxyglutarate (2-HG) instead of alpha-ketoglutarate. Elevated 2-HG inhibits alpha-ketoglutarate- dependent dioxygenases, causing epigenetic dysregulation and differentiation block. The development of targeted IDH inhibitors (ivosidenib for IDH1, enasidenib for IDH2) represents a paradigm of metabolic-targeted cancer therapy, inducing differentiation rather than cytotoxicity.",
+    "description": "IDH-mutated acute myeloid leukemia is characterized by mutations in isocitrate dehydrogenase genes IDH1 (6-10% of AML) or IDH2 (8-12% of AML). These mutations confer neomorphic enzymatic activity, producing the oncometabolite 2-hydroxyglutarate (2-HG) instead of alpha-ketoglutarate. Elevated 2-HG inhibits alpha-ketoglutarate-dependent dioxygenases, causing epigenetic dysregulation and differentiation block. The development of targeted IDH inhibitors (ivosidenib for IDH1, enasidenib for IDH2) represents a paradigm of metabolic-targeted cancer therapy, inducing differentiation rather than cytotoxicity.",
     "pathophysiology": [
       "IDH Neomorphic Enzyme Activity",
       "2-HG Accumulation",
@@ -165831,7 +165938,7 @@ window.searchData = [
       "Iatrogenic Kaposi Sarcoma",
       "AIDS-Associated Kaposi Sarcoma"
     ],
-    "description": "Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant- associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.",
+    "description": "Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8), also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from infected endothelial cells that acquire a spindle cell morphology. Four clinical variants exist: classic (Mediterranean), endemic (African), iatrogenic (transplant-associated), and epidemic (AIDS-associated). HHV-8 viral oncoproteins including vGPCR, vFLIP, vCyclin, and LANA drive oncogenesis through activation of NF-kappaB, PI3K-AKT, and MAPK signaling pathways. The disease is characterized by multifocal red-purple vascular lesions of skin and viscera.",
     "pathophysiology": [
       "HHV-8 Latent Infection of Endothelial Cells",
       "vFLIP-Mediated NF-kappaB Activation",
@@ -171544,7 +171651,7 @@ window.searchData = [
       "Neurolathyrism",
       "Connective Tissue Lathyrism"
     ],
-    "description": "Lathyrism is a toxin-mediated environmental disorder caused by excessive consumption of, or exposure to, Lathyrus legumes and the toxins they contain. The dominant human form, neurolathyrism, is an irreversible upper motor neuron disease producing spastic paraparesis of the legs, caused by the excitatory amino acid neurotoxin beta-N-oxalyl- L-alpha,beta-diaminopropionic acid (beta-ODAP, also called BOAA), a glutamate analog found in grass pea (Lathyrus sativus). The toxic beta-isomer accounts for the bulk of ODAP and acts as an agonist at AMPA-type ionotropic glutamate receptors, additionally driving voltage-independent calcium entry through TRP channels and group I metabotropic glutamate receptors; the resulting motor-neuron calcium overload, mitochondrial dysfunction and oxidative stress degenerate upper motor neurons and the corticospinal tracts. Neurolathyrism characteristically spares sensory and sphincter function and emerges in epidemic form during droughts and famines, when grass pea becomes a dietary staple, disproportionately affecting young adult males. A second group of forms, osteolathyrism (skeletal) and angiolathyrism (vascular), is produced by the nitrile toxin beta-aminopropionitrile (BAPN) from sweet pea (Lathyrus odoratus); BAPN irreversibly inhibits the copper-dependent enzyme lysyl oxidase, impairing collagen and elastin cross-linking and causing connective-tissue fragility, skeletal deformity, and aortic aneurysm/dissection. These connective-tissue forms are documented chiefly in animal models and are widely used experimentally. There is no cure for established neurolathyrism; management is preventive (detoxification of grass pea, dietary diversification, low-ODAP cultivars) and supportive (antispasticity therapy, physiotherapy, assistive devices).",
+    "description": "Lathyrism is a toxin-mediated environmental disorder caused by excessive consumption of, or exposure to, Lathyrus legumes and the toxins they contain. The dominant human form, neurolathyrism, is an irreversible upper motor neuron disease producing spastic paraparesis of the legs, caused by the excitatory amino acid neurotoxin beta-N-oxalyl-L-alpha,beta-diaminopropionic acid (beta-ODAP, also called BOAA), a glutamate analog found in grass pea (Lathyrus sativus). The toxic beta-isomer accounts for the bulk of ODAP and acts as an agonist at AMPA-type ionotropic glutamate receptors, additionally driving voltage-independent calcium entry through TRP channels and group I metabotropic glutamate receptors; the resulting motor-neuron calcium overload, mitochondrial dysfunction and oxidative stress degenerate upper motor neurons and the corticospinal tracts. Neurolathyrism characteristically spares sensory and sphincter function and emerges in epidemic form during droughts and famines, when grass pea becomes a dietary staple, disproportionately affecting young adult males. A second group of forms, osteolathyrism (skeletal) and angiolathyrism (vascular), is produced by the nitrile toxin beta-aminopropionitrile (BAPN) from sweet pea (Lathyrus odoratus); BAPN irreversibly inhibits the copper-dependent enzyme lysyl oxidase, impairing collagen and elastin cross-linking and causing connective-tissue fragility, skeletal deformity, and aortic aneurysm/dissection. These connective-tissue forms are documented chiefly in animal models and are widely used experimentally. There is no cure for established neurolathyrism; management is preventive (detoxification of grass pea, dietary diversification, low-ODAP cultivars) and supportive (antispasticity therapy, physiotherapy, assistive devices).",
     "pathophysiology": [
       "Beta-ODAP Excitatory Amino Acid Receptor Agonism",
       "TRP Channel and Group I mGluR Calcium Entry",
@@ -182933,7 +183040,7 @@ window.searchData = [
       "Type 3",
       "Type 4"
     ],
-    "description": "Machado-Joseph disease (MJD), also known as spinocerebellar ataxia type 3 (SCA3), is the most common autosomal dominant spinocerebellar ataxia worldwide. It arises from a CAG trinucleotide repeat expansion in exon 10 of ATXN3 (14q32.1), producing a polyglutamine-expanded ataxin-3 protein that misfolds, aggregates, and disrupts multiple cellular systems including the ubiquitin- proteasome system, autophagy, transcription, and mitochondrial function. The disorder is clinically heterogeneous and classically divided into four subtypes (Types 1-4) based on age at onset and predominant features. There is no approved disease-modifying therapy; antisense oligonucleotide (ASO)-based gene silencing is the most clinically advanced investigational strategy.",
+    "description": "Machado-Joseph disease (MJD), also known as spinocerebellar ataxia type 3 (SCA3), is the most common autosomal dominant spinocerebellar ataxia worldwide. It arises from a CAG trinucleotide repeat expansion in exon 10 of ATXN3 (14q32.1), producing a polyglutamine-expanded ataxin-3 protein that misfolds, aggregates, and disrupts multiple cellular systems including the ubiquitin-proteasome system, autophagy, transcription, and mitochondrial function. The disorder is clinically heterogeneous and classically divided into four subtypes (Types 1-4) based on age at onset and predominant features. There is no approved disease-modifying therapy; antisense oligonucleotide (ASO)-based gene silencing is the most clinically advanced investigational strategy.",
     "pathophysiology": [
       "Somatic CAG Repeat Expansion (ATXN3)",
       "PolyQ-expanded ataxin-3 misfolding and nuclear aggregation",
@@ -220390,7 +220497,7 @@ window.searchData = [
     "creation_date": "2026-06-19T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Ovarian endometrioid carcinoma (OEC) is the second most common epithelial ovarian cancer histotype, accounting for roughly 10% of ovarian carcinomas. It resembles endometrioid carcinoma of the uterine corpus, is frequently endometriosis-associated, and is characterized by recurrent CTNNB1/Wnt-beta- catenin activation, PI3K-pathway lesions (PIK3CA gain, PTEN loss), and ARID1A (SWI/SNF) loss. The endometrial-cancer molecular taxonomy (POLE-ultramutated, mismatch-repair-deficient, p53-abnormal, no specific molecular profile) also applies to OEC, which is enriched for Lynch syndrome-associated tumors, supporting routine mismatch-repair testing. Most OECs are low-grade, present at an early stage, and carry a more favorable prognosis than high-grade serous carcinoma, whereas p53-abnormal/high-grade OECs behave more aggressively.",
+    "description": "Ovarian endometrioid carcinoma (OEC) is the second most common epithelial ovarian cancer histotype, accounting for roughly 10% of ovarian carcinomas. It resembles endometrioid carcinoma of the uterine corpus, is frequently endometriosis-associated, and is characterized by recurrent CTNNB1/Wnt-beta-catenin activation, PI3K-pathway lesions (PIK3CA gain, PTEN loss), and ARID1A (SWI/SNF) loss. The endometrial-cancer molecular taxonomy (POLE-ultramutated, mismatch-repair-deficient, p53-abnormal, no specific molecular profile) also applies to OEC, which is enriched for Lynch syndrome-associated tumors, supporting routine mismatch-repair testing. Most OECs are low-grade, present at an early stage, and carry a more favorable prognosis than high-grade serous carcinoma, whereas p53-abnormal/high-grade OECs behave more aggressively.",
     "pathophysiology": [
       "Endometriosis-Associated Origin",
       "ARID1A and SWI/SNF Chromatin Remodeling Loss",
@@ -228737,7 +228844,7 @@ window.searchData = [
     "creation_date": "2026-05-07T02:02:04Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Pemphigus erythematosus, also called Senear-Usher syndrome, is a rare superficial autoimmune blistering disorder with clinical, histopathologic, and serologic overlap between pemphigus foliaceus and lupus erythematosus. It is modeled here as a localized pemphigus spectrum disorder with seborrheic and photo-distributed cutaneous lesions, not as generic pemphigus or mucosal- dominant pemphigus vulgaris.",
+    "description": "Pemphigus erythematosus, also called Senear-Usher syndrome, is a rare superficial autoimmune blistering disorder with clinical, histopathologic, and serologic overlap between pemphigus foliaceus and lupus erythematosus. It is modeled here as a localized pemphigus spectrum disorder with seborrheic and photo-distributed cutaneous lesions, not as generic pemphigus or mucosal-dominant pemphigus vulgaris.",
     "pathophysiology": [
       "Desmosomal Autoantibody-Mediated Acantholysis",
       "Dermal-Epidermal Junction Immune Complex and Complement Deposition"
@@ -229827,7 +229934,7 @@ window.searchData = [
       "TFE3-rearranged PEComa",
       "Malignant PEComa"
     ],
-    "description": "Perivascular epithelioid cell neoplasm (PEComa) is a family of mesenchymal tumors composed of distinctive perivascular epithelioid cells (PECs) that characteristically co-express melanocytic markers (HMB-45, Melan-A/MART-1) and smooth-muscle markers (smooth muscle actin, desmin). PECs have no clear normal-tissue counterpart. The PEComa family is unified by a shared mTOR-pathway biology: most PEComas arise from biallelic inactivation of the tuberous sclerosis genes TSC1 or TSC2, whose protein products form a GTPase- activating-protein complex for RHEB. Loss of TSC1/TSC2 function elevates RHEB-GTP and drives constitutive mechanistic target of rapamycin complex 1 (mTORC1) hyperactivation, promoting anabolic growth and cell proliferation. The family includes renal and hepatic angiomyolipoma (AML), pulmonary lymphangioleiomyomatosis (LAM), clear cell \"sugar\" tumor of the lung, and PEComas-not-otherwise-specified arising in soft tissue, uterus, and viscera. A molecularly and clinically distinct subset is driven by TFE3 (transcription factor binding to IGHM enhancer 3) gene fusions of the MiT/TFE family and is TSC-independent. PEComas occur sporadically and in association with the tuberous sclerosis complex (TSC) germline syndrome and may be benign or malignant. The shared mTORC1 dependence makes mTOR inhibitors (sirolimus, nab-sirolimus/ABI-009, everolimus) effective targeted therapies for many PEComas, including malignant PEComa and TSC-associated renal angiomyolipoma and lymphangioleiomyomatosis.\n",
+    "description": "Perivascular epithelioid cell neoplasm (PEComa) is a family of mesenchymal tumors composed of distinctive perivascular epithelioid cells (PECs) that characteristically co-express melanocytic markers (HMB-45, Melan-A/MART-1) and smooth-muscle markers (smooth muscle actin, desmin). PECs have no clear normal-tissue counterpart. The PEComa family is unified by a shared mTOR-pathway biology: most PEComas arise from biallelic inactivation of the tuberous sclerosis genes TSC1 or TSC2, whose protein products form a GTPase-activating-protein complex for RHEB. Loss of TSC1/TSC2 function elevates RHEB-GTP and drives constitutive mechanistic target of rapamycin complex 1 (mTORC1) hyperactivation, promoting anabolic growth and cell proliferation. The family includes renal and hepatic angiomyolipoma (AML), pulmonary lymphangioleiomyomatosis (LAM), clear cell \"sugar\" tumor of the lung, and PEComas-not-otherwise-specified arising in soft tissue, uterus, and viscera. A molecularly and clinically distinct subset is driven by TFE3 (transcription factor binding to IGHM enhancer 3) gene fusions of the MiT/TFE family and is TSC-independent. PEComas occur sporadically and in association with the tuberous sclerosis complex (TSC) germline syndrome and may be benign or malignant. The shared mTORC1 dependence makes mTOR inhibitors (sirolimus, nab-sirolimus/ABI-009, everolimus) effective targeted therapies for many PEComas, including malignant PEComa and TSC-associated renal angiomyolipoma and lymphangioleiomyomatosis.\n",
     "pathophysiology": [
       "TSC1/TSC2 Biallelic Inactivation",
       "mTORC1 Hyperactivation",
@@ -248331,7 +248438,7 @@ window.searchData = [
       "RELN-related",
       "VLDLR-related"
     ],
-    "description": "Reelin-pathway lissencephaly is an autosomal recessive malformation of cortical development whose coherent pathomechanism skeleton is failure of extracellular Reelin signaling rather than the microtubule/dynein-based neuronal-migration arrest of classical lissencephaly. Reelin is a large glycoprotein secreted by Cajal-Retzius cells in the cortical marginal zone; it binds the lipoprotein receptors VLDLR and ApoER2/LRP8 on migrating postmitotic neurons, activating the intracellular adaptor DAB1 and downstream adhesion/cytoskeletal effectors that drive glia-independent terminal somal translocation and inside-out cortical lamination. Biallelic loss of the ligand (RELN) or the receptor (VLDLR) collapses this signal, producing a cortex with simplified/thickened gyration together with the hallmark cerebellar hypoplasia, and\u2014because the same pathway organizes the hippocampus, cerebellum, and brainstem\u2014recurring hippocampal disorganization and pontine/brainstem hypoplasia. The two principal human lesions define the disease's subtype branches: RELN mutations (Hong et al. 2000) cause a more severe lissencephaly-with-cerebellar- hypoplasia phenotype with hippocampal and brainstem involvement, whereas VLDLR deletion (Boycott et al. 2005; the \"dysequilibrium syndrome\"/CAMRQ1 spectrum) causes nonprogressive cerebellar ataxia with milder cerebral gyral simplification. This is the exemplar Reelin-signaling cortical malformation and conforms to the reelin terminal-translocation lamination-failure module rather than to the tubulinopathy or generic migration-arrest modules.",
+    "description": "Reelin-pathway lissencephaly is an autosomal recessive malformation of cortical development whose coherent pathomechanism skeleton is failure of extracellular Reelin signaling rather than the microtubule/dynein-based neuronal-migration arrest of classical lissencephaly. Reelin is a large glycoprotein secreted by Cajal-Retzius cells in the cortical marginal zone; it binds the lipoprotein receptors VLDLR and ApoER2/LRP8 on migrating postmitotic neurons, activating the intracellular adaptor DAB1 and downstream adhesion/cytoskeletal effectors that drive glia-independent terminal somal translocation and inside-out cortical lamination. Biallelic loss of the ligand (RELN) or the receptor (VLDLR) collapses this signal, producing a cortex with simplified/thickened gyration together with the hallmark cerebellar hypoplasia, and\u2014because the same pathway organizes the hippocampus, cerebellum, and brainstem\u2014recurring hippocampal disorganization and pontine/brainstem hypoplasia. The two principal human lesions define the disease's subtype branches: RELN mutations (Hong et al. 2000) cause a more severe lissencephaly-with-cerebellar-hypoplasia phenotype with hippocampal and brainstem involvement, whereas VLDLR deletion (Boycott et al. 2005; the \"dysequilibrium syndrome\"/CAMRQ1 spectrum) causes nonprogressive cerebellar ataxia with milder cerebral gyral simplification. This is the exemplar Reelin-signaling cortical malformation and conforms to the reelin terminal-translocation lamination-failure module rather than to the tubulinopathy or generic migration-arrest modules.",
     "pathophysiology": [
       "Cajal-Retzius Reelin Ligand Deficiency",
       "VLDLR-ApoER2-DAB1 Signal Transduction Failure",
@@ -251566,7 +251673,7 @@ window.searchData = [
     "creation_date": "2026-06-25T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Rhinovirus infection is an acute respiratory infection caused by human rhinoviruses (HRV; genus Enterovirus, family Picornaviridae; groups A, B, and C). HRV is the most common cause of the common cold, responsible for more than half of cold-like illnesses, and infects the respiratory epithelium after binding host receptors (major-group HRV uses ICAM-1; minor-group uses LDL- receptor family members; HRV-C uses CDHR3). Although traditionally regarded as an upper respiratory tract pathogen, HRV is now recognized as an important lower respiratory tract pathogen, particularly in people with asthma, infants, the elderly, and immunocompromised hosts. Wheezing rhinovirus illnesses in early life are among the strongest predictors of subsequent childhood asthma, and HRV is the most frequent viral trigger of asthma and COPD exacerbations.\n",
+    "description": "Rhinovirus infection is an acute respiratory infection caused by human rhinoviruses (HRV; genus Enterovirus, family Picornaviridae; groups A, B, and C). HRV is the most common cause of the common cold, responsible for more than half of cold-like illnesses, and infects the respiratory epithelium after binding host receptors (major-group HRV uses ICAM-1; minor-group uses LDL-receptor family members; HRV-C uses CDHR3). Although traditionally regarded as an upper respiratory tract pathogen, HRV is now recognized as an important lower respiratory tract pathogen, particularly in people with asthma, infants, the elderly, and immunocompromised hosts. Wheezing rhinovirus illnesses in early life are among the strongest predictors of subsequent childhood asthma, and HRV is the most frequent viral trigger of asthma and COPD exacerbations.\n",
     "pathophysiology": [
       "Airway Epithelial Infection and Innate Immune Response"
     ],
@@ -263114,7 +263221,7 @@ window.searchData = [
       "Adult",
       "Infantile"
     ],
-    "description": "Seborrheic dermatitis is a chronic relapsing inflammatory dermatosis of sebaceous-rich skin, especially the scalp, face, upper trunk, and body folds. Disease expression reflects a multifactorial interaction among Malassezia- associated microbiome imbalance, dysregulated cutaneous inflammation, skin barrier dysfunction, and sebaceous/lipid abnormalities. Adult disease is typically chronic and recurrent, whereas infantile disease often presents as cradle cap and is usually self-limited.",
+    "description": "Seborrheic dermatitis is a chronic relapsing inflammatory dermatosis of sebaceous-rich skin, especially the scalp, face, upper trunk, and body folds. Disease expression reflects a multifactorial interaction among Malassezia-associated microbiome imbalance, dysregulated cutaneous inflammation, skin barrier dysfunction, and sebaceous/lipid abnormalities. Adult disease is typically chronic and recurrent, whereas infantile disease often presents as cradle cap and is usually self-limited.",
     "pathophysiology": [
       "Sebaceous gland activity and sebum-rich cutaneous milieu",
       "Malassezia colonization of sebum-rich skin",
@@ -263834,7 +263941,7 @@ window.searchData = [
     "creation_date": "2026-07-18T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Self-limited epilepsy with centrotemporal spikes (SeLECTS; formerly benign epilepsy with centrotemporal spikes / benign Rolandic epilepsy) is the most common focal epilepsy of childhood. It presents between about ages 3 and 14 years (peak 8-9) in a developmentally normal child, with infrequent focal seizures - characteristically nocturnal, involving one side of the face and the oropharynx (hemifacial twitching, hypersalivation, speech arrest), sometimes evolving to a bilateral tonic-clonic seizure. The EEG hallmark is high-amplitude centrotemporal (Rolandic) spikes that are markedly activated by sleep. Seizures remit by adolescence in almost all cases. It is understood as an age-dependent, genetically influenced disorder of maturation of the perirolandic sensorimotor cortex; during the active period, transient language and cognitive difficulties can occur and improve with remission.",
+    "description": "Self-limited epilepsy with centrotemporal spikes (SeLECTS; formerly benign epilepsy with centrotemporal spikes / benign Rolandic epilepsy) is the most common focal epilepsy of childhood. It presents between about ages 3 and 14 years (peak 8-9) in a developmentally normal child, with infrequent focal seizures - characteristically nocturnal, involving one side of the face and the oropharynx (hemifacial twitching, hypersalivation, speech arrest), sometimes evolving to a bilateral tonic-clonic seizure. The EEG hallmark is high-amplitude centrotemporal (Rolandic) spikes that are markedly activated by sleep. Seizures remit by adolescence in almost all cases. It is understood as an age-dependent, genetically influenced disorder of maturation of the perirolandic sensorimotor cortex; during the active period, language and cognitive difficulties can occur and largely improve with remission, though a minority have residual deficits.",
     "pathophysiology": [
       "Genetic Predisposition to Cortical Hyperexcitability",
       "Age-Dependent Perirolandic Cortical Hyperexcitability",
@@ -263892,8 +263999,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Semantic Dementia",
@@ -287012,7 +287119,7 @@ window.searchData = [
       "MSX1-related",
       "EDA-related"
     ],
-    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD- NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
+    "description": "Tooth agenesis is the congenital absence of one or more teeth resulting from disrupted odontogenesis, and is the most common developmental anomaly of human dentition. Severity is graded by the number of teeth that fail to develop (conventionally excluding third molars): hypodontia denotes absence of one to five teeth, oligodontia denotes absence of six or more teeth, and anodontia denotes complete absence of teeth. Nonsyndromic tooth agenesis is genetically heterogeneous; the great majority of identified mutations cluster in seven genes that converge on the signaling networks governing tooth-germ initiation and patterning: the WNT/beta-catenin pathway (WNT10A, WNT10B, the co-receptor LRP6, and the negative regulator AXIN2), the transcription factors PAX9 and MSX1 acting in the dental mesenchyme, and the ectodysplasin (EDA-EDAR-EDARADD-NF-kappaB) pathway. Tooth agenesis arises from arrest of the reciprocal epithelial-mesenchymal signaling that drives the dental lamina through the initiation, bud, cap, and bell stages, so the number and pattern of missing teeth are fixed during embryonic development and do not progress thereafter. AXIN2-associated oligodontia additionally confers increased colorectal cancer risk.",
     "pathophysiology": [
       "WNT/beta-catenin Signaling Deficiency",
       "EDA-EDAR-NF-kappaB Signaling Deficiency",
@@ -304543,15 +304650,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2933,
+  "total_disorder_pages": 2934,
   "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6662,
-  "total_unique_evidence_sources": 41226,
-  "total_unique_publications": 38857,
+  "total_disorders_and_subtypes": 6663,
+  "total_unique_evidence_sources": 41241,
+  "total_unique_publications": 38872,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2928,
-  "total_unique_pathological_events": 17703,
+  "total_pathographs": 2929,
+  "total_unique_pathological_events": 17709,
   "total_modules": 174,
   "total_research_reports": 3054,
   "total_classifications": 19,
