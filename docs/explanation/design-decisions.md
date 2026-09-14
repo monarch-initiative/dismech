@@ -735,10 +735,14 @@ than decorative: it is what separates the two unrelated reasons an item ends up 
 use one of them.
 
 **Mapped out, not modelled on.** Values carry CiTO mappings (`cito:citesAsEvidence`,
-`cito:obtainsBackgroundFrom`), following the §4 static-enum ruling. A dismech evidence item
-*is* a citing-entity-to-cited-entity relation, which is the shape a CiTO property types.
-`REVIEW_SYNTHESIS` has no exact counterpart and takes a close mapping rather than claiming
-one.
+`cito:obtainsBackgroundFrom`, `cito:citesAsAuthority`), following the §4 static-enum ruling.
+All three are `close_mappings`, not `exact_mappings`, because the two vocabularies describe
+different ends of the same citation: a CiTO property types the *citing* entity's use of a
+reference, while `quote_role` records where the sentence sits inside the *cited* document.
+They correlate and they come apart. An item quoting an introduction sentence as support for
+a KB claim is `citesAsEvidence` from the citing side while its `quote_role` is `BACKGROUND`,
+which is the case the slot exists for, so an exact mapping would assert an equivalence that
+fails precisely where it matters.
 
 **Not decided here.** A quoted *aim* statement ("the aim of the present study was to…")
 has no value in this enum; it is neither the paper's finding nor somebody else's fact.

@@ -21,12 +21,15 @@ import yaml
 from dismech.render import quote_role_tooltip, render_disorder
 from scripts.check_background_citations import (
     SECTION_ZONES,
+    TSV_COLUMNS,
     Coverage,
+    Finding,
     ReferenceFacts,
     classify,
     is_animal_descriptor,
     iter_evidence,
     kb_section,
+    print_tsv,
     split_sections,
     zone_of,
 )
@@ -71,12 +74,25 @@ def test_quote_role_has_no_unknown_value(schema: dict) -> None:
 def test_quote_role_values_map_out_to_cito(schema: dict) -> None:
     """Mapped out rather than modelled on, per the #510 static-enum ruling."""
     values = schema["enums"]["QuoteRoleEnum"]["permissible_values"]
-    assert values["PRIMARY_RESULT"]["exact_mappings"] == ["cito:citesAsEvidence"]
-    assert values["BACKGROUND"]["exact_mappings"] == ["cito:obtainsBackgroundFrom"]
-    # REVIEW_SYNTHESIS has no exact CiTO counterpart, so it must not claim one.
-    assert "exact_mappings" not in values["REVIEW_SYNTHESIS"]
+    assert values["PRIMARY_RESULT"]["close_mappings"] == ["cito:citesAsEvidence"]
+    assert values["BACKGROUND"]["close_mappings"] == ["cito:obtainsBackgroundFrom"]
     assert values["REVIEW_SYNTHESIS"]["close_mappings"] == ["cito:citesAsAuthority"]
     assert schema["prefixes"]["cito"] == "http://purl.org/spar/cito/"
+
+
+def test_no_quote_role_value_claims_an_exact_cito_match(schema: dict) -> None:
+    """A CiTO property types the citing entity's *use* of a reference.
+
+    `quote_role` records where the sentence sits inside the *cited* document.
+    Those correlate and they come apart: an item quoting an introduction
+    sentence as support for a KB claim is `citesAsEvidence` from the citing
+    side while its `quote_role` is BACKGROUND. `exact_mappings` would assert an
+    equivalence that fails in exactly that case, which is the one this slot
+    exists for.
+    """
+    values = schema["enums"]["QuoteRoleEnum"]["permissible_values"]
+    for key, meta in values.items():
+        assert "exact_mappings" not in meta, key
 
 
 def test_every_quote_role_value_is_described(schema: dict) -> None:
@@ -461,6 +477,32 @@ def test_an_absent_evidence_source_is_treated_as_the_documented_default(
 def test_a_non_pmid_reference_is_out_of_scope(tmp_path: Path) -> None:
     """Only PMIDs carry NLM section labels and MeSH indexing."""
     assert _classify(tmp_path, {"reference": "ORPHA:558", "snippet": "anything"}) == []
+
+
+def test_the_tsv_header_and_value_row_have_the_same_width(capsys) -> None:
+    """The header constant and the row that follows it are separate literals.
+
+    Lifting the header to ``TSV_COLUMNS`` put the column *order* in one place
+    but left the value row hundreds of lines away with nothing tying them, so a
+    column added to one and not the other would silently shift every field
+    after it. This runs the printer and compares the two widths.
+    """
+    finding = Finding(
+        tier="A",
+        path="kb/disorders/X.yaml",
+        location="pathophysiology[0].evidence[0]",
+        reference="PMID:1",
+        zone="BACKGROUND",
+        evidence_source="HUMAN_CLINICAL",
+        quote_role="",
+        suggested="BACKGROUND",
+        snippet="a quoted sentence",
+    )
+    print_tsv([finding])
+    header, row = capsys.readouterr().out.strip().split("\n")
+
+    assert header.split("\t") == list(TSV_COLUMNS)
+    assert len(row.split("\t")) == len(TSV_COLUMNS)
 
 
 def test_every_section_zone_is_one_of_the_three_kinds() -> None:
