@@ -111092,9 +111092,9 @@ window.searchData = [
       "FCAS1",
       "FCAS2",
       "FCAS3",
-      "FCAS4"
+      "NAIAD"
     ],
-    "description": "Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited autoinflammatory disorder characterized by recurrent, cold-triggered episodes of urticaria-like skin rash, low-grade fever, arthralgia/myalgia, and conjunctivitis. FCAS1 (NLRP3/cryopyrin) is the mildest disorder on the cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of IL-1beta. Genetically distinct FCAS-like cold-triggered syndromes are caused by mutations in NLRP12 (FCAS2), PLCG2 (FCAS3), and NLRP1 (FCAS4).\n",
+    "description": "Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited autoinflammatory disorder characterized by recurrent, cold-triggered episodes of urticaria-like skin rash, low-grade fever, arthralgia/myalgia, and conjunctivitis. FCAS1 (NLRP3/cryopyrin) is the mildest disorder on the cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of IL-1beta. Genetically distinct FCAS-like syndromes are caused by mutations in NLRP12 (FCAS2) and PLCG2 (FCAS3/PLAID), and this entry also covers the related NLRP1 inflammasomopathy NAIAD. Note that the FCAS4 designation belongs to an NLRC4 disorder that is not curated here.\n",
     "pathophysiology": [
       "NLRP3 gain-of-function mutation",
       "Constitutive NLRP3 inflammasome activation",
@@ -297089,6 +297089,103 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Vulvodynia",
+    "disease_id": "MONDO:0021722",
+    "category": "Complex",
+    "parents": [
+      "Reproductive Disease",
+      "Chronic Pain Disorder"
+    ],
+    "creation_date": "2026-09-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chronic vulvar pain of at least three months' duration with no identifiable specific cause, most often localized to the vulvar vestibule and provoked by touch. The best-evidenced mechanism is a site-restricted one: vestibular fibroblasts, uniquely among lower genital tract fibroblasts, mount an exaggerated Dectin-1/NF-kB innate response to yeast and yeast cell wall components, releasing IL-6 and prostaglandin E2. The resulting chronic mucosal inflammation, with B-cell infiltration and germinal centre formation, drives excessive intraepithelial nerve growth and an increase in TRPV1-expressing nociceptive fibres confined to the vestibule. Those sensitized fibres make ordinarily innocuous contact painful (provoked allodynia), which in turn recruits protective pelvic floor muscle hypertonicity and, in many women, central pain amplification detectable far outside the pelvis. The disorder is common and grossly underdiagnosed, and the three drugs most often prescribed for it - topical lidocaine, oral desipramine and oral gabapentin - each failed against placebo in an adequately powered randomized trial. The one placebo-controlled success recorded here acts on the muscular arm rather than the mucosal one.",
+    "pathophysiology": [
+      "Antecedent Vulvovaginal Inflammatory Exposure",
+      "Vestibular Fibroblast Innate Hyperresponsiveness",
+      "Vestibular Mucosal Immune Activation",
+      "Vestibular Mucosal Neuroproliferation",
+      "Nociceptor Sensitization in the Vestibular Epithelium",
+      "Vestibular Allodynia",
+      "Pelvic Floor Muscle Hypertonicity",
+      "Central Pain Amplification",
+      "Androgen Receptor Signalling Insufficiency"
+    ],
+    "cell_types": [
+      "vestibular fibroblast",
+      "infiltrating B lymphocyte",
+      "mucosal mast cell",
+      "vestibular nociceptive fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000236",
+      "CL:0000097",
+      "CL:0000198"
+    ],
+    "biological_processes": [
+      "mucosal inflammatory response",
+      "Dectin-1 pattern recognition receptor signaling",
+      "NF-kappaB-dependent proinflammatory transcription",
+      "interleukin-6 production",
+      "prostaglandin E2 biosynthesis",
+      "local mucosal inflammatory response",
+      "epithelial nerve fibre outgrowth",
+      "sensory perception of pain"
+    ],
+    "phenotypes": [
+      "Provoked Vestibular Pain",
+      "Vulvar Burning Pain",
+      "Dyspareunia",
+      "Widespread Pressure Pain Hypersensitivity",
+      "Anxiety",
+      "Depression"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Neurologic",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030943",
+      "HP:0030016",
+      "HP:0012533",
+      "HP:0000739",
+      "HP:0000716"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IL1RN",
+      "AR"
+    ],
+    "treatments": [
+      "Pelvic Floor Physical Therapy",
+      "Cognitive Behavioural Therapy",
+      "Topical Lidocaine",
+      "Oral Desipramine",
+      "Electromyography-Guided Botulinum Toxin A Injection",
+      "Oral Gabapentin",
+      "Vestibulectomy"
+    ],
+    "environmental": [
+      "Combined hormonal contraceptive use"
+    ],
+    "biochemical": [],
+    "source_file": "Vulvodynia.yaml",
+    "page_url": "../pages/disorders/Vulvodynia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "WAGR Syndrome",
     "disease_id": "MONDO:0008681",
     "category": "Genetic",
@@ -304650,15 +304747,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2934,
+  "total_disorder_pages": 2935,
   "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6663,
-  "total_unique_evidence_sources": 41241,
-  "total_unique_publications": 38872,
+  "total_disorders_and_subtypes": 6664,
+  "total_unique_evidence_sources": 41262,
+  "total_unique_publications": 38893,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2929,
-  "total_unique_pathological_events": 17709,
+  "total_pathographs": 2930,
+  "total_unique_pathological_events": 17718,
   "total_modules": 174,
   "total_research_reports": 3054,
   "total_classifications": 19,
