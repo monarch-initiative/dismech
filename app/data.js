@@ -30583,6 +30583,82 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Autosomal Dominant Nonsyndromic Hearing Loss 2A",
+    "disease_id": "MONDO:0010817",
+    "category": "Mendelian",
+    "parents": [
+      "nonsyndromic hearing loss",
+      "autosomal dominant disease",
+      "channelopathy"
+    ],
+    "creation_date": "2026-09-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant nonsyndromic hearing loss 2A (DFNA2A) is caused by heterozygous variants in KCNQ4, which encodes the voltage-gated potassium channel Kv7.4. In cochlear outer hair cells Kv7.4 carries I(K,n), the standing potassium conductance that sets the resting membrane potential and allows potassium entering through the apical transduction channels to leave across the basolateral membrane.\nMost pathogenic variants act by negative dominance rather than by haploinsufficiency. Kv7.4 channels are tetramers, so one mutant subunit incorporated into an assembling channel poisons the whole complex, and co-expressing wild-type with a pore mutant suppresses current to barely detectable levels. The cell is then left chronically depolarised. Outer hair cells degenerate slowly under that load, and because the channel is expressed along a base-to-apex gradient the loss begins at the high-frequency basal end.\nClinically this produces symmetric, predominantly high-frequency sensorineural hearing loss that progresses across all frequencies with age, reaching severe-to-profound impairment in everyone affected by their seventies. The entry records a live mechanistic disagreement about the later phase of the disease - whether outer hair cell loss alone accounts for it, or whether inner hair cell and spiral ganglion neuron degeneration is a necessary second stage - and three therapeutic strategies at different stages of development, from standard amplification to allele-preferential antisense oligonucleotides and adenine base editing.",
+    "pathophysiology": [
+      "KCNQ4 Dominant-Negative Subunit Incorporation",
+      "KCNQ4 Haploinsufficiency from Truncating Variants",
+      "Loss of the Outer Hair Cell I(K,n) Potassium Conductance",
+      "Chronic Outer Hair Cell Depolarization",
+      "Progressive Outer Hair Cell Degeneration",
+      "Inner Hair Cell and Spiral Ganglion Neuron Degeneration",
+      "Progressive High-Frequency Sensorineural Hearing Loss"
+    ],
+    "cell_types": [
+      "cochlear outer hair cell",
+      "cochlear inner hair cell",
+      "spiral ganglion neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000601",
+      "CL:0000589",
+      "CL:0011113"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Progressive high-frequency sensorineural hearing loss",
+      "Severe-to-profound hearing impairment in later life",
+      "Subclinical vestibular dysfunction"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0001757",
+      "HP:0000408",
+      "HP:0001751"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNQ4"
+    ],
+    "treatments": [
+      "Hearing Amplification and Cochlear Implantation",
+      "KCNQ Channel Openers",
+      "Allele-Preferential Antisense Oligonucleotide Knockdown",
+      "Adenine Base Editing of the Pathogenic Allele"
+    ],
+    "environmental": [
+      "Loud noise exposure",
+      "Aminoglycoside antibiotic exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_2A.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_2A.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Dominant Nonsyndromic Hearing Loss 2B",
     "disease_id": "MONDO:0012976",
     "category": "Mendelian",
@@ -75197,6 +75273,107 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Deficiency 34",
+    "disease_id": "MONDO:0054741",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COXPD34 is the combined oxidative phosphorylation deficiency caused by biallelic variants in MRPS7. It is one of the smallest entities in the numbered COXPD series: three patients in two families, reported in 2015 and 2022, and nothing since.\nMRPS7 encodes a protein of the small (28S) subunit of the mitochondrial ribosome, where it binds the 12S ribosomal RNA and is required for assembly of that subunit. The mitoribosome translates the thirteen mtDNA-encoded proteins, all of which are subunits of complexes I, III, IV and V, so a defect in it produces a *combined* respiratory-chain deficiency rather than the isolated single-complex defect seen when a nuclear subunit gene fails. That is what places this entity in the COXPD series rather than among the complex I deficiencies.\nThe lesion was defined in two sisters homozygous for c.550A>G, p.Met184Val, a substitution at a highly conserved methionine. Their fibroblasts and liver showed combined deficiency of complexes I, III and IV; pulse labelling showed impaired mitochondrial protein synthesis; and 12S rRNA transcript levels were reduced. Expressing wild-type MRPS7 in the patients' fibroblasts restored both complex I and complex IV activity and the 12S rRNA level - the complementation that establishes causation and, incidentally, shows that the 12S rRNA loss is downstream of the protein defect rather than a separate lesion.\nClinically the two sisters shared congenital sensorineural deafness and lactic acidemia and then diverged sharply: one developed progressive hepatic and renal failure and died in early adolescence, while the other survived to be recognised, years later, as having premature ovarian insufficiency. That second phenotype is why the entity has a second identity. When a third patient was reported in 2022 - compound heterozygous for p.(Lys125*) and p.(Arg179His), with POI, sensorineural hearing loss and Hashimoto's disease - the authors framed the gene as a cause of syndromic POI and Perrault syndrome, not as a cause of COXPD34. dismech curates both readings: this entry covers the hepatorenal, lactic-acidemic presentation that OMIM 617872 names, and `Perrault_Syndrome` carries MRPS7 as one of its causative genes. Neither is the whole gene, and the entry says so rather than annexing the other phenotype.\nThe evidence base is thin and the entry is written to that. ClinGen's Mitochondrial Diseases expert panel classifies the MRPS7 gene-disease relationship as Limited, and OMIM's own gene-phenotype mapping for 617872 is flagged provisional. There is no animal model, no natural-history series, no prevalence estimate and no treatment evidence.",
+    "pathophysiology": [
+      "Biallelic MRPS7 Variants",
+      "Destabilization of the uS7m Protein of the Mitoribosomal Small Subunit",
+      "Reduced 12S rRNA and Impaired Small Subunit Assembly",
+      "Impaired Mitochondrial Protein Synthesis",
+      "Combined Deficiency of Respiratory Chain Complexes I, III and IV",
+      "Impaired Oxidative Phosphorylation",
+      "Bioenergetic Failure of Hepatocytes",
+      "Bioenergetic Failure of Renal Tubular Epithelium",
+      "Cochlear Bioenergetic Failure",
+      "Ovarian Follicular Depletion"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "kidney epithelial cell",
+      "auditory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0002518",
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "mitochondrial small ribosomal subunit assembly",
+      "mitochondrial translation",
+      "electron transport chain",
+      "oxidative phosphorylation",
+      "mitochondrial ATP synthesis coupled electron transport"
+    ],
+    "phenotypes": [
+      "Sensorineural Hearing Impairment",
+      "Lactic Acidemia",
+      "Decreased Activity of Mitochondrial Complex I",
+      "Decreased Activity of Mitochondrial Complex III",
+      "Decreased Activity of Mitochondrial Complex IV",
+      "Hepatic Failure",
+      "Renal Insufficiency",
+      "Premature Ovarian Insufficiency",
+      "Hashimoto Thyroiditis"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Metabolism",
+      "Gastrointestinal",
+      "Renal",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0002151",
+      "HP:0011923",
+      "HP:0011924",
+      "HP:0008347",
+      "HP:0001399",
+      "HP:0000083",
+      "HP:0008209",
+      "HP:0000872"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MRPS7"
+    ],
+    "treatments": [
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_34.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_34.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Combined oxidative phosphorylation deficiency 42",
     "disease_id": "MONDO:0030008",
     "category": "Mendelian",
@@ -95953,6 +96130,92 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1J",
+    "disease_id": "MONDO:0011541",
+    "category": "Genetic",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-04T02:26:58Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1J (CMD1J) is an autosomal dominant cardio-auditory syndrome caused by heterozygous truncating variants in EYA4, the gene encoding a transcriptional co-activator that partners the SIX-family homeodomain factors. It is defined by a temporal sequence rather than by a single organ: postlingual, progressive sensorineural hearing loss appears first, moderate to severe by late adolescence, and ventricular dilation with systolic dysfunction follows decades later, producing congestive heart failure after the fourth decade. The syndrome was delimited in two kindreds by linkage to 6q23-q24 in 2000, and the causal 4,846-bp EYA4 deletion was identified in 2005.\nMechanistically CMD1J sits apart from the sarcomeric and cytoskeletal dilated cardiomyopathies that dominate this part of the nosology. There is no structural contractile protein defect: the primary lesion is transcriptional. The truncated 193-residue Eya4 peptide fails to bind wild-type Eya4 or Six proteins, so the Eya4-Six1 complex cannot repress CDKN1B/p27Kip1; p27 rises, casein kinase-2 alpha activity and HDAC2 phosphorylation fall, and the cardiomyocyte hypertrophic stress-response program is disrupted. Transgenic mice overexpressing the E193 allele develop a dilated phenotype, whereas mice overexpressing wild-type Eya4 become hypertrophic - opposite directions on the same axis, and pressure overload worsens both.\nThe entry is deliberately narrow. Most pathogenic EYA4 alleles cause isolated DFNA10 hearing loss with no cardiac disease, and the mechanism there appears to be simple haploinsufficiency rather than the dominant-negative complex poisoning proposed for E193. An EYA4 result therefore does not by itself establish CMD1J. The once-attractive rule that N-terminal truncations predict cardiac involvement while C-terminal truncations spare the heart has been contradicted by families carrying early truncations with normal echocardiograms, so variant position is not a substitute for cardiac phenotyping. Nearly all disease-specific knowledge derives from a handful of pedigrees; prevalence, unbiased penetrance, sex ratio, and variant-specific cardiac risk are all unestablished, and general dilated cardiomyopathy epidemiology must not be imported here.",
+    "pathophysiology": [
+      "EYA4 Heterozygous Truncating Variant",
+      "Failure of Eya4-Six1 Complex Assembly",
+      "Derepression of CDKN1B/p27Kip1",
+      "Reduced CK2-alpha Activity and HDAC2 Phosphorylation",
+      "Disrupted Cardiomyocyte Hypertrophic Stress Response",
+      "Adverse Ventricular Remodeling",
+      "Progressive Systolic Dysfunction",
+      "Cochlear EYA4 Insufficiency"
+    ],
+    "cell_types": [
+      "ventricular cardiomyocyte",
+      "cardiac fibroblast",
+      "cochlear hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548",
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "Eya4-Six1 mediated transcriptional regulation",
+      "repression of CDKN1B transcription by the Eya4-Six1 complex",
+      "HDAC2-dependent chromatin remodeling",
+      "cardiac muscle hypertrophy",
+      "cardiac muscle hypertrophy in response to stress",
+      "interstitial extracellular matrix deposition",
+      "heart contraction",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Left Ventricular Systolic Dysfunction",
+      "Congestive Heart Failure",
+      "Progressive Sensorineural Hearing Loss",
+      "Postlingual Bilateral Sensorineural Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Cardiac",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0025169",
+      "HP:0001635",
+      "HP:0000408",
+      "HP:0008596"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EYA4 Heterozygous Truncating Variants"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Pharmacotherapy",
+      "Advanced Therapies including Heart Transplantation",
+      "Hearing Amplification and Cochlear Implantation",
+      "Genetic Counseling and Cascade Testing",
+      "Serial Cardiac Surveillance of Variant Carriers"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1J.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1J.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dilated Cardiomyopathy 1JJ",
@@ -147675,6 +147938,82 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "IFNAR1 Deficiency",
+    "disease_id": "MONDO:0030970",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of immunity",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-13T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IFNAR1 deficiency (immunodeficiency 106; IMD106) is an inborn error of immunity caused by variants in IFNAR1, which encodes the low-affinity chain of the heterodimeric type I interferon (IFN-alpha/beta) receptor. In the autosomal recessive complete form, biallelic loss-of-function alleles leave cells unable to transduce any type I interferon signal, so the interferon-stimulated gene programme that establishes the cell-intrinsic antiviral state is never induced.\nThe clinical phenotype is narrow rather than broadly infection-prone. The defining presentation is catastrophic disease on systemic challenge with a replicating attenuated virus - severe measles vaccine disease, or viscerotropic disease after yellow fever 17D - in children who had been entirely healthy until that exposure. Severe disease with naturally circulating viruses (influenza, SARS-CoV-2, herpes simplex virus, respiratory syncytial virus, arboviruses) and virus-induced systemic hyperinflammation are also described. Management centres on avoiding live attenuated viral vaccines once the diagnosis is known.\nTwo features make this entry more than the IFNAR2 story with a different chain. First, a Western Polynesian founder allele, p.Glu386*, makes the recessive disease regionally common enough to have prompted a formal population-level diagnostic and management guideline. Second, IFNAR1 also carries dominant alleles that act by negative dominance and impair responses to IFN-alpha and IFN-omega while sparing IFN-beta - a partial, subtype-selective lesion with no counterpart in the recessive disease, and the reason this entry models two distinct molecular arms rather than one.",
+    "pathophysiology": [
+      "IFNAR1 Loss of Function",
+      "Absent Type I Interferon Receptor Signaling",
+      "Failure of JAK-STAT ISGF3 Activation",
+      "Failure of Interferon-Stimulated Gene Induction",
+      "Unrestricted Viral Replication in Permissive Cells",
+      "Disseminated Viral Disease",
+      "Virus-Induced Systemic Hyperinflammation",
+      "IFNAR1 Negative Dominance",
+      "Subtype-Selective Loss of IFN-alpha and IFN-omega Responsiveness"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Type I interferon-mediated signaling",
+      "Cellular response to type I interferon",
+      "Antiviral defense response"
+    ],
+    "phenotypes": [
+      "Disseminated infection with live vaccine virus",
+      "Severe viral infection",
+      "Life-threatening COVID-19 pneumonia",
+      "Multisystem inflammatory syndrome in children",
+      "Virus-induced systemic hyperinflammation"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Respiratory",
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031697",
+      "HP:0031691",
+      "HP:0002090",
+      "HP:0012649",
+      "HP:0012156"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IFNAR1"
+    ],
+    "treatments": [
+      "Avoidance of Live Attenuated Viral Vaccines",
+      "Supportive and Antiviral Management of the Viral Episode",
+      "Cascade and Pre-Vaccination Genetic Screening"
+    ],
+    "environmental": [
+      "Live attenuated viral vaccination"
+    ],
+    "biochemical": [],
+    "source_file": "IFNAR1_Deficiency.yaml",
+    "page_url": "../pages/disorders/IFNAR1_Deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "IFNAR2 Deficiency",
     "disease_id": "MONDO:0014727",
     "category": "Mendelian",
@@ -180863,7 +181202,7 @@ window.searchData = [
     "creation_date": "2026-08-01T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Infantile hypertrophic cardiomyopathy due to MRPL44 deficiency (COXPD16; OMIM #615395; ORPHA:352563) is an ultra-rare autosomal recessive disorder of mitochondrial translation caused by biallelic pathogenic variants in MRPL44, which encodes mL44, a eukaryote-specific structural protein of the large (39S) subunit of the mitochondrial ribosome located near the peptide exit tunnel. Loss of mL44 destabilizes the large mitoribosomal subunit and 16S rRNA, reducing synthesis of the thirteen mtDNA-encoded respiratory chain subunits and producing a combined oxidative phosphorylation deficiency with a characteristic emphasis on complexes I and IV. The biochemical defect is markedly tissue-graded - most severe in heart muscle, intermediate in skeletal muscle, and borderline in fibroblasts - which explains the cardiac-dominant clinical presentation. Affected children present in the neonatal period or infancy with hypertrophic cardiomyopathy, mild lactic acidosis, hypoglycemia, failure to thrive, and easy fatigue with muscle weakness; cardiac decompensation in the first year is often fatal. Individuals who survive infancy can develop a slowly progressive multisystem phenotype in the second and third decades with hepatopathy, renal insufficiency, myopathy, hemiplegic migraine, pigmentary retinopathy, and Leigh-like lesions of the thalami, basal ganglia and cerebellum on brain MRI. Fewer than a dozen patients have been reported worldwide; the recurrent missense allele c.467T>G, p.(Leu156Arg) accounts for the majority of published alleles. No disease-modifying therapy exists and management is supportive and cardiac-directed. Note that no MRPL44-specific GeneReviews chapter exists; the GeneReviews-tagged reference in this entry is the umbrella Primary Mitochondrial Disorders Overview and was not used as a phenotype baseline, since its abstract contains no MRPL44-specific clinical characteristics.\n",
+    "description": "MRPL44 deficiency (COXPD16; OMIM #615395; ORPHA:352563) is an autosomal recessive mitochondrial translation disorder caused by biallelic pathogenic MRPL44 variants. MRPL44 encodes mL44 in the large mitoribosomal subunit. Reduced mL44 abundance and impaired subunit assembly or stability compromise mitochondrial protein synthesis and oxidative phosphorylation, particularly complexes I and IV. Tissue and assay effects vary: cardiac muscle was most severely affected in the extensively studied infant, whereas fibroblast enzymology could be borderline or normal. The clinical spectrum includes rapidly progressive infantile hypertrophic cardiomyopathy with hypoglycemia and poor growth, and later cardiac and skeletal myopathy with neurological, retinal, renal and hepatic involvement. Cardiac hypertrophy was recognized only at age 21 years in one adult. Some children stabilize; later multisystem progression is possible rather than inevitable. Supportive cardiac and nutritional treatment is documented. A single-patient iPSC-cardiomyocyte preprint proposes nutrient-dependent stress as a contributor to hypertrophy; it does not establish a dietary treatment.",
     "pathophysiology": [
       "Biallelic MRPL44 Loss of Function and mL44 Protein Depletion",
       "Large Mitoribosomal Subunit Assembly Defect",
@@ -180871,9 +181210,7 @@ window.searchData = [
       "Failed Compensatory mtDNA Replication and Transcription",
       "Nutrient-Dependent Metabolic Stress Response in Cardiomyocytes",
       "Combined Complex I and IV Deficiency",
-      "Cardiomyocyte Bioenergetic Failure and Mitochondrial Proliferation",
-      "Progressive Heart Failure",
-      "Systemic Energy Deficit and Late Multisystem Involvement"
+      "Cardiomyocyte Contractile Element Loss"
     ],
     "cell_types": [
       "fibroblast",
@@ -180888,7 +181225,6 @@ window.searchData = [
       "mitochondrial translation",
       "mitochondrial DNA replication",
       "mitochondrial transcription",
-      "fatty acid beta-oxidation",
       "mitochondrial respiratory chain complex I assembly",
       "mitochondrial respiratory chain complex IV assembly",
       "oxidative phosphorylation"
@@ -180910,7 +181246,22 @@ window.searchData = [
       "Hemiplegic Migraine",
       "Ataxia",
       "Spasticity",
-      "Learning Difficulties"
+      "Cognitive Impairment",
+      "Feeding Difficulties in Infancy",
+      "Hypothermia",
+      "Hyperventilation",
+      "Hyperammonemia",
+      "Cardiomegaly",
+      "Cardiogenic Shock",
+      "Hypotension",
+      "Lethargy",
+      "Hypoxemia",
+      "Hepatic Failure",
+      "Respiratory Failure",
+      "Hemiparesis",
+      "Confusion",
+      "Impaired Executive Functioning",
+      "Fatigue"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -180921,7 +181272,9 @@ window.searchData = [
       "Renal",
       "Ophthalmological",
       "Neurological",
-      "Neurodevelopmental"
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -180932,7 +181285,8 @@ window.searchData = [
       "Growth",
       "Metabolism",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001639",
@@ -180951,12 +181305,24 @@ window.searchData = [
       "HP:0002076",
       "HP:0001251",
       "HP:0001257",
-      "HP:0001328"
+      "HP:0100543",
+      "HP:0008872",
+      "HP:0002045",
+      "HP:0002883",
+      "HP:0001987",
+      "HP:0001640",
+      "HP:0030149",
+      "HP:0002615",
+      "HP:0001254",
+      "HP:0012418",
+      "HP:0001399",
+      "HP:0002878",
+      "HP:0001269",
+      "HP:0001289",
+      "HP:0033051",
+      "HP:0012378"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "MRPL44 biallelic pathogenic variants"
     ],
@@ -180978,12 +181344,12 @@ window.searchData = [
     ],
     "source_file": "MRPL44_Deficiency.yaml",
     "page_url": "../pages/disorders/MRPL44_Deficiency.html",
-    "num_phenotypes": 17,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 32,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "MSI-High Colorectal Cancer",
@@ -236628,8 +236994,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Prader-Willi Syndrome",
@@ -303434,17 +303800,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2924,
+  "total_disorder_pages": 2928,
   "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6653,
-  "total_unique_evidence_sources": 41104,
-  "total_unique_publications": 38742,
+  "total_disorders_and_subtypes": 6657,
+  "total_unique_evidence_sources": 41147,
+  "total_unique_publications": 38785,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2919,
-  "total_unique_pathological_events": 17631,
+  "total_pathographs": 2923,
+  "total_unique_pathological_events": 17657,
   "total_modules": 174,
-  "total_research_reports": 3047,
+  "total_research_reports": 3051,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
