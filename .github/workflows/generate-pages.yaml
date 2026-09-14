@@ -68,8 +68,16 @@ jobs:
       # splitting into separate pathspecs. Do not add quotes: "$BUILT_PATHS"
       # is one path that does not exist, which silently matches nothing.
       # A bash array would be the usual fix but cannot cross a step boundary.
+      #
+      # `app/hpo_category_cache.json` is written by the same `gen-browser-data`
+      # step as `app/data.js` and belongs here for the same reason -- it was
+      # missing, so it entered git once (when `app/` was first committed) and
+      # then never updated. `render` reads it to group phenotypes by HPO
+      # category, and `browser_export` now reads it back as its own seed, so a
+      # frozen copy silently drops most phenotypes into "Other" (issue #11299).
       BUILT_PATHS: >-
-        pages/ app/data.js app/models/data.js pathographs/ dashboard/ elements/
+        pages/ app/data.js app/models/data.js app/hpo_category_cache.json
+        pathographs/ dashboard/ elements/
 
     steps:
       - name: Checkout repository
@@ -219,9 +227,10 @@ jobs:
 
           # Park this build's pages in a throwaway commit so changing base cannot
           # lose them. Only pages/ needs parking: every other BUILT_PATHS entry
-          # -- app/data.js, app/models/data.js, pathographs/, dashboard/ and
-          # elements/ -- is generated further down, and doing so AFTER this step
-          # is what makes them come from the fresh KB.
+          # -- app/data.js, app/models/data.js, app/hpo_category_cache.json,
+          # pathographs/, dashboard/ and elements/ -- is generated further down,
+          # and doing so AFTER this step is what makes them come from the fresh
+          # KB.
           BASE="$(git rev-parse HEAD)"
           git add -A pages/
           git commit -q -m "wip: rendered pages" || echo "no page changes to park"
@@ -303,6 +312,16 @@ jobs:
       - name: Heal residual drift (full rebuild)
         if: steps.drift_recheck.outputs.drift == 'true'
         run: just gen-pages
+
+      # `browser_export` resolves each HP term to its broad phenotype category
+      # against `sqlite:obo:hp`. It is cache-first on the committed
+      # `app/hpo_category_cache.json`, so this only matters for HP terms added
+      # since the last run -- but those are exactly what a page build exists to
+      # pick up, and without the build they resolve to no categories rather than
+      # failing. Same 440 MB this job already pulled, now stated in the log and
+      # fetched with resume/retry rather than lazily mid-export (issue #11299).
+      - name: Fetch hp ontology build
+        run: just fetch-ontology-dbs hp
 
       - name: Generate browser data
         run: just gen-browser-data

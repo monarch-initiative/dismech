@@ -498,11 +498,11 @@ window.searchData = [
   {
     "model_key": "Primary_Ciliary_Dyskinesia--computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities--0",
     "name": "CFD model of mucociliary clearance under ciliary abnormalities",
-    "description": "Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \u2014 the central mechanism of PCD.",
+    "description": "Three-dimensional computational study of mucus transport under varied ciliary density, beat pattern, frequency, coordination and missing-cilia regions. The institutional abstract reports stronger effects for density, pattern and frequency and weaker effects for some spatial arrangements. This general physiological model is not calibrated to PCD patient genotypes or proven clinical trajectories.",
     "model_type": "Physiological",
     "model_type_raw": "PHYSIOLOGICAL",
     "model_format": "Format not recorded",
-    "model_software": "in-house finite-difference / immersed-boundary solver",
+    "model_software": "Software not recorded",
     "base_model": "",
     "model_id": "",
     "repository_url": "",
@@ -528,12 +528,12 @@ window.searchData = [
     ],
     "num_mechanisms": 1,
     "findings": [
-      "A two-layer airway-surface-liquid CFD model with immersed-boundary cilia quantifies the effect of various ciliary abnormalities on mucociliary clearance."
+      "Published computational results identify cilia density, waveform and frequency as important determinants of transport in the modeled system; clinical PCD effect sizes are not established."
     ],
     "num_findings": 1,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "General CFD model of impaired mucociliary clearance rather than a genotype-specific PCD model; cited by DOI (no PubMed abstract available for snippet-level validation).",
+    "notes": "DOI metadata and the author institutional record (https://kth.diva-portal.org/smash/record.jsf?pid=diva2:1779672) identify the study. The sanctioned DOI cache lacks full text; solver implementation and quantitative validation were not independently verified, and no simulation was rerun.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Primary_Ciliary_Dyskinesia.html#computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities",
     "source_file": "kb/disorders/Primary_Ciliary_Dyskinesia.yaml"
@@ -2484,7 +2484,7 @@ window.searchData = [
     "num_findings": 2,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-caf-mediated-invasion-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
@@ -2492,7 +2492,7 @@ window.searchData = [
   {
     "model_key": "Pancreatic_Ductal_Adenocarcinoma--computational-model-pdac-immunotherapy-physicell-model--1",
     "name": "PDAC Immunotherapy PhysiCell Model",
-    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states and is a strong executable analogue of PDAC immune-excluded ecology.",
+    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states using explicit cell-state and interaction rules.",
     "model_type": "Agent Based",
     "model_type_raw": "AGENT_BASED",
     "model_format": "C++/XML/CSV",
@@ -2567,7 +2567,7 @@ window.searchData = [
     "num_findings": 3,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-immunotherapy-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
