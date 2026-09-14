@@ -37,10 +37,22 @@ mappings:
     - reference: MONDO
       consistent: CONSISTENT
       notes: >-
-        The listed member is an is-a descendant of MONDO:0003832, verified
-        2026-08-20 with `runoak -i sqlite:obo:mondo descendants -p i
-        MONDO:0003832` (immunodeficiency due to a late component of complement
-        deficiency, MONDO:0015700).
+        Re-verified 2026-09-13 with `runoak -i sqlite:obo:mondo descendants -p i
+        MONDO:0003832`. Two of the three members are is-a descendants:
+        Late Complement Component Deficiency (MONDO:0015700, immunodeficiency due
+        to a late component of complement deficiency) and Complement Component 2
+        Deficiency (MONDO:0009006, complement component 2 deficiency).
+
+        Hereditary Angioedema is not, and the mismatch is a MONDO modelling
+        choice rather than a membership error. MONDO splits the molecular lesion
+        from the clinical syndrome: MONDO:0007361 "C1 inhibitor deficiency" is a
+        descendant of MONDO:0003832, but the dismech entry is anchored on
+        MONDO:0019623 "hereditary angioedema", which MONDO places under
+        angioedema and skin vascular disease (`runoak ancestors -p i
+        MONDO:0019623` returns no complement ancestor). IUIS Table 8 keys its row
+        on the C1-inhibitor deficiency, so the member belongs here under this
+        grouping's own criterion even though the anchored MONDO class sits
+        elsewhere.
 membership_criteria:
 - description: >-
     A disorder belongs to IUIS Table 8 if it is an inborn error of immunity
@@ -56,6 +68,43 @@ membership_criteria:
       keyed `<slot>:<value>` form so the audit reads the structured
       classifications block.
 members:
+- member: Complement Component 2 Deficiency
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: >-
+      Biallelic loss of C2, most often the 28-bp exon 6 splice-boundary deletion,
+      leaves C4b with no partner and so prevents assembly of the classical-pathway
+      C3 convertase C4b2a. The alternative and lectin pathways are intact, so the
+      lesion is not one of lytic failure but of impaired opsonisation and of poor
+      clearance of immune complexes and apoptotic debris. That gives the
+      early-classical arm its characteristic pairing, absent in the terminal arm:
+      pyogenic infection with encapsulated organisms, Streptococcus pneumoniae
+      rather than Neisseria, alongside lupus-like autoimmunity in roughly a
+      quarter of homozygotes.
+    gene:
+      preferred_term: C2
+      term:
+        id: hgnc:1248
+        label: C2
+- member: Hereditary Angioedema
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: >-
+      The regulatory arm, and the one member whose lesion is disinhibition rather
+      than deficiency of effector function. Heterozygous SERPING1 variants halve
+      functional C1 inhibitor, the serpin that restrains C1r/C1s and MASP1/MASP2
+      in the complement cascade and factor XIIa and plasma kallikrein in the
+      contact system. Complement consumption shows up as the low C4 used
+      diagnostically, but the attacks themselves are bradykinin-driven, so the
+      phenotype is recurrent non-urticarial subcutaneous, abdominal and laryngeal
+      edema rather than infection or autoimmunity. Note the scope caveat recorded
+      on that entry's `iuis_category`: only its SERPING1 subtypes are IUIS Table 8
+      disease, not its normal-C1-INH arm.
+    gene:
+      preferred_term: SERPING1
+      term:
+        id: hgnc:1228
+        label: SERPING1
 - member: Late Complement Component Deficiency
   member_type: DISEASE
   differentiating_mechanisms:
@@ -74,37 +123,85 @@ members:
         label: C5
 notes: >-
   Created 2026-08-20 to give the IUIS Table 8 disorders a place in the Inborn
-  Errors of Immunity tree; the member already carried
-  `classifications.iuis_category: complement deficiency` but was unreachable
-  from the umbrella grouping. Single-member for now: the early classical-pathway
-  (C1q/C1r/C1s/C2/C4), alternative-pathway, lectin-pathway and regulatory
-  (C1-inhibitor, factor H/I, CD55/CD59) arms of Table 8 are not yet curated in
-  kb/disorders/ — see the `complement_table8_pathway_coverage` discussion.
+  Errors of Immunity tree, initially with a single terminal-pathway member.
+
+  Resynchronised 2026-09-13. The earlier note claiming the early classical-pathway
+  and regulatory arms were uncurated was already stale: Complement Component 2
+  Deficiency merged in #9667 carrying `iuis_category: complement deficiency`, and
+  Hereditary Angioedema was backfilled with the same classification in this pass,
+  so both had become classified-but-unlisted. That drift is invisible to tooling.
+  `just check-groupings` evaluates the membership criteria only against members
+  already named here; it never discovers a classified entry that the list omits.
+  The sync is therefore a manual diff, and the command that defines the expected
+  member set is:
+
+  rg -l "classification_value: complement deficiency" kb/disorders/
+
+  Run it before trusting this list, and make the two agree. As of 2026-09-13 it
+  returns exactly the three members below.
+
+  Still uncurated in kb/disorders/, and so still absent here: the remaining
+  early classical rows (C1q, C1r, C1s, C4), the alternative pathway (factor B,
+  factor D, properdin, factor H, factor I), the lectin pathway (MASP2,
+  ficolin-3), and the membrane regulators (CD46, CD55/CHAPLE, CD59,
+  thrombomodulin). See the `complement_table8_pathway_coverage` discussion.
+
+  Three Table 8 rows are deliberately not claimed as members, and the reasoning
+  should not be rediscovered. Periodontal Ehlers-Danlos syndrome is literally
+  Table 8, as the C1R and C1S autosomal dominant gain-of-function rows, but
+  dismech curates it as a `has_subtypes` entry inside Ehlers-Danlos_Syndrome
+  rather than as its own Disease; `iuis_category` is entry-level and
+  single-valued, so classifying it would assert Table 8 membership for every
+  other EDS subtype in that file. Atypical Hemolytic Uremic Syndrome overlaps six
+  Table 8 gene rows, but IUIS anchors those rows on the gene deficiency and lists
+  aHUS as an associated feature rather than as the Table 8 disease, and the
+  dismech entry additionally lumps an anti-factor-H antibody arm that IUIS places
+  in Table 10 (phenocopies) and a DGKE arm that is not complement at all.
+  Paroxysmal nocturnal hemoglobinuria is somatic PIGA and appears in neither
+  Table 8 nor Table 10.
 discussions:
 - discussion_id: complement_table8_pathway_coverage
   kind: KNOWLEDGE_GAP
   prompt: >-
-    Does a single terminal-pathway member support the phenotype claim this
-    grouping makes about complement deficiency as a class?
+    Do three of thirty Table 8 rows support the phenotype claim this grouping
+    makes about complement deficiency as a class?
   rationale: >-
     The clinically important property of Table 8 is that the position of the
     defect within the cascade predicts the phenotype — terminal defects give
     neisserial infection, early classical defects give lupus-like autoimmunity
     and immune-complex disease, regulatory defects give hereditary angioedema
-    or atypical haemolytic uraemic syndrome. With only the terminal arm curated,
-    the grouping states that contrast in prose but cannot demonstrate it across
-    members, and a SUFFICIENT criterion cannot be written because the criteria
-    would have to enumerate phenotypes the KB does not yet carry. This is a
-    coverage gap in kb/disorders/ rather than an open scientific question, but
-    it bounds what this grouping can currently audit.
+    or atypical haemolytic uraemic syndrome.
+
+    Updated 2026-09-13. The original form of this gap, a single terminal-pathway
+    member, is closed: three cascade positions are now represented, so the
+    contrast is demonstrable across members rather than only asserted in the
+    rationale. Complement Component 2 Deficiency supplies the early classical
+    arm with pneumococcal infection and lupus, Hereditary Angioedema supplies the
+    regulatory arm with bradykinin-mediated attacks and no infection phenotype,
+    and Late Complement Component Deficiency supplies the terminal arm with
+    isolated neisserial susceptibility.
+
+    What remains is breadth, not the structural contrast. Three of the thirty
+    Table 8 disease rows are curated, and two whole arms have no member at all:
+    the alternative pathway (factor B, factor D, properdin, factor H, factor I)
+    and the lectin pathway (MASP2, ficolin-3), plus the membrane regulators
+    CD46, CD55, CD59 and thrombomodulin. A SUFFICIENT criterion still cannot be
+    written, because it would have to enumerate phenotypes the KB does not yet
+    carry for those arms. This is a coverage gap in kb/disorders/ rather than an
+    open scientific question, but it bounds what this grouping can audit.
   proposed_experiments:
   - experiment_id: curate_early_and_regulatory_complement_defects
-    name: Curate early-classical and regulatory complement deficiency entries
+    name: Curate the alternative-pathway and lectin-pathway complement defects
     description: >-
-      Curate at least one early classical-pathway deficiency (C1q, C1r/C1s, C2
-      or C4, presenting as SLE-like immune-complex disease) and one regulatory
-      defect, assign each `classifications.iuis_category: complement
-      deficiency`, and add them here. With three cascade positions represented,
+      Superseded in part: the early classical-pathway arm (C2 deficiency) and the
+      regulatory arm (C1-inhibitor deficiency) called for here are now curated and
+      listed as members. The outstanding work is the two arms with no member —
+      curate at least one alternative-pathway deficiency (factor B, factor D,
+      properdin, factor H or factor I, presenting with neisserial or encapsulated
+      organism infection and, for factor H/I, aHUS) and one lectin-pathway
+      deficiency (MASP2 or ficolin-3), assign each
+      `classifications.iuis_category: complement deficiency`, and add them here.
+      With five cascade positions represented,
       the pathway-position-predicts-phenotype claim becomes auditable as a
       structured contrast between members rather than an assertion in the
       grouping rationale.
