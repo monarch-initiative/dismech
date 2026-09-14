@@ -977,7 +977,7 @@ All evidence items MUST:
 - The quoted text must be from the PMID's abstract
 - Fetch, then check against the cache: `just count-verified-snippets <file>` —
   seconds, offline, and it names each snippet it could not find
-- `just validate-references <file>` is the slow full check; use
+- `just validate-kb-references <file>` is the slow full check; use
   `--fix-threshold 0.80` there to auto-repair minor mismatches
 
 ### "Required field missing"

@@ -42,6 +42,7 @@ def kb_findings():
     """One whole-KB scan shared by the tests that need it (~90s otherwise each)."""
     return scan_repo()
 
+
 REFERENCE_FIELDS = frozenset({"reference"})
 
 #: The three fabricated titles a reviewer caught on PR #9111 (CFEOM), paired
@@ -103,7 +104,9 @@ def _doc(reference_id="PMID:1", title="A title", field="reference_title"):
 
 def _violations(data, mapping):
     return list(
-        find_violations(data, REFERENCE_FIELDS, _Index(mapping), exempt_prefixes=frozenset())
+        find_violations(
+            data, REFERENCE_FIELDS, _Index(mapping), exempt_prefixes=frozenset()
+        )
     )
 
 
@@ -190,9 +193,7 @@ def test_trailing_period_difference_passes(tmp_path):
 
 
 def test_dash_and_smart_quote_differences_pass(tmp_path):
-    mapping = {
-        "PMID:1": _cache(tmp_path, "PMID:1", "Wolff–Parkinson–White “syndrome”")
-    }
+    mapping = {"PMID:1": _cache(tmp_path, "PMID:1", "Wolff–Parkinson–White “syndrome”")}
     assert not _violations(_doc("PMID:1", 'Wolff-Parkinson-White "syndrome"'), mapping)
 
 
@@ -245,7 +246,8 @@ def test_an_appended_source_annotation_passes(tmp_path):
     # Exempted generically via containment, not by matching that literal string.
     mapping = {"ORPHA:1": _cache(tmp_path, "ORPHA:1", "Marfan syndrome")}
     assert not _violations(
-        _doc("ORPHA:1", "Marfan syndrome (Orphanet structured-database record)"), mapping
+        _doc("ORPHA:1", "Marfan syndrome (Orphanet structured-database record)"),
+        mapping,
     )
 
 
@@ -303,8 +305,12 @@ def test_url_prefixed_references_are_exempt(tmp_path):
 def test_dataset_prefixes_are_exempt():
     # Sourced from the reference validator's own skip_prefixes, minus DOI.
     exempt = exempt_prefix_set()
-    assert "geo" in exempt
+    assert "ega" in exempt
     assert "doi" not in exempt
+    # `geo` was removed from skip_prefixes once GEO records were fetched into
+    # references_cache/, so a GEO reference_title is now compared against the
+    # cached record like a PMID's is.
+    assert "geo" not in exempt
 
 
 # --- walking ----------------------------------------------------------------
@@ -320,7 +326,11 @@ def test_walks_top_level_references_using_the_title_slot():
 def test_walks_nested_evidence_items():
     data = {
         "pathophysiology": [
-            {"downstream": [{"evidence": [{"reference": "PMID:2", "reference_title": "T"}]}]}
+            {
+                "downstream": [
+                    {"evidence": [{"reference": "PMID:2", "reference_title": "T"}]}
+                ]
+            }
         ]
     }
     pairs = list(iter_title_pairs(data, REFERENCE_FIELDS))
@@ -337,7 +347,9 @@ def test_walks_nested_evidence_items():
 def test_a_title_without_a_reference_is_ignored():
     # `title` is a common slot name; without a sibling reference there is
     # nothing to compare it against and it is not a citation.
-    assert not list(iter_title_pairs({"title": "Some section heading"}, REFERENCE_FIELDS))
+    assert not list(
+        iter_title_pairs({"title": "Some section heading"}, REFERENCE_FIELDS)
+    )
 
 
 def test_non_string_values_are_skipped():
@@ -346,9 +358,8 @@ def test_non_string_values_are_skipped():
 
 
 def test_scan_dir_is_the_kb_root_not_just_disorders():
-    # Pins the module constant: kb/modules/, kb/comorbidities/ and
-    # kb/groupings/ carry evidence items too, and a fabricated title there is
-    # the same defect.
+    # Pins the KB-root scope: non-disorder records carry evidence too, and a
+    # fabricated title there is the same defect.
     assert crt.SCAN_DIR == crt.ROOT / "kb"
 
 
@@ -356,7 +367,7 @@ def test_scan_covers_kb_beyond_disorders(tmp_path):
     cache = tmp_path / "cache"
     cache.mkdir()
     _cache(cache, "PMID:1", "The real title of the paper.")
-    for sub in ("modules", "comorbidities", "groupings"):
+    for sub in ("modules", "module_collections", "comorbidities", "groupings"):
         target = tmp_path / "kb" / sub
         target.mkdir(parents=True)
         (target / "X.yaml").write_text(
@@ -368,6 +379,7 @@ def test_scan_covers_kb_beyond_disorders(tmp_path):
     assert sorted(rel for rel, *_ in findings) == [
         "kb/comorbidities/X.yaml",
         "kb/groupings/X.yaml",
+        "kb/module_collections/X.yaml",
         "kb/modules/X.yaml",
     ]
 
@@ -477,7 +489,9 @@ def test_committed_baseline_carries_no_stale_entries(kb_findings):
 
 def _init_git_repo(path: Path) -> None:
     subprocess.run(["git", "init", "-q"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "t@example.com"], cwd=path, check=True
+    )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
 
 
@@ -499,9 +513,10 @@ def test_baseline_from_ref_reads_kb_at_the_ref(tmp_path, monkeypatch):
 
     counts = baseline_from_ref("HEAD", root=tmp_path)
     assert counts is not None
-    assert counts[
-        _baseline_key("kb/disorders/X.yaml", "PMID:1", "Invented, unrelated.")
-    ] == 1
+    assert (
+        counts[_baseline_key("kb/disorders/X.yaml", "PMID:1", "Invented, unrelated.")]
+        == 1
+    )
 
 
 def test_baseline_from_ref_returns_none_for_an_unknown_ref(tmp_path):

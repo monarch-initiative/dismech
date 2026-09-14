@@ -8,7 +8,7 @@ Two things the LinkML schema cannot express on its own:
 2. ``iter_quote_problems`` enforces that every ``best_matching_text`` is a
    verbatim (whitespace-normalized) substring of the provider report it claims
    to quote — the anti-fabrication guarantee, analogous to
-   ``validate-references`` checking evidence snippets against abstracts.
+   ``validate-kb-references`` checking evidence snippets against abstracts.
 
 Run as a module to check one or more synthesis files::
 
