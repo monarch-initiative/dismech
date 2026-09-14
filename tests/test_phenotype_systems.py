@@ -194,12 +194,12 @@ phenotypes:
 """,
     )
 
-    kwargs = dict(
-        kb_dir=kb_dir,
-        dashboard_dir=dashboard_dir,
-        dashboard_index_path=index_path,
-        hpo_category_cache_path=cache_path,
-    )
+    kwargs = {
+        "kb_dir": kb_dir,
+        "dashboard_dir": dashboard_dir,
+        "dashboard_index_path": index_path,
+        "hpo_category_cache_path": cache_path,
+    }
     first = generate_phenotype_systems_report(**kwargs)
     second = generate_phenotype_systems_report(**kwargs)
 

@@ -22,6 +22,10 @@ time; 2,924 by implementation):
 | Median systems per disease (presence) | 5 |
 | HP terms in use that sit under 2+ top-level branches | 407 of 1,415 |
 
+(The last row was read from the category cache as it stood on 2026-09-04,
+before #11299 rebuilt it; at implementation the cache held 4,661 terms, 1,380
+of them multi-branch. The ratio is a snapshot, not a current figure.)
+
 Two consequences drove the design:
 
 1. **Exact combinations are nearly unique per disease.** A classic UpSet plot

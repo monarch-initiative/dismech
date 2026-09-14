@@ -59,9 +59,10 @@ different things:
 - **A multisystem disease** has phenotypes in several systems. This is what
   the presence count and the effective count measure.
 - **A multi-branch HP term** sits under more than one top-level branch, because
-  HP is a DAG. *Hepatosplenomegaly* is both Digestive and Blood;
-  *Nephrotic syndrome* is Genitourinary and Metabolism. One such phenotype puts
-  a disease into two systems on its own. The page counts these once per
+  HP is a DAG. *Inguinal hernia* (`HP:0000023`) is both Digestive and
+  Musculoskeletal; *Proteinuria* (`HP:0000093`) is both Genitourinary and
+  Metabolism (both read from `app/hpo_category_cache.json`). One such
+  phenotype puts a disease into two systems on its own. The page counts these once per
   system, exactly as the facet does, and reports them separately as
   "multi-system phenotypes" so a reader can see how much of a disease's spread
   is ontology structure rather than clinical breadth. Roughly a fifth of the

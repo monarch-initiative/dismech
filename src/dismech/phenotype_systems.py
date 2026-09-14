@@ -30,20 +30,23 @@ import html
 import json
 import math
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from itertools import combinations
 from pathlib import Path
 from typing import Any
 
-from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.export.utils import discover_disorder_files, slugify
-from dismech.qc_dashboard import _inject_block
-from dismech.yaml_io import safe_load
+from dismech import kb_cache
+from dismech.export.browser_export import (
+    HPO_CATEGORY_CACHE_PATH,
+    HPO_TOP_LEVEL_CATEGORIES,
+)
+from dismech.export.utils import slugify
+from dismech.qc_dashboard import inject_block
 
 SYSTEMS: tuple[str, ...] = tuple(sorted(HPO_TOP_LEVEL_CATEGORIES.values()))
-DEFAULT_HPO_CATEGORY_CACHE = Path("app/hpo_category_cache.json")
+DEFAULT_HPO_CATEGORY_CACHE = HPO_CATEGORY_CACHE_PATH
 PHENOTYPE_SYSTEMS_BLOCK_START = "<!-- PHENOTYPE_SYSTEMS_START -->"
 PHENOTYPE_SYSTEMS_BLOCK_END = "<!-- PHENOTYPE_SYSTEMS_END -->"
 TOP_COMBINATIONS = 30
@@ -322,13 +325,17 @@ def collect_phenotype_systems(
     }
 
 
-def load_disorders(kb_dir: Path) -> list[dict[str, Any]]:
-    """Load every disorder YAML under ``kb_dir`` (history files excluded)."""
-    disorders = []
-    for path in discover_disorder_files(kb_dir):
-        with path.open(encoding="utf-8") as handle:
-            disorders.append(safe_load(handle))
-    return disorders
+def iter_disorders(kb_dir: Path) -> Iterator[dict[str, Any]]:
+    """Yield every disorder document under ``kb_dir`` (history files excluded), one at a time.
+
+    Streams rather than materialising the corpus: :func:`collect_phenotype_systems`
+    keeps only a small profile per disease, so peak memory is one parsed
+    document instead of all of them. Routed through :mod:`dismech.kb_cache`
+    (issue #11003) so a process that walks the corpus more than once parses
+    each file once; the single-walk CLI turns that cache off in ``main``.
+    """
+    for _path, document in kb_cache.iter_documents(kb_dir):
+        yield document
 
 
 # --------------------------------------------------------------------------- rendering
@@ -368,7 +375,7 @@ def _diverging(t: float) -> str:
         start, end, u = _hex_to_rgb(_BLUE), _hex_to_rgb(_NEUTRAL), 1 + t
     else:
         start, end, u = _hex_to_rgb(_NEUTRAL), _hex_to_rgb(_RED), t
-    return "#%02x%02x%02x" % tuple(round(start[i] + (end[i] - start[i]) * u) for i in range(3))
+    return "#" + "".join(f"{round(start[i] + (end[i] - start[i]) * u):02x}" for i in range(3))
 
 
 def _svg(width: float, height: float, body: list[str]) -> str:
@@ -793,7 +800,7 @@ def _build_index_block(summary: Mapping[str, Any]) -> str:
 
 def inject_phenotype_systems_link(dashboard_index_path: Path, summary: Mapping[str, Any]) -> bool:
     """Insert or update the phenotype-systems section in the dashboard index page."""
-    return _inject_block(
+    return inject_block(
         dashboard_index_path,
         start_sentinel=PHENOTYPE_SYSTEMS_BLOCK_START,
         end_sentinel=PHENOTYPE_SYSTEMS_BLOCK_END,
@@ -809,7 +816,7 @@ def generate_phenotype_systems_report(
 ) -> dict[str, Any]:
     """Write ``phenotype_systems.html`` and ``.json`` under ``dashboard_dir``."""
     categories = load_hpo_category_cache(hpo_category_cache_path)
-    data = collect_phenotype_systems(load_disorders(kb_dir), categories)
+    data = collect_phenotype_systems(iter_disorders(kb_dir), categories)
     generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     dashboard_dir.mkdir(parents=True, exist_ok=True)
@@ -848,6 +855,7 @@ def main(argv: list[str] | None = None) -> int:
         help="HP-term-to-system map written by `just gen-browser-data`.",
     )
     args = parser.parse_args(argv)
+    kb_cache.default_off()  # one walk of the corpus: a parse cache would only cost memory
     result = generate_phenotype_systems_report(
         kb_dir=args.kb_dir,
         dashboard_dir=args.dashboard_dir,

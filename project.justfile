@@ -1038,12 +1038,12 @@ gen-dashboard:
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
     just gen-phenotype-systems
     just gen-priority-dashboard
+    echo "Dashboard generated in dashboard/"
 
 # Generate the phenotype-systems dashboard page (needs app/hpo_category_cache.json from `just gen-browser-data`)
 [group('QC')]
 gen-phenotype-systems:
     uv run python -m dismech.phenotype_systems --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
-    echo "Dashboard generated in dashboard/"
 
 # Generate MONDO curation priority dashboard
 [group('QC')]
