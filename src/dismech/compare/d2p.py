@@ -23,6 +23,7 @@ import httpx
 import typer
 from oaklib import get_adapter
 
+from dismech import oak_db
 from dismech.qc_plugins import causal_inlink_coverage
 
 from .support import default_kb_dir as _default_kb_dir
@@ -57,14 +58,33 @@ app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databas
 
 
 class HPOClosureResolver:
-    """Lazily loads OAK HP adapter and provides is-a ancestor lookups with caching."""
+    """Lazily loads OAK HP adapter and provides is-a ancestor lookups with caching.
+
+    Only when that build is on disk. `get_adapter(_HP_ADAPTER_SPEC)` downloads
+    it (440 MB) rather than failing when it is absent, so running this audit on
+    a machine without it used to fetch the whole of HPO silently. Both lookups
+    already degrade and warn on a failed query, so an absent build takes the
+    path they have (issue #11299).
+    """
 
     def __init__(self) -> None:
         self._adapter = None
         self._ancestor_cache: dict[str, set[str]] = {}
+        self._warned_no_build = False
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
+            if not oak_db.local_build_present(_HP_ADAPTER_SPEC):
+                if not self._warned_no_build:
+                    typer.echo(
+                        f"WARNING: no local {_HP_ADAPTER_SPEC} build; HPO closure "
+                        "is unavailable and ancestor lookups will return nothing. "
+                        f"Run `just fetch-ontology-dbs hp` to enable it.",
+                        err=True,
+                    )
+                    self._warned_no_build = True
+                return None
             self._adapter = get_adapter(_HP_ADAPTER_SPEC)
         return self._adapter
 
@@ -76,6 +96,8 @@ class HPOClosureResolver:
             return self._ancestor_cache[normalized]
 
         adapter = self._get_adapter()
+        if adapter is None:
+            return set()
         try:
             anc = {
                 a
@@ -100,6 +122,8 @@ class HPOClosureResolver:
         if not normalized:
             return None
         adapter = self._get_adapter()
+        if adapter is None:
+            return None
         try:
             return adapter.label(normalized)
         except Exception as exc:
