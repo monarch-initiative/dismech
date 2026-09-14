@@ -28,6 +28,7 @@ year: '2021'
 doi: 10.1093/brain/awab071
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic loss-of-function variations in PRDX3 cause cerebellar ataxia

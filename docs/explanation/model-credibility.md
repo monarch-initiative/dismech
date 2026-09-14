@@ -214,9 +214,9 @@ just model-scale-audit --strict                           # gate
 `--strict` fails on an upward-extrapolating link carrying neither `limitations` nor a
 typed divergence, and on a `SCALE_EXTRAPOLATION` divergence contradicted by the scale
 slots. The same two rules are enforced as tests
-(`test_upward_extrapolating_links_are_caveated`,
-`test_scale_extrapolation_divergence_agrees_with_scales`), alongside
-`test_model_divergences_are_typed_and_explained`, which rejects a `description` that
+(`check_upward_extrapolating_links_are_caveated`,
+`check_scale_extrapolation_divergence_agrees_with_scales`), alongside
+`check_model_divergences_are_typed_and_explained`, which rejects a `description` that
 merely restates its enum value.
 
 ## References
