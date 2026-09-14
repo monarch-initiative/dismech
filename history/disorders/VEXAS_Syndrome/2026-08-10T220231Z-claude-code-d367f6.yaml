@@ -1,0 +1,79 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: VEXAS_Syndrome
+  path: kb/disorders/VEXAS_Syndrome.yaml
+session:
+  id: 2026-08-10T220231Z-claude-code-d367f6
+  timestamp: '2026-08-10T22:02:31Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8251
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - animal_models
+  summary: Add schema-required animal_models name after branch refresh
+  details: |
+    Fixes the CI schema failure on branch head 45fe113c88:
+
+        [ERROR] [kb/disorders/VEXAS_Syndrome.yaml/0] 'name' is a required
+        property in /animal_models/0
+
+    Cause. The branch was 102 commits behind main, where `AnimalModel` gained a
+    `name` slot. The global `name` slot is `identifier: true`, so it is
+    implicitly required, and the entry's single `animal_models` item carried
+    none. Neither commit on this branch touched `animal_models`; `origin/main`'s
+    own copy of this entry has the identical nameless item, so this is a
+    pre-existing latent defect that surfaces only because CI schema-validates
+    changed disorder files. Local `just validate-disorders` could not see it,
+    because the branch's older schema had no `name` slot on `AnimalModel` at
+    all - the local sweep and CI were running different schemas. Reported in
+    the preceding handoff as a correction to the earlier claim that the local
+    sweep was CI-equivalent.
+
+    Branch refresh. The refresh had to precede the fix: under the branch's old
+    schema, adding `name:` would have been an unknown property. Per instruction
+    the branch was NOT rebased locally. It was refreshed with the GitHub
+    update-branch API guarded by `expected_head_sha=45fe113c88`, producing merge
+    commit bebf7b9d9c, which was then pulled with `git pull --ff-only`. The
+    post-refresh diff against origin/main was reviewed: 12 files,
+    +2560/-206 - byte-identical scope and stat to before the refresh - with no
+    unrelated deletions, no reversions, and no protected-path churn. The
+    substantive edits from this session were confirmed still present.
+
+    Change. Added `name: Cytoplasmic UBA1 homologue knockout zebrafish` to the
+    single `animal_models` item, matching the schema's `slot_usage` guidance
+    that the name be a short stable label used as the pathograph node label and
+    in-page anchor. Nothing else in the entry was touched. In particular
+    `modeled_mechanisms` - a slot the refreshed `AnimalModel` also gained, and
+    one a prior audit suggested populating - was deliberately left absent,
+    because adding it asserts a new evidence-backed edge and belongs in its own
+    reviewed change rather than in a CI fix.
+
+    Reference cache: no cache file is modified by this commit. The
+    `just validate-disorders` run regenerated the same seven-file churn
+    documented in the two preceding records; it was reverted, and snippet
+    verification was re-run offline afterwards against the committed cache
+    state.
+
+    Validation, all run to completion on the final state, now against main's
+    current schema:
+    - `just validate-disorders kb/disorders/VEXAS_Syndrome.yaml` - passed,
+      71/71 snippets verified. The same command reproduced the CI error exactly
+      before the fix, confirming the local and CI schemas now agree.
+    - `just count-verified-snippets kb/disorders/VEXAS_Syndrome.yaml` - 71/71
+      verified offline after the churn revert.
+    - `just validate-terms kb/disorders/VEXAS_Syndrome.yaml` - passed.
+    - `just validate-history` on this record.
+
+    The PR remains draft with no auto-merge request, pending a fresh
+    independent audit, a same-head approval, and green checks.

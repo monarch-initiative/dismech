@@ -41,6 +41,14 @@ citations when no PMID is available. Treat reviews as orientation unless they
 contain directly relevant synthesized evidence that should be clearly labeled as
 review-level support.
 
+When dataset or scientific-tool access is available, use it for questions that
+can be tested computationally rather than limiting the run to literature search.
+Preflight the required data lake, databases, packages, credentials, and tools
+before claiming that an analysis can run. Never silently fall back from a failed
+dataset/tool analysis to literature synthesis or model knowledge: report the
+failure, the fallback, and the resulting limitation explicitly. A proposed
+analysis must never be described as performed.
+
 ## Required Output
 
 ### Executive Judgment
@@ -60,6 +68,31 @@ Create a table with one row per important evidence item:
 - Key finding
 - Disease subtype or context
 - Confidence and limitations
+
+### Data and Tool Use
+
+Inventory every dataset, database, API, supplementary file, or local input
+material to the report. For each, state:
+
+- stable accession or URI, repository/source, version or snapshot, and retrieval
+  date where known;
+- whether it was only cited/proposed, actually accessed, searched with no usable
+  result, or could not be verified;
+- the exact query, filters, cohort, sample subset, organism, tissue, assay, and
+  comparison used where applicable;
+- whether the accession resolved and whether its subject matter is genuinely
+  relevant to this disease and hypothesis.
+
+For accessed sources and negative searches, save a sanitized query response,
+input manifest, or search log in the provider artifact bundle; prose alone does
+not establish access or a negative result.
+
+Inventory each attempted analysis separately. Trace input -> method -> output,
+including software/model versions, material parameters, code or workflow,
+environment, random seeds where relevant, output files, and limitations. Label
+the execution outcome as succeeded, partial, failed, skipped, or reported-only.
+Do not count a prose assertion without inspectable execution evidence as a
+successful analysis.
 
 ### Mechanistic Causal Chain
 
@@ -84,7 +117,9 @@ it. Include:
   trial, omics, or cohort evidence found as of the search date
 
 For each gap, state the scope, why it matters, what was checked, and what
-evidence or experiment would resolve it.
+evidence or experiment would resolve it. A negative database search must include
+the database/version, query, filters, and search date; otherwise label it
+unverified rather than claiming absence.
 
 ### Alternative Models
 
@@ -110,6 +145,16 @@ verification. Include:
 - candidate `knowledge_gaps` or discussion prompts for unresolved causal claims,
   conflicting evidence, or explicit source/data absences
 
-If the provider supports artifacts, produce artifact-friendly outputs such as an
-evidence matrix, mechanistic diagram, knowledge-gap table, or comparison table.
-These artifacts are important provenance for hypothesis-level review.
+If the provider supports artifacts, produce a provider artifact bundle containing
+canonical `MANIFEST.yaml` (schema version, status/fallback flags, checksummed
+inputs/outputs, and replay verification), code/query/configuration, an
+environment or package-version record,
+sanitized execution logs, and small derived tables/figures needed to inspect the
+result beneath `{artifact_dir}`. Do not create an empty bundle when no data
+source was accessed and no analysis ran. Give each artifact a stable relative
+path and connect computed claims to their input, method, and output artifacts.
+Do not bundle large recoverable raw
+downloads, a provider data lake, controlled/patient-level data, credentials, or
+signed URLs; record their stable external identifiers, versions, and checksums
+instead. State explicitly when an expected artifact is external, local-only,
+missing, or was not produced.

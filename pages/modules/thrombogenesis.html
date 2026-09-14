@@ -289,6 +289,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -375,6 +385,75 @@
             font-weight: 500;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -388,6 +467,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -565,9 +656,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -905,6 +994,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -913,7 +1016,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1449,6 +1552,10 @@
     
 
     
+    
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1482,9 +1589,10 @@
         <header class="page-header">
             <h1>Thrombogenesis Module</h1>
             <div class="header-meta">
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">thrombogenesis</span>
-                <span class="badge badge-count">4 disorders</span>
+                <span class="badge badge-count">12 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -1515,16 +1623,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1549,16 +1662,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         platelet activation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030168</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1571,6 +1689,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         platelet aggregation
@@ -1578,10 +1698,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070527</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1594,6 +1717,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         blood coagulation
@@ -1601,10 +1726,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007596</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1618,16 +1746,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1662,14 +1795,33 @@
 
         
 
+        
+
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">12</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Coagulation Activation and Fibrinogen Consumption → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
@@ -1695,6 +1847,91 @@
                         , 
                         
                         Acute thrombotic vascular occlusion and ischemic tissue injury → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Intracardiac Thrombus Formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Platelet Activation and Consumptive Thrombocytopenia → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Hepatic Sinusoidal Microthrombosis and Fibrin Deposition → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        FcgammaRIIA-Mediated Platelet Activation by Immune Complexes → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Explosive Thrombin Generation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Venous and Arterial Thrombosis → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Thrombotic Occlusion and Ischemic Tissue Injury → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Idiopathic_Hypereosinophilic_Syndrome.html">Idiopathic Hypereosinophilic Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Endocardial Injury and Mural Thrombus Formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Systemic Thromboembolism → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
                         
                         
                     </span>
@@ -1747,6 +1984,51 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cytokine-Induced Tissue Factor Expression and Coagulation Cascade Activation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Platelet Activation and NET-Amplified Thrombus Propagation → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Microvascular Thrombosis and Maternal Organ Ischemia → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Protein_S_Deficiency.html">Protein S Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Unopposed Thrombin Generation and Fibrin Formation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Venous Thrombus Formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
                     
                     <span class="crosslink-desc">
@@ -1765,6 +2047,31 @@
                         , 
                         
                         Embolization to the pulmonary arterial tree → Venous Thrombus Embolization to Pulmonary Arteries
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Thrombophilia.html">Thrombophilia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Pathological Venous Thrombus Formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Venous Thrombus Embolization to Pulmonary Arteries
                         
                         
                     </span>
@@ -1875,16 +2182,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1902,16 +2214,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         platelet activation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030168</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1925,16 +2242,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         platelet aggregation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070527</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1966,9 +2288,30 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Platelet Activation and Consumptive Thrombocytopenia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as FcgammaRIIA-Mediated Platelet Activation by Immune Complexes</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
                             
                             <span class="crosslink-desc">as Endothelial injury and sterile thrombus formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Platelet Activation and NET-Amplified Thrombus Propagation</span>
                             
                         </div>
                         
@@ -2005,16 +2348,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2032,16 +2380,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         blood coagulation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007596</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2055,16 +2408,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibrin clot formation, annotated with blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2089,9 +2447,42 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
+                            
+                            <span class="crosslink-desc">as Coagulation Activation and Fibrinogen Consumption</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
                             
                             <span class="crosslink-desc">as Coagulation cascade activation and thrombin-driven fibrin formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Explosive Thrombin Generation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Cytokine-Induced Tissue Factor Expression and Coagulation Cascade Activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Protein_S_Deficiency.html">Protein S Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Unopposed Thrombin Generation and Fibrin Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Thrombophilia.html">Thrombophilia</a>
                             
                         </div>
                         
@@ -2128,16 +2519,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2155,16 +2551,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         blood coagulation, fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2196,6 +2597,34 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as Intracardiac Thrombus Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Hepatic Sinusoidal Microthrombosis and Fibrin Deposition</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Venous and Arterial Thrombosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Idiopathic_Hypereosinophilic_Syndrome.html">Idiopathic Hypereosinophilic Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Endocardial Injury and Mural Thrombus Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
                             
                             <span class="crosslink-desc">as Vegetation maturation with biofilm-like protection</span>
@@ -2210,9 +2639,23 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Protein_S_Deficiency.html">Protein S Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Venous Thrombus Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
                             
                             <span class="crosslink-desc">as Deep venous thrombus formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Thrombophilia.html">Thrombophilia</a>
+                            
+                            <span class="crosslink-desc">as Pathological Venous Thrombus Formation</span>
                             
                         </div>
                         
@@ -2270,6 +2713,20 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Thrombotic Occlusion and Ischemic Tissue Injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Idiopathic_Hypereosinophilic_Syndrome.html">Idiopathic Hypereosinophilic Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Systemic Thromboembolism</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
                             
                             <span class="crosslink-desc">as Systemic embolization of vegetation fragments</span>
@@ -2280,6 +2737,13 @@
                             <a href="../disorders/Posterior_Myocardial_Infarction.html">Posterior Myocardial Infarction</a>
                             
                             <span class="crosslink-desc">as Posterior myocardial ischemic cell death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Preeclampsia.html">Preeclampsia</a>
+                            
+                            <span class="crosslink-desc">as Microvascular Thrombosis and Maternal Organ Ischemia</span>
                             
                         </div>
                         
@@ -2319,10 +2783,123 @@
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Thrombophilia.html">Thrombophilia</a>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Anticoagulation via Heparin-Potentiated Antithrombin" data-dismech-type="treatment">
+                <div class="item-name">Anticoagulation via Heparin-Potentiated Antithrombin</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        anticoagulation therapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C63341" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-14">NCIT:C63341</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticoagulation therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        heparin
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28304" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:28304</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses heparin (CHEBI:28304). CHEBI:28304 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">Therapeutic heparins potentiate antithrombin-mediated inhibition of thrombin and activated coagulation factors, including factor Xa. This is a mechanism-level anticoagulation pattern aimed at the coagulation/thrombin node rather than a recommendation inherited by conforming disorders. Agent or class selection, dose, intensity, duration, bleeding risk, and other contraindications must be assessed and evidenced in each disease context.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-coagulation-cascade-activation-and-thrombin-driven-fibrin-formation"><strong>Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</strong></a>
+                        
+                        <span> — Heparin-enhanced antithrombin activity inhibits thrombin and factor Xa, suppressing the coagulation reactions that generate and stabilize fibrin.</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: 1</span>
+                </div>
+                
                 
             </div>
             
@@ -2359,5 +2936,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

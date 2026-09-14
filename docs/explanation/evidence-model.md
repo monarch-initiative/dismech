@@ -14,28 +14,55 @@ the direction in which we would like to extend it.
 
 ## What an evidence item is
 
-An `EvidenceItem` is a **validated pointer into the literature**. Its seven fields are:
+An `EvidenceItem` is a **validated pointer into the literature**. Its eight fields are:
 
 ```yaml
 evidence:
 - reference: PMID:1301956            # a real, resolvable ID (PMID, DOI, NCT, ORPHA, CGGV, …)
   reference_title: "Molecular genetics of the LDL receptor gene …"
-  supports: SUPPORT                  # polarity: SUPPORT / REFUTE / PARTIAL / NO_EVIDENCE / WRONG_STATEMENT
+  supports: SUPPORT                  # direction: SUPPORT / REFUTE / NO_EVIDENCE
+  directness: DIRECT                 # optional: DIRECT / INDIRECT / UNKNOWN
   evidence_source: HUMAN_CLINICAL    # study type reported in the paper (see below)
   snippet: "…mediates the uptake and lysosomal degradation of plasma LDL…"
   explanation: "When LDLR function is impaired, the core hepatic LDL uptake step fails."
   images: [...]                      # optional figures from deep-research artifacts
 ```
 
-Two of those fields carry the evidence *semantics*:
+Three of those fields carry the evidence *semantics*:
 
 - **`supports`** records the **direction** the reference points relative to the claim —
-  whether it supports, refutes, partially supports, is silent, or documents the claim as
-  factually wrong.
+  whether it supports it, contradicts it, or does not bear on it at all.
+- **`directness`** (optional) records **how directly** the quoted text bears on the claim —
+  whether the quote asserts the claim itself, or asserts something from which the claim
+  follows by an inference step. It is not a strength grade.
 - **`evidence_source`** records the **type of study reported in the publication** —
   `HUMAN_CLINICAL`, `MODEL_ORGANISM`, `IN_VITRO`, `COMPUTATIONAL`, or `OTHER`. It
   describes the cited paper, *not* how the entry was curated: an AI-assisted curation of a
   mouse-knockout paper is still `MODEL_ORGANISM`.
+
+### Deciding `directness`: an inferential gap, not a small sample
+
+The test that makes `directness` decidable is **what the quote is about**, not how much of
+it there is:
+
+> Is the quoted text about the *same thing* the claim asserts, or about something
+> *adjacent*, from which the claim follows only by an inference step?
+
+`INDIRECT` is for the adjacent case. A mouse deletion quoted for a human mechanism, a
+transcript's presence quoted for a functional role, a class-level statement quoted for one
+member of the class, a management recommendation quoted as evidence that a phenotype
+occurs, co-occurrence quoted for a causal direction — in each the reader must take a step
+the quote does not take for them.
+
+**A small or uncontrolled study is not `INDIRECT`.** "An uncontrolled n-of-1 observation
+cannot establish efficacy" and "five participants cannot establish safety" are statements
+about *strength*, and the quote is squarely about the claim. Those items are already
+correctly `SUPPORT`, and the model has no strength slot on purpose — see the appraisal
+layer below, and design decisions §12. Reaching for `directness` to record a sample-size
+caveat would quietly turn it into the strength grade it was defined not to be.
+
+The two can co-occur — a single-animal study quoted for a human claim is `INDIRECT` *and*
+weak — but only the first is recordable today. The second belongs in the `explanation`.
 
 ## Two layers: grounding and appraisal
 
@@ -60,8 +87,9 @@ text actually appear in it?"* That is **citation integrity**.
 
 **The appraisal layer is thin.** What the model does *not* yet capture is how *strong* the
 evidence is, *what experiment* produced it, and *how* the mechanistic claim was inferred
-from that experiment. `supports` is direction, not strength — a single case report and a
-human natural-knockout study both collapse to `SUPPORT`. `evidence_source` is a coarse
+from that experiment. `supports` is direction and `directness` is inferential distance —
+neither is strength, so a single case report and a human natural-knockout study both
+collapse to `SUPPORT`. `evidence_source` is a coarse
 organism bucket — every human observation from an n=1 case report to a large randomised
 trial is one value, and it says nothing about study design or inferential power.
 

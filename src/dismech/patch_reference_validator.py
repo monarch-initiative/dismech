@@ -30,6 +30,20 @@ logger = logging.getLogger("linkml_reference_validator.patch")
 MAX_RETRIES = 3
 BACKOFF_BASE = 2  # seconds
 
+# PMIDSource methods that make NCBI network calls and so need retry wrapping.
+# Names missing from the installed version are skipped; if *nothing* matches, the
+# patch warns rather than crashing (see ``apply_patch``).
+#
+# Independent methods, each wrapped whenever present:
+PMID_NETWORK_METHODS = ("_fetch_pmc_xml", "_fetch_pmc_html")
+# Mutually exclusive spellings of the same PubMed fetch, newest first: 0.2.1
+# split ``_fetch_abstract`` into ``_fetch_pubmed_xml`` (network) plus
+# ``_parse_abstract`` (parsing). Only the FIRST match is wrapped. If a later
+# release reintroduces ``_fetch_abstract`` as a thin shim over
+# ``_fetch_pubmed_xml``, wrapping both would nest the retries -- 4 x 4 attempts
+# with backoff, minutes per reference -- so this is a first-wins list, not a set.
+PMID_FETCH_ALTERNATIVES = ("_fetch_pubmed_xml", "_fetch_abstract")
+
 # A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
 _BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
 
@@ -81,6 +95,33 @@ def _coerce_authors(authors):
     return [a for a in coerced if a]
 
 
+def _wrap_save_to_disk(original):
+    """Wrap ``ReferenceFetcher._save_to_disk`` to normalize ``authors`` first.
+
+    Extra positional/keyword arguments are forwarded blind on purpose: this
+    wrapper cares only about ``reference``, and pinning the rest of the signature
+    turns every upstream parameter addition into a crash. 0.2.1 added ``private=``
+    (passed from ``_save_by_access``), and because the wrapper had named its
+    parameters exactly, every patched fetch of an *uncached* reference died with
+    "unexpected keyword argument 'private'" -- i.e. ``just validate-disorders``
+    on any entry citing something not already in ``references_cache/``. Do not
+    re-narrow this signature.
+    """
+
+    @wraps(original)
+    def wrapper(self, reference, *args, **kwargs):
+        # Normalize non-string authors (dict/None/nested-list from stale cache
+        # records) before upstream serialization, which assumes plain strings.
+        try:
+            reference.authors = _coerce_authors(reference.authors)
+        except Exception as exc:  # never let normalization abort the save
+            logger.warning("Author normalization failed, dropping authors: %s", exc)
+            reference.authors = None
+        return original(self, reference, *args, **kwargs)
+
+    return wrapper
+
+
 def _wrap_network_method(original, method_name):
     """Wrap a method to retry on network errors, then return None on failure."""
 
@@ -112,6 +153,12 @@ def _wrap_network_method(original, method_name):
                     )
                     return None
 
+    # Ownership marker, checked by the tests instead of `__wrapped__`:
+    # `functools.wraps` sets `__wrapped__` on anything it decorates, so if
+    # upstream ever decorates one of these methods itself, a `__wrapped__` check
+    # would pass while this patch was not applied at all -- a guard that has
+    # silently stopped guarding.
+    wrapper._dismech_network_retry = True
     return wrapper
 
 
@@ -147,38 +194,125 @@ def _wrap_fulltext_method(original):
     return wrapper
 
 
-def _wrap_xml_extractor(original):
-    """Recover JATS bodies carrying the harmless ``restricted-by`` metadata tag.
+# A JATS ``<table-wrap>`` carrying more rows than this is a data dump rather than
+# a clinical or summary table, and appending it would bloat the cache file without
+# giving a curator anything quotable. Table 1 of a clinical report runs to a few
+# dozen rows.
+_MAX_TABLE_ROWS = 200
 
-    Current PMC/Europe PMC JATS 1.4 documents can include
-    ``<restricted-by>pmc</restricted-by>`` in ``processing-meta`` even when the
-    complete article body is present.  Upstream treats any occurrence of the
-    word ``restricted`` as an unavailable article and discards that body.  Keep
-    its normal behavior first, then recover only documents that actually contain
-    non-empty body paragraphs; genuinely restricted records still have no body
-    and remain unavailable.
+
+def _jats_tables_as_text(soup) -> str:
+    """Render JATS ``<table-wrap>`` elements as pipe-delimited quotable rows.
+
+    Upstream's extractor keeps only ``<body>`` paragraphs, so every table in the
+    article is discarded. In a clinical report that is where the per-patient
+    phenotype lives -- Table 1 of PMID:28530713 is the only place the founding
+    BRIDA report states that two of its three subjects were on immunoglobulin
+    replacement, and the only place the third subject's *raised* IgM and IgG are
+    recorded (issue #10867).
+
+    Rows are emitted in the leading/trailing-pipe form the structured-database
+    caches already use (``| Splenomegaly | Yes | No | No |``), which the reference
+    validator's own snippet matching tolerates with or without the outer pipes, so
+    a curator can quote one row the same way they quote an ORPHA or ICEES row.
+
+    Tables are located across the whole document, not only inside ``<body>``:
+    NIHMS-converted JATS puts them in a trailing ``<floats-group>``.
+    """
+    rendered: list[str] = []
+
+    for wrap in soup.find_all("table-wrap"):
+        table = wrap.find("table")
+        if table is None:
+            continue
+
+        rows: list[str] = []
+        for row in table.find_all("tr"):
+            cells = [cell.get_text(" ", strip=True) for cell in row.find_all(["td", "th"])]
+            if not any(cell for cell in cells):
+                continue
+            rows.append("| " + " | ".join(cells) + " |")
+            if len(rows) > _MAX_TABLE_ROWS:
+                break
+        if not rows or len(rows) > _MAX_TABLE_ROWS:
+            continue
+
+        label = wrap.find("label")
+        caption = wrap.find("caption")
+        heading = " ".join(
+            part.get_text(" ", strip=True) for part in (label, caption) if part is not None
+        ).strip()
+        rendered.append(("## " + heading if heading else "## Table") + "\n\n" + "\n".join(rows))
+
+    return "\n\n".join(rendered)
+
+
+def _wrap_xml_extractor(original):
+    """Recover JATS bodies upstream discards on a whole-document word match.
+
+    Upstream ``XMLExtractor.extract`` rejects a document outright when the word
+    ``restricted`` or the phrase ``cannot be obtained`` appears anywhere in it,
+    and only then looks for a ``<body>``.  Both strings occur in ordinary
+    article prose, so the test discards complete full texts:
+
+    * ``<restricted-by>pmc</restricted-by>`` in JATS 1.4 ``processing-meta``,
+      which is metadata about the record and says nothing about the body; and
+    * the plain English word, as in PMC5593426 (PMID:28530713), whose body
+      reads "IgM-restricted plasma cells" and "Searches were restricted to the
+      period from ..." -- 88k characters of real article thrown away over two
+      sentences that happen to use the word (issue #10867).
+
+    What a genuinely unavailable PMC record looks like settles the right test.
+    Asked for one, ``efetch`` returns front matter alone and **no ``<body>``
+    element at all**; the phrase upstream keys on sits in that front matter.  So
+    the presence of a ``<body>`` carrying non-empty paragraphs is the signal,
+    and the word match is noise.  Keep upstream's behavior first, then recover
+    on that structural test alone -- a record with no body, or with an empty
+    one, still returns ``None`` and remains unavailable.
+
+    On top of that, whichever path produced the body text, any ``<table-wrap>``
+    the article carries is appended as quotable rows. Upstream keeps ``<body>``
+    paragraphs only, so a clinical report's Table 1 -- the per-patient phenotype
+    grid -- never reached the cache; see :func:`_jats_tables_as_text`.
+
+    Scope: this patch covers ``XMLExtractor.extract`` only. The same
+    ``"restricted" in text.lower()`` guard also sits in
+    ``PMIDSource._fetch_pmc_xml``, which this module wraps for network retry but
+    not for this. That path is not the one supplying full text today -- the
+    ``pmc`` full-text provider is -- so it is left alone rather than patched
+    speculatively. If it ever becomes the supplying path, the bug is live there
+    and this wrapper will not catch it.
     """
 
     @wraps(original)
     def wrapper(self, data, *args, **kwargs):
         result = original(self, data, *args, **kwargs)
-        if result is not None:
+        text_data = data.decode("utf-8") if isinstance(data, bytes) else data
+
+        # Parsing a full article is not cheap, so only pay for it when there is
+        # something to gain: a body to recover, or a table to append.
+        needs_recovery = result is None
+        has_tables = "<table-wrap" in text_data
+        if not needs_recovery and not has_tables:
             return result
 
-        text_data = data.decode("utf-8") if isinstance(data, bytes) else data
-        if "<restricted-by" not in text_data:
-            return None
-
         soup = BeautifulSoup(text_data, "xml")
-        body = soup.find("body")
-        if body is None:
-            return None
-        paragraphs = [
-            paragraph.get_text()
-            for paragraph in body.find_all("p")
-            if paragraph.get_text().strip()
-        ]
-        return "\n\n".join(paragraphs) if paragraphs else None
+
+        if needs_recovery:
+            body = soup.find("body")
+            if body is None:
+                return None
+            paragraphs = [
+                paragraph.get_text()
+                for paragraph in body.find_all("p")
+                if paragraph.get_text().strip()
+            ]
+            if not paragraphs:
+                return None
+            result = "\n\n".join(paragraphs)
+
+        tables = _jats_tables_as_text(soup)
+        return f"{result}\n\n{tables}" if tables else result
 
     return wrapper
 
@@ -311,21 +445,53 @@ def apply_patch():
         return
 
     if not getattr(PMIDSource, "_network_patch_applied", False):
-        PMIDSource._fetch_pmc_xml = _wrap_network_method(
-            PMIDSource._fetch_pmc_xml, "PMIDSource._fetch_pmc_xml"
-        )
-        PMIDSource._fetch_pmc_html = _wrap_network_method(
-            PMIDSource._fetch_pmc_html, "PMIDSource._fetch_pmc_html"
-        )
-        PMIDSource._fetch_abstract = _wrap_network_method(
-            PMIDSource._fetch_abstract, "PMIDSource._fetch_abstract"
-        )
-        PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
-            PMIDSource._fetch_pmc_fulltext
-        )
+        # Upstream reshuffles these between releases: 0.2.1 split the old
+        # ``_fetch_abstract`` into a network half (``_fetch_pubmed_xml``) and a
+        # pure-parsing half (``_parse_abstract``). Wrap whichever of the known
+        # NCBI-touching methods this version actually has, rather than raising
+        # AttributeError at import time and taking every consumer down with it.
+        wrapped = []
+
+        def wrap_if_present(method_name):
+            original = getattr(PMIDSource, method_name, None)
+            if original is None:
+                return False
+            setattr(
+                PMIDSource,
+                method_name,
+                _wrap_network_method(original, f"PMIDSource.{method_name}"),
+            )
+            wrapped.append(method_name)
+            return True
+
+        for method_name in PMID_NETWORK_METHODS:
+            wrap_if_present(method_name)
+
+        # First match only -- see PMID_FETCH_ALTERNATIVES on why wrapping both
+        # spellings would nest the retries.
+        for method_name in PMID_FETCH_ALTERNATIVES:
+            if wrap_if_present(method_name):
+                break
+
+        if not wrapped:
+            # Every known name is gone: the upstream API moved somewhere this
+            # patch does not follow, and validation runs are now unprotected
+            # against NCBI dropping a connection. Say so loudly.
+            logger.warning(
+                "None of the expected PMIDSource network methods (%s) are present; "
+                "network-resilience patch not applied. linkml-reference-validator "
+                "may have renamed them -- update PMID_NETWORK_METHODS / "
+                "PMID_FETCH_ALTERNATIVES.",
+                ", ".join(PMID_NETWORK_METHODS + PMID_FETCH_ALTERNATIVES),
+            )
+
+        if hasattr(PMIDSource, "_fetch_pmc_fulltext"):
+            PMIDSource._fetch_pmc_fulltext = _wrap_fulltext_method(
+                PMIDSource._fetch_pmc_fulltext
+            )
 
         PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied network resilience patch to PMIDSource")
+        logger.debug("Applied network resilience patch to PMIDSource (%s)", wrapped)
 
     if not getattr(XMLExtractor, "_restricted_by_patch_applied", False):
         XMLExtractor.extract = _wrap_xml_extractor(XMLExtractor.extract)
@@ -358,20 +524,9 @@ def apply_patch():
         )
 
     if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):
-        original_save_to_disk = ReferenceFetcher._save_to_disk
-
-        @wraps(original_save_to_disk)
-        def save_to_disk_with_author_coercion(self, reference):
-            # Normalize non-string authors (dict/None/nested-list from stale cache
-            # records) before upstream serialization, which assumes plain strings.
-            try:
-                reference.authors = _coerce_authors(reference.authors)
-            except Exception as exc:  # never let normalization abort the save
-                logger.warning("Author normalization failed, dropping authors: %s", exc)
-                reference.authors = None
-            return original_save_to_disk(self, reference)
-
-        ReferenceFetcher._save_to_disk = save_to_disk_with_author_coercion
+        ReferenceFetcher._save_to_disk = _wrap_save_to_disk(
+            ReferenceFetcher._save_to_disk
+        )
         ReferenceFetcher._author_coercion_patch_applied = True  # type: ignore[attr-defined]
         logger.debug(
             "Applied author-normalization patch to ReferenceFetcher._save_to_disk"
