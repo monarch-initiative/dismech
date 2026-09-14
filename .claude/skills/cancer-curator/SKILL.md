@@ -35,11 +35,77 @@ knowledgebase, all PRs, and all issues by MONDO ID, preferred label, and major
 synonyms. Do not create a separate cancer entry if an existing KB file, PR, or
 issue already covers the same disease concept.
 
+## Granularity: which level gets its own entry?
+
+Follow the **cancer granularity ladder** in design decisions §3a
+(`docs/explanation/design-decisions.md`) — it is the ratified policy and
+supersedes the older "molecular subtypes as discrete entities" framing in
+`projects/CANCER.md`:
+
+1. **Default entry level = histologic entity** (WHO blue-book / ICD-O level:
+   PDAC, SCLC, DLBCL) or **WHO/ICC molecularly defined entity** (IDH-wildtype
+   GBM, APL with PML::RARA, NPM1-mutant AML).
+2. **Biomarker/therapy strata** (EGFR-mutant NSCLC, MSI-H CRC, TNBC): default
+   `has_subtypes`; a separate entry requires ≥2 stratum-specific
+   pathophysiology nodes AND a distinct first-line therapy/diagnostic pathway.
+   When promoted: `skos:narrowMatch` mondo_mapping if no exact MONDO term
+   exists (file an NTR), record overlap with non-disjoint sibling strata, add
+   the entry to a covering grouping, and leave a pointer subtype in the parent.
+3. **Variant tiers** stay `has_subtypes` inside the stratum entry unless
+   therapy is variant-specific (KRAS G12C).
+4. **Stage/metastasis is never an entry** — use `stages:` +
+   `conforms_to: "invasion_and_metastasis#..."`. Do not create `Metastatic_X`
+   files.
+5. **Pathways/hallmarks are never entries** — modules + groupings.
+6. **Germline predisposition syndromes** follow the Mendelian rules and stay
+   separate from the somatic cancers they predispose to.
+
+## Mark the cell of origin (no new slot)
+
+The cell of origin is **derived**, not stored: put a `genetic_context` carrying
+`variant_origin: SOMATIC` on the pathophysiology node with the initiating
+lesion, and the cell of origin is that node's `cell_types`.
+
+```yaml
+- name: BCR-ABL1 Fusion Oncogene Formation
+  genetic_context:
+    variant_origin: SOMATIC
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: hematopoietic stem cell
+    term:
+      id: CL:0000037
+      label: hematopoietic stem cell
+```
+
+- `role: trigger` marks nothing. `role` is free text with ~90 values in the KB,
+  and the derivation reads structured markers only.
+- For a cancer with no host lesion to mark (HPV, H. pylori, asbestos, UV), the
+  marker is the `environmental[].influences_mechanisms` link carrying
+  `environmental_effect: TRIGGERS`. It only speaks when no lesion is recorded.
+- Do **not** mark a microenvironment or chronic-inflammation node. Those bind
+  macrophage, Treg and fibroblast, which are where the tumor lives, not where it
+  came from.
+- Deriving more than one cell of origin is a lump/split prompt, not a defect.
+- NCIT asserts its own cell of origin (`NCIT:R104`) and transformed cell state
+  (`NCIT:R105`, the Abnormal Cell branch) per disease, quotable from
+  `references_cache/NCIT_*.md`. Useful as a cross-check and as evidence;
+  **never** as the `term:` of `cell_types`, which is CL-only.
+
+```bash
+just check-cancer-origin                  # summary + multi-origin worklist
+just list-cancer-origin                   # per-entry census
+```
+
+Worked examples: `Chronic_Myeloid_Leukemia`, `Pancreatic_Ductal_Adenocarcinoma`.
+Full guidance: `docs/cancer-cell-of-origin.md`.
+
 ## Cancer-Specific Schema Features
 
 ### Disease Stages (not Subtypes)
 
-For cancers with disease phases (chronic → accelerated → blast crisis), use `stages` not `has_subtypes`:
+For cancers with disease phases (chronic → accelerated → blast crisis) — and
+for localized vs. metastatic disease — use `stages` not `has_subtypes`:
 
 ```yaml
 stages:

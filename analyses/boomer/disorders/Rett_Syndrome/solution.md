@@ -1,0 +1,30 @@
+
+ ## dismech-Rett_Syndrome
+ * 220 combinations
+ * 199 satisfiable combinations
+ * 1.0 proportion of combinations explored
+ * 0.25 confidence
+ * 0.033916687243 prior probability
+ * 0.009737267168 posterior probability
+Grounding:
+ * True dismech:Rett_Syndrome (Rett Syndrome (dismech entry)) ≡ MONDO:0010726 (Rett syndrome) :: prior: 0.95 posterior: 0.675624702305
+ * False dismech:Rett_Syndrome (Rett Syndrome (dismech entry)) ⊆ MONDO:0010726 (Rett syndrome) :: prior: 0.07 posterior: 0.000395801964
+ * False MONDO:0010726 (Rett syndrome) ⊆ dismech:Rett_Syndrome (Rett Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.001486932968
+ * False dismech:Rett_Syndrome#Classic Rett Syndrome (Rett Syndrome / Classic Rett Syndrome (dismech subtype)) ≡ MONDO:0010726 (Rett syndrome) :: prior: 0.9 posterior: 0.29745617672
+ * False dismech:Rett_Syndrome#Classic Rett Syndrome (Rett Syndrome / Classic Rett Syndrome (dismech subtype)) ⊆ MONDO:0010726 (Rett syndrome) :: prior: 0.07 posterior: 0.050866193619
+ * False MONDO:0010726 (Rett syndrome) ⊆ dismech:Rett_Syndrome#Classic Rett Syndrome (Rett Syndrome / Classic Rett Syndrome (dismech subtype)) :: prior: 0.03 posterior: 0.000150728975
+ * True MONDO:0010726 (Rett syndrome) ≡ DOID:1206 :: prior: 0.95 posterior: 0.999785739177
+ * True MONDO:0010726 (Rett syndrome) ≡ MESH:D015518 :: prior: 0.95 posterior: 0.999785729147
+ * True MONDO:0010726 (Rett syndrome) ≡ NCIT:C75488 :: prior: 0.95 posterior: 0.999785729147
+ * True MONDO:0010726 (Rett syndrome) ≡ OMIM:312750 :: prior: 0.95 posterior: 0.999785724132
+ * True MONDO:0010726 (Rett syndrome) ≡ ORDO:778 :: prior: 0.95 posterior: 0.999785729147
+ * True MONDO:0010726 (Rett syndrome) ≡ DOID:1206 :: prior: 0.95 posterior: 0.999785739177
+ * True MONDO:0010726 (Rett syndrome) ≡ MESH:D015518 :: prior: 0.95 posterior: 0.999785729147
+ * True MONDO:0010726 (Rett syndrome) ≡ NCIT:C75488 :: prior: 0.95 posterior: 0.999785729147
+ * True MONDO:0010726 (Rett syndrome) ≡ OMIM:312750 :: prior: 0.95 posterior: 0.999785724132
+ * True MONDO:0010726 (Rett syndrome) ≡ ORDO:778 :: prior: 0.95 posterior: 0.999785729147
+ * True dismech:Rett_Syndrome#Atypical Rett Syndrome (Rett Syndrome / Atypical Rett Syndrome (dismech subtype)) ≡ MONDO:0017746 (atypical Rett syndrome) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Rett_Syndrome#Atypical Rett Syndrome (Rett Syndrome / Atypical Rett Syndrome (dismech subtype)) ⊆ MONDO:0017746 (atypical Rett syndrome) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0017746 (atypical Rett syndrome) ⊆ dismech:Rett_Syndrome#Atypical Rett Syndrome (Rett Syndrome / Atypical Rett Syndrome (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0017746 (atypical Rett syndrome) ≡ ORDO:3095 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0017746 (atypical Rett syndrome) ≡ icd11f:605088126 :: prior: 0.95 posterior: 0.95
