@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erb Palsy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Erb Palsy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Erb Palsy</h1>
+                
+                <p class="report-subtitle">Erb Palsy — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700303" target="_blank" rel="noopener noreferrer">MONDO:0700303</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">39 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Erb Palsy — Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Erb Palsy (Erb–Duchenne Palsy)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0700303" target="_blank" rel="noopener noreferrer">MONDO:0700303</a> · <strong>ICD-10:</strong> P14.0 · <strong>Category:</strong> Acquired (non-genetic birth injury)</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Erb palsy is an acquired, non-genetic mechanical traction/stretch injury of the upper brachial plexus (nerve roots C5–C6, sometimes extending to C7) sustained during birth.</strong> It is the single most common subtype of obstetric brachial plexus injury (OBPI), accounting for roughly two-thirds of all cases (66.6% in a German national cohort). Reported incidence ranges from ~0.15–1.5 per 1000 live births using administrative data, rising to ~14.5 per 1000 under active prospective surveillance, reflecting that many mild neuropraxic injuries at birth go under-recorded. The strongest single risk factor is <strong>shoulder dystocia</strong> (adjusted odds ratio ~57), with fetal macrosomia, maternal diabetes, and maternal obesity as major contributors; <strong>cesarean delivery is protective</strong>, most strongly in macrosomic infants.</p>
+<p>Clinically the newborn presents with a flaccid, adducted, internally rotated arm with an extended, pronated forearm — the classic "waiter's-tip" posture. Diagnosis is clinical (Narakas classification), supported by MRI (modest sensitivity ~68% for root avulsion) and electrophysiology. The natural history is favorable: <strong>80–95% of infants recover spontaneously</strong>, with recovery of biceps (elbow flexion) function by ~3 months being the pivotal prognostic milestone. In the ~5–20% with persistent injury, denervation of the shoulder muscles (particularly the subscapularis) plus muscle imbalance drives a <strong>shoulder internal-rotation contracture</strong> and secondary <strong>glenohumeral dysplasia</strong> (seen in ~49% of permanent cases), the chief long-term morbidity.</p>
+<p>Management follows a <strong>staged, time-sensitive ladder</strong>: physiotherapy/occupational therapy first-line to maintain range of motion; botulinum toxin A to counter early contracture; microsurgical nerve reconstruction (nerve grafting after neuroma excision) or distal nerve transfers when biceps recovery is absent by ~3–6 months; and secondary orthopedic procedures (soft-tissue releases, tendon transfers, humeral derotation osteotomy, radioulnar synostosis) for residual deformity. Prevention is fundamentally obstetric: multi-professional shoulder-dystocia simulation training and maternal glycemic control measurably reduce brachial plexus injury at birth, though 50–70% of shoulder dystocia occurs without identifiable risk factors, limiting predictive prevention. Because Erb palsy is a mechanical acquired injury, there is <strong>no causal gene, no OMIM Mendelian entry, no ClinVar variant, and no heritable transmission</strong> — sections of this template addressing genetics, epigenetics, and inheritance are largely <strong>not applicable</strong>, and this is documented explicitly below.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Erb palsy is the most common OBPI subtype; incidence ~0.9–1.5 per 1000 live births</h3>
+<p>Erb palsy is the dominant clinical presentation among obstetric brachial plexus injuries. In a German national cohort (2005–2018; n = 2,069 infants hospitalized with OBPI in the first year of life), Erb palsy (ICD-10 <strong>P14.0</strong>) was the most frequent subtype at <strong>66.60%</strong>, and overall OBPI incidence declined by 47.57%, from 0.28 per 1000 births in 2005 to 0.15 in 2018 (p &lt; 0.001) — a trend attributed to improved obstetric practice and rising cesarean rates (<a href="https://pubmed.ncbi.nlm.nih.gov/40315612/">PMID: 40315612</a>). The US Kids' Inpatient Database found brachial plexus birth injury (BPBI) rates steady at ~0.9–1.1 per 1000 live births between 2006 and 2019 (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>). A 2021–2024 prospective surveillance study using real-time reporting found a substantially higher incidence of <strong>14.5 per 1000 live births</strong> at birth, dropping to <strong>3.6 per 1000</strong> for injuries persisting beyond 2 months — demonstrating that administrative datasets undercount mild, transient neuropraxias (<a href="https://pubmed.ncbi.nlm.nih.gov/41616322/">PMID: 41616322</a>).</p>
+<blockquote>
+<p>"Erb palsy was the most frequent OBPI subtype (66.60%)." — <a href="https://pubmed.ncbi.nlm.nih.gov/40315612/">PMID: 40315612</a></p>
+</blockquote>
+<h3>Finding 2 — Shoulder dystocia is the strongest risk factor; cesarean delivery is protective</h3>
+<p>The mechanical origin of Erb palsy is reflected in its risk-factor profile. In a US Kids' Inpatient Database logistic-regression analysis, <strong>shoulder dystocia was the strongest predictor</strong> of BPBI (adjusted OR <strong>56.9</strong>, p &lt; 0.001), and cesarean delivery was protective across all newborn weight classes, with the greatest protection in macrosomic infants (macrosomic + C-section AOR 0.581, 95% CI 0.365–0.925) (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>). A prospective shoulder-dystocia cohort found that neonatal BPI at 48 hours was associated with maternal BMI &gt; 30 kg/m² (OR 7.91, 95% CI 1.3–47.7), shoulder dystocia lasting &gt; 120 s (OR 14.4, 95% CI 1.7–121.8), and operative delivery (OR 6.8, 95% CI 1.2–37.6) (<a href="https://pubmed.ncbi.nlm.nih.gov/39411814/">PMID: 39411814</a>). Earlier US data (KID 1997–2012) similarly identified shoulder dystocia, fetal macrosomia, and gestational diabetes as the highest-risk factors, with a protective effect of multiple birth mates (<a href="https://pubmed.ncbi.nlm.nih.gov/31856038/">PMID: 31856038</a>). Additionally, resolution of shoulder dystocia requiring ≥3 maneuvers doubled the neonatal composite adverse outcome risk and specifically raised brachial plexus palsy risk (aIRR 2.58, 95% CI 1.45–4.60) (<a href="https://pubmed.ncbi.nlm.nih.gov/40239714/">PMID: 40239714</a>).</p>
+<blockquote>
+<p>"Shoulder dystocia was the strongest risk factor for BPBI in the logistic regression model [adjusted odds ratio (AOR): 56.9, P &lt;0.001]." — <a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a></p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Risk / protective factor</th>
+<th>Effect size</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shoulder dystocia</td>
+<td>AOR 56.9 (p&lt;0.001)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39187951/" target="_blank" rel="noopener noreferrer">PMID 39187951</a></td>
+</tr>
+<tr>
+<td>Shoulder dystocia &gt; 120 s</td>
+<td>OR 14.4 (95% CI 1.7–121.8)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39411814/" target="_blank" rel="noopener noreferrer">PMID 39411814</a></td>
+</tr>
+<tr>
+<td>Maternal BMI &gt; 30 kg/m²</td>
+<td>OR 7.91 (95% CI 1.3–47.7)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39411814/" target="_blank" rel="noopener noreferrer">PMID 39411814</a></td>
+</tr>
+<tr>
+<td>Operative (assisted vaginal) delivery</td>
+<td>OR 6.8 (95% CI 1.2–37.6)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39411814/" target="_blank" rel="noopener noreferrer">PMID 39411814</a></td>
+</tr>
+<tr>
+<td>≥3 maneuvers to resolve dystocia</td>
+<td>aIRR 2.58 (95% CI 1.45–4.60)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40239714/" target="_blank" rel="noopener noreferrer">PMID 40239714</a></td>
+</tr>
+<tr>
+<td>Cesarean delivery (macrosomic)</td>
+<td>AOR 0.581 (95% CI 0.365–0.925) — <strong>protective</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39187951/" target="_blank" rel="noopener noreferrer">PMID 39187951</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 3 — Most cases recover spontaneously; surgery is indicated when biceps recovery is absent by 3–6 months</h3>
+<p>The natural history of Erb palsy is favorable. Multiple series report <strong>80–95% spontaneous recovery</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">PMID: 12874720</a>). A natural-history cohort documented spontaneous recovery in 59 of 81 patients (<strong>73%</strong>), with a functional biceps typically achieved by 10 months (<a href="https://pubmed.ncbi.nlm.nih.gov/25509702/">PMID: 25509702</a>). A prospective OBPI cohort reported recovery in 24 of 28 infants (<strong>85.7%</strong>) and permanent injury in 4 of 28 (14.3%); notably, all permanent cases had shoulder dystocia (p = 0.007) (<a href="https://pubmed.ncbi.nlm.nih.gov/40843939/">PMID: 40843939</a>). The classic surgical criterion, associated with Tassin and Gilbert, holds that infants with <strong>no recovery of biceps function by 3 months</strong> should undergo microsurgical exploration/repair without delay (<a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>). This is nuanced by decision-analytic modeling favoring delayed repair at 12 months for quality-of-life optimization, since early surgery may be overly aggressive for infants who would recover spontaneously (<a href="https://pubmed.ncbi.nlm.nih.gov/24483255/">PMID: 24483255</a>).</p>
+<blockquote>
+<p>"80 to 95% of these lesions recover spontaneously." — <a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">PMID: 12874720</a>
+"babies who have no recovery of the biceps function by three months of age should be operated without delay." — <a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a></p>
+</blockquote>
+<h3>Finding 4 — Diagnosis is clinical (Narakas classification); MRI has modest sensitivity for avulsion; glenohumeral dysplasia is a major sequela</h3>
+<p>Diagnosis rests on clinical examination and the Narakas classification (grade I: C5–C6; grade II: C5–C7; grade III: C5–T1; grade IV: C5–T1 with Horner syndrome). A meta-analysis of 8 studies (116 children) found MRI had a mean sensitivity of <strong>68%</strong> (95% CI 55–79%) and specificity of <strong>89%</strong> (95% CI 78–95%) for detecting root avulsion versus surgical exploration, with pseudomeningocele an unreliable marker (<a href="https://pubmed.ncbi.nlm.nih.gov/39432686/">PMID: 39432686</a>); a 3T single-center series reported concordant accuracy (68% overall, 67% sensitivity, 92% specificity) (<a href="https://pubmed.ncbi.nlm.nih.gov/41451467/">PMID: 41451467</a>). Clinical classification does not map perfectly onto anatomical injury: among Narakas 1 patients, only <strong>23% had isolated C5–C6 injury</strong>, while 55% had additional C7/C8/T1 involvement on MRI, and C6 was the most commonly injured/avulsed root (<a href="https://pubmed.ncbi.nlm.nih.gov/40828115/">PMID: 40828115</a>). Shoulder dysplasia was diagnosed in <strong>49% of 270 patients</strong> with permanent BPBI, underscoring glenohumeral dysplasia as the principal long-term structural sequela (<a href="https://pubmed.ncbi.nlm.nih.gov/37503533/">PMID: 37503533</a>).</p>
+<blockquote>
+<p>"The mean sensitivity and mean specificity of MRI for detecting root avulsion was 68% (95% CI: 55%, 79%) and 89% (95% CI: 78%, 95%), respectively." — <a href="https://pubmed.ncbi.nlm.nih.gov/39432686/">PMID: 39432686</a></p>
+</blockquote>
+<h3>Finding 5 — Shoulder internal-rotation contracture arises from denervation-induced impaired subscapularis growth and muscle imbalance (rat models)</h3>
+<p>The mechanism of the contracture that defines chronic Erb palsy has been dissected in neonatal rat models of brachial plexus injury (NBPI). After C5–C6 neurotomy/crush at postnatal day 5, <strong>all animals developed internal-rotation contracture within 4 weeks</strong>, with external-rotation loss progressing from 52° to 82° over 1–4 months, and glenoid version shifting from 2° retroversion to 8° anteversion with pseudoglenoid formation, subluxation, and glenoid/humeral head deformity — recapitulating human glenohumeral dysplasia (<a href="https://pubmed.ncbi.nlm.nih.gov/18343282/">PMID: 18343282</a>). Two complementary mechanisms were isolated: <strong>(a) denervation</strong> — selective subscapularis denervation alone caused 58° external-rotation loss and 69% muscle mass loss with reduced fiber size (<a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a>); and <strong>(b) muscle imbalance</strong> — suprascapular neurectomy sparing the subscapularis also produced contracture (66° ER loss) by unbalancing internal vs. external rotators (<a href="https://pubmed.ncbi.nlm.nih.gov/24388715/">PMID: 24388715</a>). Cocontractions (simultaneous firing of antagonist muscles) are attributed to aberrant reinnervation through a neuroma-in-continuity, where regenerating axons reach the wrong target muscles (<a href="https://pubmed.ncbi.nlm.nih.gov/38263956/">PMID: 38263956</a>). Glenoid deformity severity correlates with measurable gait/limb-function impairment in these models (<a href="https://pubmed.ncbi.nlm.nih.gov/29244216/">PMID: 29244216</a>).</p>
+<blockquote>
+<p>"subscapularis denervation, per se, could explain shoulder contracture after neonatal brachial plexus injury" — <a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a></p>
+</blockquote>
+<h3>Finding 6 — Prevention is primarily obstetric: shoulder-dystocia simulation training and glycemic control reduce injury</h3>
+<p>Because Erb palsy is mechanically caused at delivery, prevention targets obstetric practice. An interrupted time-series study over 12 years in Bristol found that after introducing multi-professional shoulder-dystocia simulation training, the use of at least one resolution maneuver rose from 46.3% to 99.8%, and <strong>brachial plexus injury at birth fell from 7.4% (24/324) pre-training to 1.3% (7/562) in late training</strong> (p &lt; 0.01) (<a href="https://pubmed.ncbi.nlm.nih.gov/25688719/">PMID: 25688719</a>). French CNGOF guidelines establish that gestational-diabetes care reduces macrosomia and shoulder-dystocia risk (LE1, Grade A), that physical activity plus dietary measures in obese women reduce macrosomia (Grade A), and set estimated-fetal-weight thresholds for cesarean delivery (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>). Importantly, <strong>50–70% of shoulder-dystocia cases occur without identifiable risk factors</strong>, capping the achievable benefit of risk-based prevention (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).</p>
+<blockquote>
+<p>"50-70% of SD cases occur in their absence, and most deliveries when they are present do not result in SD" — <a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a></p>
+</blockquote>
+<h3>Finding 7 — Treatment follows a staged ladder: physiotherapy → botulinum toxin → nerve reconstruction/transfers → secondary orthopedic procedures</h3>
+<p>Conservative therapy (physiotherapy/occupational therapy) is first-line to maintain passive range of motion and prevent contractures. <strong>Botulinum toxin A</strong> injected into the internal rotators improves passive external rotation (~46° gain at 4 months) and can defer or avoid tendon transfer in some children (<a href="https://pubmed.ncbi.nlm.nih.gov/32753228/">PMID: 32753228</a>). <strong>Primary microsurgery</strong> — nerve grafting after neuroma excision, plus neurotization — is indicated when biceps recovery is absent by ~3–6 months. <strong>Distal nerve transfers</strong> as primary treatment in Narakas I injuries (spinal accessory → suprascapular nerve, plus Oberlin ulnar-fascicle → biceps) achieved ≥grade 4 elbow flexion in all 17 evaluable patients (mean Mallet 15) (<a href="https://pubmed.ncbi.nlm.nih.gov/27543083/">PMID: 27543083</a>); a structured pediatric rehabilitation protocol (DAFRA) after SAN–SSN transfer achieved full external rotation against gravity in 71.4% (<a href="https://pubmed.ncbi.nlm.nih.gov/41500917/">PMID: 41500917</a>). <strong>Secondary orthopedic procedures</strong> address residual deformity: subscapularis/anterior shoulder release improved glenoid version from −32° to −12° (<a href="https://pubmed.ncbi.nlm.nih.gov/30981548/">PMID: 30981548</a>); open subscapularis lengthening with joint relocation gave durable glenohumeral remodeling at 10-year follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/31085034/">PMID: 31085034</a>); latissimus dorsi/teres major tendon transfers, humeral derotation osteotomy, and radioulnar synostosis for supination deformity round out the toolkit (<a href="https://pubmed.ncbi.nlm.nih.gov/42568170/">PMID: 42568170</a>). A systematic review of 965 patients confirmed that nerve grafts and transfers produce significant long-term gains in shoulder, elbow, and wrist function, though no single approach is universally superior (<a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">PMID: 40958300</a>).</p>
+<blockquote>
+<p>"Botulinum toxin A injections result in improvement in IRC due to BPBI, which is sustained beyond the expected half-life of 3 months." — <a href="https://pubmed.ncbi.nlm.nih.gov/32753228/">PMID: 32753228</a></p>
+</blockquote>
+<h3>Finding 8 — Integrated synthesis: Erb palsy as an acquired, non-genetic C5–C6 birth traction injury</h3>
+<p>Synthesizing across all disease-characterization domains: Erb palsy is (1) the most common OBPI subtype (66.6%; <a href="https://pubmed.ncbi.nlm.nih.gov/40315612/">PMID: 40315612</a>), incidence ~0.9–1.5/1000 (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>); (2) caused by mechanical stretch/overstretching of C5–C6/upper trunk during delivery, with shoulder dystocia the strongest risk factor (AOR 56.9) and cesarean protective (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>); (3) <strong>without any genetic or infectious cause</strong> (no OMIM/ClinVar gene); (4) 80–95% spontaneously recovering, with biceps recovery by 3 months pivotal (<a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">PMID: 12874720</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>); (5) producing secondary internal-rotation contracture and glenohumeral dysplasia (49% of permanent cases) via denervation and muscle imbalance (<a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24388715/">PMID: 24388715</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37503533/">PMID: 37503533</a>); (6) treated by a staged ladder (<a href="https://pubmed.ncbi.nlm.nih.gov/32753228/">PMID: 32753228</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27543083/">PMID: 27543083</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">PMID: 40958300</a>); and (7) prevented obstetrically (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25688719/">PMID: 25688719</a>). ICD-10 P14.0; <a href="http://purl.obolibrary.org/obo/MONDO_0700303" target="_blank" rel="noopener noreferrer">MONDO:0700303</a>.</p>
+<blockquote>
+<p>"overstretching of one or more cervical and thoracic nerve roots (C5-T1)" — <a href="https://pubmed.ncbi.nlm.nih.gov/41588374/">PMID: 41588374</a></p>
+</blockquote>
+<hr />
+<h2>Full Report by Section</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Erb palsy (Erb–Duchenne palsy) is a paralysis of the upper arm and shoulder caused by injury to the <strong>upper trunk of the brachial plexus (C5–C6, sometimes C7)</strong>, most commonly sustained during birth through lateral traction on the neck/head as the shoulder is delivered. It is the most common form of obstetric brachial plexus injury.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0700303" target="_blank" rel="noopener noreferrer">MONDO:0700303</a>
+- <strong>ICD-10:</strong> P14.0 (Erb paralysis due to birth injury)
+- <strong>ICD-11:</strong> structural birth injury of brachial plexus (injury of brachial plexus codes)
+- <strong>MeSH:</strong> "Brachial Plexus Neuropathies" / "Neonatal Brachial Plexus Palsy"; historically indexed under "Paralysis, Obstetric"
+- <strong>OMIM:</strong> <em>Not applicable</em> — Erb palsy is an acquired mechanical injury, not a Mendelian disorder; there is no OMIM entry with a causal gene.
+- <strong>Orphanet:</strong> Not a rare-disease genetic entry; obstetric brachial plexus palsy is captured as an acquired peripartum condition.</p>
+<p><strong>Synonyms / alternative names:</strong> Erb–Duchenne palsy; Erb's palsy; Duchenne–Erb paralysis; obstetric/obstetrical brachial plexus palsy or injury (OBPP/OBPI); brachial plexus birth injury (BPBI); neonatal brachial plexus palsy (NBPP); upper brachial plexus palsy; "waiter's-tip" deformity (describing posture, not a formal synonym).</p>
+<p><strong>Information source type.</strong> Evidence derives from <strong>aggregated disease-level resources</strong> (national inpatient/administrative databases, prospective surveillance cohorts, natural-history and surgical case series, and animal models), supplemented by individual-patient clinical follow-up cohorts. It is not a variant/EHR-genomic entity.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — mechanical.</strong> Erb palsy is caused by <strong>traction/stretch (and, in severe cases, rupture or avulsion) of the C5–C6 nerve roots and upper trunk</strong> during delivery, typically when the fetal head and neck are laterally displaced away from the shoulder. It is not genetic, infectious, toxic, or metabolic in origin.</p>
+<p><strong>Risk factors (all environmental/obstetric — no genetic risk loci apply):</strong>
+- <strong>Shoulder dystocia</strong> — strongest factor, AOR 56.9 (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>); prolonged (&gt;120 s) dystocia OR 14.4 (<a href="https://pubmed.ncbi.nlm.nih.gov/39411814/">PMID: 39411814</a>); ≥3 resolution maneuvers aIRR 2.58 (<a href="https://pubmed.ncbi.nlm.nih.gov/40239714/">PMID: 40239714</a>).
+- <strong>Fetal macrosomia</strong> and <strong>large-for-gestational-age</strong> infants (<a href="https://pubmed.ncbi.nlm.nih.gov/31856038/">PMID: 31856038</a>).
+- <strong>Maternal diabetes / gestational diabetes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31856038/">PMID: 31856038</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).
+- <strong>Maternal obesity</strong> (BMI &gt; 30, OR 7.91) (<a href="https://pubmed.ncbi.nlm.nih.gov/39411814/">PMID: 39411814</a>).
+- <strong>Operative (assisted) vaginal delivery</strong> (forceps/vacuum), OR 6.8 (<a href="https://pubmed.ncbi.nlm.nih.gov/39411814/">PMID: 39411814</a>).
+- <strong>Anatomical predisposition</strong> — a prefixed brachial plexus and the neonate's high head:body ratio and weak neck musculature increase susceptibility to traction (<a href="https://pubmed.ncbi.nlm.nih.gov/33904192/">PMID: 33904192</a>).
+- <strong>Socioeconomic deprivation</strong> has been associated with OBPP incidence (<a href="https://pubmed.ncbi.nlm.nih.gov/37694876/">PMID: 37694876</a>).</p>
+<p><strong>Protective factors.</strong>
+- <strong>Cesarean delivery</strong> — protective across weight classes, strongest in macrosomia (AOR 0.581) (<a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>).
+- <strong>Maternal glycemic control</strong> and <strong>weight management</strong> reduce macrosomia and thereby dystocia risk (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).
+- No genetic protective variants apply.</p>
+<p><strong>Gene–environment interactions:</strong> <em>Not applicable</em> — there is no established genetic contribution to Erb palsy risk.</p>
+<h3>3. Phenotypes</h3>
+<p>The core phenotype is a <strong>flaccid, adducted, internally rotated arm with an extended, pronated forearm and flexed wrist</strong> — the "waiter's-tip" posture — present at birth (neonatal onset). Grip is typically preserved (C8–T1 spared) in classic upper-trunk Erb palsy, distinguishing it from total plexus palsy.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Severity/progression</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upper limb paralysis/weakness (shoulder abduction, external rotation, elbow flexion)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" rel="noopener noreferrer">HP:0003484</a> (Upper limb muscle weakness)</td>
+<td>Neonatal/congenital</td>
+<td>Variable; mostly improving</td>
+<td>~100% at presentation</td>
+</tr>
+<tr>
+<td>"Waiter's-tip" posture (arm adducted, internally rotated, forearm pronated)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011461" target="_blank" rel="noopener noreferrer">HP:0011461</a> (neonatal-onset, approximate)</td>
+<td>Neonatal</td>
+<td>Variable</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Absent/reduced Moro reflex on affected side</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" rel="noopener noreferrer">HP:0001319</a> (approximate)</td>
+<td>Neonatal</td>
+<td>—</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Shoulder internal-rotation contracture</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031843" target="_blank" rel="noopener noreferrer">HP:0031843</a> (Shoulder contracture, approximate)</td>
+<td>Develops over months in persistent cases</td>
+<td>Progressive if untreated</td>
+<td>Major in persistent cases</td>
+</tr>
+<tr>
+<td>Glenohumeral dysplasia/joint deformity</td>
+<td>Clinical sign (imaging)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006633" target="_blank" rel="noopener noreferrer">HP:0006633</a> (Glenoid dysplasia, approximate)</td>
+<td>Infancy–childhood</td>
+<td>Progressive</td>
+<td>~49% of permanent cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37503533/" target="_blank" rel="noopener noreferrer">PMID 37503533</a>)</td>
+</tr>
+<tr>
+<td>Limb-length/muscle atrophy of affected arm</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009824" target="_blank" rel="noopener noreferrer">HP:0009824</a> (Upper limb undergrowth)</td>
+<td>Childhood</td>
+<td>Slowly progressive</td>
+<td>Persistent cases</td>
+</tr>
+<tr>
+<td>Elbow flexion contracture / forearm supination deformity</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001377" target="_blank" rel="noopener noreferrer">HP:0001377</a> (Limited elbow extension)</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td>Subset</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> Persistent Erb palsy impairs bimanual activities of daily living, dressing, and self-care; residual weakness, contracture, cosmetic asymmetry, and limb-length discrepancy affect function and psychosocial well-being. Formal QoL instrument data (EQ-5D/SF-36/PROMIS) specific to Erb palsy are sparse; functional outcomes are typically measured with the <strong>Mallet score</strong> and the <strong>Active Movement Scale (AMS)</strong> rather than generic QoL tools (<a href="https://pubmed.ncbi.nlm.nih.gov/41500917/">PMID: 41500917</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">PMID: 40958300</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not applicable.</strong> Erb palsy is an acquired mechanical birth injury. There is:
+- <strong>No causal gene</strong> (no OMIM Mendelian entry).
+- <strong>No pathogenic variants</strong> (no ClinVar/HGMD entries; no ACMG classification applies).
+- <strong>No allele frequencies</strong>, no somatic/germline distinction.
+- <strong>No modifier genes</strong> established. (The only "genetic-adjacent" susceptibility is anatomical variation such as a prefixed brachial plexus, which is not a molecular genetic trait; <a href="https://pubmed.ncbi.nlm.nih.gov/33904192/">PMID: 33904192</a>.)
+- <strong>No disease-specific epigenetic changes</strong> or <strong>chromosomal abnormalities</strong>.</p>
+<p>This absence is itself an informative characterization: knowledge-base fields for causal genes, variants, inheritance, and epigenetics should be marked <strong>"not applicable — acquired non-genetic injury."</strong></p>
+<h3>5. Environmental Information</h3>
+<p>The relevant "environmental" factors are <strong>peripartum mechanical and maternal-metabolic</strong> rather than toxic/infectious:
+- <strong>Mechanical:</strong> lateral neck traction during delivery, shoulder dystocia, instrumented delivery.
+- <strong>Maternal-metabolic:</strong> diabetes/gestational diabetes and obesity (via macrosomia).
+- <strong>Lifestyle:</strong> maternal physical activity and dietary control reduce risk indirectly by reducing macrosomia (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).
+- <strong>Infectious agents:</strong> <em>Not applicable</em> — no pathogen causes or triggers Erb palsy.
+- <strong>Toxins/radiation/pollution/occupational exposure:</strong> <em>Not applicable.</em></p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>During delivery (frequently complicated by shoulder dystocia/macrosomia), <strong>excessive lateral traction increasing the head-to-shoulder angle</strong> stretches the upper brachial plexus → <strong>results in</strong> overstretching of the C5–C6 (± C7) roots and upper trunk (<a href="https://pubmed.ncbi.nlm.nih.gov/41588374/">PMID: 41588374</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>).</li>
+<li>Stretch <strong>leads to</strong> a graded nerve injury — neuropraxia (conduction block), axonotmesis (axon disruption with intact sheath), neurotmesis (rupture), or, most severe, <strong>root avulsion</strong> from the spinal cord.</li>
+<li>The nerve lesion <strong>results in</strong> partial or complete <strong>denervation</strong> of upper-limb muscles supplied by C5–C6: deltoid, supraspinatus, infraspinatus, biceps, brachialis, and subscapularis. <em>(GO: muscle denervation; cell types: <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a> motor neuron, <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> skeletal muscle fiber.)</em></li>
+<li><strong>Branch A — spontaneous recovery (80–95%):</strong> neuropraxic/mild axonotmetic fibers <strong>remyelinate/regenerate</strong>, restoring biceps and shoulder function, typically with biceps recovery by ~3 months (<a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">PMID: 12874720</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>).</li>
+<li><strong>Branch B — persistent injury (~5–20%):</strong> severe axonotmesis, rupture, or avulsion <strong>leads to</strong> incomplete/aberrant reinnervation.</li>
+<li>5a. <strong>Denervation atrophy of the subscapularis</strong> and impaired muscle <em>growth</em> during a period of rapid skeletal growth <strong>results in</strong> a relatively short, stiff internal rotator → <strong>shoulder internal-rotation contracture</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a>).</li>
+<li>5b. <strong>Muscle imbalance</strong> between (relatively preserved) internal rotators and (weak, denervated) external rotators <strong>contributes to</strong> the same contracture even when the subscapularis is spared (<a href="https://pubmed.ncbi.nlm.nih.gov/24388715/">PMID: 24388715</a>).</li>
+<li>5c. <strong>Aberrant reinnervation through a neuroma-in-continuity</strong> misroutes regenerating axons to antagonist muscles → <strong>cocontractions</strong> (e.g., simultaneous biceps/triceps firing), limiting usable motion (<a href="https://pubmed.ncbi.nlm.nih.gov/38263956/">PMID: 38263956</a>).</li>
+<li>Sustained contracture and abnormal muscle forces across the growing glenohumeral joint <strong>result in</strong> posterior humeral-head subluxation, <strong>glenoid retroversion/pseudoglenoid formation, and glenohumeral dysplasia</strong> — demonstrated in rat NBPI models (glenoid version shifting from retroversion toward anteversion) and observed in ~49% of human permanent cases (<a href="https://pubmed.ncbi.nlm.nih.gov/18343282/">PMID: 18343282</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37503533/">PMID: 37503533</a>).</li>
+<li>The combination <strong>manifests clinically</strong> as a weak, internally rotated, functionally impaired upper limb with limited abduction/external rotation, and secondary elbow-flexion and forearm-supination deformities in some (<a href="https://pubmed.ncbi.nlm.nih.gov/42568170/">PMID: 42568170</a>).</li>
+</ol>
+<p><strong>Upstream vs. downstream.</strong> <em>Upstream:</em> the mechanical nerve lesion and denervation. <em>Downstream:</em> muscle atrophy/growth impairment, muscle imbalance, aberrant reinnervation → contracture → bony glenohumeral dysplasia. Steps 5a–5c are demonstrated primarily in <strong>rat models</strong> (inference to humans is strong but model-based); the human structural endpoint (dysplasia) is well documented clinically.</p>
+<p><strong>Molecular/cellular processes involved:</strong> peripheral nerve axonal injury and Wallerian degeneration/regeneration; muscle denervation atrophy (reduced fiber cross-sectional area, ~69% mass loss in denervated subscapularis; <a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a>); impaired skeletal-muscle longitudinal growth; endochondral/joint remodeling of the glenoid. <strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0031102" target="_blank" rel="noopener noreferrer">GO:0031102</a> (neuron projection regeneration); <a href="http://purl.obolibrary.org/obo/GO_0043403" target="_blank" rel="noopener noreferrer">GO:0043403</a> (skeletal muscle tissue regeneration); <a href="http://purl.obolibrary.org/obo/GO_0014732" target="_blank" rel="noopener noreferrer">GO:0014732</a> (skeletal muscle atrophy). <strong>CL suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a> (motor neuron), <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> (skeletal muscle fiber), <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte, for glenoid remodeling). No canonical intracellular signaling cascade (Wnt/MAPK/mTOR/PI3K–AKT) is disease-defining; this is a structural/mechanical injury rather than a signaling disorder.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ/system level (primary):</strong> peripheral nervous system — the <strong>brachial plexus, upper trunk (C5–C6 roots)</strong>. UBERON: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001812" target="_blank" rel="noopener noreferrer">UBERON:0001812</a></strong> (brachial plexus); <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" rel="noopener noreferrer">UBERON:0000010</a></strong> (peripheral nervous system).</li>
+<li><strong>Secondary/complication level:</strong> shoulder girdle musculature and the <strong>glenohumeral joint</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001470" target="_blank" rel="noopener noreferrer">UBERON:0001470</a>), with secondary bony deformity of the <strong>glenoid/scapula</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0006849" target="_blank" rel="noopener noreferrer">UBERON:0006849</a> glenoid; <a href="http://purl.obolibrary.org/obo/UBERON_0006849" target="_blank" rel="noopener noreferrer">UBERON:0006849</a>/<a href="http://purl.obolibrary.org/obo/UBERON_0000976" target="_blank" rel="noopener noreferrer">UBERON:0000976</a> humeral head). The <strong>musculoskeletal system</strong> is secondarily involved.</li>
+<li><strong>Tissue level:</strong> <strong>nervous tissue</strong> (peripheral nerve) primarily; <strong>skeletal muscle tissue</strong> (subscapularis, deltoid, biceps, infraspinatus/supraspinatus) and <strong>cartilage/bone</strong> secondarily.</li>
+<li><strong>Cell level:</strong> motor neurons/axons (<a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a>), Schwann cells (<a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a>), skeletal muscle fibers (<a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a>), chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>).</li>
+<li><strong>Subcellular level:</strong> axonal cytoskeleton and myelin sheath; no organelle-specific defect. GO cellular component: axon (<a href="http://purl.obolibrary.org/obo/GO_0030424" target="_blank" rel="noopener noreferrer">GO:0030424</a>), myelin sheath (<a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" rel="noopener noreferrer">GO:0043209</a>).</li>
+<li><strong>Localization / lateralization:</strong> <strong>unilateral</strong> in the overwhelming majority; affects the shoulder that was impacted during delivery. Bilateral involvement is rare (associated with breech delivery).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> <strong>congenital/neonatal</strong> — present at or immediately after birth; onset is <strong>acute</strong> (a single mechanical event).</li>
+<li><strong>Course branches:</strong></li>
+<li><em>Recovery branch:</em> rapid improvement over weeks to months; biceps recovery by ~3 months is the key favorable prognostic sign; most recover by 10–12 months (<a href="https://pubmed.ncbi.nlm.nih.gov/25509702/">PMID: 25509702</a>).</li>
+<li><em>Persistent branch:</em> if recovery is incomplete, deformities (contracture, dysplasia) <strong>progress slowly</strong> through childhood as the limb grows.</li>
+<li><strong>Disease "stages"</strong> (functional/persistent cases): early denervation → developing contracture → established glenohumeral dysplasia → fixed bony deformity.</li>
+<li><strong>Duration:</strong> self-limited in the majority; chronic/lifelong impairment in persistent cases.</li>
+<li><strong>Remission:</strong> predominantly <strong>spontaneous</strong>; treatment-induced improvement via surgery/therapy in persistent cases.</li>
+<li><strong>Critical periods / windows of opportunity:</strong> biceps recovery assessment at <strong>3 months</strong> (surgical-decision window); primary nerve reconstruction generally within <strong>3–9 months</strong>; glenohumeral remodeling after soft-tissue release is most reliable <strong>before ~5 years of age</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31085034/">PMID: 31085034</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> incidence ~<strong>0.9–1.5 per 1000 live births</strong> in administrative datasets, ~0.15/1000 in some declining national cohorts, up to <strong>14.5/1000</strong> by active surveillance (with 3.6/1000 persisting beyond 2 months) (<a href="https://pubmed.ncbi.nlm.nih.gov/40315612/">PMID: 40315612</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">PMID: 39187951</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41616322/">PMID: 41616322</a>). Incidence has declined over time in several countries (–47.6% in Germany 2005–2018) alongside rising cesarean rates and obstetric training.</li>
+<li><strong>Inheritance / penetrance / expressivity / anticipation / mosaicism / founder effects / carrier frequency:</strong> <strong>Not applicable</strong> — acquired, non-heritable condition.</li>
+<li><strong>Population demographics:</strong> no ethnic genetic predisposition; distribution tracks obstetric risk factors (macrosomia, maternal diabetes/obesity, birth-attendant practice, and access to cesarean delivery). Socioeconomic deprivation is associated with higher OBPP incidence (<a href="https://pubmed.ncbi.nlm.nih.gov/37694876/">PMID: 37694876</a>). No consistent sex predilection is established. Age distribution: by definition affected at birth; the prevalent chronic population comprises children/adults with residual deficits.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical examination (primary):</strong> characteristic waiter's-tip posture; assessment with <strong>Active Movement Scale</strong> and <strong>Mallet score</strong>; classification by <strong>Narakas grade (I–IV)</strong>.</li>
+<li><strong>Imaging:</strong></li>
+<li><strong>MRI (3T)</strong> — for root avulsion vs. rupture: mean sensitivity ~68%, specificity ~89% (<a href="https://pubmed.ncbi.nlm.nih.gov/39432686/">PMID: 39432686</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41451467/">PMID: 41451467</a>); useful but cannot solely guide surgical decisions. Pseudomeningocele is an unreliable avulsion marker.</li>
+<li><strong>CT myelography</strong> — alternative for avulsion assessment.</li>
+<li><strong>Ultrasound / MRI / CT</strong> — for glenohumeral dysplasia (glenoid version, % humeral head anterior to scapular line).</li>
+<li><strong>X-ray</strong> — to exclude clavicular/humeral fracture (differential and co-injury).</li>
+<li><strong>Electrophysiology:</strong> <strong>EMG and nerve conduction studies</strong> help characterize denervation, reinnervation, and prognosis; useful but must be interpreted cautiously in neonates.</li>
+<li><strong>Genetic testing (WGS/WES/panels/karyotype/CMA/FISH/mtDNA/repeat testing):</strong> <strong>Not applicable</strong> — no genetic basis; genetic testing has no diagnostic role.</li>
+<li><strong>Laboratory tests / biomarkers / omics diagnostics:</strong> <strong>Not applicable</strong> — no blood, metabolomic, proteomic, or molecular biomarker is used diagnostically.</li>
+<li><strong>Differential diagnosis:</strong> clavicular or humeral fracture (pseudoparalysis), septic shoulder/osteomyelitis, cerebral injury with hemiparesis, total (pan-plexus) palsy, Klumpke (lower-plexus) palsy, and — in older presentations — non-plexus conditions (a specialty clinic found ~7% of presumed BPI patients had a non-plexus condition; <a href="https://pubmed.ncbi.nlm.nih.gov/40379206/">PMID: 40379206</a>).</li>
+<li><strong>Screening:</strong> newborn physical examination is the effective "screen"; no carrier/genetic screening applies.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> Erb palsy is <strong>not life-threatening</strong>; survival is that of the general newborn population. Mortality is not disease-attributable.</li>
+<li><strong>Recovery:</strong> <strong>80–95% recover spontaneously</strong>; the strongest positive prognostic factor is <strong>biceps (elbow-flexion) recovery by 3 months</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">PMID: 12874720</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>). Presence of <strong>shoulder dystocia</strong> and severe/avulsion injuries predict persistence (<a href="https://pubmed.ncbi.nlm.nih.gov/40843939/">PMID: 40843939</a>).</li>
+<li><strong>Morbidity/disability (persistent cases):</strong> shoulder internal-rotation contracture, glenohumeral dysplasia (~49%), limb-length discrepancy, muscle atrophy, cocontractions, elbow-flexion and forearm-supination deformities; functional limitation in bimanual tasks.</li>
+<li><strong>Prognostic factors:</strong> injury severity/extent (Narakas grade, root avulsion), timing of biceps recovery, presence of Horner syndrome (worse), and access to timely microsurgery.</li>
+<li><strong>Prognostic biomarkers:</strong> none molecular; <strong>serial clinical scoring (AMS/Mallet)</strong> and <strong>imaging of glenohumeral remodeling</strong> serve as functional prognostic measures.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>Staged, time-sensitive ladder</strong> (NCIT-style intervention terms in brackets):</p>
+<ol>
+<li><strong>Physiotherapy / occupational therapy</strong> — first-line to maintain passive ROM and prevent contractures. <em>(NCIT: Physical Therapy; Occupational Therapy.)</em></li>
+<li><strong>Botulinum toxin A</strong> into internal rotators/co-contracting muscles — improves passive external rotation (~46° at 4 months), may defer tendon transfer; also used before tendon transfer without permanent muscle atrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/32753228/">PMID: 32753228</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36995203/">PMID: 36995203</a>). <em>(NCIT: Botulinum Toxin Therapy.)</em></li>
+<li><strong>Primary microsurgical nerve reconstruction</strong> — neuroma excision + <strong>nerve grafting</strong> ± neurotization when biceps recovery is absent by ~3–6 months; decision-analysis supports individualized timing (some model up to 12 months) (<a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24483255/">PMID: 24483255</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32588706/">PMID: 32588706</a>). <em>(NCIT: Nerve Graft; Nerve Repair.)</em></li>
+<li><strong>Distal nerve transfers</strong> — spinal accessory → suprascapular; Oberlin (ulnar fascicle → biceps); medial pectoral → axillary; effective as primary treatment in Narakas I with structured pediatric rehab (<a href="https://pubmed.ncbi.nlm.nih.gov/27543083/">PMID: 27543083</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41500917/">PMID: 41500917</a>). <em>(NCIT: Nerve Transfer.)</em></li>
+<li><strong>Secondary orthopedic procedures</strong> for residual deformity — subscapularis/anterior shoulder release (glenoid version −32°→−12°; <a href="https://pubmed.ncbi.nlm.nih.gov/30981548/">PMID: 30981548</a>); open subscapularis lengthening + joint relocation (durable remodeling at 10 yr; <a href="https://pubmed.ncbi.nlm.nih.gov/31085034/">PMID: 31085034</a>); arthroscopic release + conjoint tendon transfer (<a href="https://pubmed.ncbi.nlm.nih.gov/40772960/">PMID: 40772960</a>); latissimus dorsi/teres major tendon transfers; humeral derotation osteotomy; radioulnar synostosis for supination deformity (<a href="https://pubmed.ncbi.nlm.nih.gov/42568170/">PMID: 42568170</a>). <em>(NCIT: Tendon Transfer; Osteotomy; Arthrodesis.)</em></li>
+</ol>
+<p><strong>Outcomes.</strong> A systematic review of 965 patients found nerve grafts/transfers produced significant long-term gains in shoulder, elbow, and wrist function, but no approach was universally superior and outcome heterogeneity limits comparison (<a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">PMID: 40958300</a>). <strong>Pharmacotherapy</strong> is limited to botulinum toxin; there are <strong>no systemic drugs, gene therapies, cell therapies, RNA therapies, targeted therapies, or immunotherapies</strong> for this mechanical injury — those categories are <strong>not applicable</strong>. <strong>Pharmacogenomics:</strong> not applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary (obstetric):</strong> multi-professional <strong>shoulder-dystocia simulation training</strong> reduced brachial plexus injury at birth from 7.4% to 1.3% (<a href="https://pubmed.ncbi.nlm.nih.gov/25688719/">PMID: 25688719</a>); <strong>maternal glycemic control</strong> and weight management reduce macrosomia/dystocia (Grade A) (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41365423/">PMID: 41365423</a>); <strong>cesarean delivery</strong> for estimated fetal weight thresholds (e.g., &gt;4500 g with diabetes, &gt;5000 g without); judicious <strong>induction of labor</strong> for impending macrosomia (<a href="https://pubmed.ncbi.nlm.nih.gov/38477187/">PMID: 38477187</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33972073/">PMID: 33972073</a>).</li>
+<li><strong>Secondary:</strong> newborn examination for early detection and prompt referral to a multidisciplinary brachial plexus team.</li>
+<li><strong>Tertiary:</strong> physiotherapy, botulinum toxin, and timely surgery to prevent contracture/dysplasia.</li>
+<li><strong>Limits:</strong> 50–70% of shoulder dystocia occurs without identifiable risk factors, so prediction-based prevention is inherently capped (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).</li>
+<li><strong>Immunization / genetic counseling / vector control:</strong> <strong>Not applicable.</strong></li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy affected (experimental):</strong> <em>Rattus norvegicus</em> (NCBI:txid10116) is the principal experimental species; humans (NCBI:txid9606) are the natural host.</li>
+<li><strong>Natural veterinary disease:</strong> Brachial plexus <strong>traction/avulsion injuries</strong> occur in companion animals (dogs, cats) — typically <strong>traumatic (road-traffic)</strong> rather than obstetric — and share the pathophysiology of nerve root avulsion and denervation. A specific <em>obstetric</em> Erb palsy analog is not a recognized distinct veterinary entity; the comparative value lies in shared nerve-injury/denervation mechanisms.</li>
+<li><strong>Comparative biology / evolutionary conservation:</strong> the neonatal rat model faithfully reproduces the human sequence of denervation → contracture → glenohumeral dysplasia, indicating conserved musculoskeletal-growth responses to denervation (<a href="https://pubmed.ncbi.nlm.nih.gov/18343282/">PMID: 18343282</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29244216/">PMID: 29244216</a>).</li>
+<li><strong>Transmission / zoonosis:</strong> <strong>Not applicable</strong> (non-infectious, mechanical).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model type:</strong> mammalian in vivo — <strong>neonatal rat (Sprague-Dawley/Wistar) brachial plexus injury (NBPI) model</strong>, created by C5–C6 neurotomy, crush, or selective neurectomy at postnatal day ~5 (an <strong>induced/surgical</strong> model, not genetic).</li>
+<li><strong>Genetic models:</strong> none (no gene to target); models are surgical/chemodenervation-based.</li>
+<li><strong>Phenotype recapitulation:</strong> high — 100% develop internal-rotation contracture within 4 weeks; progressive external-rotation loss; glenoid version changes; pseudoglenoid, subluxation, and humeral-head deformity mirror human glenohumeral dysplasia; gait/limb-function deficits correlate with deformity severity (<a href="https://pubmed.ncbi.nlm.nih.gov/18343282/">PMID: 18343282</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">PMID: 25124991</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24388715/">PMID: 24388715</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29244216/">PMID: 29244216</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38263956/">PMID: 38263956</a>).</li>
+<li><strong>Limitations:</strong> rodent shoulder biomechanics and quadrupedal loading differ from the human; the model does not reproduce the obstetric mechanism itself (it isolates the downstream denervation/contracture sequence); functional/QoL endpoints are not directly translatable.</li>
+<li><strong>Applications:</strong> dissecting denervation vs. muscle-imbalance contributions to contracture, testing chemodenervation timing, studying aberrant reinnervation/cocontractions, and evaluating surgical/rehabilitative interventions.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  Shoulder dystocia / macrosomia / operative delivery
+    │  (lateral neck traction ↑ head–shoulder angle)
+    ▼
+   Stretch injury of C5–C6 (± C7) roots / upper trunk
+    │
+┌───────────┴───────────────┐
+   neuropraxia/mild            severe axonotmesis /
+   axonotmesis                 rupture / AVULSION
+│                            │
+▼                            ▼
+  spontaneous regeneration     incomplete + aberrant reinnervation
+  (biceps by ~3 mo)                  │
+│                   ┌────────┼─────────────┐
+▼                   ▼        ▼             ▼
+   RECOVERY (80–95%)   subscapularis  muscle     neuroma-in-
+       denervation   imbalance   continuity →
+       + impaired    (IR&gt;ER)     misrouting →
+       growth         │          COCONTRACTIONS
+            └────┬─────┘
+                 ▼
+      SHOULDER INTERNAL-ROTATION CONTRACTURE
+                 │
+                 ▼
+posterior humeral-head subluxation + glenoid
+retroversion → GLENOHUMERAL DYSPLASIA (~49% of
+permanent cases) → fixed deformity, limb undergrowth
+</code></pre>
+<p>The unifying interpretation is that Erb palsy is a <strong>single mechanical trigger with a bifurcating natural history</strong>. The favorable branch dominates numerically. The unfavorable branch is not primarily about the nerve failing to regenerate but about the <em>downstream musculoskeletal consequences of denervation during active growth</em> — a subscapularis that is denervated, atrophic, and growth-restricted, compounded by imbalance and misrouted reinnervation, deforms the growing glenohumeral joint. This is why treatment is a <em>time-sensitive ladder</em>: nerve-level interventions must occur before irreversible muscle/joint changes, and once dysplasia is established, orthopedic reconstruction targets the downstream deformity. Prevention, correspondingly, sits entirely upstream at the obstetric event.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40315612/">40315612</a></td>
+<td>Erb palsy = 66.6% of OBPI; incidence trend –47.6%</td>
+<td>Human, national cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39187951/">39187951</a></td>
+<td>Shoulder dystocia AOR 56.9; cesarean protective; ~0.9–1.1/1000</td>
+<td>Human, KID database</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41616322/">41616322</a></td>
+<td>Active surveillance incidence 14.5/1000 (3.6/1000 persistent)</td>
+<td>Human, prospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39411814/">39411814</a></td>
+<td>BMI, dystocia duration, operative delivery risk factors</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40239714/">40239714</a></td>
+<td>≥3 maneuvers double adverse outcomes; BPI aIRR 2.58</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31856038/">31856038</a></td>
+<td>Dystocia, macrosomia, gestational diabetes as top risks</td>
+<td>Human, KID database</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12874720/">12874720</a></td>
+<td>80–95% spontaneous recovery</td>
+<td>Human, series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25509702/">25509702</a></td>
+<td>73% spontaneous recovery; natural history</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40843939/">40843939</a></td>
+<td>85.7% recovery; permanent cases all had dystocia</td>
+<td>Human, prospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">8838992</a></td>
+<td>3-month biceps criterion for surgery</td>
+<td>Human, clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24483255/">24483255</a></td>
+<td>Decision analysis favoring delayed (12 mo) repair for QoL</td>
+<td>Computational</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32588706/">32588706</a></td>
+<td>Evidence review supporting nerve surgery when recovery delayed</td>
+<td>Human, review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39432686/">39432686</a></td>
+<td>MRI sensitivity 68%/specificity 89% for avulsion (meta-analysis)</td>
+<td>Human, meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41451467/">41451467</a></td>
+<td>3T MRI accuracy 68% vs. surgery</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40828115/">40828115</a></td>
+<td>Narakas class ≠ MRI injury pattern; C6 most injured</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37503533/">37503533</a></td>
+<td>Shoulder dysplasia in 49% of permanent BPBI</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18343282/">18343282</a></td>
+<td>Rat model recapitulates contracture + dysplasia</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25124991/">25124991</a></td>
+<td>Subscapularis denervation causes contracture</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24388715/">24388715</a></td>
+<td>Muscle imbalance causes contracture</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38263956/">38263956</a></td>
+<td>Neuroma-in-continuity → aberrant reinnervation/cocontractions</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29244216/">29244216</a></td>
+<td>Glenoid deformity correlates with gait</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25688719/">25688719</a></td>
+<td>Dystocia training reduces BPI 7.4%→1.3%</td>
+<td>Human, time-series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">27318182</a></td>
+<td>CNGOF guidelines; glycemic control; prevention limits</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32753228/">32753228</a></td>
+<td>Botulinum toxin improves IR contracture</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27543083/">27543083</a></td>
+<td>Distal nerve transfers as primary treatment</td>
+<td>Human, series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41500917/">41500917</a></td>
+<td>DAFRA rehab; SAN–SSN 71.4% full ER</td>
+<td>Human, series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30981548/">30981548</a></td>
+<td>Anterior shoulder release improves glenoid version</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31085034/">31085034</a></td>
+<td>Subscapularis lengthening; durable 10-yr remodeling</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42568170/">42568170</a></td>
+<td>Radioulnar synostosis for supination deformity</td>
+<td>Human, series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">40958300</a></td>
+<td>Systematic review of 965 patients: nerve surgery gains</td>
+<td>Human, systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41913992/">41913992</a></td>
+<td>Current concepts: staged surgical ladder</td>
+<td>Human, review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41588374/">41588374</a></td>
+<td>Defines overstretching of C5–T1 roots</td>
+<td>Human, review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33904192/">33904192</a></td>
+<td>Neonatal anatomy/evolution as predisposing factors</td>
+<td>Human, review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37694876/">37694876</a></td>
+<td>Deprivation associated with OBPP</td>
+<td>Human, cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40379206/">40379206</a></td>
+<td>~7% of presumed BPI are non-plexus conditions</td>
+<td>Human, cohort</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Incidence uncertainty.</strong> Estimates span an order of magnitude (0.15 to 14.5/1000) depending on ascertainment; administrative data undercount transient neuropraxia while active surveillance captures it. A standardized case definition and reporting mechanism is needed.</li>
+<li><strong>Surgical timing controversy.</strong> The 3-month biceps criterion (<a href="https://pubmed.ncbi.nlm.nih.gov/8838992/">PMID: 8838992</a>) conflicts with decision-analytic support for delay to 12 months (<a href="https://pubmed.ncbi.nlm.nih.gov/24483255/">PMID: 24483255</a>); no randomized trial exists, and evidence for nerve surgery vs. conservative management is Level IV at best (<a href="https://pubmed.ncbi.nlm.nih.gov/32588706/">PMID: 32588706</a>).</li>
+<li><strong>Outcome heterogeneity.</strong> The systematic review of 965 patients highlights inconsistent outcome measures (AMS vs. Mallet vs. others), precluding definitive comparison of nerve-graft vs. nerve-transfer superiority (<a href="https://pubmed.ncbi.nlm.nih.gov/40958300/">PMID: 40958300</a>).</li>
+<li><strong>Classification–anatomy mismatch.</strong> Narakas clinical grades do not reliably predict the true MRI/surgical injury pattern (<a href="https://pubmed.ncbi.nlm.nih.gov/40828115/">PMID: 40828115</a>), and MRI sensitivity for avulsion is only ~68% (<a href="https://pubmed.ncbi.nlm.nih.gov/39432686/">PMID: 39432686</a>).</li>
+<li><strong>Mechanism evidence is model-based.</strong> The denervation/muscle-imbalance/aberrant-reinnervation mechanisms are strongest in rat models; direct human molecular confirmation is limited.</li>
+<li><strong>QoL data gap.</strong> Erb-palsy-specific quality-of-life instrument data (EQ-5D/SF-36/PROMIS) are scarce; functional scores dominate.</li>
+<li><strong>Prevention ceiling.</strong> 50–70% of shoulder dystocia is unpredictable, limiting primary prevention (<a href="https://pubmed.ncbi.nlm.nih.gov/27318182/">PMID: 27318182</a>).</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Multicenter prospective registry</strong> with a uniform case definition and standardized outcome set (AMS + Mallet + a validated pediatric QoL tool) to resolve incidence and outcome heterogeneity.</li>
+<li><strong>Randomized/pragmatic trial</strong> of surgical timing (early ~3 mo vs. delayed ~9–12 mo) stratified by injury severity and biceps recovery trajectory.</li>
+<li><strong>Prospective head-to-head comparison</strong> of primary distal nerve transfers vs. nerve grafting in Narakas I injuries.</li>
+<li><strong>Improved imaging</strong> — validate high-resolution/diffusion MRI or intraoperative electrophysiology to raise avulsion-detection sensitivity above the current ~68%.</li>
+<li><strong>Mechanistic translation</strong> — molecular/transcriptomic study of denervated human subscapularis at surgery to confirm rat-model growth-impairment pathways and identify anti-contracture drug targets.</li>
+<li><strong>Prevention effectiveness</strong> — evaluate scaled, mandatory shoulder-dystocia simulation training and its impact on population-level BPI rates, building on the Bristol interrupted time-series.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous, literature-grounded investigation (5 iterations, 8 confirmed findings, 42 papers reviewed). Erb palsy is characterized here as an acquired, non-genetic C5–C6 brachial plexus birth traction injury; template sections concerning heritable genetics, epigenetics, inheritance, infectious agents, and systemic/gene/cell/RNA/immuno-therapeutics are explicitly marked not applicable.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Erb_Palsy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Erb_Palsy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>40</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001319</code> (1 mention) - the report calls it "approximate"; HP calls it <strong>Neonatal hypotonia</strong></li>
+<li><code>HP:0031843</code> (1 mention) - the report calls it "Shoulder contracture, approximate"; HP calls it <strong>Abnormally slow thought process</strong></li>
+<li><code>CL:0000138</code> (2 mentions) - the report calls it "chondrocyte, for glenoid remodeling"; CL calls it <strong>chondrocyte</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0011461</code> (1 mention) - the report calls it "neonatal-onset, approximate"; HP calls it <strong>Fetal onset</strong></li>
+<li><code>HP:0006633</code> (1 mention) - the report calls it "Glenoid dysplasia, approximate"; HP calls it <strong>Glenoid fossa hypoplasia</strong>, and lists "Glenoid hypoplasia" among its other names</li>
+<li><code>CL:0000100</code> (3 mentions) - the report calls it "motor neuron", "Cell level:<strong> motor neurons/axons"; CL calls it </strong>motor neuron**</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000100</code> - called "motor neuron", "Cell level:** motor neurons/axons"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="ER_Positive_Breast_Cancer-falcon.html">← ER-Positive Breast Cancer (Falcon)</a>
+                
+                
+                <a href="Erdheim-Chester_Disease-falcon.html">Erdheim-Chester Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Erb_Palsy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Erb_Palsy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

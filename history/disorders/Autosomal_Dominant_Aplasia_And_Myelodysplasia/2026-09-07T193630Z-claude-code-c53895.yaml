@@ -1,0 +1,80 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Autosomal_Dominant_Aplasia_And_Myelodysplasia
+  path: kb/disorders/Autosomal_Dominant_Aplasia_And_Myelodysplasia.yaml
+session:
+  id: 2026-09-07T193630Z-claude-code-c53895
+  timestamp: '2026-09-07T19:36:30Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/10764
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10814
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - phenotypes
+  - discussions
+  summary: 'Round 5 review: fix the HPOA NOT row and the minigene evidence grade'
+  details: |
+    Addressed the round-5 review on PR #10814. Two findings, both correct, both
+    fixed in one push.
+
+    Finding 1 - `supports: REFUTE` on the hearing phenotype emitted a factually
+    wrong HPOA row. This is the more instructive of the two. The round-4 grade
+    was defended on the ground that `supports` is claim-relative, which CLAUDE.md
+    does say: the item refuted the constancy of the phenotype, not its
+    association with the disease. That reasoning is sound in the abstract and
+    still wrong here, because the value is consumed. `hpoa_export.py` maps REFUTE
+    to the HPOA `NOT` qualifier via SUPPORTS_TO_QUALIFIER, and its own comment
+    says REFUTE is deliberately not dropped. Reproduced before changing anything:
+
+        BEFORE  qualifier=''     HP:0008527  PMID:35748970  IEA
+                qualifier='NOT'  HP:0008527  PMID:40922878  PCS
+
+    The NOT row asserts BMFS1 does not have congenital sensorineural hearing
+    impairment - contradicting the positive row in the same file and the IUIS
+    row this entry cites for "Bone marrow failure and congenital nerve deafness".
+    HPOA reserves NOT for exclusion; incomplete penetrance belongs in the
+    frequency column, and genuine absence has its own path in the exporter
+    (`frequency: EXCLUDED`).
+
+    Changed to SUPPORT. The phenotype description already asserts non-constancy,
+    so the snippet supports that claim rather than refuting anything. The
+    explanation now records why the grade is SUPPORT and not REFUTE, so the next
+    curator does not re-derive the same plausible mistake. Verified after:
+
+        AFTER   qualifier=''  HP:0008527  PMID:35748970  IEA
+                qualifier=''  HP:0008527  PMID:40922878  PCS
+                NOT-qualified rows anywhere: none
+
+    The general lesson, worth carrying: a grade that is claim-relative in the
+    schema is not free-text when an exporter consumes it. Check what reads a
+    value before reasoning about what it means.
+
+    Finding 2 - a minigene splicing-assay readout was graded HUMAN_CLINICAL.
+    Confirmed against references_cache/PMID_41472573.md: the sentence sits inside
+    the minigene analysis paragraph, so IN_VITRO is right, and it now matches the
+    sibling PMID:40922878 in-vitro item in the same discussion rather than
+    disagreeing with it. Took both sub-points as well: the snippet was widened
+    from a mid-sentence fragment beginning after a close-paren to the full
+    self-contained sentence, and the explanation now carries the source's hedge
+    that the frameshift is *predicted* from the observed 2-base retention rather
+    than demonstrated at protein level.
+
+    Validation: `just validate-disorders` passes on both changed files including
+    term validation; snippets 33/33; entity refs, causal targets, duplicate keys,
+    enum values and qualifier terms all pass; `git status cache/` empty; the HPOA
+    exporter emits no NOT-qualified row for this entry. check-snippet-grading,
+    check-title-snippets and check-snippet-length still exit non-zero repo-wide
+    with zero hits in this entry - unchanged from the round-4 record, and still
+    drift that arrived on main between 2026-09-04 and 2026-09-07 rather than
+    anything this branch introduced.
