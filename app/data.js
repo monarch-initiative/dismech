@@ -33689,6 +33689,84 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 22",
+    "disease_id": "MONDO:0011762",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss",
+      "Hereditary Hearing Loss"
+    ],
+    "creation_date": "2026-09-11T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-syndromic sensorineural hearing loss caused by biallelic loss of OTOA, which encodes otoancorin: a GPI-anchored protein found only in the inner ear, and only at the interface where an acellular gel meets the epithelium underneath it. In the cochlea that interface is the attachment of the tectorial membrane to the spiral limbus.\nTwo things distinguish this disease from most hereditary hearing loss and shaped how this entry is curated.\nThe first is that the lesion is not in the hair cell. Otoancorin is made by the non-sensory interdental cells of the spiral limbus, not by hair cells, and the mouse model shows the consequence precisely: the tectorial membrane loses its limbal attachment but keeps its shape and stays over the organ of Corti, so outer hair cell amplification and cochlear tuning remain close to normal while inner hair cell sensitivity falls. The deafness is a failure to stimulate the inner hair cells, not a failure of transduction within them. Most of what is asserted about this mechanism comes from that mouse, and the entry says so rather than presenting it as human pathology.\nThe second is genotype. OTOA sits in a segmental duplication and a large share of pathogenic alleles are recurrent copy-number deletions rather than point mutations, which is why the gene is under-called by sequencing-only pipelines and why the diagnostic recommendation here is about assay choice rather than about gene choice.\nThe severity reported in humans is not uniform. The founding Palestinian family was described as having non-syndromic recessive deafness, while the largest published case series found mostly post-lingual, mild-to-moderate low-frequency and moderate-to-severe high-frequency loss. The entry records the sloping, post-lingual presentation as the common one and congenital presentation as occasional, which is what that series reports.",
+    "pathophysiology": [
+      "Biallelic OTOA Loss-of-Function",
+      "Loss of Otoancorin from the Limbal Attachment Zone",
+      "Tectorial Membrane Detachment from the Spiral Limbus",
+      "Failure of Inner Hair Cell Stimulation",
+      "Preserved Outer Hair Cell Amplification",
+      "Sensorineural Hearing Loss"
+    ],
+    "cell_types": [
+      "interdental cell of the spiral limbus",
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002172",
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "attachment of the tectorial membrane to the limbal epithelium",
+      "mechanical stimulation of the inner hair cell bundle",
+      "hearing"
+    ],
+    "phenotypes": [
+      "Bilateral Sensorineural Hearing Loss",
+      "Postlingual Onset",
+      "Congenital Onset",
+      "High-Frequency Sensorineural Hearing Loss",
+      "Low-Frequency Sensorineural Hearing Loss"
+    ],
+    "phenotype_categories": [
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0008596",
+      "HP:0008527",
+      "HP:0001757",
+      "HP:0008573"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "OTOA"
+    ],
+    "treatments": [
+      "Hearing Amplification and Auditory Rehabilitation",
+      "Cochlear Implantation",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_22.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_22.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 26",
     "disease_id": "MONDO:0011553",
     "category": "Mendelian",
@@ -74832,6 +74910,106 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Defect Type 37",
+    "disease_id": "MONDO:0032679",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-11T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An infantile mitochondrial hepato-encephalopathy caused by biallelic loss of MICOS13 (also called QIL1, MIC13 or C19orf70), a small subunit of the mitochondrial contact site and cristae organising system. Patients present with encephalopathy, liver disease, lactic acidosis and severe psychomotor impairment.\nThe mechanistic interest of this disease is that the lesion is architectural rather than enzymatic. Nothing is wrong with any respiratory chain complex's subunits. What fails is the shape of the membrane those complexes sit in: without MICOS13 the MICOS complex cannot be assembled, cristae junctions are lost, and the inner membrane loses the folded, compartmentalised geometry that oxidative phosphorylation depends on. The combined respiratory chain deficiency that gives the disease its name is a downstream consequence of that collapse.\nTwo further points shaped the curation.\nThe first is that MICOS13's role is specifically assembly, not structure. It is required to build and maintain the complex, and its loss takes a defined subcomplex (MIC10-MIC26-MIC27-QIL1) with it rather than degrading MICOS uniformly. That is a sharper claim than \"MICOS is disrupted\" and the entry records it as such.\nThe second is that the published reports classify this disease differently from one another - some as a combined OXPHOS deficiency, others as a mitochondrial DNA depletion syndrome - largely on the strength of what each group happened to measure. Only two of the five reports assayed mtDNA copy number at all, and both of those found depletion. The entry curates both findings and records the classification question rather than resolving it.",
+    "pathophysiology": [
+      "Biallelic MICOS13 Loss-of-Function",
+      "Failure of MICOS Complex Assembly",
+      "Loss of Cristae Junctions and Inner Membrane Contact Sites",
+      "Combined Respiratory Chain Deficiency",
+      "Mitochondrial DNA Depletion",
+      "Lactic Acidosis and Hepato-Encephalopathy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "cristae formation",
+      "oxidative phosphorylation",
+      "mitochondrial DNA replication"
+    ],
+    "phenotypes": [
+      "Mitochondrial Encephalopathy",
+      "Liver Disease",
+      "Lactic Acidosis",
+      "Severe Psychomotor Impairment",
+      "Bilateral Kidney Stones",
+      "Decreased Respiratory Chain Activity",
+      "3-Methylglutaconic Aciduria",
+      "Cerebellar and Vermian Atrophy",
+      "Optic Atrophy",
+      "Sensorineural Hearing Loss",
+      "Microcephaly",
+      "Mild Cardiac Hypertrophy",
+      "Cholestasis"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Hepatic",
+      "Metabolic",
+      "Renal",
+      "Ophthalmologic",
+      "Otologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001298",
+      "HP:0001399",
+      "HP:0003128",
+      "HP:0002361",
+      "HP:0000787",
+      "HP:0008972",
+      "HP:0003535",
+      "HP:0001272",
+      "HP:0000648",
+      "HP:0000407",
+      "HP:0000252",
+      "HP:0001714",
+      "HP:0001396"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MICOS13"
+    ],
+    "treatments": [
+      "Supportive Metabolic Care",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_37.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_37.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Defect Type 4",
     "disease_id": "MONDO:0012534",
     "category": "Mendelian",
@@ -90485,6 +90663,114 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Deployment-Related Constrictive Bronchiolitis",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [
+      "Occupational Lung Disease",
+      "Bronchiolitis"
+    ],
+    "creation_date": "2026-09-12T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Deployment-related constrictive bronchiolitis (DRCB) is a biopsy-defined small airways disease of military personnel deployed to Iraq, Afghanistan and the wider Southwest Asia theatre, who inhaled high concentrations of respirable particulate matter from desert dust, open-air burn pit smoke, engine exhaust and occupational vapours, gases, dusts and fumes. Affected personnel present years after deployment with exertional dyspnea and an inability to sustain pre-deployment exercise performance, while chest radiography, spirometry and lung volumes are typically normal, so the diagnosis has historically required surgical lung biopsy. The defining lesion is extrinsic narrowing of membranous (non-cartilaginous) bronchioles by subepithelial fibrosis and smooth-muscle hypertrophy, accompanied by peribronchiolar deposition of grey-black, partly polarizable particulate pigment. Quantitative histomorphometry shows the injury is not confined to the airway: the same lungs carry CD4 and CD8 T cell infiltration of airway walls with B-cell lymphoid follicles, muscularized and collagen-rich distal pulmonary arteries, fibrotic interalveolar septa with reduced capillary density, and visceral pleural inflammation or fibrosis. Because of that multicompartmental pattern, the same entity is also reported as post-deployment respiratory syndrome (PDRS), and an expert Delphi panel placed both under the broader descriptor deployment-related respiratory disease (DRRD). Mechanistic work in mice implicates sustained injury to club cells, the progenitor cells of the distal airway epithelium, with alveolar macrophage accumulation, TGF-beta activation and peribronchiolar collagen deposition as the fibrotic limb, and oxidative stress in the endothelium as the vascular limb. There is no approved pharmacotherapy; management is exposure cessation, symptom-directed treatment and rehabilitation.",
+    "pathophysiology": [
+      "Distal Deposition of Respirable Deployment Particulate Matter",
+      "Retained Peribronchiolar Particulate Burden",
+      "Sustained Club Cell Injury in Membranous Bronchioles",
+      "Bronchiolar Epithelial Thinning and Squamous Metaplasia",
+      "Peribronchiolar Myeloid and Alveolar Macrophage Accumulation",
+      "TGF-beta Activation and Myofibroblast Recruitment",
+      "Peribronchiolar Collagen Deposition",
+      "Lymphocytic Bronchiolitis and Lymphoid Follicle Formation",
+      "Subepithelial Fibrosis and Smooth Muscle Hypertrophy Narrowing Membranous Bronchioles",
+      "Distal Pulmonary Arterial Remodeling",
+      "Interalveolar Septal Fibrosis and Capillary Rarefaction",
+      "Visceral Pleural Inflammation and Fibrosis",
+      "Functional Small Airways Disease and Expiratory Air Trapping"
+    ],
+    "cell_types": [
+      "club cell",
+      "alveolar macrophage",
+      "monocyte-derived exudate macrophage",
+      "myofibroblast",
+      "fibroblast",
+      "CD4-positive T cell",
+      "CD8-positive T cell",
+      "airway smooth muscle cell",
+      "pulmonary arterial smooth muscle cell",
+      "pleural mesothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000158",
+      "CL:0000583",
+      "CL:0000235",
+      "CL:0000186",
+      "CL:0000057",
+      "CL:0000624",
+      "CL:0000625",
+      "CL:4033017",
+      "CL:0002591",
+      "CL:1000491"
+    ],
+    "biological_processes": [
+      "Wound Healing",
+      "Inflammatory Response",
+      "Leukocyte Migration",
+      "TGF-beta Receptor Signaling",
+      "ECM Organization",
+      "Collagen Fibril Organization",
+      "T Cell Activation",
+      "Toll-like Receptor Signaling",
+      "Smooth Muscle Cell Proliferation",
+      "Response to Oxidative Stress"
+    ],
+    "phenotypes": [
+      "Exertional dyspnea",
+      "Exercise intolerance",
+      "Decreased DLCO",
+      "Wheezing"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Physiological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002875",
+      "HP:0003546",
+      "HP:0045051",
+      "HP:0030828"
+    ],
+    "frequencies": [
+      "Universal in reported series (this is the presenting symptom)",
+      "15.6% in the past 12 months among deployed US veterans"
+    ],
+    "genes": [],
+    "treatments": [
+      "Cessation of further inhalational exposure",
+      "Symptom-directed and supportive management",
+      "Pulmonary rehabilitation"
+    ],
+    "environmental": [
+      "Deployment inhalation of respirable particulate matter",
+      "Open-air burn pit smoke",
+      "Sulfur-mine fire plume (Al-Mishraq, Mosul, 2003)"
+    ],
+    "biochemical": [],
+    "source_file": "Deployment-Related_Constrictive_Bronchiolitis.yaml",
+    "page_url": "../pages/disorders/Deployment-Related_Constrictive_Bronchiolitis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Dermatofibrosarcoma Protuberans",
@@ -200864,7 +201150,8 @@ window.searchData = [
       "FHL1-Related",
       "DNAJB6-Related",
       "MFM10",
-      "MFM11"
+      "MFM11",
+      "MFM13"
     ],
     "description": "Myofibrillar myopathy (MFM) is a genetically heterogeneous but morphologically stereotyped group of protein-aggregation myopathies. The unifying lesion is disintegration of the myofibril that begins at the Z-disc, followed by accumulation of myofibrillar degradation products and ectopic accumulation of desmin, alphaB-crystallin, myotilin, dystrophin and other proteins into intracellular inclusions \u2014 the \"myofibrillar\" pattern seen on Engel-Gomori trichrome and electron microscopy. Nearly all of the causative genes encode Z-disc or Z-disc-associated proteins (DES, CRYAB, MYOT, LDB3/ZASP, FLNC, BAG3, KY) or components of the muscle protein-quality-control machinery (CRYAB, BAG3, DNAJB6, HSPB8, UNC45B); the more recently added members (TTN, SVIL, PYROXD1) converge on the same Z-disc lesion from the A-band, the costamere and redox metabolism respectively rather than by being Z-disc structural proteins. Clinically MFM causes slowly progressive skeletal muscle weakness involving both proximal and distal muscles \u2014 distal weakness is present in about 80% of affected individuals \u2014 with peripheral neuropathy in a substantial minority (about a fifth to a quarter). Cardiomyopathy and cardiac conduction disease occur in a substantial minority and, together with respiratory muscle weakness, are the principal drivers of morbidity and mortality; there is no disease-modifying therapy, so cardiac and respiratory surveillance with timely device or transplant therapy is the main management lever.\n",
     "pathophysiology": [
@@ -200977,7 +201264,8 @@ window.searchData = [
       "FHL1",
       "DNAJB6",
       "SVIL",
-      "UNC45B"
+      "UNC45B",
+      "HSPB8"
     ],
     "treatments": [
       "Cardiac Pacemaker or Implantable Cardioverter Defibrillator",
@@ -200993,7 +201281,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Myofibrillar_Myopathy.html",
     "num_phenotypes": 19,
     "num_pathophysiology": 8,
-    "num_genes": 13,
+    "num_genes": 14,
     "num_treatments": 6,
     "causal_graph_edges": "53",
     "causal_graph_longest_path": "7"
@@ -221488,7 +221776,9 @@ window.searchData = [
       "HP:0001252",
       "HP:0001332"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT"
+    ],
     "genes": [
       "PNPO"
     ],
@@ -303144,17 +303434,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2921,
-  "total_subtypes": 3728,
-  "total_disorders_and_subtypes": 6649,
-  "total_unique_evidence_sources": 41071,
-  "total_unique_publications": 38709,
+  "total_disorder_pages": 2924,
+  "total_subtypes": 3729,
+  "total_disorders_and_subtypes": 6653,
+  "total_unique_evidence_sources": 41104,
+  "total_unique_publications": 38742,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 281,
-  "total_pathographs": 2916,
-  "total_unique_pathological_events": 17609,
+  "total_pathographs": 2919,
+  "total_unique_pathological_events": 17631,
   "total_modules": 174,
-  "total_research_reports": 3045,
+  "total_research_reports": 3047,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
