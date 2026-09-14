@@ -150,6 +150,22 @@ their state only, never merge them.
 
 ## Registering a recurring window (`/donate-curation <window> ...`)
 
+### Preconditions — do not register a shift until these are satisfied
+
+Registering a recurring cloud shift has **hard prerequisites** the user sets up
+once (see the SOP `docs/schedule-donation.md`). Check them first and, if any is
+missing, walk the user through it rather than registering a shift that cannot
+run:
+
+1. **GitHub auth** — `gh auth status` shows the user signed in.
+2. **`github_login`** set in `.claude/schedule-config.yaml` to the user's own
+   login (the identity gate; ships `null`). Offer to write it after confirming
+   `gh api user --jq .login`.
+3. **`routine.environment_id`** set to a cloud environment (ships `null`). A
+   shift **cannot start** without it. Prompt the user for the id (or help them
+   create/connect one at claude.ai/code) and write it back. Never register with
+   a null env, and never commit a specific user's login or env as a default.
+
 ### Which scheduler
 
 Claude Code exposes two schedulers; only one runs unattended:
