@@ -241,6 +241,22 @@ _SECTION_LABEL_RE = re.compile(
 
 _TIERS = ("A", "B", "C")
 
+#: Column order of the ``--format tsv`` detail mode, in one place so the header
+#: row and the value row below it cannot drift apart.
+TSV_COLUMNS = (
+    "tier",
+    "kind",
+    "file",
+    "kb_section",
+    "location",
+    "reference",
+    "abstract_section",
+    "evidence_source",
+    "quote_role",
+    "suggested_quote_role",
+    "snippet",
+)
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -670,23 +686,7 @@ def print_summary(findings: list[Finding], coverage: Coverage) -> None:
 
 
 def print_tsv(findings: list[Finding]) -> None:
-    print(
-        "\t".join(
-            (
-                "tier",
-                "kind",
-                "file",
-                "kb_section",
-                "location",
-                "reference",
-                "abstract_section",
-                "evidence_source",
-                "quote_role",
-                "suggested_quote_role",
-                "snippet",
-            )
-        )
-    )
+    print("\t".join(TSV_COLUMNS))
     for finding in findings:
         print(
             "\t".join(
