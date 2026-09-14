@@ -1,0 +1,11 @@
+---
+reference_id: GEO:GSE14882
+title: Expression data from human blood from MELAS patients and controls
+content_type: summary
+---
+
+# Expression data from human blood from MELAS patients and controls
+
+## Content
+
+Background: The heteroplasmic mitochondrial DNA (mtDNA) mutation A3243G causes the MELAS syndrome as one of the most frequent mitochondrial diseases. The process of reconfiguration of nuclear gene expression profile to accommodate cellular processes to the functional status of mitochondria might be a key to MELAS disease manifestation and could contribute to its diverse phenotypic presentation. Objective: To determine master regulatory protein networks and disease-modifying genes in MELAS syndrome. Methods: Analyses of whole blood transcriptomes from 10 MELAS patients using a novel strategy by combining classic Affymetrix oligonucleotide microarray profiling with regulatory and protein interaction network analyses. Results and Interpretation: Hierarchical cluster analysis elucidated that the relative abundance of mutant mtDNA molecules is decisive for the nuclear gene expression response. Further analyses confirmed not only transcription factors already known to be involved in mitochondrial diseases (such as TFAM), but also detected the hypoxia-inducible factor 1α (HIF-1α)/HIF-1β complex, nuclear factor Y (NF-Y) and CREB-related transcription factors as novel master regulators for reconfiguration of nuclear gene expression in response to the MELAS mutation. Correlation analyses of gene alterations and clinico-genetic data detected significant correlations between A3243G-induced nuclear gene expression changes and mutant mtDNA load as well as disease characteristics. These potential disease-modifying genes influencing the expression of the MELAS phenotype are mainly related to clusters primarily unrelated to cellular energy metabolism, but important for nucleic acid and protein metabolism, and signal transduction. Our data thus provide a framework to search for new pathogenetic concepts and potential therapeutic approaches to treat the MELAS syndrome.
