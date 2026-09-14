@@ -51,6 +51,23 @@
         .tree-pill { border: 1px solid #c7d2fe; color: #4338ca; background: #eef2ff; border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
         .tree-children { margin: 8px 0 0 24px; padding-left: 16px; border-left: 2px solid var(--gray-200); display: grid; gap: 8px; }
         .tree-children > .tree-node::before { content: ""; position: absolute; left: -16px; top: 19px; width: 16px; border-top: 2px solid var(--gray-200); }
+        .tree-note { color: var(--gray-600); font-size: 0.9rem; max-width: 760px; margin-bottom: 0.9rem; }
+        .tree-note code { font-family: ui-monospace, "SF Mono", monospace; font-size: 0.88em; background: rgba(0, 131, 143, 0.08); padding: 0.1em 0.35em; border-radius: 4px; }
+        .tree-empty { color: var(--gray-600); font-size: 0.92rem; }
+        .stat-muted { background: var(--gray-100); color: var(--gray-600); border-color: var(--gray-200); }
+        .standalone { margin-top: 1rem; border-top: 1px dashed var(--gray-200); padding-top: 0.75rem; }
+        .standalone summary { cursor: pointer; font-weight: 600; color: var(--gray-700); font-size: 0.92rem; }
+        .chip-list { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.6rem; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gray-200); border-radius: 999px; padding: 3px 10px; font-size: 0.8rem; color: var(--gray-800); background: var(--gray-50); }
+        .chip-meta { color: var(--gray-500); font-size: 0.72rem; }
+        .advisory { margin-top: 1rem; border-top: 1px dashed var(--gray-200); padding-top: 0.75rem; }
+        .advisory h3 { font-size: 1rem; color: var(--gray-800); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 8px; }
+        .advisory-tag { border: 1px solid #fed7aa; color: #9a3412; background: #fff7ed; border-radius: 999px; padding: 1px 8px; font-size: 0.7rem; font-weight: 600; }
+        .advisory p { color: var(--gray-600); font-size: 0.9rem; max-width: 760px; margin-bottom: 0.6rem; }
+        .advisory p code { font-family: ui-monospace, "SF Mono", monospace; font-size: 0.88em; background: rgba(0, 131, 143, 0.08); padding: 0.1em 0.35em; border-radius: 4px; }
+        .containment-list { list-style: none; display: grid; gap: 4px; font-size: 0.9rem; }
+        .containment-list a { color: var(--gray-800); font-weight: 600; }
+        .containment-rel { color: var(--gray-500); padding: 0 6px; }
         .flat-heading { margin-top: 0.5rem; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
         .card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); padding: 24px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
@@ -104,16 +121,24 @@
             <a href="../../">Home</a> <span>/</span> Groupings
         </div>
 
-        {% if grouping_tree and grouping_tree.roots %}
+        {% if grouping_tree %}
         <section class="tree-panel" aria-labelledby="grouping-tree-heading">
             <h2 class="section-title" id="grouping-tree-heading">Grouping Tree</h2>
+            <p class="tree-note">
+                Nesting is a curated assertion: a grouping sits below another only when the parent lists it as a
+                <code>member_type: GROUPING</code> member. Most groupings are deliberate cross-cuts (a shared
+                mechanism, gene family, or phenotype axis) that nest in nothing; those are collected under
+                <em>Standalone groupings</em> rather than padding the tree.
+            </p>
             <div class="tree-summary">
-                <span class="stat">{{ grouping_tree.root_count }} root{{ '' if grouping_tree.root_count == 1 else 's' }}</span>
+                <span class="stat">{{ grouping_tree.nested_root_count }} nested tree{{ '' if grouping_tree.nested_root_count == 1 else 's' }}</span>
                 <span class="stat">{{ grouping_tree.edge_count }} nested relation{{ '' if grouping_tree.edge_count == 1 else 's' }}</span>
                 <span class="stat">{{ grouping_tree.nested_count }} nested grouping{{ '' if grouping_tree.nested_count == 1 else 's' }}</span>
+                <span class="stat stat-muted">{{ grouping_tree.standalone_count }} standalone</span>
             </div>
+            {% if grouping_tree.nested_roots %}
             <ol class="tree-root-list">
-                {% for node in grouping_tree.roots recursive %}
+                {% for node in grouping_tree.nested_roots recursive %}
                 <li class="tree-node">
                     <div class="tree-row">
                         <a href="{{ node.href }}">{{ node.display_name or node.name }}</a>
@@ -127,6 +152,39 @@
                 </li>
                 {% endfor %}
             </ol>
+            {% else %}
+            <p class="tree-empty">No grouping declares a nested grouping yet.</p>
+            {% endif %}
+            {% if grouping_tree.standalone %}
+            <details class="standalone">
+                <summary>Standalone groupings ({{ grouping_tree.standalone_count }}) &mdash; neither a parent nor nested in another grouping</summary>
+                <ul class="chip-list">
+                    {% for node in grouping_tree.standalone %}
+                    <li><a class="chip" href="{{ node.href }}">{{ node.display_name or node.name }} <span class="chip-meta">{{ node.member_count }}</span></a></li>
+                    {% endfor %}
+                </ul>
+            </details>
+            {% endif %}
+            {% if grouping_tree.undeclared_containments %}
+            <div class="advisory">
+                <h3>Undeclared containment <span class="advisory-tag">advisory</span></h3>
+                <p>
+                    Every disease member of the first grouping is also a member of the second, yet the second does
+                    not list the first as a nested grouping. A lead, not a ruling: two groupings can cut the same
+                    diseases along different axes on purpose (a shared organelle versus a shared malformation).
+                    <code>just grouping-nesting-audit</code> prints the full report, including near-containments.
+                </p>
+                <ul class="containment-list">
+                    {% for c in grouping_tree.undeclared_containments %}
+                    <li>
+                        <a href="{{ c.child_href }}">{{ c.child_display_name }}</a> <span class="tree-meta">({{ c.child_count }})</span>
+                        <span class="containment-rel" title="{{ 'identical disease-member sets' if c.equal_sets else 'every disease member of the first is a member of the second' }}">{{ '=' if c.equal_sets else '&sube;' }}</span>
+                        <a href="{{ c.parent_href }}">{{ c.parent_display_name }}</a> <span class="tree-meta">({{ c.parent_count }})</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         </section>
         {% endif %}
 
@@ -154,6 +212,8 @@
                 {% if g.description %}<div class="desc">{{ g.description | truncate(220) }}</div>{% endif %}
                 <div class="stats">
                     <span class="stat">{{ g.member_count }} member{{ '' if g.member_count == 1 else 's' }}</span>
+                    {% if g.child_grouping_names %}<span class="stat">Nests {{ g.child_grouping_names | length }} grouping{{ '' if g.child_grouping_names | length == 1 else 's' }}</span>{% endif %}
+                    {% if g.parent_grouping_names %}<span class="stat">Nested in {{ g.parent_grouping_names | join(', ') }}</span>{% endif %}
                     <span class="stat">{{ g.criteria_count }} criteria block{{ '' if g.criteria_count == 1 else 's' }}</span>
                     {% if g.candidate_count %}<span class="stat">{{ g.candidate_count }} candidate{{ '' if g.candidate_count == 1 else 's' }}</span>{% endif %}
                     {% if g.coverage.completeness.available %}

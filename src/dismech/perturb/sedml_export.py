@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dismech import kb_cache
 from dismech.perturb.simulate import (
     ModelConfig,
     load_model_config,
@@ -542,11 +543,10 @@ def find_disorder_for_model(model_id: str, disorders_dir: Path) -> dict[str, Any
     """Find the disorder entry curating ``model_id`` (for variables/thresholds)."""
     if not disorders_dir.exists():
         return None
-    for path in sorted(disorders_dir.glob("*.yaml")):
-        if path.name.endswith(".history.yaml"):
-            continue
-        with open(path) as handle:
-            entry = safe_load(handle) or {}
+    # Read-only scan through the shared parsed-document cache: this runs once
+    # per model, and re-parsing the corpus each time was most of `export_all`.
+    for _path, entry in kb_cache.iter_documents(disorders_dir):
+        entry = entry or {}
         for model in entry.get("computational_models") or []:
             if isinstance(model, dict) and model.get("model_id") == model_id:
                 return entry

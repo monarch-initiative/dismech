@@ -51,6 +51,13 @@ knowledge-gap-scan, preprint-scan, weekly-compliance, post-review-agent) are
 intentionally the same across all profiles — they are not the cost driver. Edit
 them in the config if you want a profile to move them too.
 
+PR shepherd has two jobs with different cost profiles. Its deterministic merge
+controller remains hourly in every enabled profile. Under `slow`, a second
+controller-only cron fills the hours between four-hourly LLM tending runs;
+`medium`, `fast`, and `fast-weekend` run both jobs from their hourly entry. The
+workflow's agent-job guard recognizes that controller-only expression, so keep
+it synchronized with the profile config when changing this split.
+
 `off` disables *every* managed workflow's schedule at once by removing the
 `on.schedule` block from each managed workflow. `workflow_dispatch` is untouched,
 so you can still run any agent by hand from the Actions tab while `off` is
