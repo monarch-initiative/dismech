@@ -18,9 +18,10 @@ Classification (per changed path):
   page could change. ``src/**``, ``project.justfile``/``justfile``, ``conf/**``,
   or *any path not matched by a LOCAL or NEUTRAL rule* (unknown => full).
 - LOCAL   -> incremental page input: ``kb/disorders/*.yaml``,
-  ``kb/comorbidities/*.yaml``, ``kb/modules/*.yaml``, ``research/*.md``. Only the
-  disorder files become individual re-renders; comorbidity/module/research
-  changes are covered by the always-regenerated aggregates.
+  ``kb/comorbidities/*.yaml``, ``kb/modules/*.yaml``,
+  ``kb/module_collections/*.yaml``, ``research/*.md``. Only the disorder files
+  become individual re-renders; the other changes are covered by the
+  always-regenerated aggregates.
 - NEUTRAL -> ignored: render-neutral companions of a curation edit and derived
   outputs (``references_cache/**``, ``history/**``, ``cache/**``,
   ``kb/groupings/**`` [separate workflow], ``docs/**``, ``mkdocs.yml``,
@@ -118,9 +119,7 @@ NEUTRAL_PREFIXES = (
     ".github/",
     "scripts/",
 )
-NEUTRAL_EXACT = (
-    "mkdocs.yml",
-)
+NEUTRAL_EXACT = ("mkdocs.yml",)
 
 
 def _is_local_disorder(path: str) -> bool:
@@ -128,22 +127,26 @@ def _is_local_disorder(path: str) -> bool:
         path.startswith("kb/disorders/")
         and path.endswith(".yaml")
         and not path.endswith(".history.yaml")
-        and "/" not in path[len("kb/disorders/"):]
+        and "/" not in path[len("kb/disorders/") :]
     )
 
 
 def _is_local_page_input(path: str) -> bool:
     if _is_local_disorder(path):
         return True
-    for prefix in ("kb/comorbidities/", "kb/modules/"):
+    for prefix in ("kb/comorbidities/", "kb/modules/", "kb/module_collections/"):
         if (
             path.startswith(prefix)
             and path.endswith(".yaml")
             and not path.endswith(".history.yaml")
-            and "/" not in path[len(prefix):]
+            and "/" not in path[len(prefix) :]
         ):
             return True
-    return bool(path.startswith("research/") and path.endswith(".md") and "/" not in path[len("research/"):])
+    return bool(
+        path.startswith("research/")
+        and path.endswith(".md")
+        and "/" not in path[len("research/") :]
+    )
 
 
 def _is_neutral(path: str) -> bool:
@@ -187,13 +190,21 @@ def classify(entries: list[tuple[str, str]]) -> Decision:
             continue
         if _is_local_page_input(path):
             if deleted_or_renamed and (
-                path.startswith(("kb/disorders/", "kb/comorbidities/", "kb/modules/", "research/"))
+                path.startswith(
+                    (
+                        "kb/disorders/",
+                        "kb/comorbidities/",
+                        "kb/modules/",
+                        "kb/module_collections/",
+                        "research/",
+                    )
+                )
             ):
                 reasons.append(f"page input {status} (removed/renamed): {path}")
                 continue
             if _is_local_disorder(path):
                 disorder_files.add(path)
-            # comorbidity/module/research changes ride the always-run aggregates
+            # Other local inputs ride the always-run aggregate render passes.
             continue
         if _is_neutral(path):
             continue
@@ -374,7 +385,7 @@ def _expected_page_name(disorder_path: Path) -> str | None:
     """
     try:
         data = safe_load_path(disorder_path) or {}
-    except Exception:  # unparseable YAML: fail safe rather than guess
+    except Exception:  # unparsable YAML: fail safe rather than guess
         return None
     name = data.get("name")
     return f"{slugify(name)}.html" if name else None
@@ -497,9 +508,7 @@ def _report_page_drift(args: argparse.Namespace) -> int:
                 print(f"[drift]   stale page: {name}", file=sys.stderr)
             for name in unrendered:
                 print(f"[drift]   unrendered input: {name}", file=sys.stderr)
-        heal, heal_files = plan_heal(
-            args.disorders_dir, args.pages_dir, content_drift
-        )
+        heal, heal_files = plan_heal(args.disorders_dir, args.pages_dir, content_drift)
         if heal == "targeted" and heal_files:
             print(
                 f"[drift] repairable by re-rendering {len(heal_files)} stale "
@@ -617,7 +626,8 @@ def main() -> int:
 
     if args.files_out:
         Path(args.files_out).write_text(
-            "\n".join(decision.disorder_files) + ("\n" if decision.disorder_files else ""),
+            "\n".join(decision.disorder_files)
+            + ("\n" if decision.disorder_files else ""),
             encoding="utf-8",
         )
 
