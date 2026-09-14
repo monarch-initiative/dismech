@@ -163,8 +163,9 @@ Use [github-communication](../github-communication/SKILL.md) before posting.
 ## Regenerate only the necessary artifacts
 
 Recipes live in [analyses/justfile](../../../analyses/justfile), not the root
-justfile. Run `cd analyses` before these commands; inspect `just --show` for the
-exact invocation and `just check-deps` for required local sources.
+justfile. Run `cd analyses` before these commands. Use `just --list` for an
+overview, `just --show <recipe>` for the exact invocation, and `just check-deps`
+for required local sources.
 
 | Intent | Recipe | Effect |
 |---|---|---|
