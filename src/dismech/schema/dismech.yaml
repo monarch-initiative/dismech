@@ -50,6 +50,10 @@ prefixes:
   # so we bind to the schema id namespace instead. Used only for
   # exact_mappings; dismech slot identity stays dismech-native.
   sepio: https://w3id.org/sepio-model/
+  # CiTO, the Citation Typing Ontology (SPAR family). Used only for
+  # QuoteRoleEnum mappings: a CiTO property types a citing-entity ->
+  # cited-entity relation, which is exactly the shape of an EvidenceItem.
+  cito: http://purl.org/spar/cito/
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
@@ -181,6 +185,79 @@ enums:
       UNKNOWN:
         title: Unknown
         description: Directness has not yet been assessed
+
+  QuoteRoleEnum:
+    description: >-
+      Where the quoted sentence sits in the cited publication's own argument:
+      a finding that publication produced, something it restates from elsewhere,
+      or its synthesis of a literature it did not generate.
+    comments:
+      - >-
+        This is a fact about the cited document, not a judgement about the
+        claim, and not a strength grade. It is orthogonal to all three existing
+        evidence axes and composes with each of them: `supports` is direction,
+        `directness` is inferential distance, `evidence_source` is study type.
+        A sentence can be BACKGROUND and still be DIRECT, SUPPORT and
+        HUMAN_CLINICAL -- that combination is precisely the case issue #10262
+        was filed about.
+      - >-
+        The motivating case (#10262): a chick-embryo study whose introduction
+        states the human clinical picture, quoted for that human fact. Grading
+        it MODEL_ORGANISM asserts a chick measured human perinatal mortality;
+        grading it HUMAN_CLINICAL asserts a study type the paper never ran; the
+        OTHER that review settled on says nothing at all. With `quote_role`
+        the item is HUMAN_CLINICAL + BACKGROUND, which is both true and
+        queryable -- `evidence_source` grades the evidence the quoted text
+        describes, and `quote_role` records that the citing paper is not where
+        it came from.
+      - >-
+        Deliberately has no UNKNOWN value, unlike DirectnessEnum. Absent
+        already means "nobody has assessed this", which is the honest state of
+        every evidence item predating the slot; a second spelling of the same
+        thing would only invite curators to fill one in. CLAUDE.md gives the
+        same instruction for `directness`, where UNKNOWN is a legacy value.
+      - >-
+        Partly derivable, which is the test docs/explanation/evidence-model.md
+        sets for an authored slot ("strength stays derived, not authored"):
+        where a reference's cached body carries NLM structured-abstract section
+        labels, locating the snippet between two of them decides the zone
+        without inference. `just list-background-citations` reports that
+        derivation as a worklist. It is a worklist and not an autofill: it
+        places roughly a quarter of PMID-cited snippets (the rest are quoted
+        from full-text prose that carries no labels), a structured BACKGROUND:
+        paragraph routinely closes with the authors' own framing, and the same
+        line dismech-terms draws for ontology-term suggestions applies here.
+    permissible_values:
+      PRIMARY_RESULT:
+        title: Primary result
+        description: >-
+          The quoted text reports an observation, measurement, analysis, or
+          conclusion the cited publication itself produced.
+        exact_mappings:
+          - cito:citesAsEvidence
+      BACKGROUND:
+        title: Background
+        description: >-
+          The quoted text restates something established elsewhere -- an
+          introduction, a background or framing sentence, a motivation for the
+          work -- rather than a finding of the cited publication.
+        exact_mappings:
+          - cito:obtainsBackgroundFrom
+      REVIEW_SYNTHESIS:
+        title: Review synthesis
+        description: >-
+          The quoted text is the cited publication's synthesis of work it did
+          not itself perform: a review, commentary, editorial, or consensus or
+          guideline statement summarizing a literature.
+        close_mappings:
+          - cito:citesAsAuthority
+        comments:
+          - >-
+            CiTO has no exact counterpart, hence a close mapping.
+            `citesAsAuthority` is the nearest property but carries an
+            "uncontested authority" reading that REVIEW_SYNTHESIS does not
+            assert -- the value records what kind of document the sentence sits
+            in, not how much weight to give it.
   EvidenceSourceEnum:
     description: The provenance/source of the evidence item
     permissible_values:
@@ -3053,6 +3130,26 @@ slots:
     examples:
       - value: DIRECT
     range: DirectnessEnum
+  quote_role:
+    description: >-
+      Where the quoted sentence sits in the cited publication's own argument --
+      a result that publication produced, background it restates from
+      elsewhere, or its synthesis of a literature. Optional: absent means no one
+      has assessed it, which is the state of most of the knowledge base.
+    examples:
+      - value: BACKGROUND
+    range: QuoteRoleEnum
+    comments:
+      - >-
+        Records provenance of the *finding*, where `reference` records
+        provenance of the *sentence*. Those are different objects, and the
+        model represented them identically until issue #10262.
+      - >-
+        Judge it from the quoted text and the cached reference body, never from
+        the reference's MeSH terms or publication type alone: a human cohort
+        study has an introduction too, and an animal study can report a patient
+        series. `just list-background-citations` builds the worklist; the call
+        stays a curator's.
   evidence_source:
     description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
     range: EvidenceSourceEnum
@@ -6238,6 +6335,7 @@ classes:
       - reference_title
       - supports
       - directness
+      - quote_role
       - evidence_source
       - snippet
       - explanation

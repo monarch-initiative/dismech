@@ -1430,6 +1430,18 @@ list-snippet-grading *args="":
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
 
+# REPORT-ONLY -- no baseline, no gate, and never an autofill; each item is
+# decided by reading the sentence. Three tiers: A, deterministic, from NLM
+# structured-abstract section labels; B, the MeSH animal-without-Humans
+# heuristic, which covers a narrow slice and is a lower bound rather than a
+# measure of the problem; C, a recorded `quote_role` that contradicts tier A.
+# Pass `--format tsv` for detail, `--tier A` to narrow, or file paths to scan
+# only those.
+# Worklist for `quote_role`: evidence items whose snippet may not be the cited paper's own finding (#10262).
+[group('QC')]
+list-background-citations *args="":
+    uv run python scripts/check_background_citations.py {{args}}
+
 # Guard against reference titles that name a paper other than the one cited --
 # a correct PMID with a verified snippet and an invented `reference_title`,
 # which every other gate is structurally blind to because each checks a
