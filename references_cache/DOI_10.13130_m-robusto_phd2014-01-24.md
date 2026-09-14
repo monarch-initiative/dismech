@@ -1,0 +1,19 @@
+---
+reference_id: DOI:10.13130/m-robusto_phd2014-01-24
+title: "INHERITED HEARING LOSS: FROM GENE VARIANTS TO MECHANISMS OF DISEASE"
+authors:
+- "ROBUSTO, MICHELA"
+journal: Universit� degli Studi di Milano
+year: '2014'
+doi: 10.13130/m-robusto_phd2014-01-24
+content_type: abstract_only
+---
+
+# INHERITED HEARING LOSS: FROM GENE VARIANTS TO MECHANISMS OF DISEASE
+**Authors:** ROBUSTO, MICHELA
+**Journal:** Universit� degli Studi di Milano (2014)
+**DOI:** [10.13130/m-robusto_phd2014-01-24](https://doi.org/10.13130/m-robusto_phd2014-01-24)
+
+## Content
+
+Nonsyndromic Sensorineural Hearing Loss (NSHL) is the most common sensory disorder worldwide, affecting at least 1 in 500 newborns and more than half individuals older than 80 years. It is estimated that about 60-70% of cases are due to genetic factors [Raviv et al., 2010]. More than 70 genes have been associated with NSHL so far, but many others are still to be discovered. In this thesis, we investigated the genetic and molecular bases of NSHL by a double approach, consisting in: a) investigating the pathogenic mechanisms of mutations within the MIR96 gene, and b) searching for new genes/mutations by Whole-Exome Sequencing (WES) in selected NSHL families. As far as MIR96 is concerned, we identified and characterized a novel mutation (the third described) within the MIR96 gene, miR-96 (+57T&gt;C), in an Italian family with autosomal dominant NSHL. MiR-96 is part of the conserved miR-183 microRNA (miRNA) family, which plays essential functions in the vertebrate inner ear. Point mutations within the seed region of miR-96 (miR-96-5p) cause autosomal dominant NSHL (AD-NSHL). The novel identified mutation replaces a highly conserved nucleotide and is predicted to reduce the stability of the pre-miRNA hairpin. Ex vivo assays in mammalian cells confirmed that both miR-96 and miR-96*(miR-96-3p) mature species were significantly reduced in the mutant, whereas the precursor level was unaffected. Moreover, miR-96 and miR-96* expression could be restored to normal levels by reconstituting the secondary structure of the pre-miR-96 hairpin, thus demonstrating that the mutation hinders the precursor processing. Finally, even though the mature miR-96 sequence is not altered, we demonstrated that the identified mutation significantly impacts on miR-96 regulation of selected targets. Taken together, these data provide further evidence of the involvement of miR-96 in human deafness and demonstrate that a quantitative defect of this miRNA may contribute to NSHL. As far as WES is concerned, the application of NGS to the identification of novel genes/mutations in 6 genetically undiagnosed Italian families (NSHL1-4 and 6, 7), with recessive NSHL and at least two affected individuals, has enabled the molecular diagnosis in two families (NSHL4 and NSHL6), and highlighted a putative novel deafness-associated gene in another family (NSHL3). In particular, a novel missense mutation within the PRPS1 gene was found in family NSHL4 and functionally characterized, together with other two mutations identified by candidate-gene screening in a larger X-linked NSHL cohort. In the NSHL3 family, WES pointed out a novel missense variant in DIAPH2, a gene not directly linked to NSHL but belonging to a family of proteins already involved in hearing loss. Studies aimed at the functional characterization of this mutation and at the clarification of the possible involvement of the gene in the pathogenesis of the disease are now being performed. For the other three families (NSHL1, 2 and NSHL7), the search for pathogenic variations is still ongoing.

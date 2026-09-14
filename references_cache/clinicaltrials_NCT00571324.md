@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00571324"
+reference_id: clinicaltrials:NCT00571324
 title: "An Open Label Pilot Study of the Effects of the Glucagon-like Peptide-1 Receptor Antagonist, Exendin-(9-39) on Glycemic Control in Subjects With Congenital Hyperinsulinism"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open Label Pilot Study of the Effects of the Glucagon-like Peptide-1 Receptor Antagonist, Exendin-(9-39) on Glycemic Control in Subjects With Congenital Hyperinsulinism
