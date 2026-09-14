@@ -30,6 +30,28 @@ Claude Code skills are available in `.claude/skills/`:
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 
+**A skill file that is misnamed or missing its frontmatter is not an error — it
+is a skill that never loads.** Claude Code discovers a skill by looking for
+`SKILL.md` in each directory and says nothing when it does not find one, so the
+only symptom is a skill that never triggers, which looks exactly like a skill
+nobody needed. `microbiome-curation` sat with a lowercase `skill.md` for close
+to a month (#11758); it arrived in a curation PR adding CMT disorder entries,
+which is the shape of the problem — skill files enter through PRs about
+something else and get the attention that PR's subject gets.
+
+```bash
+just check-skill-files   # gate: SKILL.md present and cased, frontmatter valid,
+                         # name matches the directory, description non-empty,
+                         # and every .claude/skills/ path a justfile or script
+                         # runs still exists. Offline, in `just qc`, and ungated
+                         # and whole-tree in CI for the same reason
+                         # check-duplicate-keys is.
+just list-skill-files    # census, including description lengths; exit 0
+```
+
+Description *length* is reported and never gated — no ceiling is documented in
+this repo, so a threshold here would be invented rather than sourced.
+
 ## Key Commands
 
 ```bash
