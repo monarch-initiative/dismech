@@ -226,17 +226,18 @@ one entering and one leaving, and the entry's own curator had already marked the
 Re-running the census with both requirements settles which constraint actually binds, and
 it is not the one this document originally claimed:
 
-| Longest chain | Every node measurable | Every edge evidenced | Both |
+| Longest chain | Every node measured | Every edge cited | Both |
 |---|---|---|---|
-| ≥3 nodes | 90 | 1,064 | 33 |
-| ≥4 nodes | 20 | 825 | 5 |
-| ≥5 nodes | 4 | 563 | 1 |
+| ≥3 nodes | 97 | 1,041 | 38 |
+| ≥4 nodes | 21 | 725 | 6 |
+| ≥5 nodes | 5 | 434 | 1 |
 
-34,905 causal edges KB-wide, 14,698 evidenced (42%). Fully-evidenced chains reach **12
+Counted with `just aop-chain-census` on 2026-09-15; the figures move with every curation PR.
+36,793 causal edges KB-wide, 15,722 carrying evidence (43%). Fully-cited chains reach **12
 nodes** (`Familial_Hypercholesterolemia`, `Lupus_Nephritis`,
-`Autosomal_Dominant_Hypercholesterolemia_3`); fully-measurable ones stop at 5. **Edge
-evidence is roughly forty times more available than node measurability**, so the scarce
-input to an AOP derivation is `modeled_mechanisms` coverage, not literature.
+`Autosomal_Dominant_Hypercholesterolemia_3`); fully-measured ones stop at 5. **Edge evidence
+is about thirty-five times more available than node measurability**, so the scarce input to
+an AOP derivation is `modeled_mechanisms` coverage, not literature.
 
 `Left_Ventricular_Noncompaction_8` is the only entry in the knowledge base clearing both
 requirements at five nodes, so derivation A survives the tightened screen — by luck rather
@@ -249,7 +250,7 @@ The five verdicts drawn from LVNC8 alone, retested against fluorosis.
 | Verdict from A | Holds? | What B showed |
 |---|---|---|
 | The Event layer transfers almost for free | **yes** | LoBO from `biological_scale`, measurement from `readouts`, terms from the CL/GO/UBERON bindings, in both entries |
-| The relationship layer transfers with its evidence attached | **yes, and it is the abundant half** | A: 14/14 edges evidenced. B: 2/20 before PR #11617, 16/20 after, with 7 of 8 direct quotes coming from papers already in `references_cache/` and merely attached to the wrong object. KB-wide, 825 entries carry a 4-node fully-evidenced chain against 20 with a fully-measurable one. The transfer is real; what is scarce is the readouts, not the citations |
+| The relationship layer transfers with its evidence attached | **yes, and it is the abundant half** | A: 14/14 edges evidenced. B: 2/20 before PR #11617, 16/20 after, with 7 of 8 direct quotes coming from papers already in `references_cache/` and merely attached to the wrong object. KB-wide, 725 entries carry a 4-node fully-cited chain against 21 with a fully-measured one. The transfer is real; what is scarce is the readouts, not the citations |
 | The initiating end does not transfer | **entry-dependent** | A has no MIE and can have none. B has two MIE candidates. What both share is that the exposure edges land on toxicokinetic nodes, so the MIE is never where an AOP would look for it |
 | Model disagreement is an asset | **yes, differently** | A: three systems disagreeing on TGF-beta direction. B: a `FAILS_TO_RECAPITULATE` split between an `UNCHANGED` density readout and a `DECREASED` quality readout, which is the mixed-lesion claim in measurement form |
 | Nothing needed a schema change | **yes** | Still true. `Pathophysiology.assays` remains the one slot that would most improve the output and remains unused in both |
@@ -265,9 +266,9 @@ which is the point. Method coverage is per-Event on one side and per-curator on 
 One further correction the pair forces: **the census screen was measuring the wrong
 thing, and in the opposite direction from the one first supposed.** It ranked chains by
 whether every node carries a readout — a fact about Events that says nothing about KERs.
-Adding the edge requirement turns 90 candidate entries into 33 at three nodes and 20 into
-5 at four, and leaves exactly one at five. But the reason is not that edge evidence is
-scarce. It is 40× more available than node measurability. **The binding constraint on
+Adding the edge requirement turns 97 candidate entries into 38 at three nodes and 21 into
+6 at four, and leaves exactly one at five. But the reason is not that edge evidence is
+scarce. It is about 35× more available than node measurability. **The binding constraint on
 deriving an AOP from any one dismech entry is `modeled_mechanisms` coverage.** A curation push that
 linked models to more nodes and readouts to more links would move this number; more
 literature work would not.
@@ -277,5 +278,5 @@ generalize.** Every verdict above that changed, changed because the second entry
 curated by different hands to different conventions. A third would most usefully be an
 entry with computational models linked, since neither of these has one and
 `ModelMechanismLink.divergences` — the typed caveat vocabulary — is populated on
-computational models only. The 33 entries clearing the joint screen at three nodes are the
-place to look for it.
+computational models only. The 38 entries clearing the joint screen at three nodes are the
+place to look for it — `just aop-chain-census --list-joint 3`.
