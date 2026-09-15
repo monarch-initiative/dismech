@@ -125,6 +125,7 @@ def test_cli_passes_on_the_committed_tree():
         cwd=root,
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
