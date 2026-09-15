@@ -174291,6 +174291,121 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Leukocyte Adhesion Deficiency 1",
+    "disease_id": "MONDO:0007293",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Leukocyte Adhesion Deficiency"
+    ],
+    "creation_date": "2026-09-14T02:59:37Z",
+    "updated_date": null,
+    "subtypes": [
+      "Severe",
+      "Moderate"
+    ],
+    "description": "An autosomal recessive inborn error of immunity in which biallelic loss-of-function variants in ITGB2 remove or cripple CD18, the beta subunit shared by every member of the beta-2 integrin family. Because the alpha and beta chains pair intracellularly before reaching the plasma membrane, losing the common beta chain takes all four heterodimers down together - LFA-1, Mac-1, p150,95 and CD11d/CD18 - so a single gene defect removes an entire receptor family rather than one receptor.\nThe consequence is specific and unusually legible. Neutrophils are made and released normally, and they still roll along activated endothelium, because rolling is selectin-mediated and selectins are untouched here. What they cannot do is convert that rolling into firm arrest and then cross the vessel wall. The cell therefore stays in the lumen. That produces the inversion this disease is known for: a marked and persistent blood neutrophilia sitting alongside a tissue compartment that is effectively neutropenic, so infections are severe and necrotic yet form no pus, and wounds do not repair. Delayed separation of the umbilical cord with omphalitis is often the first sign.\nSeverity tracks residual CD18 quantitatively rather than categorically - under 2% of expected neutrophil CD18 expression defines the severe phenotype and 2-30% the moderate one - and the periodontal literature shows attachment loss scaling inversely with whatever CD18 remains. The periodontal arm is curated as its own branch because the mechanism is not the one that was assumed for decades. It is not unchecked infection in a tissue no neutrophil can police; it is an IL-23/IL-17 response that has lost its off switch, because the signal that normally damps it - tissue macrophages clearing transmigrated apoptotic neutrophils - never arrives. That distinction is therapeutic, not semantic: antibiotics and mechanical debridement do not control it, while blocking the axis with ustekinumab did.\nAllogeneic HSCT is the established curative option for severe disease, and autologous lentiviral ITGB2 gene therapy has now reported a phase 1-2 result. LAD1 is the adhesion arm of the leukocyte adhesion deficiency family; the sibling entry Leukocyte Adhesion Deficiency Type II is a different lesion entirely - an SLC35C1 Golgi GDP-fucose transport failure that removes the selectin ligands and so blocks the rolling step upstream of the one that fails here.",
+    "pathophysiology": [
+      "Biallelic ITGB2 Loss-of-Function Variants",
+      "Failed Beta-2 Integrin Heterodimer Assembly",
+      "Defective Neutrophil Firm Adhesion to Endothelium",
+      "Failure of Neutrophil Transmigration into Tissue",
+      "Tissue Neutropenia with Blood Neutrophilia",
+      "Pus-Free Necrotic Bacterial and Fungal Infection",
+      "Dysregulated IL-23/IL-17 Axis at Barrier Sites",
+      "Inflammatory Periodontal Bone Loss",
+      "Impaired Wound Healing"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "vascular endothelial cell",
+      "gingival CD4+ T cell",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000071",
+      "CL:0000084",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "leukocyte adhesion to vascular endothelial cell",
+      "leukocyte cell-cell adhesion",
+      "integrin-mediated signaling pathway",
+      "neutrophil extravasation",
+      "leukocyte migration",
+      "inflammatory response",
+      "interleukin-17 production",
+      "bone resorption",
+      "wound healing"
+    ],
+    "phenotypes": [
+      "Delayed Umbilical Cord Separation",
+      "Omphalitis",
+      "Recurrent Bacterial and Fungal Infections Without Pus",
+      "Chronic Non-Healing Skin Ulcers",
+      "Severe Early-Onset Periodontitis with Tooth Loss",
+      "Premature Loss of Permanent Teeth",
+      "Persistent Marked Leukocytosis",
+      "Impaired Wound Healing",
+      "Absent or Reduced Neutrophil CD18 Expression",
+      "Autoimmune Complications"
+    ],
+    "phenotype_categories": [
+      "Neonatal",
+      "Immunologic",
+      "Dermatologic",
+      "Dental",
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0032434",
+      "HP:0032435",
+      "HP:0005406",
+      "HP:0200042",
+      "HP:0000704",
+      "HP:0006357",
+      "HP:0001974",
+      "HP:0001058",
+      "HP:0032455",
+      "HP:0002960"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ITGB2"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Autologous Lentiviral ITGB2 Gene Therapy (Marnetegragene Autotemcel)",
+      "IL-12/IL-23 p40 Blockade with Ustekinumab",
+      "Antimicrobial Prophylaxis and Aggressive Infection Management",
+      "Genetic Counselling and Prenatal Diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Leukocyte_Adhesion_Deficiency_1.yaml",
+    "page_url": "../pages/disorders/Leukocyte_Adhesion_Deficiency_1.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Leukocyte Adhesion Deficiency Type II",
     "disease_id": "MONDO:0009953",
     "category": "Mendelian",
@@ -193218,6 +193333,114 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Mitochondrial Complex I Deficiency Nuclear Type 19",
+    "disease_id": "MONDO:0032624",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex I Deficiency"
+    ],
+    "creation_date": "2026-09-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MC1DN19 is an autosomal recessive mitochondrial disorder caused by biallelic variants in FOXRED1, which encodes an FAD-dependent oxidoreductase that acts as a complex-I-specific molecular chaperone. FOXRED1 is not a structural subunit of complex I, so the lesion is a failure of assembly rather than a missing catalytic part.\n**The assembly failure has a specific and unusual shape.** In cells lacking FOXRED1 the mitochondrially encoded subunits are still translated and are still incorporated into a late-stage intermediate of roughly 815 kDa. What fails is the last step: instead of maturing into the holoenzyme, that intermediate falls apart into a smaller complex of roughly 475 kDa. So the defect is neither a failure to start building nor a failure to make subunits; it is a failure to finish, followed by disassembly of what was built. That distinction is what makes the residual-activity picture across patients so variable, because the amount of complex I that survives depends on how much of the intermediate escapes breakdown.\n**The most common allele produces partial, not complete, loss of function.** c.1054C>T (p.R352W) recurs across unrelated pedigrees and is the allele from the original 2010 report. Overexpressing FOXRED1 carrying patient mutations rescues assembly in cells, which is the direct experimental argument that these alleles are hypomorphic rather than null.\n**The clinical spectrum is broad for a disorder with fewer than a dozen published patients**, running from infantile-onset encephalomyopathy and Leigh syndrome to epileptic encephalopathy with severe psychomotor retardation. Neuroimaging is correspondingly variable, from normal to severe cerebral atrophy and polycystic encephalomalacia in early infancy, and basal ganglia lesions are reported. This entry keeps that heterogeneity visible rather than flattening it into a single presentation.\nOne reported association is curated here as contested rather than settled: severe pulmonary hypertension was attributed to the mitochondrial defect in a 2019 case report, and a subsequent letter argued the shunt lesions present in the same infant are a sufficient alternative explanation. See `discussions`.",
+    "pathophysiology": [
+      "FOXRED1 Assembly Chaperone Loss of Function",
+      "Arrest and Breakdown of the Late Complex I Assembly Intermediate",
+      "Isolated Complex I Deficiency",
+      "Impaired Oxidative Phosphorylation and NAD Redox Imbalance",
+      "Lactate Accumulation",
+      "Neuronal Energy Failure and Grey Matter Degeneration"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "oxidative phosphorylation",
+      "mitochondrial electron transport, NADH to ubiquinone"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Seizure",
+      "Developmental regression",
+      "Cerebral atrophy",
+      "Encephalomalacia",
+      "Abnormal basal ganglia morphology",
+      "Lactic acidosis",
+      "Decreased activity of mitochondrial complex I",
+      "Hypotonia",
+      "Hypoglycemia",
+      "Feeding difficulties",
+      "Visual impairment",
+      "Cardiovascular dysfunction",
+      "Pulmonary arterial hypertension",
+      "Abnormal liver physiology"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Metabolic",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0002376",
+      "HP:0002059",
+      "HP:0040197",
+      "HP:0002134",
+      "HP:0003128",
+      "HP:0011923",
+      "HP:0001252",
+      "HP:0001943",
+      "HP:0011968",
+      "HP:0000505",
+      "HP:0002092",
+      "HP:0031865"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FOXRED1"
+    ],
+    "treatments": [
+      "Niacin Supplementation",
+      "Dichloroacetate for Acute Lactic Acidosis",
+      "Mitochondrial Vitamin and Cofactor Cocktail"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Respiratory chain complex I enzyme assay",
+      "Blood lactate"
+    ],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_19.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_19.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 2",
@@ -265020,6 +265243,130 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Severe Congenital Neutropenia 1, Autosomal Dominant",
+    "disease_id": "MONDO:0042490",
+    "category": "Mendelian",
+    "parents": [
+      "congenital neutropenia",
+      "inborn error of immunity"
+    ],
+    "creation_date": "2026-09-14T03:20:43Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant disorder of granulopoiesis caused by heterozygous ELANE mutations, most of them missense. The mutant neutrophil elastase misfolds, accumulates in the cytoplasm instead of reaching azurophil granules, and provokes endoplasmic reticulum stress with an unfolded protein response in granulocytic precursors. Those precursors die, granulopoiesis arrests at the promyelocyte stage, and the absolute neutrophil count sits below 0.5 x 10^9/L from the first weeks of life. Untreated children present with omphalitis in the newborn period and then with pneumonia, deep abscesses and oral ulceration; before granulocyte colony-stimulating factor most died of bacterial infection in infancy. G-CSF transformed that prognosis and is the treatment of choice, but it did not remove the disease's second axis: severe congenital neutropenia is a preleukaemic bone marrow failure syndrome, and a substantial minority of patients evolve to myelodysplasia or acute myeloid leukaemia. The molecular route is somatic acquisition of truncating CSF3R mutations in the G-CSF receptor, usually followed by RUNX1 mutations, so annual marrow surveillance with cytogenetics is part of care and allogeneic transplantation is the option for G-CSF-refractory or transformed disease.\nThe same gene causes cyclic neutropenia, curated separately as Cyclic Hematopoiesis. That boundary is allelic and imperfect: the two mutation spectra differ in tendency but overlap, one S97L allele on a shared paternal haplotype has produced both phenotypes in one kindred, and the clinical divergence that matters most is not genetic at all. Cyclic neutropenia carries no recognised leukaemic risk; this disease does.",
+    "pathophysiology": [
+      "ELANE Mutation and Neutrophil Elastase Misfolding",
+      "Endoplasmic Reticulum Stress and Unfolded Protein Response",
+      "Apoptosis of Granulocytic Precursors",
+      "Myeloid Maturation Arrest at the Promyelocyte Stage",
+      "Profound Persistent Neutropenia",
+      "Impaired Innate Defence and Recurrent Bacterial Infection",
+      "Acquisition of Somatic CSF3R Mutations",
+      "Clonal Evolution to Myelodysplasia and Acute Myeloid Leukaemia"
+    ],
+    "cell_types": [
+      "promyelocyte",
+      "neutrophilic myelocyte",
+      "myelocyte",
+      "neutrophil",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000836",
+      "CL:0000580",
+      "CL:0002193",
+      "CL:0000775",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum unfolded protein response",
+      "response to endoplasmic reticulum stress",
+      "protein folding",
+      "apoptotic process",
+      "intrinsic apoptotic signaling pathway in response to endoplasmic reticulum stress",
+      "granulocyte differentiation",
+      "neutrophil differentiation",
+      "granulocyte colony-stimulating factor signaling pathway",
+      "myeloid cell differentiation"
+    ],
+    "phenotypes": [
+      "Profound Persistent Neutropenia",
+      "Myeloid Maturation Arrest at the Promyelocyte Stage",
+      "Recurrent Bacterial Infections",
+      "Neonatal Omphalitis",
+      "Pneumonia",
+      "Deep and Cutaneous Abscesses",
+      "Oral Ulceration",
+      "Gingivitis",
+      "Periodontitis",
+      "Recurrent Fever",
+      "Sepsis",
+      "Myelodysplastic Syndrome",
+      "Acute Myeloid Leukemia"
+    ],
+    "phenotype_categories": [
+      "Blood",
+      "Immune",
+      "Prenatal and Birth",
+      "Respiratory",
+      "Integument",
+      "Head and Neck",
+      "Constitutional",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0410252",
+      "HP:0033607",
+      "HP:0002718",
+      "HP:0032435",
+      "HP:0002090",
+      "HP:0031292",
+      "HP:0000155",
+      "HP:0000230",
+      "HP:0000704",
+      "HP:0001954",
+      "HP:0100806",
+      "HP:0002863",
+      "HP:0004808"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ELANE",
+      "CSF3R",
+      "RUNX1"
+    ],
+    "treatments": [
+      "Granulocyte Colony-Stimulating Factor",
+      "Allogeneic Haematopoietic Stem Cell Transplantation",
+      "Antimicrobial Prophylaxis and Prompt Treatment of Infection",
+      "Dental Hygiene and Periodontal Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Severe_Congenital_Neutropenia_1_Autosomal_Dominant.yaml",
+    "page_url": "../pages/disorders/Severe_Congenital_Neutropenia_1,_Autosomal_Dominant.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Severe Neonatal-Onset Encephalopathy With Microcephaly",
     "disease_id": "MONDO:0010397",
     "category": "Genetic",
@@ -305098,17 +305445,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2938,
-  "total_subtypes": 3729,
-  "total_disorders_and_subtypes": 6667,
-  "total_unique_evidence_sources": 41300,
-  "total_unique_publications": 38930,
+  "total_disorder_pages": 2941,
+  "total_subtypes": 3731,
+  "total_disorders_and_subtypes": 6672,
+  "total_unique_evidence_sources": 41333,
+  "total_unique_publications": 38962,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2933,
-  "total_unique_pathological_events": 17745,
+  "total_pathographs": 2936,
+  "total_unique_pathological_events": 17764,
   "total_modules": 174,
-  "total_research_reports": 3056,
+  "total_research_reports": 3057,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
