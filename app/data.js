@@ -120188,19 +120188,20 @@ window.searchData = [
   },
   {
     "name": "GLUT1 Deficiency Syndrome",
-    "disease_id": "MONDO:0011724",
+    "disease_id": "MONDO:0000188",
     "category": "Mendelian",
     "parents": [
-      "GLUT1 Deficiency Syndrome (Umbrella)",
+      "Inborn Error of Metabolism",
       "Inborn Carbohydrate Metabolic Disorder",
-      "Metabolic Epilepsy"
+      "Metabolic Epilepsy",
+      "Epilepsy",
+      "Movement Disorder"
     ],
     "creation_date": "2026-07-06T00:00:00Z",
     "updated_date": null,
     "subtypes": [
       "Classic GLUT1 Deficiency Syndrome",
-      "GLUT1 DS with Paroxysmal Exertion-Induced Dyskinesia",
-      "Dystonia 9"
+      "GLUT1 DS with Paroxysmal Exertion-Induced Dyskinesia"
     ],
     "description": "Glucose transporter type 1 (GLUT1) deficiency syndrome (Glut1DS) is a disorder of brain energy metabolism caused by heterozygous (rarely biallelic) pathogenic variants in SLC2A1, which encodes the GLUT1 facilitative glucose transporter responsible for transporting glucose across the endothelial cells of the blood-brain barrier and into erythrocytes. Reduced GLUT1 function starves the brain of its principal metabolic fuel, producing a cerebral energy deficit that manifests as an infantile-onset, often pharmacoresistant epileptic encephalopathy with acquired microcephaly, developmental delay, and a complex movement disorder (ataxia, dystonia, spasticity) in the classic severe form. Milder and later-onset presentations exist across a phenotypic spectrum, including paroxysmal exertion-induced dyskinesia (GLUT1 deficiency syndrome 2 / DYT18) and episodic choreoathetosis with spasticity (dystonia 9 / DYT9). The diagnostic hallmark is hypoglycorrhachia (low CSF glucose) with a low CSF:blood glucose ratio in the setting of normoglycemia. The ketogenic diet, which supplies ketone bodies as an alternative cerebral fuel bypassing the GLUT1 transport defect, is first-line disease-specific therapy.",
     "pathophysiology": [
@@ -120209,21 +120210,28 @@ window.searchData = [
       "Cerebral Glucose Energy Deficit",
       "Neuronal Hyperexcitability and Hypersynchrony",
       "Impaired Neurodevelopment and Movement Disorder",
-      "Recurrent Pharmacoresistant Seizures"
+      "Recurrent Pharmacoresistant Seizures",
+      "Erythrocyte GLUT1 Dysfunction",
+      "Arrested Cerebral Angiogenesis and Microvascular Diminution",
+      "Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure"
     ],
     "cell_types": [
       "Brain Microvascular Endothelial Cell",
-      "Erythrocyte",
-      "Neuron"
+      "Neuron",
+      "Astrocyte",
+      "Erythrocyte"
     ],
     "cell_type_ids": [
       "CL:2000044",
-      "CL:0000232",
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000127",
+      "CL:0000232"
     ],
     "biological_processes": [
       "D-glucose transmembrane transport",
-      "Generation of Precursor Metabolites and Energy"
+      "Generation of Precursor Metabolites and Energy",
+      "brain development",
+      "cerebral angiogenesis"
     ],
     "phenotypes": [
       "Pharmacoresistant Seizures",
@@ -120234,24 +120242,53 @@ window.searchData = [
       "Spasticity",
       "Paroxysmal Exercise/Exertion-Induced Dyskinesia",
       "Speech Difficulty",
-      "Hypotonia"
+      "Hypotonia",
+      "Intellectual disability",
+      "Absence seizures",
+      "Myoclonic seizures",
+      "Generalized tonic-clonic seizures",
+      "Focal seizures",
+      "Generalized 2.5-4 Hz spike-wave EEG",
+      "Paroxysmal eye-head movements",
+      "Gait disturbance",
+      "Hypoglycorrhachia (low CSF glucose)",
+      "Reduced CSF lactate",
+      "Hemolytic anemia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological",
+      "Laboratory",
+      "Hematologic"
+    ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
       "Head and Neck",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001250",
       "HP:0001263",
-      "HP:0000253",
+      "HP:0005484",
       "HP:0001251",
       "HP:0001332",
       "HP:0001257",
       "HP:0007166",
       "HP:0001260",
-      "HP:0001252"
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0002121",
+      "HP:0032794",
+      "HP:0002069",
+      "HP:0007359",
+      "HP:0010850",
+      "HP:0007704",
+      "HP:0001288",
+      "HP:0011972",
+      "HP:0030086",
+      "HP:0001878"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -120263,22 +120300,33 @@ window.searchData = [
     ],
     "treatments": [
       "Ketogenic Diet Therapy",
+      "Modified Atkins Diet and other ketogenic dietary variants",
       "Triheptanoin",
       "Anti-Seizure Medications to Avoid",
-      "Multidisciplinary Supportive Care"
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling",
+      "Evaluation of At-Risk Relatives and Early Treatment",
+      "Neurological Surveillance",
+      "AAV9-Mediated GLUT1 Gene Replacement (Experimental)"
     ],
-    "environmental": [],
+    "environmental": [
+      "Prolonged or strenuous exercise",
+      "Fasting and hunger"
+    ],
     "biochemical": [
-      "Hypoglycorrhachia"
+      "Hypoglycorrhachia",
+      "CSF lactate",
+      "Erythrocyte 3-O-methyl-D-glucose uptake",
+      "Erythrocyte surface GLUT1 (METAglut1)"
     ],
     "source_file": "GLUT1_Deficiency_Syndrome.yaml",
     "page_url": "../pages/disorders/GLUT1_Deficiency_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "GM1 Gangliosidosis Type 1",
@@ -305966,16 +306014,16 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 2946,
-  "total_subtypes": 3731,
-  "total_disorders_and_subtypes": 6677,
-  "total_unique_evidence_sources": 41398,
-  "total_unique_publications": 39026,
+  "total_subtypes": 3730,
+  "total_disorders_and_subtypes": 6676,
+  "total_unique_evidence_sources": 41419,
+  "total_unique_publications": 39046,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 2941,
-  "total_unique_pathological_events": 17796,
+  "total_unique_pathological_events": 17799,
   "total_modules": 174,
-  "total_research_reports": 3062,
+  "total_research_reports": 3063,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
