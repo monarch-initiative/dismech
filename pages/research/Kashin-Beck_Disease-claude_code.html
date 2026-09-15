@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kashin-Beck Disease · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Kashin-Beck Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Kashin-Beck Disease</h1>
+                
+                <p class="report-subtitle">Kashin-Beck Disease: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005610" target="_blank" rel="noopener noreferrer">MONDO:0005610</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">71 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Kashin-Beck Disease: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Kashin-Beck disease (KBD) is a chronic, endemic osteochondropathy — a degenerative, non-inflammatory disorder of growth-plate and articular cartilage — that produces symmetric joint enlargement, growth retardation, and in severe cases dwarfism. It is confined to a specific geographic belt and is considered a multifactorial environmental disease rather than a Mendelian genetic disorder, though genetic susceptibility loci have been identified. Onset is characteristically in childhood (ages 3–13), with progressive, largely irreversible skeletal changes ("Pathophysiological drivers include environmental toxins such as T-2 mycotoxin, nutritional deficiencies (notably selenium and iodine), and genetic predispositions that converge on dysregulated signalling pathways" — <a href="https://www.nature.com/nature-index/topics/l4/pathophysiology-and-treatment-of-kashin-beck-disease">Nature Index summary</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005610" target="_blank" rel="noopener noreferrer">MONDO:0005610</a> — classified as a subclass of osteochondrodysplasia (<a href="https://monarchinitiative.org/MONDO:0005610">Monarch Initiative</a>)
+- <strong>ICD-11:</strong> FA27.0
+- <strong>ICD-10:</strong> M12.1 (Kaschin-Beck disease)
+- <strong>ICD-9:</strong> 716.0
+- OMIM does not carry a dedicated Mendelian entry (KBD is not modeled as single-gene disease in OMIM); Orphanet listing was not confirmed in available searches — verify directly before curation.</p>
+<p><strong>Synonyms:</strong> Kaschin-Beck disease, Kashin–Bek disease, "Big Bone Disease" (colloquial/regional), Urov disease (older Russian literature), endemic osteoarthritis, endemic deforming osteoarthrosis, endemic osteochondropathy.</p>
+<p><strong>Data source note.</strong> Virtually all available evidence is aggregated disease-level/epidemiological and mechanistic literature (national surveillance reports, cross-sectional and cohort studies, case series, animal-model and omics studies) rather than individual EHR-level records — consistent with KBD's status as a public-health/endemic-disease research area concentrated in Chinese, Tibetan, and Russian populations.</p>
+<p>Sources: <a href="https://www.sciencedirect.com/topics/medicine-and-dentistry/kashin-beck-disease">ScienceDirect overview</a>, <a href="https://www.wikidata.org/wiki/Q500314">Wikidata</a>, <a href="https://monarchinitiative.org/MONDO:0005610">Monarch Initiative MONDO:0005610</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<p>KBD etiology is <strong>unresolved and actively debated</strong>; four historical hypotheses persist in the literature, now generally synthesized into a "compound etiology" model:</p>
+<ol>
+<li><strong>Selenium (Se) deficiency hypothesis (biogeochemical)</strong> — endemic regions overlap low-Se soil/food belts (shared with Keshan disease).</li>
+<li><strong>Mycotoxin hypothesis</strong> — grain (wheat/corn) stored under damp conditions becomes contaminated with <em>Fusarium</em> fungi producing <strong>T-2 toxin</strong> and other trichothecene mycotoxins.</li>
+<li><strong>Organic water-pollution/humic-fulvic acid hypothesis</strong> — high humic/fulvic acid content in local drinking water, generating free radicals via oxy/hydroxy functional groups that damage chondrocyte membranes and increase lipid peroxidation (<a href="https://pubmed.ncbi.nlm.nih.gov/10090708/">PubMed 10090708</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3620638/">Springer PMC3620638</a>).</li>
+<li><strong>Compound/multifactorial etiology</strong> — current consensus, integrating Se deficiency, T-2 toxin exposure, iodine deficiency, and genetic susceptibility as converging, synergistic factors rather than a single monocausal agent (<a href="https://www.sciencedirect.com/science/article/pii/S0147651322002597">ScienceDirect animal models review</a>).</li>
+</ol>
+<blockquote>
+<p>"Four etiological hypotheses have been formed, including water of organic poisoning hypothesis represented by fulvic acid (FA), biogeochemical hypothesis represented by selenium (Se) deficiency, food mycotoxin poisoning hypothesis represented by T-2 toxin poisoning and compound etiology theory hypothesis." — <a href="https://www.sciencedirect.com/science/article/pii/S0147651322002597">Animal models of KBD, ScienceDirect 2022</a></p>
+</blockquote>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>ADAM12</strong> — a bivariate GWAS (2,417 subjects, phenotypes = joint deformity + body height) found the top signal at rs1278300 (p = 9.25×10⁻⁹), replicated at rs1278300 (p=0.007) and rs1710287 (p=0.002); ADAM12 protein expression was significantly reduced in KBD articular cartilage by immunohistochemistry (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4992896/">PMC4992896</a>; <a href="https://www.nature.com/articles/srep31792">Sci Rep</a>).</li>
+<li><strong>COL10A1, HABP2</strong> — coding-region sequencing in Tibetan populations identified candidate susceptibility variants (<a href="https://bmcmedgenet.biomedcentral.com/articles/10.1186/s12881-017-0423-6">BMC Med Genet</a>).</li>
+<li><strong>Selenoprotein gene polymorphisms</strong> (e.g., GPX1, SEPP1 family) associated with KBD risk and serum Se/iodine levels in Tibetan populations (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3751926/">PMC3751926</a>).</li>
+<li><strong>GDF5 and DIO2</strong> — bone-development genes implicated preferentially in pediatric-onset (vs adult) KBD by gene expression analysis (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4114804/">PMC4114804</a>); DIO2 encodes selenium-dependent type 2 deiodinase, mechanistically linking thyroid hormone activation to Se status.</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<ul>
+<li>Low soil/dietary selenium (shared biogeochemical belt with Keshan disease, a cardiomyopathy).</li>
+<li>Grain (cereal) contamination with <em>Fusarium</em>-derived T-2 mycotoxin, especially in humid storage conditions.</li>
+<li>Humic/fulvic-acid-rich drinking water.</li>
+<li>Concurrent iodine deficiency, which appears to potentiate risk in severely Se-deficient areas ("In areas where severe selenium deficiency is endemic, iodine deficiency is a risk factor for Kashin-Beck disease" — <a href="https://www.sciencedirect.com/topics/veterinary-science-and-veterinary-medicine/kashin-beck-disease">ScienceDirect</a>).</li>
+<li>Cold climate/seasonality has been proposed as a contributing modifier (<a href="https://www.degruyter.com/document/doi/10.2478/fzm-2023-0005/html?lang=en">De Gruyter, "Cold weather and Kashin-Beck disease," 2023</a>).</li>
+<li>Age (childhood exposure window is critical) and rural/subsistence-agriculture lifestyle (dependence on locally grown grain and untreated well water).</li>
+</ul>
+<h3>Protective Factors</h3>
+<ul>
+<li>Adequate dietary/serum selenium (confirmed protective across multiple RCTs and ecological studies).</li>
+<li>Higher dietary protein intake — "certain combinations of food substances high in protein had a protective effect" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8999107/">PMC8999107</a>).</li>
+<li>Grain replacement (importing Se-adequate, non-locally-grown, non-fungally-contaminated grain) — a core public-health intervention, not merely a research finding.</li>
+<li>Improved drinking-water sourcing (piped/treated water displacing local humic-acid-rich wells).</li>
+</ul>
+<h3>Gene-Environment Interaction</h3>
+<p>Selenoprotein genotype modulates individual susceptibility to a shared environmental (low-Se, high T-2 toxin) exposure — e.g., selenoprotein gene polymorphism studies show genotype-dependent serum Se/iodine associations with KBD risk in the same geographic cohort (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3751926/">PMC3751926</a>). Recent work also frames KBD as a sarcopenia risk factor whose severity interacts with selenium status ("Kashin–Beck Disease: A Risk Factor for Sarcopenia and Its Interaction with Selenium" — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11678709/">PMC11678709</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Clinical/Physical Manifestations</h3>
+<ul>
+<li><strong>Arthralgia and morning stiffness</strong> (early symptom)</li>
+<li><strong>Symmetric joint enlargement</strong> — particularly finger interphalangeal/metacarpophalangeal joints, wrists, ankles, knees, elbows</li>
+<li><strong>Shortened fingers/brachydactyly</strong> — from premature epiphyseal closure</li>
+<li><strong>Restricted range of motion / joint stiffness</strong></li>
+<li><strong>Genu varum/valgum and other limb deformities</strong></li>
+<li><strong>Growth retardation → short stature → dwarfism</strong> in severe cases</li>
+<li><strong>Muscle atrophy adjacent to affected joints</strong> (secondary)</li>
+<li><strong>Sarcopenia</strong> as a later-life comorbidity/consequence (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11678709/">PMC11678709</a>)</li>
+</ul>
+<p>Suggested HP terms: <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a> (Arthralgia), <a href="http://purl.obolibrary.org/obo/HP_0001367" target="_blank" rel="noopener noreferrer">HP:0001367</a> (Abnormal joint morphology), <a href="http://purl.obolibrary.org/obo/HP_0002652" target="_blank" rel="noopener noreferrer">HP:0002652</a> (Skeletal dysplasia), <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" rel="noopener noreferrer">HP:0011800</a> (Midface retrusion — N/A, omit), <a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" rel="noopener noreferrer">HP:0001773</a> (Short foot), <a href="http://purl.obolibrary.org/obo/HP_0100729" target="_blank" rel="noopener noreferrer">HP:0100729</a> (Large joint involvement — verify exact term), <a href="http://purl.obolibrary.org/obo/HP_0002980" target="_blank" rel="noopener noreferrer">HP:0002980</a> (Joint stiffness/limitation of joint mobility — <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" rel="noopener noreferrer">HP:0001376</a>), <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> (Short stature), <a href="http://purl.obolibrary.org/obo/HP_0009824" target="_blank" rel="noopener noreferrer">HP:0009824</a> (Osteolysis — not typical, avoid), <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" rel="noopener noreferrer">HP:0002751</a> (Kyphoscoliosis — occasional secondary), <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a> (Brachydactyly).</p>
+<h3>Behavioral/Psychological</h3>
+<ul>
+<li>Depression and anxiety are elevated in KBD patients relative to the general population; a 2025 study specifically examined prevalence and risk factors of depression in KBD (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12440642/">PMC12440642</a>).</li>
+<li>Reported psychosocial burden: "strong sense of inferiority compared with their peers," financial difficulty, restricted activity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10161486/">PMC10161486</a>).</li>
+</ul>
+<h3>Laboratory Abnormalities</h3>
+<ul>
+<li>Low serum/urinary selenium and zinc, especially in children in endemic areas, tracked longitudinally (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9033266/">PMC9033266</a>)</li>
+<li>Altered serum metabolomic profile: candidate biomarkers include kynurenic acid, N-α-acetylarginine, 6-hydroxymelatonin, sphinganine, ceramide, sphingosine-1-phosphate, spermidine, and glycine (<a href="https://www.sciencedirect.com/science/article/pii/S0895398820301768">ScienceDirect</a>)</li>
+<li>Altered fecal metabolome reflecting disturbed selenium-centered metabolic bioprocesses (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10650499/">PMC10650499</a>)</li>
+<li>Gut microbiota dysbiosis: elevated Fusobacteria and Bacteroidetes; enriched <em>Alloprevotella</em>, <em>Robinsoniella</em>, <em>Megamonas</em>, <em>Escherichia-Shigella</em> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8553765/">Cell Death &amp; Disease / PMC8553765</a>)</li>
+</ul>
+<h3>Onset, Severity, Progression</h3>
+<ul>
+<li><strong>Onset:</strong> Predominantly childhood, ages 3–13 (some sources report 5–15); clinical deformity can appear by age 5 or earlier.</li>
+<li><strong>Severity/staging (Chinese national clinical grading, three grades):</strong></li>
+<li><strong>Grade I:</strong> enlarged finger joints, limited range of motion, limb-joint pain</li>
+<li><strong>Grade II:</strong> shortened fingers + Grade I features</li>
+<li><strong>Grade III:</strong> dwarfism + Grade II features
+  ("stage I KBD is defined as enlarged finger joints, limited range of motion and pain... stage II as shortened fingers... stage III as dwarfism" — search synthesis of <a href="https://academic.oup.com/rheumatology/article/61/4/1732/6299414">academic.oup.com/rheumatology</a> and related sources)</li>
+<li><strong>Progression:</strong> chronic, largely irreversible once epiphyseal/growth-plate damage occurs; adult disease resembles accelerated, severe generalized osteoarthritis.</li>
+<li><strong>Frequency:</strong> National X-ray detectable rate fell from 21.01% (1990) to &lt;10% (2003), &lt;5% (2007), &lt;0.4% in children (2010–2018), and 0% since 2019 per Chinese national surveillance (<a href="https://www.besjournal.com/en/article/doi/10.3967/bes2024.109">BES Journal</a>), though Tibet remains an active transmission area with occasional new cases.</li>
+</ul>
+<h3>Quality of Life</h3>
+<ul>
+<li>HRQoL is <strong>lower in KBD than in ordinary osteoarthritis</strong> patients across physical function, activity limitation, mental health, and general health domains (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10161486/">PMC10161486</a>; <a href="https://link.springer.com/article/10.1007/s11136-010-9820-4">EQ-5D study</a>).</li>
+<li>Most affected EQ-5D dimension: pain/discomfort, followed by mobility, anxiety/depression, usual activities, self-care.</li>
+<li>Severe (Grade II/III) and older (≥60y) patients show the largest healthy-life-expectancy losses, with substantial indirect economic burden (112.74 million CNY reported in one 2021 national burden analysis — <a href="https://pubmed.ncbi.nlm.nih.gov/38250701/">PubMed 38250701</a>).</li>
+</ul>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>KBD is <strong>not a single-gene Mendelian disorder</strong>; it is a gene–environment disease with polygenic susceptibility contributions.</p>
+<ul>
+<li><strong>Causal/susceptibility genes:</strong> ADAM12 (hgnc:188) — strongest GWAS hit, reduced protein expression in cartilage (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4992896/">PMC4992896</a>); GDF5, DIO2 (pediatric-predominant expression signature — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4114804/">PMC4114804</a>); COL10A1, HABP2 (candidate coding variants, Tibetan cohort); selenoprotein pathway genes.</li>
+<li><strong>Variant classification:</strong> No ClinVar pathogenic/likely-pathogenic single-variant entries identified for KBD in these searches — susceptibility-variant framework (GWAS SNP associations), not ACMG/AMP monogenic classification.</li>
+<li><strong>Functional consequences:</strong> Predominantly loss-of-expression/regulatory effects (e.g., decreased ADAM12 protein in affected cartilage) rather than classic LOF/GOF coding mutations.</li>
+<li><strong>Epigenetics:</strong> Not deeply characterized in the literature surfaced; no dedicated DNA-methylation/ChIP dataset for KBD identified — flag as a knowledge gap.</li>
+<li><strong>Molecular/transcriptomic findings:</strong></li>
+<li><strong>ADAM12</strong> downregulation in cartilage.</li>
+<li><strong>WISP1</strong> (Wnt-inducible signaling pathway protein 1) overexpressed in KBD chondrocytes, modulating autophagy markers ATG4C and LC3-II and ECM synthesis (<a href="https://www.mdpi.com/1422-0067/24/22/16037">MDPI 2023</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10671535/">PMC10671535</a>).</li>
+<li><strong>GPx6</strong> downregulation drives ferroptosis via the SLC7A11/GPx4 axis, with decreased COL2A1/ACAN and increased MMP13/ADAMTS4 (<a href="https://link.springer.com/article/10.1007/s10495-026-02389-w">Apoptosis journal 2026</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13323611/">PMC13323611</a>).</li>
+<li><strong>SIRT3</strong> and primary cilia integrity implicated; magnetofection-delivered SIRT3-targeting siRNA ameliorates cartilage damage in a rat model (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13440625/">Theranostics/PMC13440625</a>).</li>
+<li><strong>RUNX2</strong> overexpression (selenium-mediated) and associated transcriptome alterations linked to chondrocyte injury (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12714888/">PMC12714888</a>).</li>
+<li><strong>TSG-6</strong> abnormal expression disturbs ECM homeostasis (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9715581/">PMC9715581</a>).</li>
+<li><strong>Zip6 (SLC39A6)</strong> zinc transporter expression modulated by Se/T-2 toxin status, implicating Zn²⁺ dysregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/39455492/">PubMed 39455492</a>).</li>
+<li><strong>p-ATF2</strong> via JNK/p38 MAPK signaling drives chondrocyte apoptosis (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3726291/">PMC3726291</a>).</li>
+<li><strong>Chromosomal abnormalities:</strong> None reported — KBD is not associated with aneuploidy/structural chromosomal rearrangement.</li>
+</ul>
+<p>Suggested GO/molecular annotations: <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" rel="noopener noreferrer">GO:0034599</a> (cellular response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" rel="noopener noreferrer">GO:0097707</a> (ferroptosis — if available as GO term/verify current OBO status), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a> (TGF-beta receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" rel="noopener noreferrer">GO:0060070</a> (canonical Wnt signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0038066" target="_blank" rel="noopener noreferrer">GO:0038066</a> (p38MAPK cascade).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Toxins/exposures:</strong> T-2 toxin (trichothecene mycotoxin from <em>Fusarium</em> spp. contaminating stored grain) — chondrocyte-toxic, elevates apoptotic proteins Fas, p53, Bax while decreasing anti-apoptotic Bcl-xL. Fluorine co-exposure impairs carboxylesterase 1-mediated T-2 toxin hydrolysis, <strong>increasing</strong> its chondrotoxicity (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9381868/">PMC9381868</a>) — a notable toxin-toxin interaction.</li>
+<li><strong>Water contaminant:</strong> humic/fulvic acid in drinking water (free-radical generation, lipid peroxidation of chondrocyte membranes).</li>
+<li><strong>Lifestyle/dietary factors:</strong> subsistence agriculture with locally grown, Se-poor, potentially fungally-contaminated grain as primary caloric source; low dietary protein; reliance on untreated local well water.</li>
+<li><strong>Infectious agents:</strong> None — KBD is <strong>not infectious</strong>; the "fungal" association is toxicological (mycotoxin contamination of stored food), not an active infection of the host.</li>
+<li>Suggested ECTO terms: exposure to T-2 toxin via ingestion; exposure to humic/fulvic acid via drinking water; dietary selenium deficiency exposure.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (ordered, with inference flags)</h3>
+<ol>
+<li>Chronic environmental exposure — low dietary/soil selenium <strong>plus</strong> ingestion of T-2 mycotoxin-contaminated grain (and, in some regions, humic/fulvic-acid-rich drinking water) — <strong>leads to</strong> systemic selenium deficiency and direct mycotoxin/oxidant burden in growth-plate and articular chondrocytes. <em>(Demonstrated ecologically and in animal models; the relative causal weight of each co-factor is still debated — inferred compound mechanism.)</em></li>
+<li>Selenium deficiency <strong>results in</strong> reduced activity of selenoenzymes (glutathione peroxidases, including GPx6, and thioredoxin reductase), <strong>which leads to</strong> impaired antioxidant defense and accumulation of reactive oxygen species (ROS) in chondrocytes.</li>
+<li>T-2 toxin (potentiated by co-exposures such as fluorine, which impairs its detoxifying hydrolysis) <strong>directly triggers</strong> oxidative stress, mitochondrial dysfunction, and disrupted AMPK/mTOR/ULK1-mediated autophagy signaling in chondrocytes (<a href="https://www.sciencedirect.com/science/article/pii/S0147651324005797">ScienceDirect 2024</a>).</li>
+<li>Combined oxidative stress and autophagy dysregulation <strong>activate</strong> multiple regulated chondrocyte death pathways in parallel (branch point):</li>
+<li><strong>Apoptosis</strong> — via JNK/p38 MAPK → ATF2/p-ATF2 signaling and mitochondrial Fas/p53/Bax-Bcl-xL imbalance (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3726291/">PMC3726291</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10467099/">PMC10467099</a>).</li>
+<li><strong>Necroptosis</strong> — RIP3-dependent, predominating in the <em>middle</em> zone of cartilage in pediatric KBD samples, distinct from TUNEL/caspase-3-associated classic apoptosis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6384500/">PMC6384500</a>).</li>
+<li><strong>Ferroptosis</strong> — GPx6 downregulation disinhibits lipid peroxidation via the SLC7A11/GPx4 axis, producing characteristic mitochondrial cristae loss and matrix vacuolization, concentrated in the <em>deep</em> zone (<a href="https://link.springer.com/article/10.1007/s10495-026-02389-w">Apoptosis 2026</a>).</li>
+<li>Dysregulated <strong>WISP1/Wnt–β-catenin signaling</strong> and <strong>TGF-β/Smad3</strong> pathways <strong>further impair</strong> normal chondrocyte matrix-synthesis programs and autophagic flux (ATG4C, LC3-II), compounding the death signal (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10671535/">PMC10671535</a>).</li>
+<li>Widespread chondrocyte death (necrosis/apoptosis/necroptosis/ferroptosis acting in different cartilage zones) <strong>causes</strong> focal chondronecrosis, most pronounced in the <strong>deep zone</strong> of growth-plate and articular cartilage, accompanied by <strong>loss of ECM components</strong> — decreased type II collagen (COL2A1) and aggrecan (ACAN), and increased matrix-degrading enzymes MMP13 and ADAMTS4 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13323611/">PMC13323611</a>).</li>
+<li>Progressive chondronecrosis and ECM degradation at the growth plate <strong>lead to</strong> disordered endochondral ossification: irregular epiphyseal/metaphyseal mineralization, premature epiphyseal-line closure, and cone-shaped epiphyses on imaging.</li>
+<li>Disordered growth-plate ossification <strong>results in</strong> growth-plate arrest and asymmetric longitudinal bone growth, <strong>manifesting clinically as</strong> shortened fingers/limbs and, in severe cases, dwarfism.</li>
+<li>In parallel, chondronecrosis and ECM loss in <strong>articular</strong> (non-growth-plate) cartilage <strong>lead to</strong> secondary degenerative joint changes indistinguishable in later life from severe generalized osteoarthritis — joint-space narrowing, osteophyte formation, joint enlargement, and pain.</li>
+<li>Chronic joint pain, deformity, and restricted mobility <strong>culminate in</strong> functional disability, sarcopenia, reduced health-related quality of life, and elevated rates of depression/anxiety (downstream systemic/psychosocial consequence, well-documented but several inferential steps removed from the initiating molecular lesion).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> p38 MAPK, JNK, TGF-β/Smad3, Wnt/β-catenin (via WISP1), AMPK/mTOR/ULK1 (autophagy), SLC7A11/GPx4 (ferroptosis axis).</li>
+<li><strong>Cellular processes:</strong> apoptosis, necroptosis, ferroptosis, autophagy dysregulation, oxidative stress, mitochondrial dysfunction (altered mitochondrial density/cristae — <a href="https://pubmed.ncbi.nlm.nih.gov/20650322/">PubMed 20650322</a>).</li>
+<li><strong>Protein dysfunction:</strong> loss of ADAM12 and GPx6 expression; TSG-6 dysregulation; RUNX2 overexpression; SIRT3 loss affecting primary cilia.</li>
+<li><strong>Metabolic changes:</strong> disturbed selenium-centered metabolic bioprocesses (fecal/serum metabolomics), altered lipid metabolism (unsaturated fatty acids, glycerophospholipids), disordered glycometabolism (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0014482714001773">ScienceDirect</a>).</li>
+<li><strong>Immune involvement:</strong> Not a classical autoimmune/inflammatory arthropathy; gut microbiota alterations are proposed to influence chondrocyte injury via inflammatory-mediator signaling, but this is an emerging/inferred link rather than an established primary immune mechanism (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8553765/">PMC8553765</a>).</li>
+<li><strong>Tissue damage mechanisms:</strong> oxidative stress and lipid peroxidation (both Se-deficiency- and fulvic-acid-driven), chondronecrosis, cartilage matrix degeneration.</li>
+<li><strong>Molecular profiling:</strong> transcriptomic (RUNX2 pathway study), metabolomic (serum + fecal), microbiome (16S/metagenomic) — no large-scale single-cell/spatial-transcriptomic KBD dataset was identified in this search; flag as a data gap, though "recent insights into chondrocyte heterogeneity reveal expansion of mitochondrial-rich and homeostatic subpopulations in affected cartilage" was referenced in a synthesis source (verify primary citation before using).</li>
+</ul>
+<p>Suggested GO terms for pathophysiology nodes: <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a> (necroptotic process), <a href="http://purl.obolibrary.org/obo/GO_0060670" target="_blank" rel="noopener noreferrer">GO:0060670</a> or emerging ferroptosis GO term (verify current OBO Foundry status for "ferroptosis"), <a href="http://purl.obolibrary.org/obo/GO_0016239" target="_blank" rel="noopener noreferrer">GO:0016239</a> (positive regulation of macroautophagy), <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" rel="noopener noreferrer">GO:0030199</a> (collagen fibril organization), <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a> (extracellular matrix disassembly). Suggested CL terms: <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte), <a href="http://purl.obolibrary.org/obo/CL_1001606" target="_blank" rel="noopener noreferrer">CL:1001606</a> or <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" rel="noopener noreferrer">CL:0000743</a> (growth plate chondrocyte context — verify exact CL binding), <a href="http://purl.obolibrary.org/obo/CL_0000605" target="_blank" rel="noopener noreferrer">CL:0000605</a> (articular chondrocyte, if resolvable).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> Skeletal system — primary target is <strong>cartilage</strong> (growth-plate/epiphyseal and articular). Secondary/complication-level involvement: skeletal muscle (sarcopenia), and indirectly the endocrine/thyroid axis (co-occurring iodine deficiency).</li>
+<li><strong>Tissue/cell level:</strong> Growth-plate (physeal) cartilage and hyaline articular cartilage; chondrocytes are the principal affected cell type (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>), with zone-specific vulnerability — deep zone predominates for chondronecrosis/ferroptosis, middle zone for necroptosis.</li>
+<li><strong>Subcellular level:</strong> Mitochondria (dysfunction, cristae loss — <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>), lysosome/autophagosome machinery (ATG4C, LC3-II), primary cilium (SIRT3-dependent).</li>
+<li><strong>Localization (UBERON):</strong> Most affected joints — interphalangeal and metacarpophalangeal joints of the hand, wrist, elbow, knee, and ankle. UBERON candidates: <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> (growth plate cartilage — verify exact ID), <a href="http://purl.obolibrary.org/obo/UBERON_0001415" target="_blank" rel="noopener noreferrer">UBERON:0001415</a> (interphalangeal joint), <a href="http://purl.obolibrary.org/obo/UBERON_0001465" target="_blank" rel="noopener noreferrer">UBERON:0001465</a> (knee joint), <a href="http://purl.obolibrary.org/obo/UBERON_0000004" target="_blank" rel="noopener noreferrer">UBERON:0000004</a> (ankle joint region — verify).</li>
+<li><strong>Lateralization:</strong> Predominantly <strong>bilateral and symmetric</strong> joint involvement — a distinguishing clinical feature from unilateral post-traumatic osteoarthritis.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Childhood, typically ages 3–13 (some sources cite 5–15); insidious onset with early symptoms of joint pain/enlargement, often first evident in finger joints by age 5.</li>
+<li><strong>Progression:</strong> Chronic and largely irreversible once epiphyseal damage has occurred; disease severity is staged I→II→III as described above (§3). Progression from finger-joint enlargement (Grade I) to shortened digits (Grade II) to dwarfism (Grade III) reflects cumulative growth-plate injury during the pediatric growth window.</li>
+<li><strong>Disease course pattern:</strong> Progressive during the pediatric exposure window; in adulthood the residual skeletal deformity is generally <strong>stable</strong> structurally, but articular cartilage continues to degenerate as a secondary osteoarthritis-like process, so functional/pain burden can still worsen with age.</li>
+<li><strong>Critical period:</strong> Childhood (particularly early childhood through puberty, while growth plates remain open) is the critical vulnerability window — once growth plates fuse, new KBD-type growth-plate lesions cannot occur, though secondary joint degeneration continues.</li>
+<li><strong>Remission:</strong> No spontaneous remission; selenium/grain-replacement intervention during the pediatric window can halt or reduce further metaphyseal lesion progression (radiographically demonstrated) but does not reverse established deformity.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Historically affected a large population across a crescent-shaped endemic belt from northeastern China through central China to Tibet, and into Siberia, Mongolia, and North Korea. As of 2018 Chinese Ministry of Health statistics, <strong>535,878 individuals</strong> were affected across <strong>379 counties in 13 provinces/autonomous regions</strong>. National X-ray-detectable rate in children fell from 21.01% (1990) to &lt;10% (2003), &lt;5% (2007), &lt;0.4% (2010–2018), and reportedly <strong>0% since 2019</strong>, with elimination-standard achievement reported in all monitored villages over the most recent 5-year evaluation period (<a href="https://www.besjournal.com/en/article/doi/10.3967/bes2024.109">BES Journal 2024</a>). Tibet (e.g., Qamdo, Luolong County) remains an area of ongoing, if low-level, active transmission with occasional new clinical cases.</li>
+<li><strong>Inheritance pattern:</strong> Not Mendelian — polygenic/multifactorial susceptibility (GWAS-identified risk alleles such as ADAM12 rs1278300) interacting with environmental exposure; no simple AD/AR/X-linked pattern applies.</li>
+<li><strong>Penetrance/expressivity:</strong> Variable, environmentally gated — genetic susceptibility manifests only in the presence of the requisite low-Se/high-mycotoxin environmental exposure; severity (Grade I–III) is variably expressive.</li>
+<li><strong>Founder effects/consanguinity:</strong> Not established as relevant given the environmental/polygenic model.</li>
+<li><strong>Population demographics:</strong> Disproportionately affects rural, subsistence-farming populations, notably ethnic Tibetan and Han populations within the endemic belt; some studies note higher risk in older age and in girls in Tibetan cohorts (OR=1.86), while earlier Chinese cohort data reported roughly 2:1 male excess in some 12-year-old subgroups — sex-ratio findings are <strong>inconsistent across studies/regions</strong> and should not be over-generalized.</li>
+<li><strong>Geographic distribution:</strong> Endemic, latitude-band distribution strongly correlated with Se-poor soil geochemistry; recent spatial-epidemiology work has mapped county-level hotspots in Gansu Province and used spatial regression to quantify health loss by county (<a href="https://pubmed.ncbi.nlm.nih.gov/41984302/">PubMed 41984302</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41255597/">PubMed 41255597</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical/radiographic criteria:</strong> China's national standard is <strong>"Diagnostic Criteria for Kashin-Beck Disease" (WS/T 207)</strong>, most recently updated as <strong>WS/T 207-2010</strong> (superseding WS/T 207-2001), combining X-ray pathological signs with clinical manifestations, applied by trained examiners (<a href="https://www.besjournal.com/article/doi/10.3967/bes2017.021">BES Journal validation study</a>).</li>
+<li><strong>Key radiographic (pediatric hand/wrist) signs:</strong> large metaphyseal defects with cone-shaped alterations, early epiphyseal-line closure, cone-shaped epiphysis, sclerosis at the metacarpal base, irregular/sclerotic carpal margins (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5818476/">PMC5818476</a>).</li>
+<li><strong>Adult ankle X-ray grading:</strong> grades 0–IV (grade IV subdivided a–d), benchmarked against Kellgren-Lawrence OA grading; X-ray grade correlates moderately with ankle pain but only weakly with finger-joint clinical grading, underscoring that radiographic and clinical severity are not interchangeable measures (<a href="https://pubmed.ncbi.nlm.nih.gov/41342918/">PubMed 41342918</a>).</li>
+<li><strong>Emerging computational diagnostics:</strong> deep-learning/transfer-learning models for automated metaphyseal-sign detection on pediatric hand X-rays, and graph neural network (GNN)-based auxiliary diagnosis tools (<a href="https://dl.acm.org/doi/fullHtml/10.1145/3653876.3653901">ACM DL 2024</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11871940/">PMC11871940</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41398140/">PubMed 41398140</a>).</li>
+<li><strong>Laboratory tests:</strong> serum/urinary selenium and zinc levels (surveillance biomarkers, not diagnostic per se); emerging serum/fecal metabolomic biomarker panels (kynurenic acid, sphingolipids, spermidine, etc.) are research-stage, not yet clinical diagnostics.</li>
+<li><strong>Genetic testing:</strong> Not part of standard clinical diagnosis (KBD is diagnosed clinically/radiographically); GWAS/candidate-gene panels (ADAM12, DIO2, GDF5, selenoprotein genes) are research tools for susceptibility studies, not diagnostic assays.</li>
+<li><strong>Differential diagnosis:</strong> Primary comparator is idiopathic/generalized osteoarthritis (KBD is distinguished by pediatric onset, symmetric small-joint predominance, growth-plate involvement/short stature, and endemic geographic exposure); rickets and other skeletal dysplasias should be excluded, though this specific comparison was not deeply sourced in this search — flag for direct lookup against UpToDate/DynaMed before finalizing curation.</li>
+<li><strong>Screening:</strong> Community/school-based radiographic screening programs in endemic counties (part of China's national surveillance system) function as the de facto population screening mechanism; no genetic carrier-screening program applies (non-Mendelian disease).</li>
+</ul>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> KBD is <strong>not directly life-threatening</strong>; no disease-specific mortality data were identified — it is a disabling, non-fatal osteochondropathy.</li>
+<li><strong>Morbidity/function:</strong> Severe cases (Grade II/III) cause lifelong joint deformity, restricted mobility, and disability; loss of ability to work/self-care is reported in advanced cases ([search synthesis, multiple sources above]).</li>
+<li><strong>Complications:</strong> Secondary/accelerated osteoarthritis in adulthood; sarcopenia (independent association, modulated by selenium status — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11678709/">PMC11678709</a> and <a href="https://www.oarsijournal.com/article/S1063-4584(25)00356-5/fulltext">OARSI 2025</a>); depression/anxiety (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12440642/">PMC12440642</a>).</li>
+<li><strong>Quality of life:</strong> Substantially reduced versus both healthy controls and ordinary OA patients across EQ-5D and SF-36-type domains, most severely in pain/discomfort and mobility (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10161486/">PMC10161486</a>).</li>
+<li><strong>Economic burden:</strong> 2021 national burden analysis reported an indirect economic burden of 112.74 million CNY, concentrated in Grade II and ≥60-year-old patients (<a href="https://pubmed.ncbi.nlm.nih.gov/38250701/">PubMed 38250701</a>); a 2019-vs-2023 county-level spatial-regression study further quantified "health loss" hotspots (<a href="https://pubmed.ncbi.nlm.nih.gov/41255597/">PubMed 41255597</a>).</li>
+<li><strong>Prognostic factors:</strong> disease grade (II/III much worse than I), age at diagnosis/treatment initiation (earlier selenium intervention preserves more growth-plate function), and residual selenium status.</li>
+<li><strong>Recovery potential:</strong> Selenium/grain-replacement therapy during the open-growth-plate window can arrest new metaphyseal lesion formation and partially remodel existing lesions radiographically, but <strong>established deformity and short stature are not reversible</strong>.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>Pharmacotherapy — Selenium supplementation (children/pediatric prevention &amp; treatment):</strong> Effective for radiographic structural improvement and repair of metaphyseal lesions; a large network meta-analysis (44 RCTs, 9,815 participants) and a focused NMA (15 RCTs, 2,931 patients comparing 5 selenium-supplement types) both found selenium superior to placebo, though the comparative superiority among selenium formulations remains inconclusive due to evidence quality limits (<a href="https://pubmed.ncbi.nlm.nih.gov/29511006/">PubMed 29511006</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31376086/">PubMed 31376086</a>; <a href="https://www.researchgate.net/publication/328103541_Selenium_supplementation_for_treatment_of_kashin-beck_disease_A_network_meta-analysis">ResearchGate NMA</a>). Iodine co-supplementation has also been trialed in Tibetan children (<a href="https://pubmed.ncbi.nlm.nih.gov/12816783/">PubMed 12816783</a>).</li>
+<li>Suggested NCIT term: NCIT:C15986 (Pharmacotherapy), with <code>therapeutic_agent</code> bound to selenium compound (e.g., sodium selenite — CHEBI term to be verified) as agent.</li>
+<li><strong>Pharmacotherapy — Adult symptom management:</strong> Glucosamine, chondroitin, intra-articular hyaluronic acid (IAH), and NSAIDs are all reported effective for adult symptomatic relief; <strong>chondroitin + glucosamine combination ranked best for pain</strong> in the same network meta-analysis, followed by IAH, chondroitin, and glucosamine monotherapy versus placebo (<a href="https://pubmed.ncbi.nlm.nih.gov/31376086/">PubMed 31376086</a>).</li>
+<li><strong>Surgical/interventional:</strong> Corrective surgery and joint replacement/arthroplasty for severe deformity; a documented case example is conservative tibiotalocalcaneal fusion for partial talar avascular necrosis with ankle/subtalar osteoarthritis in KBD (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6709310/">PMC6709310</a>). Evidence base for surgical/complementary interventions is noted as still limited/"yet to be established" in systematic review.</li>
+<li>Suggested NCIT terms: NCIT:C15329 (Surgical Procedure), NCIT:C16186 (Orthopedic Surgical Procedure).</li>
+<li><strong>Supportive/rehabilitative:</strong> Physical therapy to maintain mobility and prevent further deformity, pain management, nutritional support.</li>
+<li>Suggested NCIT term: NCIT:C15302 (Physical Therapy).</li>
+<li><strong>Experimental/preclinical (not yet clinical):</strong> siRNA targeting SIRT3 via magnetofection delivery to protect primary cilia and reduce cartilage damage — demonstrated in a rat model, not yet in human trials (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13440625/">Theranostics/PMC13440625</a>); selenomethionine-mediated antagonism of T-2-toxin-induced apoptotic microRNAs, also rat-model stage (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10467099/">PMC10467099</a>).</li>
+<li><strong>Treatment strategy:</strong> Public-health strategy is explicitly two-pronged — <strong>primary prevention</strong> via grain replacement/selenium fortification (population level, pediatric-window focus) combined with <strong>individual symptomatic/surgical management</strong> for already-affected adults; no NCT-numbered active interventional trial registry entries were surfaced in this search (most identified RCTs are older, pre-registry-era or indexed only via PubMed/meta-analysis) — verify clinicaltrials.gov directly for any currently active protocol before citing an NCT identifier.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (most emphasized in the literature):</strong> <strong>Grain replacement</strong> — substituting non-locally-grown, non-fungally-contaminated, Se-adequate grain for local subsistence grain — combined with <strong>selenium supplementation programs</strong>, is repeatedly identified as the most effective population-level intervention ("Comprehensive measures and change of grain were the most effective measures in preventing new cases" — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6738986/">PMC6738986</a>). Improved/piped drinking water supply is a secondary component targeting the humic-acid pathway.</li>
+<li><strong>Public health programs:</strong> China's national KBD control program (grain replacement + Se supplementation + water improvement + surveillance) has driven the detectable-rate decline from &gt;20% to ~0% in children since 2019, with formal "elimination standard" achieved across monitored villages in the most recent 5-year evaluation (<a href="https://www.besjournal.com/en/article/doi/10.3967/bes2024.109">BES Journal 2024</a>).</li>
+<li><strong>Secondary prevention/screening:</strong> School- and community-based radiographic (hand/wrist X-ray) screening in endemic counties for early metaphyseal-lesion detection, enabling earlier selenium intervention during the still-open growth-plate window.</li>
+<li><strong>Tertiary prevention:</strong> Ongoing selenium/nutritional maintenance plus symptomatic/surgical management to limit progression of secondary osteoarthritis and disability in already-affected individuals.</li>
+<li><strong>Genetic/counseling interventions:</strong> Not applicable — KBD is environmentally driven; no prenatal or carrier-screening framework exists.</li>
+<li><strong>Note on residual risk:</strong> Despite major national progress, Tibet is repeatedly flagged as an area where the disease remains "relatively active" with occasional new cases, underscoring that grain-replacement/selenium programs require sustained implementation rather than being a one-time fix (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7792790/">PMC7792790</a>; search synthesis above).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li>KBD is essentially a <strong>human-specific clinical entity</strong> in the epidemiological/nosological literature; no naturally occurring veterinary counterpart with the identical name was identified in this search (searches for a livestock/equine "big bone disease" analog returned only human-disease sources and general equine selenium-deficiency nutrition references, e.g., <a href="https://www.merckvetmanual.com/management-and-nutrition/nutrition-horses/nutritional-diseases-of-horses-and-other-equids">Merck Veterinary Manual</a>). Colloquially "Big Bone Disease" is sometimes used as a lay synonym for KBD itself, not a distinct veterinary disease.</li>
+<li><strong>Relevant comparative pathology:</strong> Selenium-deficiency osteopathy/osteopathology has been documented in wildlife (e.g., endangered Patagonian huemul deer, <em>Hippocamelus bisulcus</em> — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4522092/">PMC4522092</a>), representing a related but etiologically distinct Se-deficiency skeletal disorder rather than a validated KBD ortholog. This is comparative/analogous evidence, not a direct animal model of KBD.</li>
+<li><strong>Model organisms are used experimentally to induce KBD-like pathology (see §15)</strong> rather than representing naturally occurring disease.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Rat models (most validated):</strong> Selenium-deficient diet (typically 4 weeks) followed by T-2 toxin exposure (typically 4 weeks) reliably reproduces chondronecrosis in the deep zone of knee articular cartilage, closely resembling human KBD histopathology; considered "a suitable animal model for studying etiological factors contributing to the pathogenesis (chondronecrosis) observed in human KBD" (<a href="https://pubmed.ncbi.nlm.nih.gov/22258458/">PubMed 22258458</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22294316/">PubMed 22294316</a>; <a href="https://onlinelibrary.wiley.com/doi/10.1002/jor.22073">J Orthop Res</a>). A low-nutrition-diet + T-2 toxin variant has also been reported (<a href="https://pubmed.ncbi.nlm.nih.gov/23701828/">PubMed 23701828</a>).</li>
+<li><strong>Other species tested:</strong> Monkey, dog, pig, chicken, and rabbit models have been used with varying environmental-risk-factor interventions (<a href="https://www.sciencedirect.com/science/article/pii/S0147651322002597">ScienceDirect comparative review</a>). <strong>Important negative finding:</strong> "rats, chicken and rabbits administrated Se deficiency failed to replicate KBD when selenium deficiency was used alone" — i.e., <strong>Se deficiency alone is insufficient</strong>; combined Se-deficiency + T-2 toxin exposure is required to recapitulate the phenotype, supporting the compound-etiology model over any single-factor hypothesis.</li>
+<li><strong>Model limitations:</strong> No model fully replicates the chronic, multi-decade, growth-plate-specific human clinical course (short stature, dwarfism); most models assess acute-to-subacute chondronecrosis rather than the full skeletal growth-retardation phenotype.</li>
+<li><strong>Applications:</strong> Rat models have been used to study oxidative stress (SOD/GSH-Px depletion, lipid peroxidation), chondrocyte apoptosis (Fas/p53/Bax/Bcl-xL), autophagy pathway involvement (AMPK/mTOR/ULK1), and to test candidate interventions (selenomethionine antagonism of T-2-induced apoptotic microRNAs; SIRT3-targeting siRNA delivery).</li>
+<li><strong>Resources:</strong> No dedicated public KBD model-organism database was identified; relevant strain/protocol details are documented within primary publications rather than centralized repositories like MGI/RGD (standard rat strains, e.g., Wistar or Sprague-Dawley, are used under custom dietary/toxin protocols rather than genetically engineered KBD-specific lines).</li>
+</ul>
+<hr />
+<h2>Summary of Key Ontology Term Suggestions for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term(s)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005610" target="_blank" rel="noopener noreferrer">MONDO:0005610</a></td>
+<td>Confirm via direct MONDO lookup</td>
+</tr>
+<tr>
+<td>Causal gene (susceptibility)</td>
+<td>HGNC ADAM12 (hgnc:188, verify), DIO2, GDF5, COL10A1</td>
+<td>Susceptibility, not monogenic-causal</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte)</td>
+<td>Zone-specific subtypes need verification</td>
+</tr>
+<tr>
+<td>Biological process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptosis), <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" rel="noopener noreferrer">GO:0070266</a> (necroptosis), <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" rel="noopener noreferrer">GO:0022617</a> (ECM disassembly), <a href="http://purl.obolibrary.org/obo/GO_0016239" target="_blank" rel="noopener noreferrer">GO:0016239</a> (autophagy)</td>
+<td>Ferroptosis GO term needs current-OBO verification</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td>UBERON terms for growth plate, articular cartilage, interphalangeal/knee/ankle joints</td>
+<td>Verify exact IDs before binding</td>
+</tr>
+<tr>
+<td>Chemical/exposure</td>
+<td>CHEBI for T-2 toxin, selenium/selenite, humic/fulvic acid</td>
+<td>ECTO for exposure-route terms</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15986 (Pharmacotherapy) + therapeutic_agent selenium; NCIT:C15329/C16186 (Surgical); NCIT:C15302 (Physical Therapy)</td>
+<td></td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td>HP terms for arthralgia, joint enlargement, brachydactyly, short stature, joint stiffness</td>
+<td>Full HPO cross-check recommended before final binding</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10467099/">Selenomethionine Antagonized microRNAs Involved in Apoptosis of Rat Articular Cartilage Induced by T-2 Toxin (PMC10467099)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0147651324005797">Low selenium and T-2 toxin may be involved in the pathogenesis of KBD by affecting AMPK/mTOR/ULK1 pathway (ScienceDirect 2024)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39455492/">The Impact of Selenium Deficiency and T-2 Toxin on Zip6 Expression in KBD (PubMed 39455492)</a></li>
+<li><a href="https://www.besjournal.com/en/article/doi/10.3967/bes2024.109">Summary Analysis of National Surveillance on Kashin-Beck Disease from 1990 to 2023 (BES Journal)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9381868/">Fluorine impairs carboxylesterase 1-mediated hydrolysis of T-2 toxin (PMC9381868)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3620638/">Kashin-Beck disease: From etiology to prevention (PMC3620638)</a></li>
+<li><a href="https://monarchinitiative.org/MONDO:0005610">Monarch Initiative MONDO:0005610</a></li>
+<li><a href="https://www.sciencedirect.com/topics/immunology-and-microbiology/kashin-beck-disease">Kashin-Beck Disease overview (ScienceDirect Topics)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10650499/">A Metabolomics Study of Feces (PMC10650499)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4992896/">A bivariate GWAS identifies ADAM12 as a novel susceptibility gene for KBD (PMC4992896)</a></li>
+<li><a href="https://www.nature.com/articles/srep31792">ADAM12 GWAS (Scientific Reports)</a></li>
+<li><a href="https://bmcmedgenet.biomedcentral.com/articles/10.1186/s12881-017-0423-6">Association study of candidate genes for KBD susceptibility in Tibetan population (BMC Med Genet)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s10495-026-02389-w">GPx6 downregulation drives ferroptosis in KBD chondrocytes (Apoptosis journal)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13323611/">GPx6/ferroptosis (PMC13323611)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20650322/">Mitochondrial function altered in KBD chondrocytes (PubMed 20650322)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6384500/">Death of chondrocytes in KBD: Apoptosis, necrosis or necroptosis? (PMC6384500)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13440625/">Magnetofection-mediated siRNA delivery targeting SIRT3 (PMC13440625)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3726291/">p-ATF2 in chondrocyte apoptosis (PMC3726291)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12714888/">Effects of selenium-mediated RUNX2 overexpression (PMC12714888)</a></li>
+<li><a href="https://academic.oup.com/rheumatology/article/61/4/1732/6299414">Severe deformity in long-term Kaschin-Beck disease (Rheumatology, Oxford)</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJM199810153391604">Kashin-Beck Osteoarthropathy in Rural Tibet (NEJM 1998)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6709310/">Conservative tibiotalocalcaneal fusion case report (PMC6709310)</a></li>
+<li><a href="https://www.researchgate.net/publication/328103541_Selenium_supplementation_for_treatment_of_kashin-beck_disease_A_network_meta-analysis">Selenium supplementation NMA (ResearchGate)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31376086/">Effectiveness of treatments for KBD systematic review/NMA (PubMed 31376086)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29511006/">Five types of selenium supplementation NMA (PubMed 29511006)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18693119/">Selenium for preventing KBD osteoarthropathy meta-analysis (PubMed 18693119)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41342918/">Study on radiographic grading of ankle joint in adult KBD (PubMed 41342918)</a></li>
+<li><a href="https://dl.acm.org/doi/fullHtml/10.1145/3653876.3653901">Deep learning X-ray diagnostic method for KBD (ACM DL)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5818476/">Positive and confusing hand X-ray signs in KBD children (PMC5818476)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11871940/">Transfer Learning Metaphyseal Sign Diagnostic Models (PMC11871940)</a></li>
+<li><a href="https://www.besjournal.com/article/doi/10.3967/bes2017.021">New clinical diagnostic/classification criteria for KBD sensitivity/specificity (BES Journal)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41398140/">Fine-Grained Differentiation-Based GNN for KBD diagnosis (PubMed 41398140)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0147651322002597">Animal models of KBD exposed to environmental risk factors (ScienceDirect 2022)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1002/jor.22073">Oxidant damage in KBD rat model (PubMed 22294316 / J Orthop Res)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22258458/">Histopathology of chondronecrosis rat model (PubMed 22258458)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23701828/">Animal model induced by low-nutrition diet + T-2 toxin (PubMed 23701828)</a></li>
+<li><a href="https://www.besjournal.com/article/doi/10.3967/bes2017.046">Increased chondrocyte apoptosis in KBD and rat model (BES Journal)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/10090708/">Role of humic substances in drinking water in KBD (PubMed 10090708)</a></li>
+<li><a href="https://www.mdpi.com/1422-0067/24/22/16037">WISP1 involved in KBD pathogenesis via autophagy (MDPI)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10671535/">WISP1/autophagy (PMC10671535)</a></li>
+<li><a href="https://www.nature.com/nature-index/topics/l4/pathophysiology-and-treatment-of-kashin-beck-disease">Pathophysiology and Treatment of KBD (Nature Index)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6738986/">Prevention and control strategies for children KBD in China (PMC6738986)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8553765/">Alterations in gut microbiota and metabolite profiles of KBD patients (PMC8553765)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0306987725000453">Exploring gut microbiota role in KBD pathogenesis (ScienceDirect)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0895398820301768">Serum metabolomic biomarkers in pediatric KBD (ScienceDirect)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11678709/">Kashin-Beck Disease: A Risk Factor for Sarcopenia (PMC11678709)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8999107/">Growth surveillance indices and KBD in children (PMC8999107)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9033266/">Status of selenium and zinc in urine of children in KBD endemic areas (PMC9033266)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4114804/">Gene Expression Analysis: GDF5 and DIO2 in KBD children (PMC4114804)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3751926/">Association study of selenoprotein gene polymorphisms and KBD in Tibetan population (PMC3751926)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9715581/">Abnormal expression of TSG-6 disturbs ECM homeostasis (PMC9715581)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11482529/">Histology of Kashin-Beck lesions (PubMed 11482529)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s10719-012-9421-2">Proteoglycan metabolism, cell death and KBD (Glycoconjugate Journal)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10161486/">Health-related quality of life in KBD lower than OA (PMC10161486)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s11136-010-9820-4">Measuring HRQoL in KBD using EQ-5D (Quality of Life Research)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41255597/">County-Level Hotspot Identification and Spatial Regression of Health Loss from KBD (PubMed 41255597)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38250701/">Disease and Economic Burden of KBD - China 2021 (PubMed 38250701)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12440642/">Prevalence and Risk Factors of Depression in KBD (PMC12440642)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/9770558/">Kashin-Beck osteoarthropathy in rural Tibet in relation to selenium and iodine status (PubMed 9770558)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12816783/">Selenium and iodine supplementation of rural Tibetan children (PubMed 12816783)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7792790/">Assessing Health Loss from KBD in Qamdo District, Tibet (PMC7792790)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41984302/">Spatial Distribution and Determinants of KBD in Gansu Province (PubMed 41984302)</a></li>
+<li><a href="https://www.degruyter.com/document/doi/10.2478/fzm-2023-0005/html?lang=en">Cold weather and Kashin-Beck disease (De Gruyter 2023)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4522092/">Osteopathology and selenium deficiency in Patagonian huemul (PMC4522092)</a></li>
+<li><a href="https://www.oarsijournal.com/article/S1063-4584(25)00356-5/fulltext">Kashin–Beck Disease: Risk Factor for Sarcopenia and Interaction with Selenium (OARSI 2025)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0014482714001773">Disordered glycometabolism in KBD pathogenesis (ScienceDirect)</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>51</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>4</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>51</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.3967/bes2024.109</code> (5 mentions) - Identifier did not resolve to a record</li>
+<li><code>DOI:10.3967/bes2017.021</code> (3 mentions) - Identifier did not resolve to a record</li>
+<li><code>DOI:10.3967/bes2017.046</code> (2 mentions) - Identifier did not resolve to a record</li>
+</ul>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC8999107</code> <em>(abstract only)</em>: "certain combinations of food substances high in protein had a protective effect"</li>
+<li>Text part not found as substring: 'certain combinations of food substances high in protein had a protective effect' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/35419096/" target="_blank" rel="noopener noreferrer">PMID:35419096</a>, full text may contain this excerpt)</li>
+<li><code>PMC:PMC6738986</code> <em>(abstract only)</em>: "Comprehensive measures and change of grain were the most effective measures in preventing new cases"</li>
+<li>closest text in source: "CONCLUSION: Comprehensive measures and change of grain were the most effective measures in preventing new case, whereas improvement of water and salt-rich selenium resulted in clinical improvements in children KBD."</li>
+<li><code>PMID:22294316</code> <em>(abstract only)</em>: "a suitable animal model for studying etiological factors contributing to the pathogenesis (chondronecrosis) observed in human KBD"</li>
+<li>closest text in source: "These changes were similar to those observed previously in KBD"</li>
+<li><code>DOI:10.1002/jor.22073</code> <em>(abstract only)</em>: "a suitable animal model for studying etiological factors contributing to the pathogenesis (chondronecrosis) observed in human KBD"</li>
+<li>closest text in source: "These changes were similar to those observed previously in KBD"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005610</code> (8 mentions) - the report calls it "classified as a subclass of osteochondrodysplasia", "Disease"; MONDO calls it <strong>Kashin-Beck disease</strong></li>
+<li><code>HP:0100729</code> (1 mention) - the report calls it "Large joint involvement — verify exact term"; HP calls it <strong>Large face</strong></li>
+<li><code>HP:0009824</code> (1 mention) - the report calls it "Osteolysis — not typical, avoid"; HP calls it <strong>Upper limb undergrowth</strong></li>
+<li><code>GO:0097707</code> (1 mention) - the report calls it "ferroptosis — if available as GO term/verify current OBO status"; GO calls it <strong>ferroptosis</strong></li>
+<li><code>CL:0000743</code> (1 mention) - the report calls it "growth plate chondrocyte context — verify exact CL binding"; CL calls it <strong>hypertrophic chondrocyte</strong></li>
+<li><code>CL:0000605</code> (1 mention) - the report calls it "articular chondrocyte, if resolvable"; CL calls it <strong>fungal asexual spore</strong></li>
+<li><code>UBERON:0001981</code> (1 mention) - the report calls it "growth plate cartilage — verify exact ID"; UBERON calls it <strong>blood vessel</strong></li>
+<li><code>UBERON:0001415</code> (1 mention) - the report calls it "interphalangeal joint"; UBERON calls it <strong>skin of pelvis</strong></li>
+<li><code>UBERON:0000004</code> (1 mention) - the report calls it "ankle joint region — verify"; UBERON calls it <strong>nose</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0011800</code> (1 mention) - the report calls it "Midface retrusion — N/A, omit"; HP calls it <strong>Midface retrusion</strong></li>
+<li><code>HP:0002751</code> (1 mention) - the report calls it "Kyphoscoliosis — occasional secondary"; HP calls it <strong>Kyphoscoliosis</strong></li>
+<li><code>GO:0007179</code> (1 mention) - the report calls it "TGF-beta receptor signaling"; GO calls it <strong>transforming growth factor beta receptor signaling pathway</strong>, and lists "TGF-beta receptor signaling pathway" among its other names</li>
+<li><code>UBERON:0001465</code> (1 mention) - the report calls it "knee joint"; UBERON calls it <strong>knee</strong>, and lists "knee region" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0005610</code> - called "classified as a subclass of osteochondrodysplasia", "Disease"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Kasabach-Merritt_Syndrome-falcon.html">← Kasabach-Merritt Syndrome (Falcon)</a>
+                
+                
+                <a href="KATNB1-related_Cortical_Malformation-falcon.html">KATNB1-related Cortical Malformation (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Kashin-Beck_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Kashin-Beck_Disease-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
