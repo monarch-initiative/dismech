@@ -13,6 +13,7 @@ year: '2020'
 doi: 10.1007/s00415-019-09619-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Leber hereditary optic neuropathy plus dystonia, and transverse myelitis due to double mutations in MT-ND4 and MT-ND6

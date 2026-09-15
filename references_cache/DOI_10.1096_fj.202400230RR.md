@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.1096/fj.202400230RR
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Redirecting Intermediary Metabolism to Counteract Cyanide Poisoning

@@ -19,6 +19,7 @@ year: '1989'
 doi: 10.1126/science.2788922
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Molecular Genetics of Human Blue Cone Monochromacy

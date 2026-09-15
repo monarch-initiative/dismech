@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.3390/children12121654
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Non-Convulsive Status Epilepticus and Mild Neurodevelopmental Phenotype in a Female with a Novel p.Thr657Ala Variant in the GRIA3 Gene

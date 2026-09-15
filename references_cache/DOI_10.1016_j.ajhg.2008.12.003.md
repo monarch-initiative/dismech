@@ -20,6 +20,7 @@ year: '2009'
 doi: 10.1016/j.ajhg.2008.12.003
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in LPIN1 Cause Recurrent Acute Myoglobinuria in Childhood

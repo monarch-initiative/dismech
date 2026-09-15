@@ -305,6 +305,7 @@ year: '2021'
 doi: 10.1001/jamaneurol.2021.2598
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Association of Variants in the <i>SPTLC1</i> Gene With Juvenile Amyotrophic Lateral Sclerosis

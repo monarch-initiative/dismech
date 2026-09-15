@@ -21,6 +21,7 @@ year: '2023'
 doi: 10.3389/fgene.2023.1117821
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathogenic gene variants in CCDC39, CCDC40, RSPH1, RSPH9, HYDIN, and SPEF2 cause defects of sperm flagella composition and male infertility

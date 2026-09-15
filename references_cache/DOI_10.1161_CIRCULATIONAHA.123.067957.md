@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1161/CIRCULATIONAHA.123.067957
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Established and Emerging Nucleic Acid Therapies for Familial Hypercholesterolemia

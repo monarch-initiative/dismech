@@ -11,6 +11,7 @@ year: '2009'
 doi: 10.1136/jmg.2007.054270
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inherited mitochondrial optic neuropathies

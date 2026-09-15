@@ -18,6 +18,7 @@ year: '2019'
 doi: 10.1007/s12265-019-09873-6
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Induced Pluripotent Stem Cell–Derived Cardiomyocytes from a Patient with MYL2-R58Q-Mediated Apical Hypertrophic Cardiomyopathy Show Hypertrophy, Myofibrillar Disarray, and Calcium Perturbations

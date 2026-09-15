@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.1002/ajmg.c.32034
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Natural history of <i>MRAS</i>‐related Noonan syndrome: Evidence of mild adult‐onset left ventricular hypertrophy and neuropsychiatric features

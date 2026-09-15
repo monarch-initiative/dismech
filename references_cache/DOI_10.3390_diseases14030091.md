@@ -19,6 +19,7 @@ year: '2026'
 doi: 10.3390/diseases14030091
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # First Reported Use of Recombinant Parathyroid Hormone in Kenny–Caffey Syndrome Type 2: A Case Report and Literature Review

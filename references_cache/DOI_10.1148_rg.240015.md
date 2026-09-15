@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1148/rg.240015
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Malignant Rhabdoid Tumor and Related Pediatric Tumors: Multimodality                     Imaging Review with Pathologic Correlation

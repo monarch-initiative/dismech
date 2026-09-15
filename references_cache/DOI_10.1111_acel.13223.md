@@ -9,6 +9,7 @@ year: '2020'
 doi: 10.1111/acel.13223
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animal models of sarcopenia

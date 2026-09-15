@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.15212/zoonoses-2023-0028
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Scrub Typhus Diagnostics: The Present and the Future

@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.4052/tigg.2331.1e
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GPI Anchor and Its Deficiency

@@ -17,6 +17,7 @@ year: '2022'
 doi: 10.1161/CIRCULATIONAHA.121.056666
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # PRDM16 Is a Compact Myocardium-Enriched Transcription Factor Required to Maintain Compact Myocardial Cardiomyocyte Identity in Left Ventricle

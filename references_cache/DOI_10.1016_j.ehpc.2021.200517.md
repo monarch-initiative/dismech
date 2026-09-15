@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1016/j.ehpc.2021.200517
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Tissue-specific telomere shortening and degenerative changes in a patient with TINF2 mutation and dyskeratosis congenita

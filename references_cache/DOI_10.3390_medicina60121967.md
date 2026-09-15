@@ -20,6 +20,7 @@ year: '2024'
 doi: 10.3390/medicina60121967
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Risk Factors in Idiopathic and Non-Idiopathic Interstitial Lung Disease: Similarities and Differences

@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.3390/diagnostics15030308
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Primary Congenital and Childhood Glaucoma—A Complex Clinical Picture and Surgical Management

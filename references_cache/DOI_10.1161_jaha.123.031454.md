@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.1161/jaha.123.031454
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnostic Approach for Suspected Acute Myocarditis: Considerations for Standardization and Broadening Clinical Spectrum

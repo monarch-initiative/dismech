@@ -165,6 +165,7 @@ year: '2024'
 doi: 10.1093/brain/awad436
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Role of the repeat expansion size in predicting age of onset and severity in RFC1 disease

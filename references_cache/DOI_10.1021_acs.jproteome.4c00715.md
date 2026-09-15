@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.1021/acs.jproteome.4c00715
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Proteomics and Metabolomics Analyses Reveal a Dynamic Landscape of Coal Workers’ Pneumoconiosis: An Insight into Disease Progression

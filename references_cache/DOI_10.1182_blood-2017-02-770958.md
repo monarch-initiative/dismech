@@ -15,6 +15,7 @@ year: '2017'
 doi: 10.1182/blood-2017-02-770958
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # FLI1 level during megakaryopoiesis affects thrombopoiesis and platelet biology

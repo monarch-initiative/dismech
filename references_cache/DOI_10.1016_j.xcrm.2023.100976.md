@@ -28,6 +28,7 @@ year: '2023'
 doi: 10.1016/j.xcrm.2023.100976
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Engineered cardiac tissue model of restrictive cardiomyopathy for drug discovery

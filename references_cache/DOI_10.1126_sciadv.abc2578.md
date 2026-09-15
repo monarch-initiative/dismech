@@ -21,6 +21,7 @@ year: '2021'
 doi: 10.1126/sciadv.abc2578
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prototypical oncogene family Myc defines unappreciated distinct lineage states of small cell lung cancer

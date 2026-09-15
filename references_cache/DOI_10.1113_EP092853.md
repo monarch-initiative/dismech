@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.1113/EP092853
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A multi‐omics investigation of sarcopenia and frailty: Integrating genomic, epigenomic and telomere length data

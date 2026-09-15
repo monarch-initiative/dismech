@@ -24,6 +24,7 @@ year: '2014'
 doi: 10.1136/jnnp-2013-306387
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel C12orf65 mutations in patients with axonal neuropathy and optic atrophy

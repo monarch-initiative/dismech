@@ -17,6 +17,7 @@ year: '2019'
 doi: 10.3171/2017.10.jns17439
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Global hydrocephalus epidemiology and incidence: systematic review and meta-analysis

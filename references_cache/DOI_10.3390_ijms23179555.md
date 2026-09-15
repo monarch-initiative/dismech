@@ -11,6 +11,7 @@ year: '2022'
 doi: 10.3390/ijms23179555
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pre-Activated Granulocytes from an Autoimmune Uveitis Model Show Divergent Pathway Activation Profiles upon IL8 Stimulation In Vitro

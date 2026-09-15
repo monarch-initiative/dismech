@@ -19,6 +19,7 @@ year: '2025'
 doi: 10.1111/exd.70191
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mimicking Darier Disease In Vitro: A Human Epidermal Organoid Approach

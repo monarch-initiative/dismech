@@ -13,6 +13,7 @@ year: '2002'
 doi: 10.1128/mcb.22.13.4943-4951.2002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Maleylacetoacetate Isomerase (<i>MAAI/GSTZ</i>)-Deficient Mice Reveal a Glutathione-Dependent Nonenzymatic Bypass in Tyrosine Catabolism

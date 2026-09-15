@@ -22,6 +22,7 @@ doi: 10.1101/2021.09.16.460653
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # A CLN6-CRMP2-KLC4 complex regulates anterograde ER-derived vesicle trafficking in cortical neurites

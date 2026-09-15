@@ -23,6 +23,7 @@ year: '2019'
 doi: 10.1073/pnas.1820168116
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Transfer of complex regional pain syndrome to mice via human autoantibodies is mediated by interleukin-1–induced mechanisms

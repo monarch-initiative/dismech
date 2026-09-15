@@ -19,6 +19,7 @@ year: '2025'
 doi: 10.1007/s11916-025-01360-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Ketamine Infusion for Complex Regional Pain Syndrome Treatment: A Narrative Review

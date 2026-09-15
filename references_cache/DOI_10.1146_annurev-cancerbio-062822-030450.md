@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1146/annurev-cancerbio-062822-030450
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # RAS and SHOC2 Roles in RAF Activation and Therapeutic Considerations

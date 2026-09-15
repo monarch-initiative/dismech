@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1159/000538345
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Developmental Causes of Focal Segmental Glomerulosclerosis

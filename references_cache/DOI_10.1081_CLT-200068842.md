@@ -19,6 +19,7 @@ year: '2005'
 doi: 10.1081/CLT-200068842
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Iron Ingestion: an Evidence-Based Consensus Guideline for Out-of-Hospital Management

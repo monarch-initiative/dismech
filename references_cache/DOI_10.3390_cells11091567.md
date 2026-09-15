@@ -9,6 +9,7 @@ year: '2022'
 doi: 10.3390/cells11091567
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mechanistic and Therapeutic Insights into Ataxic Disorders with Pentanucleotide Expansions

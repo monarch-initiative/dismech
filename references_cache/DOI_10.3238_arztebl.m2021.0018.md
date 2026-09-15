@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.3238/arztebl.m2021.0018
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Diagnosis and Treatment of Pulmonary Fibrosis

@@ -21,6 +21,7 @@ year: '2024'
 doi: 10.5935/2526-5393.20240033-en
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Allergic bronchopulmonary aspergillosis: Brazilian Association of Allergy and Immunology guidelines for diagnosis and management

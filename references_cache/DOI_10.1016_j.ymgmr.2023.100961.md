@@ -17,6 +17,7 @@ year: '2023'
 doi: 10.1016/j.ymgmr.2023.100961
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Use of dexamethasone in acute rhabdomyolysis in LPIN1 deficiency

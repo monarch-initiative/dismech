@@ -56,6 +56,7 @@ year: '2016'
 doi: 10.1056/NEJMoa1602489
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Randomized Trial of Thymectomy in Myasthenia Gravis

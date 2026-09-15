@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.1136/ard-2023-224875
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # CD19-targeting CAR T cells protect from ANCA-induced acute kidney injury

@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.1002/ajmg.c.31990
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Monogenic focal segmental glomerulosclerosis: A conceptual framework for identification and management of a heterogeneous disease

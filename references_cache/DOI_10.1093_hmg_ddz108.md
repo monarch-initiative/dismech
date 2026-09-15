@@ -27,6 +27,7 @@ year: '2020'
 doi: 10.1093/hmg/ddz108
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Activating MRAS mutations cause Noonan syndrome associated with hypertrophic cardiomyopathy

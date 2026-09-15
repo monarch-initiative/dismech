@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.1002/ajim.23330
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Estimating mortality from coal workers' pneumoconiosis among Medicare beneficiaries with pneumoconiosis using binary regressions for spatially sparse data

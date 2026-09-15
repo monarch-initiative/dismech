@@ -28,6 +28,7 @@ year: '2019'
 doi: 10.1093/hmg/ddy445
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The phenotypic landscape of a Tbc1d24 mutant mouse includes convulsive seizures resembling human early infantile epileptic encephalopathy

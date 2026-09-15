@@ -17,6 +17,7 @@ year: '2026'
 doi: 10.3390/biomedicines14010090
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Idiopathic Pulmonary Fibrosis: A Comprehensive Review of Risk Factors, Genetics, Diagnosis, and Therapeutic Approaches

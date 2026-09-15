@@ -24,6 +24,7 @@ year: '2015'
 doi: 10.1016/j.ajhg.2015.10.010
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in MECOM, Encoding Oncoprotein EVI1, Cause Radioulnar Synostosis with Amegakaryocytic Thrombocytopenia

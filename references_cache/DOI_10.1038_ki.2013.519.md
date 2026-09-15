@@ -34,6 +34,7 @@ year: '2014'
 doi: 10.1038/ki.2013.519
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genotype–phenotype associations in WT1 glomerulopathy

@@ -11,6 +11,7 @@ year: '2018'
 doi: 10.7199/ped.oncall.2018.25
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diphtheria: The Strangling Angel of (Older) Children

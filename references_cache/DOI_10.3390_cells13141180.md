@@ -39,6 +39,7 @@ year: '2024'
 doi: 10.3390/cells13141180
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Managing Patients with Hypereosinophilic Syndrome: A Statement from the Italian Society of Allergy, Asthma, and Clinical Immunology (SIAAIC)

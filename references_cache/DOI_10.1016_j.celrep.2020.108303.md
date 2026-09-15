@@ -25,6 +25,7 @@ year: '2020'
 doi: 10.1016/j.celrep.2020.108303
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Reduced GABAergic Neuron Excitability, Altered Synaptic Connectivity, and Seizures in a KCNT1 Gain-of-Function Mouse Model of Childhood Epilepsy

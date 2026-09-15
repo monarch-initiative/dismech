@@ -37,6 +37,7 @@ year: '2012'
 doi: 10.1016/j.ajhg.2012.03.006
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mainzer-Saldino Syndrome Is a Ciliopathy Caused by IFT140 Mutations

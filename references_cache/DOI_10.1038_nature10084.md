@@ -24,6 +24,7 @@ year: '2011'
 doi: 10.1038/nature10084
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Telomere shortening and loss of self-renewal in dyskeratosis congenita induced pluripotent stem cells

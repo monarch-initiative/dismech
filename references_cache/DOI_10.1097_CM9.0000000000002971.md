@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1097/CM9.0000000000002971
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Global and regional trends in the incidence and prevalence of uterine fibroids and attributable risk factors at the national level from 2010 to 2019: A worldwide database study

@@ -14,6 +14,7 @@ year: '2008'
 doi: 10.1016/j.ajhg.2008.08.014
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Mutation in HOXA2 Is Responsible for Autosomal-Recessive Microtia in an Iranian Family

@@ -2,6 +2,7 @@
 reference_id: GEO:GSE89059
 title: "Identification of miRNA, lncRNA and mRNA-associated ceRNA networks and potential biomarker for MELAS with mitochondrial DNA A3243G mutation [array]"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Identification of miRNA, lncRNA and mRNA-associated ceRNA networks and potential biomarker for MELAS with mitochondrial DNA A3243G mutation [array]

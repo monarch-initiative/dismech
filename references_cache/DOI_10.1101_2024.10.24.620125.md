@@ -15,6 +15,7 @@ doi: 10.1101/2024.10.24.620125
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Gene therapy for targeting a prenatally enriched potassium channel associated with severe childhood epilepsy and premature death

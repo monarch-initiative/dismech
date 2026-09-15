@@ -31,6 +31,7 @@ year: '2016'
 doi: 10.1016/j.ajhg.2016.07.013
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GRIN2D Recurrent De Novo Dominant Mutation Causes a Severe Epileptic Encephalopathy Treatable with NMDA Receptor Channel Blockers

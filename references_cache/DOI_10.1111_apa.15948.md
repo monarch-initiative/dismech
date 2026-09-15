@@ -8,6 +8,7 @@ year: '2022'
 doi: 10.1111/apa.15948
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The history, physiology and treatment safety of growth hormone

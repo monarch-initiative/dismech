@@ -30,6 +30,7 @@ year: '2016'
 doi: 10.1093/eurheartj/ehv522
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypertrophic remodelling in cardiac regulatory myosin light chain (<i>MYL2</i>) founder mutation carriers

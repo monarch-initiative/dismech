@@ -17,6 +17,7 @@ year: '2021'
 doi: 10.1523/JNEUROSCI.0380-20.2021
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # FLRT2 and FLRT3 cooperate in maintaining the tangential migratory streams of cortical interneurons during development

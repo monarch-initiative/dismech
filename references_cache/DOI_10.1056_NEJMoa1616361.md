@@ -40,6 +40,7 @@ year: '2017'
 doi: 10.1056/NEJMoa1616361
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # NAD Deficiency, Congenital Malformations, and Niacin Supplementation

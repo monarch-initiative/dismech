@@ -12,6 +12,7 @@ year: '2018'
 doi: 10.3390/ijms19061814
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Yeast-Based Screen to Identify Natural Compounds with a Potential Therapeutic Effect in Hailey-Hailey Disease

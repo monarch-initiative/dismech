@@ -18,6 +18,7 @@ year: '2007'
 doi: 10.1128/mcb.00728-07
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cardiac-Myocyte-Specific Excision of the Vinculin Gene Disrupts Cellular Junctions, Causing Sudden Death or Dilated Cardiomyopathy

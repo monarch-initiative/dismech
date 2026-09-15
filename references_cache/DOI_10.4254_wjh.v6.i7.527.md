@@ -8,6 +8,7 @@ year: '2014'
 doi: 10.4254/wjh.v6.i7.527
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Acute fatty liver of pregnancy associated with severe acute pancreatitis: A case report

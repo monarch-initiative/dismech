@@ -25,6 +25,7 @@ year: '2025'
 doi: 10.1161/circimaging.124.017246
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prognosis and Risk Stratification in Dilated Cardiomyopathy With LVEF≤35%: Cardiac MRI Insights for Better Outcomes

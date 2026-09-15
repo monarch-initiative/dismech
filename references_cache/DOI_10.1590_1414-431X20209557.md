@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.1590/1414-431X20209557
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Animal models of human atherosclerosis: current progress

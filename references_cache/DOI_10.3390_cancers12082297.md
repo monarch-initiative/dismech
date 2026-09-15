@@ -11,6 +11,7 @@ year: '2020'
 doi: 10.3390/cancers12082297
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Lymphatic Valves and Lymph Flow in Cancer-Related Lymphedema

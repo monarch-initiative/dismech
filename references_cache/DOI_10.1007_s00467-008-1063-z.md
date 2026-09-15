@@ -13,6 +13,7 @@ year: '2009'
 doi: 10.1007/s00467-008-1063-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Evolutive study of children with diffuse mesangial sclerosis

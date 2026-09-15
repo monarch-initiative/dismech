@@ -16,6 +16,7 @@ year: '2019'
 doi: 10.1002/ajmg.a.61339
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # From congenital microcephaly to adult onset cerebellar ataxia: Distinct and overlapping phenotypes in patients with <i>PNKP</i> gene mutations

@@ -23,6 +23,7 @@ year: '2018'
 doi: 10.1093/cvr/cvy122
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Complex roads from genotype to phenotype in dilated cardiomyopathy: scientific update from the Working Group of Myocardial Function of the European Society of Cardiology

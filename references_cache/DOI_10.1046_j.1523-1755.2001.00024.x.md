@@ -13,6 +13,7 @@ year: '2001'
 doi: 10.1046/j.1523-1755.2001.00024.x
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Renal amyloidosis caused by a novel stop-codon mutation in the apolipoprotein A-II gene

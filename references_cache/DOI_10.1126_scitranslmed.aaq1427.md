@@ -42,6 +42,7 @@ year: '2019'
 doi: 10.1126/scitranslmed.aaq1427
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # IDH1-R132H acts as a tumor suppressor in glioma via epigenetic up-regulation of the DNA damage response

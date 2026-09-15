@@ -21,6 +21,7 @@ year: '2025'
 doi: 10.3390/genes16091009
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Variants in GSTZ1 Gene Underlying Maleylacetoacetate Isomerase Deficiency: Characterization of Two New Individuals and Literature Review

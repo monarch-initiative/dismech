@@ -41,6 +41,7 @@ year: '2021'
 doi: 10.1161/CIRCULATIONAHA.120.053033
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Evidence-Based Assessment of Genes in Dilated Cardiomyopathy

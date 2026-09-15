@@ -13,6 +13,7 @@ year: '2022'
 doi: 10.3389/fped.2022.933108
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Case report: A Chinese boy with facial dysmorphism, immunodeficiency, livedo, and short stature syndrome

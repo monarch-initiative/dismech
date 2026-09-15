@@ -107,6 +107,7 @@ year: '2020'
 doi: 10.1038/s41436-020-0792-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic spectrum and transcriptomic profile associated with germline variants in TRAF7

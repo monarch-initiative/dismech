@@ -15,6 +15,7 @@ year: '2022'
 doi: 10.3390/biomedicines10081814
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A nop56 Zebrafish Loss-of-Function Model Exhibits a Severe Neurodegenerative Phenotype

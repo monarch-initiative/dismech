@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.3390/children10030553
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Epilepsy Phenotypes of Vitamin B6-Dependent Diseases: An Updated Systematic Review

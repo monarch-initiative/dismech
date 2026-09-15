@@ -40,6 +40,7 @@ year: '2020'
 doi: 10.1111/epi.16480
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # KCNT1‐related epilepsy: An international multicenter cohort of 27 pediatric cases

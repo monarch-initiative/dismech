@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.1016/j.redox.2021.101923
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial morphology, bioenergetics and proteomic responses in fatty acid oxidation disorders

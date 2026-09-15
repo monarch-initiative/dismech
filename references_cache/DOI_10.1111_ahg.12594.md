@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.1111/ahg.12594
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Determinants of the Familial Hypercholesterolaemia Phenotype

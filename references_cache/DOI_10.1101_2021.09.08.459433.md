@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1101/2021.09.08.459433
-title: "Comprehensive analysis of DNA replication timing in genetic diseases and gene knockouts identifies
-                  <i>MCM10</i>
-                  as a novel regulator of the replication program"
+title: "Comprehensive analysis of DNA replication timing in genetic diseases and gene knockouts identifies <i>MCM10</i> as a novel regulator of the replication program"
 authors:
 - Madison Caballero
 - Tiffany Ge
@@ -26,11 +24,10 @@ doi: 10.1101/2021.09.08.459433
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
-# Comprehensive analysis of DNA replication timing in genetic diseases and gene knockouts identifies
-                  <i>MCM10</i>
-                  as a novel regulator of the replication program
+# Comprehensive analysis of DNA replication timing in genetic diseases and gene knockouts identifies <i>MCM10</i> as a novel regulator of the replication program
 **Authors:** Madison Caballero, Tiffany Ge, Ana Rita Rebelo, Seungmae Seo, Sean Kim, Kayla Brooks, Michael Zuccaro, Radhakrishnan Kanagaraj, Dan Vershkov, Dongsung Kim, Agata Smogorzewska, Marcus Smolka, Nissim Benvenisty, Stephen C West, Dieter Egli, Emily M Mace, Amnon Koren
 **DOI:** [10.1101/2021.09.08.459433](https://doi.org/10.1101/2021.09.08.459433)
 

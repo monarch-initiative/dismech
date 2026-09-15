@@ -36,6 +36,7 @@ year: '2013'
 doi: 10.1016/j.ajhg.2013.04.008
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in FGF17, IL17RD, DUSP6, SPRY4, and FLRT3 Are Identified in Individuals with Congenital Hypogonadotropic Hypogonadism

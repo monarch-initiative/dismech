@@ -7,6 +7,7 @@ year: '2023'
 doi: 10.53846/goediss-10037
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Functional characterisation of DHX proteins in the regulation of RNA metabolism and genome stability

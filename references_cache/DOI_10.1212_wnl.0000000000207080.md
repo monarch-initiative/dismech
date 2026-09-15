@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1212/wnl.0000000000207080
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rates of Status Epilepticus and Sudden Unexplained Death in Epilepsy in People With Genetic Developmental and Epileptic Encephalopathies

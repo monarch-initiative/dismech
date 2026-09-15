@@ -255,6 +255,7 @@ year: '2024'
 doi: 10.1136/ard-2023-224816
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Temporary Expression of concern: “Efficacy and safety of avacopan in patients with ANCA-associated vasculitis receiving rituximab in a randomised trial” [Annals of the Rheumatic Diseases, Volume 83, Issue 2, February 2024, Pages 223–232]

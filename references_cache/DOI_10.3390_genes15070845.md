@@ -21,6 +21,7 @@ year: '2024'
 doi: 10.3390/genes15070845
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Deafness DFNB128 Associated with a Recessive Variant of Human MAP3K1 Recapitulates Hearing Loss of Map3k1-Deficient Mice

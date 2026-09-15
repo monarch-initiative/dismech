@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.3238/arztebl.m2021.0251
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial disorders

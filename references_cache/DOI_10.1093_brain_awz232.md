@@ -35,6 +35,7 @@ year: '2019'
 doi: 10.1093/brain/awz232
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Heterogeneous clinical and functional features of GRIN2D-related developmental and epileptic encephalopathy

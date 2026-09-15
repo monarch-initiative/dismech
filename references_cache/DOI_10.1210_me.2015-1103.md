@@ -15,6 +15,7 @@ year: '2015'
 doi: 10.1210/me.2015-1103
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # FOXO1/3 and PTEN Depletion in Granulosa Cells Promotes Ovarian Granulosa Cell Tumor Development

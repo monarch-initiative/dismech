@@ -10,6 +10,7 @@ year: '2018'
 doi: 10.1007/s00784-017-2149-4
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Craniofacial and dental characteristics of patients with vitamin-D-dependent rickets type 1A compared to controls and patients with X-linked hypophosphatemia

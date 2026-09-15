@@ -18,6 +18,7 @@ year: '2025'
 doi: 10.1093/ehjqcco/qcae117
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypertrophic cardiomyopathy management: a systematic review of the clinical practice guidelines and recommendations

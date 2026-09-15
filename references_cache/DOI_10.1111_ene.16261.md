@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1111/ene.16261
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Etiological distribution of isolated oculomotor nerve palsy: analysis of 633 patients and literature review

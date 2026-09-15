@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1080/15384047.2024.2425131
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Tumor microenvironment in primary central nervous system lymphoma (PCNSL)

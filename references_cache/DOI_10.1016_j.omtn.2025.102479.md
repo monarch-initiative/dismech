@@ -24,6 +24,7 @@ year: '2025'
 doi: 10.1016/j.omtn.2025.102479
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Potential ASO-based personalized treatment for Charcot-Marie-Tooth disease type 2S

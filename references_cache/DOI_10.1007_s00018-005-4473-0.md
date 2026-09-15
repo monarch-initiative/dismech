@@ -10,6 +10,7 @@ year: '2005'
 doi: 10.1007/s00018-005-4473-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familial hypobetalipoproteinemia: genetics and metabolism

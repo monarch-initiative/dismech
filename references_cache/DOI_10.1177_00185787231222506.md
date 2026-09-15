@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1177/00185787231222506
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Valoctocogene Roxaparvovec

@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1136/jnnp-2023-332132
-title: "Recurrent de novo
-                    <i>SPTLC2</i>
-                    variant causes childhood-onset amyotrophic lateral sclerosis (ALS) by excess sphingolipid synthesis"
+title: "Recurrent de novo <i>SPTLC2</i> variant causes childhood-onset amyotrophic lateral sclerosis (ALS) by excess sphingolipid synthesis"
 authors:
 - Safoora B Syeda
 - Museer A Lone
@@ -35,11 +33,10 @@ year: '2024'
 doi: 10.1136/jnnp-2023-332132
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Recurrent de novo
-                    <i>SPTLC2</i>
-                    variant causes childhood-onset amyotrophic lateral sclerosis (ALS) by excess sphingolipid synthesis
+# Recurrent de novo <i>SPTLC2</i> variant causes childhood-onset amyotrophic lateral sclerosis (ALS) by excess sphingolipid synthesis
 **Authors:** Safoora B Syeda, Museer A Lone, Payam Mohassel, Sandra Donkervoort, Pinki Munot, Marcondes C França, Juan Eli Galarza-Brito, Matthias Eckenweiler, Alexander Asamoah, Kenneth Gable, Anirban Majumdar, Anke Schumann, Sita D Gupta, Arpita Lakhotia, Perry B Shieh, A Reghan Foley, Kelly E Jackson, Katherine R Chao, Thomas L Winder, Francesco Catapano, Lucy Feng, Janbernd Kirschner, Francesco Muntoni, Teresa M Dunn, Thorsten Hornemann, Carsten G Bönnemann
 **Journal:** Journal of Neurology, Neurosurgery &amp; Psychiatry (2024)
 **DOI:** [10.1136/jnnp-2023-332132](https://doi.org/10.1136/jnnp-2023-332132)

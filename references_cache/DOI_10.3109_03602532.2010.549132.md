@@ -9,6 +9,7 @@ year: '2011'
 doi: 10.3109/03602532.2010.549132
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Glutathione transferase zeta: discovery, polymorphic variants, catalysis, inactivation, and properties of<i>Gstz1</i><sup>−/−</sup>mice

@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.1080/10408363.2022.2049199
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Screening and diagnosis of inherited platelet disorders

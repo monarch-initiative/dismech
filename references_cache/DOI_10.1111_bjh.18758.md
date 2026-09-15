@@ -23,6 +23,7 @@ year: '2023'
 doi: 10.1111/bjh.18758
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Combining <scp><i>MYD88</i> L265P</scp> mutation detection and clonality determination on <scp>CSF</scp> cellular and cell‐free <scp>DNA</scp> improves diagnosis of primary <scp>CNS</scp> lymphoma

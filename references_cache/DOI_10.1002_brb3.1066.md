@@ -12,6 +12,7 @@ year: '2018'
 doi: 10.1002/brb3.1066
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A novel <scp>SETX</scp> gene mutation associated with Juvenile amyotrophic lateral sclerosis

@@ -14,6 +14,7 @@ year: '2015'
 doi: 10.1016/j.ymgmr.2015.10.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Tyrosinemia type III in an asymptomatic girl

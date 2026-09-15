@@ -10,6 +10,7 @@ year: '2020'
 doi: 10.3390/brainsci10090575
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Association between CAG Repeat Length and Age of Onset of Juvenile-Onset Huntington’s Disease

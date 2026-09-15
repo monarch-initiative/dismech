@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.3390/ijms25115633
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Valosin-Containing Protein (VCP): A Review of Its Diverse Molecular Functions and Clinical Phenotypes

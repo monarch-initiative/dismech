@@ -24,6 +24,7 @@ year: '2024'
 doi: 10.1161/CIRCULATIONAHA.123.067890
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Allele-Specific Suppression of Variant MHC With High-Precision RNA Nuclease CRISPR-Cas13d Prevents Hypertrophic Cardiomyopathy

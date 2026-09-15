@@ -10,6 +10,7 @@ year: '2018'
 doi: 10.3390/ijms19051407
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # From Structure to Phenotype: Impact of Collagen Alterations on Human Health

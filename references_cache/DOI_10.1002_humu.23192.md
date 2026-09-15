@@ -25,6 +25,7 @@ year: '2017'
 doi: 10.1002/humu.23192
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Deficiency of the sphingosine-1-phosphate lyase SGPL1 is associated with congenital nephrotic syndrome and congenital adrenal calcifications

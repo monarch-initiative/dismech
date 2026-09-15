@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.1212/wnl.0000000000213538
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Child Neurology: TRAPPC4-Related Neurodevelopmental Disorder

@@ -6,6 +6,7 @@ year: '2016'
 doi: 10.2903/j.efsa.2016.4424
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Acute health risks related to the presence of cyanogenic glycosides in raw apricot kernels and products derived from raw apricot kernels

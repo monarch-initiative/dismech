@@ -40,6 +40,7 @@ year: '2015'
 doi: 10.1016/j.ajhg.2015.09.012
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recessive Mutations in RTN4IP1 Cause Isolated and Syndromic Optic Neuropathies

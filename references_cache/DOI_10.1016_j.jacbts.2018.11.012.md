@@ -17,6 +17,7 @@ year: '2019'
 doi: 10.1016/j.jacbts.2018.11.012
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Deletion of Sulfonylurea Receptor 2 in the Adult Myocardium Enhances Cardiac Glucose Uptake and Is Cardioprotective

@@ -27,6 +27,7 @@ year: '2020'
 doi: 10.1016/j.ajhg.2019.12.001
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathogenic Bi-allelic Mutations in NDUFAF8 Cause Leigh Syndrome with an Isolated Complex I Deficiency

@@ -9,6 +9,7 @@ year: '2019'
 doi: 10.1016/j.jbior.2018.09.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sphingosine phosphate lyase insufficiency syndrome (SPLIS): A novel inborn error of sphingolipid metabolism

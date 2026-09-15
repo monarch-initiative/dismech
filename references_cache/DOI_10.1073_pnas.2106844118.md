@@ -27,6 +27,7 @@ year: '2021'
 doi: 10.1073/pnas.2106844118
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systems biology analysis of human genomes points to key pathways conferring spina bifida risk

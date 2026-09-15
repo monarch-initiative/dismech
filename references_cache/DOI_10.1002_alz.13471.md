@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.1002/alz.13471
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Delirium is associated with loss of feedback cortical connectivity
