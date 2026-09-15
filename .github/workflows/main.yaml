@@ -467,6 +467,28 @@ jobs:
       - name: Check pathograph targets resolve
         run: uv run python scripts/check_causal_targets.py
 
+      # The step above asks whether a declared causal target RESOLVES. This one
+      # asks whether a phenotype is REACHED at all -- the failure it cannot see.
+      # An entry passes the resolve check perfectly with every phenotype
+      # floating, because a phenotype nobody ever wrote an edge to is not a
+      # broken target, just an absent one. Schizophrenia was the worked case: one
+      # dangling target, and six phenotypes simply never connected.
+      #
+      # Enforces the `min_compliance` floor on `phenotypes[].causal_inlink` from
+      # conf/qc_config.yaml (50.0 against a measured 52.4% when turned on). The
+      # floor is a ratchet against erosion applied to the KB-WIDE AGGREGATE, not
+      # a per-PR gate -- ~100 new entries with everything disconnected move it
+      # about 1.5 points -- so a failure here means sustained drift, not one bad
+      # entry, and the fix is a wiring pass over the worst files rather than a
+      # change to whatever PR happened to go red. Raise the floor as coverage
+      # improves; never lower it to get green.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours: the
+      # aggregate moves when an entry is added anywhere, so a changed-path
+      # filter would miss the drift it exists to catch. ~21s.
+      - name: Check pathograph connectivity floor
+        run: just compliance-connectivity
+
       # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
       # stack. `linkml-term-validator` validates slots whose range is bound to an
       # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain

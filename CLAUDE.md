@@ -857,6 +857,34 @@ phenotype sharing one name, which the flat node namespace collapses into a
 single node — a graph-model bug (#9896), not a curation error, and the edges
 carry their own evidence.
 
+**A resolving target is not a connected phenotype.** `check-causal-targets` asks
+whether a declared target *resolves*; it says nothing about a phenotype nobody
+ever wrote an edge to, because an absent edge is not a broken one. An entry can
+pass it perfectly with every phenotype floating. Schizophrenia was the worked
+case: one dangling target and **six** phenotypes simply never wired, so fixing
+the dangling target alone moved it from 0/7 to 1/7.
+
+The metric that sees those is `phenotypes[].causal_inlink`:
+
+```bash
+just compliance-connectivity                    # gate (runs in `just qc`)
+just compliance-connectivity --list-unconnected # names the floating phenotypes per file
+```
+
+It enforces the `min_compliance` floor in `conf/qc_config.yaml` — **50.0**,
+against a measured 52.4% (17,354/33,138 nodes) when the floor was turned on.
+Read a failure correctly: the floor applies to the **KB-wide aggregate**, not
+per file, so no single entry can trip it (100 new entries with everything
+disconnected move it ~1.5 points). It is a ratchet against erosion, and a red
+build means sustained drift — the fix is a wiring pass over the worst files, not
+a change to whichever PR happened to go red. Raise the floor as coverage
+improves; `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
+lowering it, and a `null` there silently disables the gate.
+
+The sibling metric `genetic[].mechanism_outlink` (causal genes wired to a
+mechanism, currently 48.9%) is deliberately still advisory — same recipe,
+`--genes-fail-under` to check it ad hoc.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
