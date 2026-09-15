@@ -156,6 +156,18 @@ the T-dependent antibody response were particularly beneficial"* describes
 predicting **immunotoxicants**, and cites the 1992 companion paper rather than
 this one.
 
+One statement in the same abstract cuts the other way, toward the AOP's reading,
+and is recorded here so the page carries both sides — conclusion (3):
+
+> "The ability to resist infectious agent challenge is dependent upon the degrees
+> of immunosuppression and the quantity of infectious agent administered."
+
+That is a dose-dependence claim about immunosuppression and host resistance, and
+it is the paper's clearest support for a graded relationship. What it does not
+supply is the part the pathway needs: it names neither TDAR nor any single immune
+test as the measure of "degrees of immunosuppression", which is what conclusion
+(2) explicitly declines to do.
+
 ### Reframed from TDAR to impaired antibody response, the evidence is strong
 
 [PMID:20675197](https://pubmed.ncbi.nlm.nih.gov/20675197/) (Orange et al. 2010),
@@ -171,30 +183,98 @@ Human, quantitative, with confidence intervals, and interventional rather than
 correlational — immunoglobulin replacement moves the exposure, and restoring the
 antibody level restores resistance to infection in a graded way.
 
-Compare what the TDAR framing rests on: a single 1993 rodent database
-([PMID:8365588](https://pubmed.ncbi.nlm.nih.gov/8365588/)) whose own abstract
+Compare what the TDAR framing rests on: a single rodent database — assembled by
+the NTP tier-approach screening battery reported in 1988, and analysed for
+host-resistance relationships in 1993
+([PMID:8365588](https://pubmed.ncbi.nlm.nih.gov/8365588/)) — whose own abstract
 states that no single immune test was fully predictive of altered host
 resistance. The reframed claim is not a stronger version of the TDAR claim. It
 is a different claim — about a measured serum protein in patients rather than an
 assay endpoint in mice — and it is the one the evidence actually supports.
 
-### No evidence-bearing edge into an infection outcome exists in the cluster
+### The infection outcome is barely represented, as nodes or as edges
 
-Checked across the immunosuppression space:
+This is a claim about the whole of AOP-Wiki, so it is stated with the query that
+produces it.
 
-| KER | Edge | Evidence blocks |
+#### Reproducing it
+
+```bash
+# 1. Pin the CLI. c24ce8c is published on origin/main.
+#    Point the data directory anywhere that is NOT a dismech checkout.
+export AOP_WIKI_CLI_DATA_DIR=~/aop-wiki-data
+
+# 2. Materialize a dated snapshot. Any KER command parses the full XML and
+#    writes all_events_<date>.json and all_kers_<date>.json under
+#    $AOP_WIKI_CLI_DATA_DIR/outputs/cache/<date>/. This is the slow step.
+uvx --from git+https://github.com/gingin77/aop_wiki_cli@c24ce8c aop-wiki-cli \
+  find-kers-for-events --ke-terms "antibody" --date 09-15-2026
+```
+
+**3. The filter.** Over `all_events_<date>.json`, select every event whose
+`title` matches, case-insensitively,
+`infect|host resist|susceptib|pathogen load|viral (load|titer)`. For each, record
+`level_of_biological_organization` and the character counts of `description` and
+`measurement_method` after HTML stripping. Then over `all_kers_<date>.json`,
+select every KER whose `downstream_ke.id` is one of those events, and record the
+character counts of the four evidence blocks.
+
+That last step is an ad-hoc read of the CLI's cache, which is what the
+`aop-wiki-cli` skill permits while working in that directory. It is deliberately
+**not** committed as a dismech script: the CLI owns the parsers and the entity
+model, and the durable home for this query is a command there rather than
+parsing code in this repository.
+
+#### The census
+
+Snapshot `09-15-2026`: **1,602 events, 2,373 KERs.**
+
+Every Key Event in the entire wiki denoting an infection or host-resistance
+outcome:
+
+| KE | Title | AOPs | Level | `description` | `measurement_method` | KERs into it |
+|---|---|---|---|---|---|---|
+| 323 | Increased, Disease susceptibility | 14 | Individual | **0 chars** | **0 chars** | none |
+| 576 | Increased, Viral susceptibility | 84, 85 | Individual | **0 chars** | **0 chars** | KER570 |
+| 1412 | Helicobacter pylori infection | 229 | Tissue | **0 chars** | **0 chars** | none |
+| 1939 | Viral infection and host-to-host transmission, proliferated | 430 | Individual | 7,037 chars | 1,204 chars | KER2498 |
+
+Four events. Two incoming relationships. The evidence on those two:
+
+| KER | Edge | WoE / Empirical / Plausibility / Quantitative |
 |---|---|---|
-| KER570 (AOPs 84, 85) | Suppression, Immune system → Increased, Viral susceptibility | all four empty |
-| KER3702 (AOP 618) | Reduced antibody production → Diminished vaccine response | all four empty |
+| KER570 (AOPs 84, 85) | Suppression, Immune system → Increased, Viral susceptibility | 0 / 0 / 0 / 0 |
+| KER2498 (AOP 430) | Increased SARS-CoV-2 production → Viral infection and host-to-host transmission | 67 / 5,680 / 2,257 / 3,545 |
 
-KER3702 is also the only downstream edge from AOP-Wiki's one *Reduced antibody
-production* Key Event (KE2398), and it runs to vaccine response rather than to
-infection.
+Separately, KER3702 (AOP 618) is the only downstream edge from AOP-Wiki's one
+*Reduced antibody production* Key Event (KE2398). It runs to *Diminished vaccine
+response* rather than to infection, and its four evidence blocks are also empty.
 
-So across the whole immunosuppression space the wiki carries no evidence-bearing
-edge into an infection outcome. The relationship is well established in medicine
-— it is why immunoglobulin replacement is standard care in primary antibody
-deficiency — and absent from the framework.
+#### What it means
+
+Across the whole immunosuppression space the wiki carries no evidence-bearing
+edge into an infection outcome, and the outcome nodes themselves are mostly
+empty: three of the four carry no definition and no statement of how they would
+be measured. The framework names the outcome and then leaves it unspecified,
+which is consistent with what the AOP 277 reviewers said when they removed it —
+that susceptibility to infection was hard to define as a measurable Adverse
+Outcome. It also explains KE323 having no incoming relationship at all: an
+undefined node is hard to draw an evidenced edge into.
+
+The relationship is well established in medicine — it is why immunoglobulin
+replacement is standard care in primary antibody deficiency — and absent from the
+framework.
+
+**KER2498 is the one exception, and it is not a counterexample.** It is the only
+evidence-bearing edge into any infection node in the wiki, and it is richly
+evidenced. But it runs from SARS-CoV-2 production to onward transmission: its
+description is about respiratory droplets, aerosols, fecal-oral spread, masks and
+surface disinfection, and its assay detects virus or antibody in a person. It
+measures a virus establishing itself and spreading between hosts, not a host
+losing the capacity to resist one. Note that
+`level_of_biological_organization` does **not** carry this distinction — KE576
+and KE1939 are both tagged `Individual` — so the difference has to be read from
+the records rather than inferred from that field.
 
 ## Module classification
 
