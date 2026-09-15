@@ -73,6 +73,9 @@ extracting the ZIP file.
    review the preview, and choose **Create issue**. By default this opens a GitHub
    form for you to review and submit; sign in to GitHub if prompted.
 
+The preview can take **1–2 seconds** to appear after clicking the toolbar icon
+while the extension reads the page. Wait briefly before clicking again.
+
 ### If you are stuck in the folder picker
 
 - **Only unrelated files in Downloads?** Click **Cancel**, then download and

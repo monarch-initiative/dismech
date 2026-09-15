@@ -25,6 +25,9 @@ Full docs: [`docs/browser-extension.md`](../docs/browser-extension.md).
    Open a paper (PubMed / DOI / bioRxiv) or disease page (Monarch / OMIM /
    Orphanet), click the curator icon, review, and **Create issue**.
 
+Allow **1–2 seconds** for the preview to appear after clicking the toolbar icon
+while the extension reads the page.
+
 [Full installation guide and troubleshooting](https://dismech.monarchinitiative.org/elements/browser-extension/#install-unpacked).
 If you already have a local checkout, you can load its `extension/` folder
 directly; no build step is needed.
