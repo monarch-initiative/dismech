@@ -11,7 +11,7 @@ because that is where sibling diseases, model systems and "we also profiled X"
 studies get in. Causal genes are never searched -- in GEO that produced
 Alzheimer and medulloblastoma data for neuroferritinopathy.
 
-Four guards, each traceable to a real failure:
+Six guards, each traceable to a real failure:
 
 ``GENERIC_PHRASES``
     ``Dorsalgia`` is bound to ``MONDO:0000001``, labelled simply "disease",
@@ -24,6 +24,28 @@ Four guards, each traceable to a real failure:
     the bare label retrieved generic prostate cancer.
 word-boundary matching
     "H Syndrome" matched "Denys-Drash Syndrome" and "MRKH syndrome".
+CamelCase compound boundary
+    dbGaP names a trial network "AsthmaNet", so a strict trailing boundary
+    scored an asthma trial as though asthma were absent from the title. The
+    boundary is relaxed only at a *true* CamelCase seam -- a lowercase letter
+    followed by an uppercase one -- which is why this does not also let
+    "Lymphoma" match "Lymphomatoid papulosis", a different disease. Accepting
+    any uppercase letter is not enough: repository titles are full of ALL-CAPS
+    fragments, where it would admit "Adenoma" into "FAMILIAL ADENOMATOUS
+    POLYPOSIS".
+``ADJECTIVAL_FORMS``
+    Inflected lowercase forms ("Sputum RNA-Seq from Asthmatic Patients") are
+    recovered by expanding the phrase list from a hand-verified table, *not* by
+    loosening the boundary. Only the pairs in that table are matched; nothing
+    is derived by rule. Where the table has no entry the study's own data
+    dictionary is still the fallback, since it states affection status outright
+    rather than guessing at morphology.
+diacritic folding
+    dbGaP titles spell it "Sjögren's Syndrome" while the KB entry is
+    ``Sjogrens_Syndrome``, so two on-target studies were scored as though the
+    disease were absent from the title. Medical eponyms carry diacritics often
+    enough (Sjögren, Behçet, Ménière, Guillain-Barré, Creutzfeldt-Jakob) that
+    this had to be fixed in the matcher rather than per caller.
 
 plus the sibling-disease qualifier veto from :mod:`discover_datasets`
 (*hereditary* vs *acquired* angioedema).
@@ -33,6 +55,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -97,13 +120,114 @@ def entry_phrases(entry: dict, slug: str) -> tuple[list[str], list[tuple[str, st
         n for n in names
         if len(n) >= MIN_PHRASE_LEN and n.strip().lower() not in GENERIC_PHRASES
     ]
+    # "Sputum RNA-Seq from Asthmatic Patients" is an asthma study; the strict
+    # word boundary cannot see that on its own.
+    seen = {p.lower() for p in phrases}
+    for phrase in list(phrases):
+        for variant in inflected_variants(phrase):
+            if variant.lower() not in seen:
+                phrases.append(variant)
+                seen.add(variant.lower())
     return phrases, cores
 
 
+# Adjectival and inflected forms of disease head nouns, as a hand-verified
+# table rather than a productive rule. Medical derivations are irregular
+# (asthma -> asthmatic, psoriasis -> psoriatic), so any suffix rule general
+# enough to catch them also produces wrong ones: "lymphoma" would reach
+# "lymphomatoid papulosis" and "adenoma" would reach "adenomatous polyposis",
+# both distinct diseases. Every pair here has been checked to denote the same
+# disease as its key. Extend it by hand when a real miss shows up; do not
+# generate it.
+ADJECTIVAL_FORMS = {
+    "asthma": ["asthmatic", "asthmatics"],
+    "diabetes": ["diabetic", "diabetics"],
+    "arthritis": ["arthritic"],
+    "psoriasis": ["psoriatic"],
+    "cirrhosis": ["cirrhotic"],
+    "fibrosis": ["fibrotic"],
+    "thrombosis": ["thrombotic"],
+    "stenosis": ["stenotic"],
+    "epilepsy": ["epileptic", "epileptics"],
+    "anemia": ["anemic"],
+    "ischemia": ["ischemic"],
+    "leukemia": ["leukemic"],
+    "atopy": ["atopic"],
+    "allergy": ["allergic"],
+}
+
+
+def inflected_variants(phrase: str) -> list[str]:
+    """Variants of ``phrase`` whose final word has a known adjectival form.
+
+    The table is stored lowercase; the variant takes the capitalisation of the
+    word it replaces, so "Severe Asthma" yields "Severe Asthmatic" rather than
+    "Severe asthmatic". Matching is case-insensitive either way -- this is for
+    what a curator reads in the proposal and the provenance note.
+    """
+    words = phrase.split()
+    if not words:
+        return []
+    head = words[-1]
+    forms = ADJECTIVAL_FORMS.get(re.sub(r"['\u2019]s$", "", head.lower()), [])
+    cased = str.capitalize if head[:1].isupper() else str.lower
+    return [" ".join(words[:-1] + [cased(form)]) for form in forms]
+
+
+# The adjectival forms, inverted. A phrase ending in one of these was produced
+# by `inflected_variants`, not taken from the entry.
+_INFLECTED_HEADS = {form for forms in ADJECTIVAL_FORMS.values() for form in forms}
+
+
+def query_phrases(phrases: list[str]) -> list[str]:
+    """The subset of ``entry_phrases`` worth sending to a repository as a query.
+
+    ``entry_phrases`` returns everything a *title* may be matched against, which
+    includes the inflected variants above. Those are useless as queries: dbGaP's
+    ``condition:text=`` searches MeSH entry terms and ImmPort's
+    ``conditionOrDisease=`` searches a curated disease field, and neither
+    contains "Asthmatic". Issuing them is a wasted request per variant per
+    entry, so callers that use one list for both jobs should filter with this.
+    """
+    return [p for p in phrases if (p.split() or [""])[-1].lower() not in _INFLECTED_HEADS]
+
+
+def fold_diacritics(text: str) -> str:
+    """Strip combining marks so "Sjögren" and "Sjogren" compare equal.
+
+    Applied to both sides of every comparison. It only ever *adds* matches that
+    a diacritic previously blocked -- treating "o" and "ö" as the same letter in
+    a disease name is the intended reading, not a loosening of the rules.
+    """
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch)
+    )
+
+
 def compile_phrases(phrases: list[str]) -> list[tuple[str, re.Pattern]]:
-    """Hyphen-aware boundaries, so Pick disease cannot match Niemann-Pick disease."""
+    """Hyphen-aware boundaries, so Pick disease cannot match Niemann-Pick disease.
+
+    The returned phrase is the original (it is shown to curators and recorded in
+    provenance notes); only the pattern is diacritic-folded.
+
+    The *leading* boundary stays strict -- that is the guard keeping "Pick
+    disease" out of "Niemann-Pick disease". The *trailing* boundary also admits
+    a true CamelCase seam, a lowercase letter followed by an uppercase one, so a
+    compound like "AsthmaNet" counts as naming the disease. The lookbehind is
+    what makes that safe: admitting *any* following uppercase letter matched
+    "Adenoma" inside "FAMILIAL ADENOMATOUS POLYPOSIS", since repository titles
+    are routinely ALL-CAPS. The phrase is matched case-insensitively via an
+    inline ``(?i:...)`` group rather than a whole-pattern flag, so the
+    case-sensitive boundary lookarounds keep their meaning.
+    """
     return [
-        (p, re.compile(rf"(?<![\w-]){re.escape(p)}(?![\w-])", re.IGNORECASE))
+        (
+            p,
+            re.compile(
+                rf"(?<![\w-])(?i:{re.escape(fold_diacritics(p))})"
+                rf"(?:(?![\w-])|(?<=[a-z])(?=[A-Z]))"
+            ),
+        )
         for p in phrases
     ]
 
@@ -115,8 +239,13 @@ def match_title(title: str, patterns, cores) -> tuple[str, str]:
     ``conflict_reason`` is non-empty when the title applies a competing
     qualifier to the disease's core term, i.e. it is about a sibling disease.
     """
-    low = title.lower()
-    matched = next((p for p, rx in patterns if rx.search(low)), "")
+    # Patterns are searched against the case-preserving folded title so the
+    # CamelCase boundary above can see an uppercase letter; `low` is retained
+    # for the qualifier-conflict checks, which are case-insensitive substring
+    # tests.
+    folded = fold_diacritics(title)
+    low = folded.lower()
+    matched = next((p for p, rx in patterns if rx.search(folded)), "")
     if not matched:
         return "", ""
 
