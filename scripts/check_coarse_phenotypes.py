@@ -10,13 +10,22 @@ three away in the binding.
 But three legitimate reasons for a coarse binding exist, and the KB already
 contains all three written as prose that nothing can read:
 
-* a **pleiotropic spectrum** where enumerating every finding is not the honest
-  grain (``Rubinstein-Taybi_Syndrome``);
+* a **variable spectrum** -- involvement is real and recurrent but its form
+  differs between patients, with no characteristic finding to bind;
 * a **source that genuinely says no more** (``PAICS_Deficiency``: "the specific
   ocular finding is not characterized in the available abstract, so the binding
   is deliberately at the general level");
 * a **claim narrower than any HPO term**, where the coarse parent is the best
   available anchor and ``preferred_term`` carries the specificity.
+
+None of these asks the curator to list anything. Where the specific findings
+*are* known and evidenced -- as in ``Schaaf-Yang_Syndrome``, whose cited
+sentence names strabismus, esotropia and myopia -- they are ordinary
+``phenotypes`` entries with their own terms and evidence. A slot for listing
+them inside the coarse binding was built and removed: it produced second-class
+annotations that the phenotype table, the facets and the exports could not see,
+and it inverted the value's meaning by requiring enumeration of exactly the
+case where enumeration is impossible.
 
 So this guard does not chase specificity. It requires that a coarse binding
 declare which situation it is in, via ``coarse_binding_basis``, leaving the
@@ -55,8 +64,7 @@ Two finding classes
     ==================  ====================================================
     basis               requirement
     ==================  ====================================================
-    SPECTRUM_SUMMARY    >= 2 ``spectrum_terms``, each bound, each narrower
-                        than the summary term and not itself coarse
+    VARIABLE_SPECTRUM   none -- a bare declaration
     SOURCE_UNSPECIFIED  none -- the evidence snippet is the proof
     NO_HPO_TERM         ``preferred_term`` differs from the bound label
                         (otherwise nothing narrower was actually claimed)
@@ -65,17 +73,17 @@ Two finding classes
                         ``frequency``
     ==================  ====================================================
 
-    Plus the two inverses: ``spectrum_terms`` outside SPECTRUM_SUMMARY (where it
-    is required) or PATHOGRAPH_HUB (where it is optional), and ``term_gap``
-    without ``NO_HPO_TERM``.
+    Plus ``term_gap`` without ``NO_HPO_TERM``.
+
+    Two of the four take no companion at all, which is the point: the guard asks
+    the curator to state a reason, not to do extra work to prove it.
 
     The hub rule is about *incoming* edges, not outgoing ones. An earlier draft
     required outgoing ``sequelae`` into the specific findings, which is wrong:
     ``sequelae`` is a ``CausalEdge``, and a coloboma is not *caused by* an eye
     abnormality -- it *is* one. Drawing subsumption as causation would corrupt
     the graph to satisfy a guard. What actually makes a node a hub is that a
-    mechanism leads to it: something in the entry targets it. Its constituents,
-    if worth naming, go in ``spectrum_terms``, which asserts no causation.
+    mechanism leads to it: something in the entry targets it.
 
 Companion rules are checked wherever a basis is declared, including on terms
 outside the coarse subset. That is deliberate: it lets a curator declare a basis
@@ -124,9 +132,7 @@ CATEGORY_ENUM_PATH = (
 
 DEFAULT_ROOTS = ("kb/disorders", "kb/modules", "kb/comorbidities", "kb/groupings")
 
-# Slots whose range is PhenotypeDescriptor. `spectrum_terms` is deliberately
-# absent: its entries are checked as the *companions* of the summary binding
-# that holds them, not as independent bindings of their own.
+# Slots whose range is PhenotypeDescriptor.
 DESCRIPTOR_SLOT = "phenotype_term"
 DESCRIPTOR_LIST_SLOT = "target_phenotypes"
 
@@ -186,9 +192,6 @@ def iter_bindings(
                     if isinstance(entry, dict):
                         yield Binding(f"{here}[{i}]", entry, node, section)
                 continue
-            if key == "spectrum_terms":
-                # Companion of its holder; never an independent binding.
-                continue
             yield from iter_bindings(value, here, node, section or (key if not trail else section))
     elif isinstance(node, list):
         for i, entry in enumerate(node):
@@ -232,13 +235,12 @@ def _is_phenotype_entry(location: str) -> bool:
 
 
 def check_companions(
-    binding: Binding, coarse: dict[str, str], display: str, incoming: set[str]
+    binding: Binding, display: str, incoming: set[str]
 ) -> list[Finding]:
     """Validate the requirement that goes with a declared basis."""
     d = binding.descriptor
     basis = d.get("coarse_binding_basis")
     curie = _term_id(d) or "-"
-    spectrum = d.get("spectrum_terms") or []
     findings: list[Finding] = []
 
     def add(detail: str) -> None:
@@ -248,35 +250,12 @@ def check_companions(
         add(f"coarse_binding_basis must be a string, got {type(basis).__name__}")
         return findings
 
-    if spectrum and basis not in ("SPECTRUM_SUMMARY", "PATHOGRAPH_HUB"):
-        add(
-            "spectrum_terms names the specific findings a coarse binding stands in "
-            "for, so it goes with SPECTRUM_SUMMARY (where it is required) or "
-            f"PATHOGRAPH_HUB (where it is optional). Basis here: {basis or 'absent'}."
-        )
     if d.get("term_gap") and basis != "NO_HPO_TERM":
         add(
             "term_gap records the ontology gap behind a NO_HPO_TERM binding "
             f"(basis here: {basis or 'absent'})"
         )
 
-    if basis in ("SPECTRUM_SUMMARY", "PATHOGRAPH_HUB"):
-        bound = [t for t in spectrum if isinstance(t, dict) and _term_id(t)]
-        if basis == "SPECTRUM_SUMMARY" and len(bound) < 2:
-            add(
-                f"SPECTRUM_SUMMARY needs >= 2 bound spectrum_terms, found {len(bound)}. "
-                "One specific finding is not a spectrum -- bind that finding directly, "
-                "or use SOURCE_UNSPECIFIED if the source names none."
-            )
-        for entry in bound:
-            entry_curie = _term_id(entry)
-            if entry_curie in coarse:
-                add(
-                    f"spectrum_terms entry {entry_curie} is itself a top-level term "
-                    "-- a spectrum must be made of specific findings"
-                )
-            elif entry_curie == curie:
-                add(f"spectrum_terms entry {entry_curie} repeats the summary term")
     if basis == "NO_HPO_TERM":
         preferred = (d.get("preferred_term") or "").strip()
         label = _term_label(d).strip()
@@ -301,13 +280,13 @@ def check_companions(
                     "PATHOGRAPH_HUB is a convergence point INSIDE the pathograph, so "
                     "something must lead to it: no causal edge in this entry targets "
                     f"{name!r}. Without one it is just an unexplained coarse binding "
-                    "(SOURCE_UNSPECIFIED or SPECTRUM_SUMMARY is probably what you mean)."
+                    "(SOURCE_UNSPECIFIED or VARIABLE_SPECTRUM is probably what you mean)."
                 )
             if holder.get("frequency") is not None:
                 add(
                     "PATHOGRAPH_HUB carries no clinical claim of its own, so it takes no "
                     "frequency -- the specific findings carry theirs. A coarse node with a "
-                    "frequency is making a claim about patients, which is SPECTRUM_SUMMARY."
+                    "frequency is making a claim about patients, which is VARIABLE_SPECTRUM."
                 )
     return findings
 
@@ -341,7 +320,7 @@ def find_in(data: dict[str, Any], display: str, coarse: dict[str, str]) -> list[
         d = binding.descriptor
         if not isinstance(d, dict):
             continue
-        findings.extend(check_companions(binding, coarse, display, incoming))
+        findings.extend(check_companions(binding, display, incoming))
         curie = _term_id(d)
         if curie in coarse and not d.get("coarse_binding_basis"):
             findings.append(
@@ -405,7 +384,7 @@ def write_baseline(findings: list[Finding]) -> int:
         "# top-level HPO organ-system term without saying why, via\n"
         "# `coarse_binding_basis`. New occurrences NOT listed here fail the guard.\n"
         "# Only ever shrink this file -- clearing a row means a curator decided\n"
-        "# between SPECTRUM_SUMMARY / SOURCE_UNSPECIFIED / NO_HPO_TERM /\n"
+        "# between VARIABLE_SPECTRUM / SOURCE_UNSPECIFIED / NO_HPO_TERM /\n"
         "# PATHOGRAPH_HUB, or bound a specific term instead.\n"
         "# Regenerate with: just update-coarse-phenotype-baseline\n"
     )
@@ -520,7 +499,7 @@ def main() -> int:
             "   These terms are the direct children of HP:0000118: they name an organ\n"
             "   system, and are what the browser's 'Phenotype Systems' facet is built\n"
             "   from. A binding to one is not wrong, but it must say which it is:\n"
-            "     SPECTRUM_SUMMARY    many findings, variable -- list them in spectrum_terms\n"
+            "     VARIABLE_SPECTRUM   involvement varies in form; no characteristic finding\n"
             "     SOURCE_UNSPECIFIED  the cited source characterizes it no further\n"
             "     NO_HPO_TERM         narrower than any HP term; preferred_term carries it\n"
             "     PATHOGRAPH_HUB      a convergence node with sequelae into the specifics\n"

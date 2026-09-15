@@ -361,10 +361,25 @@ validation (only a warning), so an unconstrained prefix can pass unchecked — s
 **Decision.** A phenotype bound to one of the 23 **top-level HPO organ-system terms** —
 the direct children of `HP:0000118`, which are also the `PhenotypeCategoryEnum` meanings
 and the browser's *Phenotype Systems* facet vocabulary — must declare
-`coarse_binding_basis` on its descriptor: `SPECTRUM_SUMMARY`, `SOURCE_UNSPECIFIED`,
-`NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Each value carries a checkable requirement, enforced
-offline and whole-KB by `just check-coarse-phenotypes`; the 164 bindings predating the
-slot are grandfathered in a shrink-only baseline.
+`coarse_binding_basis` on its descriptor: `VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`,
+`NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Two are bare declarations; the other two carry a
+checkable requirement. All are enforced offline and whole-KB by
+`just check-coarse-phenotypes`; the 164 bindings predating the slot are grandfathered in
+a shrink-only baseline.
+
+**A coarse binding states a reason; it never lists what it left out.** The first
+implementation gave `VARIABLE_SPECTRUM` (then named `SPECTRUM_SUMMARY`) a companion
+`spectrum_terms` slot holding the constituent findings, term-bound but without frequency
+or evidence, so that a curator could keep the specifics cheaply. That was wrong twice
+over, and the slot was removed before the design shipped. First, it inverted the value's
+meaning: a spectrum is precisely the case where the findings *cannot* be pinned down, so
+requiring a list demands what is by definition unavailable. Second, where the findings
+*are* known and evidenced — as in the worked example, whose cited sentence names
+strabismus, esotropia and myopia — they are ordinary `phenotypes` entries and should be
+curated as such. The slot's version of them was strictly worse: invisible to the
+phenotype table, the browser facets, the KGX/CX2 exports, `phenotypes#` entity
+references and the pathograph. A cheap way to record a finding badly is not worth
+having when recording it properly costs one more block.
 
 **What was rejected, and why it stays rejected.** Three approaches to the same problem
 were considered and are recorded here so they are not re-proposed:
@@ -403,8 +418,8 @@ was corrected before enactment. `sequelae` is a `CausalEdge`, and a coloboma is 
 *caused by* an eye abnormality — it *is* one, so the requirement would have had curators
 drawing an is-a hierarchy as a causal chain to satisfy a guard. A hub is instead required
 to be *targeted* by at least one causal edge in its entry, and to carry no `frequency`
-(frequency is a claim about patients; a hub makes none). Constituents, when worth naming,
-go in `spectrum_terms`, which asserts no causation. A hub is also distinct from a
+(frequency is a claim about patients; a hub makes none). Its constituent findings, where
+known, are ordinary phenotype entries beside it. A hub is also distinct from a
 pathophysiology node such as "disrupted eye development", which binds GO and asserts a
 process: no HP slot is being added to `Pathophysiology`.
 

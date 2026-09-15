@@ -2,8 +2,9 @@
 
 A phenotype bound to `HP:0000478` *Abnormality of the eye* validates, renders,
 exports, and lands in the right browser facet — while saying almost nothing.
-`Schaaf-Yang_Syndrome` named strabismus, esotropia and myopia in its
-`description` and then discarded all three in the binding.
+`Schaaf-Yang_Syndrome` used to name strabismus, esotropia and myopia in its
+`description` and then discard all three in the binding; they are now three
+ordinary phenotypes, which is what this page will tell you to do.
 
 Usually that is a curator who stopped early. But three legitimate reasons for a
 coarse binding exist, and the knowledge base already carried all three written as
@@ -50,53 +51,56 @@ phenotype_term:
   term:
     id: HP:0000478
     label: Abnormality of the eye
-  coarse_binding_basis: SPECTRUM_SUMMARY
+  coarse_binding_basis: VARIABLE_SPECTRUM
 ```
 
-Each value carries a requirement, checked wherever the value appears.
+Two of the four values are bare declarations with nothing further to supply;
+the other two carry a requirement, checked wherever the value appears.
 
-### `SPECTRUM_SUMMARY`
+### `VARIABLE_SPECTRUM`
 
-Many distinct findings, variable between patients, where one summary phenotype is
-the honest grain. Record the constituents in `spectrum_terms` rather than leaving
-them in prose. They carry HP terms but no frequency and no evidence of their own,
-because the summary phenotype's evidence covers them — so the spectrum costs a
-term lookup, not a fully curated phenotype per finding.
+Involvement of the system is real and recurrent, but its form varies between
+patients with no characteristic finding to bind — pleiotropy and variable
+expressivity, where picking terms to list would be arbitrary. The node's content
+is the organ-system involvement itself, usually with an aggregate frequency the
+source measured at that level.
 
 ```yaml
+- category: Ophthalmologic
+  name: Eye Abnormalities
   phenotype_term:
     preferred_term: Eye abnormality
     term:
       id: HP:0000478
       label: Abnormality of the eye
-    coarse_binding_basis: SPECTRUM_SUMMARY
-    spectrum_terms:
-    - preferred_term: strabismus
-      term:
-        id: HP:0000486
-        label: Strabismus
-    - preferred_term: esotropia
-      term:
-        id: HP:0000565
-        label: Esotropia
-    - preferred_term: myopia
-      term:
-        id: HP:0000545
-        label: Myopia
+    coarse_binding_basis: VARIABLE_SPECTRUM
   frequency: FREQUENT
+  evidence: [...]
 ```
 
-At least two constituents are required, none may itself be coarse, and none may
-repeat the summary term. These terms **are** term-validated: `spectrum_terms` has
-range `PhenotypeDescriptor`, whose `term` is enum-bound, so a fabricated label
-there fails `just validate-terms` — unlike a term hidden in `qualifiers`.
+**It takes no companion slot.** Stating the reason is the whole obligation, and
+that follows from what the value means: a spectrum is the case where the findings
+cannot be pinned down, so a rule requiring them to be listed would demand exactly
+what is unavailable.
 
-Use a first-class `phenotypes` entry instead whenever a finding has its own
-frequency or evidence. The spectrum list is for findings the source bundles.
+**If you can list the findings, they are not a spectrum — they are phenotypes.**
+Where the source names specific findings and you have a quote for them, curate
+each as an ordinary `phenotypes` entry with its own term and evidence. That is
+strictly better than recording them inside the coarse binding: they appear in the
+phenotype table, count toward the browser facets, reach the exports, and can be
+targeted by a `phenotypes#` entity reference or a pathograph edge.
 
-Worked example: `Schaaf-Yang_Syndrome`, whose cited snippet reads "eye
-abnormalities in the form of strabismus, esotropia, or myopia" — the three
-constituents come from the quote itself.
+Worked example: `Schaaf-Yang_Syndrome`. Its cited sentence reads "Eleven of 14
+patients manifested eye abnormalities in the form of strabismus, esotropia, or
+myopia." Strabismus, esotropia and myopia are each curated as their own
+phenotype, citing that sentence and carrying no frequency, because the source
+gives no per-finding counts. The coarse node keeps the one thing only it can say:
+the 11/14 aggregate rate, and the fact that which form a patient has varies.
+
+A slot named `spectrum_terms`, for listing constituents inside the binding, was
+built and removed before this shipped. It produced second-class annotations no
+downstream consumer could see, and it inverted the value's meaning. Do not
+reintroduce it; `test_the_schema_has_no_slot_for_listing_a_spectrum` says so.
 
 ### `SOURCE_UNSPECIFIED`
 
@@ -171,10 +175,10 @@ Two things about hubs are easy to get wrong.
 of this design required outgoing `sequelae` into the specific findings. That is
 wrong: `sequelae` is a `CausalEdge`, and a coloboma is not *caused by* an eye
 abnormality — it *is* one. Requiring those edges would have had curators drawing
-an is-a hierarchy as a causal chain to satisfy a guard, corrupting the graph. If
-a hub's constituents are worth naming, put them in `spectrum_terms`, which
-asserts no causation. Outgoing `sequelae` remain fine where they are genuinely
-causal.
+an is-a hierarchy as a causal chain to satisfy a guard, corrupting the graph. A
+hub reached by a mechanism is complete on its own; its constituent findings,
+where known, are ordinary phenotype entries beside it. Outgoing `sequelae` remain
+fine where they are genuinely causal.
 
 **A hub is not a "disruption of eye development" node.** That node belongs in
 `pathophysiology`, binds GO (`GO:0001654` with a `modifier:`), and asserts a
@@ -185,7 +189,7 @@ and a pathophysiology node sharing one name collapse into a single graph node
 ([#9896](https://github.com/monarch-initiative/dismech/issues/9896)), so phrase
 hub names as outcomes rather than processes.
 
-**A hub with a frequency is a `SPECTRUM_SUMMARY`.** Frequency is a claim about
+**A hub with a frequency is a `VARIABLE_SPECTRUM`.** Frequency is a claim about
 patients, and a hub makes none.
 
 ## The guard
@@ -226,7 +230,7 @@ just list-coarse-phenotypes | head -30
 `HP:0002664` Neoplasm (47) and `HP:0000478` Abnormality of the eye (36) are half
 of it. Neoplasm is the best place to start: in cancer-predisposition entries the
 specific tumour types are usually already curated as sibling phenotypes, so the
-decision is `SPECTRUM_SUMMARY` versus `PATHOGRAPH_HUB` rather than new research.
+decision is `VARIABLE_SPECTRUM` versus `PATHOGRAPH_HUB` rather than new research.
 
 Do not clear a row by picking a narrower term the source does not support. If
 none of the four values fits and no specific term is defensible, leave the row
