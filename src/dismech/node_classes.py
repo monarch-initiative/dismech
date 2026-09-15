@@ -402,13 +402,13 @@ def main(argv: list[str] | None = None) -> int:
         "--check-definitions",
         action="store_true",
         help="check every `=` line's CURIE labels against cache/<prefix>/terms.csv "
-        "(offline; a term absent from the cache is reported as unresolved)",
+        "(offline; a term absent from the cache is reported but not failed)",
     )
     parser.add_argument(
         "--online",
         action="store_true",
         help="with --check-definitions: resolve labels from the ontology (OLS) "
-        "instead of the local caches",
+        "instead of the local caches; there an unresolved CURIE is a failure",
     )
     parser.add_argument(
         "--evaluate",
@@ -434,14 +434,20 @@ def main(argv: list[str] | None = None) -> int:
             check_labels,
             curie_labels,
             ontology_label_lookup,
+            triage_label_problems,
         )
 
         defined = [n.parsed_definition for _, n in iter_classes(roots) if n.definition]
         lookup = ontology_label_lookup() if args.online else cache_label_lookup()
-        for problem in check_labels(curie_labels(d for d in defined if d), lookup):
-            print(f"{args.path}: definition term {problem}", file=sys.stderr)
-            if "unresolved" not in problem:
-                problems.append(f"definition term {problem}")
+        source = "the ontology" if args.online else "the term cache"
+        found = check_labels(curie_labels(d for d in defined if d), lookup)
+        # Offline, an unresolved CURIE is merely unchecked and is reported
+        # without failing. Online the ontology is authoritative, so a CURIE it
+        # does not know is a fabricated term and fails the run.
+        failures, unchecked = triage_label_problems(found, authoritative=args.online)
+        for problem in unchecked:
+            print(f"{args.path}: definition term {problem.render(source)} -- not checked", file=sys.stderr)
+        problems.extend(f"definition term {p.render(source)}" for p in failures)
         print(f"checked {len(defined)} definitions", file=sys.stderr)
 
     if args.evaluate:

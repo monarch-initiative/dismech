@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -42,10 +43,23 @@ DESCRIPTOR_SLOTS = frozenset({
     "protein_complexes", "genes", "triggers", "pathways", "assays",
 })
 
-#: ``ModifierEnum`` permissible values (``src/dismech/schema/dismech.yaml``).
-MODIFIER_VALUES = frozenset({
-    "INCREASED", "DECREASED", "ABNORMAL", "DYSREGULATED", "ABSENT",
-})
+SCHEMA_PATH = Path(__file__).parent / "schema" / "dismech.yaml"
+
+
+@lru_cache(maxsize=1)
+def modifier_values(schema_path: str | Path = SCHEMA_PATH) -> frozenset[str]:
+    """``ModifierEnum`` permissible values, read from the schema.
+
+    Read rather than copied so the vocabulary cannot drift from
+    ``src/dismech/schema/dismech.yaml`` -- the hazard CLAUDE.md records under
+    *Retired Enum Values*: a hand-copied enum has no gate keeping it in sync.
+    """
+    import yaml
+
+    with Path(schema_path).open(encoding="utf-8") as fh:
+        schema = yaml.safe_load(fh)
+    values = schema["enums"]["ModifierEnum"]["permissible_values"]
+    return frozenset(str(v) for v in values)
 
 CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*:[A-Za-z0-9._-]+$")
 PREFIX_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
@@ -131,7 +145,7 @@ def parse_definition(text: str) -> Definition:
         if i < len(tokens) and tokens[i] == "modifier":
             take()
             modifiers = tuple(take().split("|"))
-            bad = [m for m in modifiers if m not in MODIFIER_VALUES]
+            bad = [m for m in modifiers if m not in modifier_values()]
             if bad:
                 raise DefinitionError(f"unknown modifier value(s) {bad}")
         conj.append(Atom(slot, term, label, negated, modifiers))
@@ -209,22 +223,71 @@ def curie_labels(definitions: Iterable[Definition]) -> dict[str, str | None]:
     return out
 
 
+WRONG_LABEL = "WRONG_LABEL"
+UNRESOLVED = "UNRESOLVED"
+
+
+@dataclass(frozen=True)
+class LabelProblem:
+    """One CURIE in a definition that the lookup could not vouch for.
+
+    ``kind`` is :data:`WRONG_LABEL` (the lookup knows the term and its label
+    differs from the claimed one) or :data:`UNRESOLVED` (the lookup has no
+    label for the term). What UNRESOLVED *means* depends on the lookup, which
+    is why it is typed rather than spelled out here: against the local term
+    caches it is "not checked", against the ontology it is a term that does
+    not exist -- the anti-hallucination case the term-validation stack exists
+    for.
+    """
+
+    curie: str
+    kind: str
+    claimed: str | None = None
+    actual: str | None = None
+
+    def render(self, source: str) -> str:
+        if self.kind == WRONG_LABEL:
+            return f"{self.curie}: label {self.claimed!r} but {source} says {self.actual!r}"
+        return f"{self.curie}: unresolved (not in {source})"
+
+
+def triage_label_problems(
+    problems: Iterable[LabelProblem], *, authoritative: bool
+) -> tuple[list[LabelProblem], list[LabelProblem]]:
+    """Split label problems into ``(failures, unchecked)``.
+
+    A wrong label always fails. An unresolved CURIE fails only when the lookup
+    was ``authoritative`` (the ontology): a term the ontology has never heard
+    of is a fabricated CURIE, whereas a miss in the local cache is merely a
+    term nothing else in the KB happens to use, and is reported as unchecked.
+    """
+    failures, unchecked = [], []
+    for problem in problems:
+        if problem.kind == UNRESOLVED and not authoritative:
+            unchecked.append(problem)
+        else:
+            failures.append(problem)
+    return failures, unchecked
+
+
 def check_labels(
     claimed: dict[str, str | None], lookup: Callable[[str], str | None]
-) -> list[str]:
-    """Compare claimed labels against ``lookup``; returns problem strings.
+) -> list[LabelProblem]:
+    """Compare claimed labels against ``lookup``.
 
-    A CURIE ``lookup`` cannot resolve is reported as *unresolved* rather than
-    wrong, so an offline run against the term caches stays honest about what
-    it did not check.
+    Returns one :class:`LabelProblem` per CURIE the lookup cannot vouch for.
+    The caller decides whether ``UNRESOLVED`` is a failure: it is not for a
+    cache lookup (a cache miss is simply unchecked) and it is for an ontology
+    lookup (the ontology is authoritative, so a term it has never heard of is
+    a fabricated CURIE).
     """
     problems = []
     for curie, label in sorted(claimed.items()):
         actual = lookup(curie)
         if actual is None:
-            problems.append(f"{curie}: unresolved (not in cache)")
+            problems.append(LabelProblem(curie, UNRESOLVED, label, None))
         elif label is not None and actual != label:
-            problems.append(f"{curie}: label {label!r} but ontology says {actual!r}")
+            problems.append(LabelProblem(curie, WRONG_LABEL, label, actual))
     return problems
 
 
@@ -359,7 +422,7 @@ def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorF
                 continue
             kb_matched += 1
             owner = example_owner.get(key)
-            if owner is not None and owner != trail and not owner[: len(trail)] == trail:
+            if owner is not None and owner != trail and owner[: len(trail)] != trail:
                 cross[owner] = cross.get(owner, 0) + 1
         reports.append(ClassEvaluation(trail, cls.definition, len(own), matched_own, kb_matched, cross))
     return reports

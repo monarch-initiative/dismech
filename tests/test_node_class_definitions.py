@@ -4,14 +4,24 @@ from __future__ import annotations
 
 import pytest
 
+from pathlib import Path
+
+import yaml
+
 from dismech.node_class_definitions import (
+    UNRESOLVED,
+    WRONG_LABEL,
     DefinitionError,
     check_labels,
     curie_labels,
     evaluate,
+    modifier_values,
     no_closure,
     parse_definition,
+    triage_label_problems,
 )
+
+SCHEMA = Path(__file__).parent.parent / "src" / "dismech" / "schema" / "dismech.yaml"
 
 DEATH = "biological_processes some GO:0008219 'cell death'"
 
@@ -106,5 +116,34 @@ def test_label_check_reports_wrong_and_unresolved_labels():
     assert claimed == {"GO:0008219": "cell death", "CL:0000232": "erythrocyte"}
     lookup = {"GO:0008219": "cell death", "CL:0000232": "red blood cell"}.get
     problems = check_labels(claimed, lookup)
-    assert problems == ["CL:0000232: label 'erythrocyte' but ontology says 'red blood cell'"]
-    assert check_labels({"GO:0000001": None}, lambda _: None) == ["GO:0000001: unresolved (not in cache)"]
+    assert [(p.curie, p.kind) for p in problems] == [("CL:0000232", WRONG_LABEL)]
+    assert problems[0].render("the ontology") == (
+        "CL:0000232: label 'erythrocyte' but the ontology says 'red blood cell'"
+    )
+    missing = check_labels({"GO:9999999": None}, lambda _: None)
+    assert [(p.curie, p.kind) for p in missing] == [("GO:9999999", UNRESOLVED)]
+    assert missing[0].render("the term cache") == "GO:9999999: unresolved (not in the term cache)"
+
+
+def test_unresolved_curie_fails_only_against_an_authoritative_lookup():
+    """A fabricated CURIE must not pass the online check (review of #11132)."""
+    wrong, missing = check_labels(
+        {"CL:0000232": "erythrocyte", "GO:9999999": "made up"},
+        {"CL:0000232": "red blood cell"}.get,
+    )
+    assert (wrong.kind, missing.kind) == (WRONG_LABEL, UNRESOLVED)
+    offline_fail, offline_unchecked = triage_label_problems([wrong, missing], authoritative=False)
+    assert offline_fail == [wrong] and offline_unchecked == [missing]
+    online_fail, online_unchecked = triage_label_problems([wrong, missing], authoritative=True)
+    assert online_fail == [wrong, missing] and online_unchecked == []
+
+
+def test_modifier_values_are_read_from_the_schema():
+    """The definition language's modifier vocabulary is the schema's, not a copy."""
+    with SCHEMA.open(encoding="utf-8") as fh:
+        schema = yaml.safe_load(fh)
+    expected = set(schema["enums"]["ModifierEnum"]["permissible_values"])
+    assert modifier_values() == expected
+    assert {"GAIN_OF_FUNCTION", "LOSS_OF_FUNCTION"} <= modifier_values()
+    d = parse_definition("biological_processes some GO:0007165 modifier GAIN_OF_FUNCTION")
+    assert d.disjuncts[0][0].modifiers == ("GAIN_OF_FUNCTION",)

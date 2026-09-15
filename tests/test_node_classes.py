@@ -246,14 +246,19 @@ def test_committed_tree_definitions_parse_and_cached_labels_are_right():
     """Every `=` line parses (the parser enforces it) and no label contradicts
     the term cache. A term absent from the cache is *unresolved*, not wrong --
     `just node-classes --check-definitions --online` is the authoritative run."""
-    from dismech.node_class_definitions import cache_label_lookup, check_labels, curie_labels
+    from dismech.node_class_definitions import (
+        cache_label_lookup,
+        check_labels,
+        curie_labels,
+        triage_label_problems,
+    )
 
     roots = parse_file(TREE)
     defined = [n.parsed_definition for _, n in iter_classes(roots) if n.definition]
     assert len(defined) >= 40
     problems = check_labels(curie_labels(defined), cache_label_lookup(ROOT / "cache"))
-    wrong = [p for p in problems if "unresolved" not in p]
-    assert not wrong, "\n".join(wrong)
+    wrong, _unchecked = triage_label_problems(problems, authoritative=False)
+    assert not wrong, "\n".join(p.render("the term cache") for p in wrong)
 
 
 def test_committed_tree_definitions_sit_on_cascade_tiers_not_judgement_classes():

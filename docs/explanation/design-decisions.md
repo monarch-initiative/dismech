@@ -1441,3 +1441,43 @@ should work from this list:
    term-request id** rather than free prose? Otherwise the migration converts a silent
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
+
+## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+
+**Decision.** The pathograph node-class tree
+(`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
+**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
+schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
+`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
+§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
+terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
+slots a node already binds, checked against those ontologies.
+
+**Why `kb/` and not `docs/`.** The tree began life as a design artifact under
+`docs/superpowers/`, and the argument for moving it is that its leaves are real
+`(node, disease)` pairs verified against the KB on every run: it drifts when curation
+renames a node, exactly as a pathograph target does, and the fix is a curation edit, not
+a documentation edit. Content that rots with the KB and is repaired by curating belongs
+with the KB. Nothing in `kb/` depends on it yet, which is the difference between "curated
+content" and "a slot": the vocabulary is being stabilised against worked examples
+(seven random draws so far; new leaves per draw have run 9, 4, 0, 2, 5, 0, 1) before
+anything is asked to conform to it.
+
+**How it relates to "not a new ontology" (§1).** The classes are *kinds of causal claim*
+ordered as a cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue, systemic, outcome) plus a few cross-cutting judgement classes
+(disposition, compensation, intervention point). MPATH and NCIt were checked as prior art
+and neither carries that axis: MPATH classifies lesions as a pathologist sees them and
+stops at the cell, NCIt's *Pathologic Process* is a flat list. So the axis is DisMech's
+own, but the *leaves* are anchored to existing ontologies wherever a term exists, and
+the classes without a definition are the ones no ontology term can decide (a standing
+disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
+
+**What would change this.** Two things are deliberately deferred. (1) A `node_class`
+slot on `Pathophysiology`, which would also settle whether it supersedes
+`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
+thing would be worse than either). (2) Deriving the seed table from the definitions and
+retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
+record is
+[`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
+the tree's own build notes record what each draw forced.

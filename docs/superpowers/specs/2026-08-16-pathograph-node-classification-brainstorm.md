@@ -727,6 +727,10 @@ avoid manufacturing disagreement:
 - **28 hub roles at a source** (16 `amplifier`, 12 `central_effector`) -- an
   amplifier with nothing upstream to amplify is a naming problem or a missing
   edge, and either way the tag is doing no work.
+- **40 assorted** make up the rest of the 154: 5 `biomarker` nodes with no
+  readout edge, and small counts of other position roles at the wrong end of
+  their chain (`effector`, `consequence`, `upstream_effector`, `mediator`),
+  none frequent enough to be a pattern on its own.
 
 ### What is not derivable, and is worth keeping
 
@@ -736,7 +740,9 @@ and `central_effector` (the convergence hub the disease turns on) are 95-98%
 interior and topology cannot tell them apart. **1,227 derived nodes carry one
 of those three**, and that distinction -- a curatorial judgement about causal
 *function* -- is the only part of `role` the first census argued deserves a
-curated slot. Everything else the slot holds is either the edges (compute it)
+curated slot. `intermediate` (116 nodes, 100% interior) is deliberately not
+counted with them: it claims nothing beyond the position itself, so it is
+fully derived rather than a residue. Everything else the slot holds is either the edges (compute it)
 or the node-class tree (migrate it to a leaf).
 
 `therapeutic_vulnerability` confirms the other half of that argument from the

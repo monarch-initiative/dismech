@@ -176,7 +176,9 @@ FACETS = ("POSITION", "INTERFACE", "DISPOSITION", "COMPENSATION",
 
 #: Interior roles whose *distinction* from each other topology cannot recover.
 #: Their position is derivable; which of these three a node is is the one part
-#: of ``role`` the design doc argues is worth keeping curated.
+#: of ``role`` the design doc argues is worth keeping curated. ``intermediate``
+#: is deliberately not here: it is 100% interior and claims nothing beyond the
+#: position itself, so it is fully derived rather than a residue.
 CAUSAL_FUNCTION_RESIDUE = frozenset({"mediator", "amplifier", "central_effector"})
 
 
@@ -214,6 +216,8 @@ class AuditResult:
     total_nodes: int = 0
     #: raw spelling -> count, for the casing report
     raw_spellings: Counter = field(default_factory=Counter)
+    #: KB files that could not be parsed and were left out of the census
+    skipped_files: list[str] = field(default_factory=list)
 
 
 def _targets(items: Iterable[Any], slot: str) -> Iterator[str]:
@@ -251,6 +255,12 @@ def compute_positions(
     as ``phenotype_out`` but still counts as an out-edge for the position: a
     trigger whose only downstream is a phenotype is a source, not an isolate.
     ``out_degree`` in the tuple counts pathophysiology targets only.
+
+    A self-target is not an edge. When a pathophysiology node shares its name
+    with a phenotype (the flat-namespace collision of #9896) that self-target
+    is counted as a phenotype exit instead, which can make the node a
+    ``SOURCE``; every committed case is a node pointing at its own phenotype,
+    so that reading is the intended one.
     """
     names = [str(n.get("name", "")) for n in nodes if isinstance(n, dict)]
     name_set = set(names)
@@ -323,6 +333,7 @@ def audit(kb_dirs: Iterable[Path] = DEFAULT_KB_DIRS) -> AuditResult:
             try:
                 data = safe_load(path.read_text(encoding="utf-8"))
             except Exception:  # a malformed KB file is not this tool's business
+                result.skipped_files.append(str(path))
                 continue
             if not isinstance(data, dict):
                 continue
@@ -450,6 +461,8 @@ def _print_summary(result: AuditResult) -> None:
     s = summarize(result)
     tagged = s["tagged"] or 1
     print(f"pathophysiology nodes      {s['total_nodes']}")
+    if result.skipped_files:
+        print(f"  files skipped (unparsable) {len(result.skipped_files):4d}  -- census understated by their nodes")
     print(f"  carrying a role          {s['tagged']:6d}  ({100*s['tagged']/(s['total_nodes'] or 1):.1f}%)")
     print(f"  raw spellings            {s['raw_spellings']:6d}")
     print(f"  after normalisation      {s['normalized_values']:6d}")
