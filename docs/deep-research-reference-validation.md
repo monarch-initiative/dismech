@@ -15,8 +15,14 @@ and writes the answer into the report.
 ## What gets checked
 
 `deep-research-client[validation]` delegates to `linkml-reference-validator` —
-the same library behind `just fetch-reference` and `just validate-references` —
-so the rules are the ones dismech already uses.
+the same library behind `just fetch-reference` and `just validate-kb-references` —
+so the rules are the ones dismech already uses. Same library, different
+question: `validate-kb-references` asks whether the snippets *inside a KB
+entry* appear in the papers they cite, while the check described here asks
+whether a *report's* citations exist and its quotes hold up. (The
+deep-research-client subcommand doing the latter is itself called
+`validate-references`, which is why the dismech recipe carries `kb` in its
+name — issue #8841.)
 
 Because this path both reads and writes `references_cache/`, the recipes invoke
 it through `scripts/run_deep_research_client.sh`, which applies dismech's
@@ -27,6 +33,10 @@ record whose frontmatter contains a literal `---` is truncated on read and
 reported as a **false unresolved reference**, and the guidance below tells you
 not to cite unresolved references. Do not call `deep-research-client` directly
 for anything that validates; go through the wrapper or the recipes.
+
+The wrapper also keeps Biomni out of provider discovery and automatic fallback
+unless `DISMECH_ENABLE_BIOMNI=1` is set. This positive opt-in is required even
+when the Biomni package and an underlying model credential are installed.
 
 - **Every PMID and DOI in the report body and citation list** is resolved
   against PubMed, Crossref and DataCite. An identifier that returns nothing is
@@ -55,7 +65,7 @@ undecided remainder.
 The relevance check **costs nothing extra** — no additional lookups, since it
 reads records the existence check already fetched. It is on by default; disable
 it with `--validation-no-relevance` on a research run, or
-`--no-check-relevance` on `validate-references`.
+`--no-check-relevance` on the client's `validate-references` subcommand.
 
 An off-topic flag is **a clue, not a verdict.** The reference resolved, so it is
 not a fabrication; it simply shares almost none of the report's vocabulary. A
@@ -68,6 +78,35 @@ reassuring `confabulation_rate`.
 Lookups are cached into `references_cache/`, the same directory the KB
 validators read. A reference checked at report time does not need re-fetching
 when it is later cited from a `kb/` entry.
+
+### Dataset and computation boundary
+
+Reference validation is intentionally literature-focused. It does not establish
+that a dataset accession exists, that the dataset is about the right disease, or
+that a provider downloaded or analyzed it. Dataset identifiers skipped by the
+reference resolver are not thereby validated.
+
+For a provider report or hypothesis assessment, verify supported accessions
+separately:
+
+```bash
+just verify-datasets --accession geo:GSE197406
+```
+
+Then inspect the repository metadata for disease/entity identity, organism,
+tissue, cohort, assay, and comparison relevance. The resolver answers "does this
+record exist?", not "is it the correct input?" A real gene-only or sibling-
+disease record can pass accession verification and still be unsuitable.
+
+Nor does citation validation prove that a reported computation ran. Preserve an
+input -> method/software/parameters -> code/environment -> output chain in the
+provider artifacts and structured hypothesis assessment. Distinguish a source
+that was cited but not accessed, a scoped search with no result, and data that
+were actually accessed. An accessed source or negative search needs a committed
+query response, input manifest, or search log; prose alone is not an auditable
+access record. Distinguish a successful analysis from a partial, failed,
+skipped, or prose-only reported run. See
+[Hypothesis Report Assessments and Reconciliation](hypothesis-report-assessments.md).
 
 ## Where to read the results
 
@@ -179,6 +218,26 @@ That last caveat is the honest one and worth keeping in mind: a network failure
 and a fabricated identifier look identical from here. Treat "unresolved" as
 "check this by hand", not as proof of fabrication.
 
+### Across the whole tree
+
+The per-report blocks add up. `just dr-validation-census` walks every
+`*-deep-research-*.md` under `research/` (including the `modules/` and
+`surrogacy/` subdirectories the module and surrogacy recipes write to), sums the frontmatter counters, and prints
+totals plus a per-provider table — offline, from what is already on disk:
+
+```bash
+just dr-validation-census                  # totals + per-provider table
+just dr-validation-census --format tsv     # one row per report
+just dr-validation-census --needs-review   # the reports flagged for a look
+```
+
+It distinguishes reports validated at generation time (frontmatter block)
+from retro-fitted ones (body section only, whose counters are not
+machine-readable) and from the unvalidated majority. Rates come from the sums;
+a key a report omits counts as zero. The same blind spots as the per-report
+block apply — it cannot see NEC, misattribution, or the snippet later pasted
+into `kb/`.
+
 ## Generating a validated report
 
 Nothing to remember — it is on by default in every research recipe:
@@ -191,6 +250,11 @@ just research-comorbidity openai com_Foo__Bar
 
 The report is written to disk **before** validation runs, so a network failure
 during validation costs you the validation section, never the report.
+
+That preservation behavior is not permission for weak fallback. If a provider's
+scientific tools, data lake, or dataset access fail, retain the report but make
+the failure and any literature/model-knowledge fallback explicit. Do not present
+the fallback as a completed computational analysis.
 
 To skip it — quick iteration, or no network:
 
@@ -216,7 +280,7 @@ Other options `deep-research-client` accepts, if you need them for a one-off
 | `--validation-no-relevance` | Turn off the topical-relevance check. It is free and on by default, so there is rarely a reason to. |
 | `--fail-on-unresolved` | Exit non-zero when anything failed to resolve *or* any quote is unsupported. Off-topic references are excluded on purpose. For pipelines, not interactive runs. |
 
-(On the standalone `validate-references` subcommand the relevance switch is
+(On the client's standalone `validate-references` subcommand the relevance switch is
 spelled `--no-check-relevance`.)
 
 ## Checking a report that already exists
@@ -246,13 +310,13 @@ read the section at the bottom; the frontmatter will not mention validation.
 For a non-destructive look, or JSON for tooling, call the underlying command:
 
 ```bash
-uv run deep-research-client validate-references research/Foo-deep-research-falcon.md
-uv run deep-research-client validate-references research/Foo.md --json /tmp/report.json
+scripts/run_deep_research_client.sh validate-references research/Foo-deep-research-falcon.md
+scripts/run_deep_research_client.sh validate-references research/Foo.md --json /tmp/report.json
 ```
 
 ## What this does **not** replace
 
-A clean counts table is not permission to skip the evidence SOP. Three distinct
+A clean counts table is not permission to skip the evidence SOP. Four distinct
 things stay exactly as they were:
 
 **1. KB snippet validation.** This checks the *report's* citations. It says
@@ -284,15 +348,22 @@ make survives an existence check untouched. Quote checking catches some of this
 where the report actually quotes its source, but a report that *paraphrases* a
 paper into a claim the paper never made is not detectable here (issue #7791).
 
+**4. Dataset and analysis provenance.** A report can cite a real GEO accession
+without accessing it, or report a numerical result without preserving code or
+outputs. Reference validation does not detect either problem. Verify accessions
+and relevance separately, inventory the provider's data sources and analyses,
+and downgrade any computation that lacks an auditable input-to-output chain.
+
 The one-line version: this closes the "does the citation exist" gap and part of
 the "does the quote appear in it" gap, at report time instead of hours later. It
-does not close "is it about the right disease" or "does it say what the report
-claims".
+does not close "is it about the right disease", "does it say what the report
+claims", or "did the provider actually run the reported analysis".
 
 ## Related
 
 - CLAUDE.md §2a (DR outputs need extra verification) and §2b (Named Entity
   Confusion)
+- [Hypothesis Report Assessments and Reconciliation](hypothesis-report-assessments.md)
 - [Quality Control & Compliance](quality-control.md)
 - Issue #8432 (this integration), #8685 (the 0.2.10 relevance check),
   #4525 (recording hallucinated DR citation IDs), #7791 (misattribution the
