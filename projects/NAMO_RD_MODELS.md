@@ -69,6 +69,11 @@ dismech remains disease-centric while NAMO is model-centric.
 ### Crohn_Disease / IBD Bridge
 - Primary human small-intestinal monolayer barrier model from UNC
 
+### Ulcerative_Colitis
+- Biopsy-derived UC colonoid air-liquid interface model
+- Cytokine-conditioned hiPSC-derived colon organoid UC model
+- Human colon-on-chip mucus barrier model
+
 ## Aadra Bhatt / UNC Note
 The user's requested UNC lead appears to be Aadra P. Bhatt.
 
@@ -88,8 +93,6 @@ should wait for a directly attributable host-microbe coculture, organoid, or
 microbiome paper tied to Crohn_Disease or broader IBD.
 
 ## Next Expansion Targets
-- Add Ulcerative_Colitis alongside Crohn_Disease if a stronger microbiome coculture
-  model is identified.
 - Add Cystic_Fibrosis intestinal organoid-monolayer as a separate bridge case if we want
   explicit coverage of organoid-derived 2D systems.
 - Consider a follow-on schema refinement for `functional_assays` and `concordance`
