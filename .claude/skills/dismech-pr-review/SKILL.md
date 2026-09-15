@@ -259,9 +259,33 @@ mandatory baseline where applicable. The goal is not to "box-check" GeneReviews 
 cited — it is to **actively mine** GeneReviews as an authoritative clinical source
 and back specific claims with quoted snippets from each major section.
 
-**Step 1 — Is a GeneReviews article tagged?**
+**Step 1 — Does a GeneReviews chapter exist, and is it tagged?**
 
-Check the top-level `references:` block for an entry with `tags: [GeneReviews]`.
+Run the offline check. It works in the review sandbox (no network needed — it
+reads the committed Bookshelf index under `cache/bookshelf/`) and it is what
+replaces the PubMed `curl` this step used to ask for:
+
+```bash
+just check-genereviews kb/disorders/<Entry>.yaml
+```
+
+Read the `GeneReviews` line of its report (the `StatPearls` line is
+informational; see below):
+
+| Verdict | What to do |
+|---|---|
+| `TAGGED` | proceed to Step 2 |
+| `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
+| `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
+| `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
+| `CANDIDATE_CHAPTER` | a partial title match (`CONTAINS` / `TITLE_IN_NAME` / `NEAR`) or a retired chapter: **read the title** and decide; this is the judgement the check leaves to you |
+| `NO_CHAPTER` | nothing in the snapshot names this entry — no action, and the entry's "no GeneReviews chapter" note is verified |
+
+The index is a dated snapshot (the summary line prints the date). A chapter
+published since then is missed; when you have network, `--online` adds a live
+title search, but never treat its absence as a failure of the entry.
+
+The tag it is looking for:
 
 ```yaml
 references:
@@ -270,16 +294,13 @@ references:
       - GeneReviews
 ```
 
-If no such tag exists, search PubMed:
-```bash
-curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE NAME>[TI] GeneReviews[TI]"
-```
-
-- If a GeneReviews article **exists** and is **not tagged** in a new Mendelian entry,
-  that is a **blocking omission** — flag it as `REQUEST_CHANGES`.
-- If no GeneReviews article exists, no action needed.
+**StatPearls is not GeneReviews.** The report's `StatPearls` line says whether a
+StatPearls chapter names the disease. StatPearls is a point-of-care reference
+across all of medicine with a light editorial process; it may be cited (and
+tagged `StatPearls`) for orientation, but it is never the phenotype baseline, and
+its absence is never a gap. Do not ask a curator to mine it, and do not accept it
+in place of a GeneReviews chapter that the check says exists. See
+`docs/genereviews-baseline-check.md`.
 
 **Step 2 — If GeneReviews is tagged, verify the cache exists**
 
@@ -334,6 +355,51 @@ cited in evidence items) is **blocking**.
 Absence of a GeneReviews-documented phenotype that affects >10% of patients
 is **blocking** under the same threshold as the Content-Completeness Checklist.
 
+## Reference Titles and Publication Relevance
+
+**Every NEW evidence block and every NEW disease-level publication in the diff must carry
+a title**, and the reviewer must use that title to judge whether the publication is
+actually relevant to the claim it is attached to.
+
+This is a review requirement, not a validator one, and it is deliberately stricter than
+the `recommended: true` flags on `EvidenceItem.reference_title` and
+`PublicationReference.title`. Two gaps make the human read necessary:
+
+- Nothing checks an `EvidenceItem.reference_title` against the real publication. A
+  deliberately wrong `reference_title` passes `linkml-reference-validator` with "All
+  validations passed" (verified). Only `PublicationReference.title` is machine-checked.
+- A title can be present, correct, and still belong to a paper that does not support the
+  claim. `just count-verified-snippets` proves the quote is *in* the source; it cannot
+  tell you the source is *about the right thing*.
+
+The title is the cheapest relevance signal available — it is right there in the diff, and
+reading it costs nothing. Use it.
+
+### Checklist — apply to every added or modified evidence item and `references[]` entry
+
+1. **Title present.** Each NEW `evidence:` item has `reference_title`; each NEW
+   `references[]` entry has `title`. Absent → request changes. (Pre-existing untitled
+   items elsewhere in the file are backlog, not this PR's problem — do not block on them.)
+2. **Title matches the identifier.** Spot-check the title against
+   `references_cache/<ID>.md` frontmatter. A title that disagrees with the cache is either
+   a copy-paste error or a fabricated citation — treat it as the latter until shown
+   otherwise.
+3. **Publication is on-topic for the disease.** Does the title concern the entry's
+   disease, gene, or mechanism? A title about a different disease is the Named Entity
+   Confusion signature (CLAUDE.md §2b) and is blocking.
+4. **Publication is on-topic for *this* claim.** A real, on-disease paper cited for a
+   claim it does not make is the failure mode of issue #7791. Ask: could this title
+   plausibly be the source of this specific assertion?
+5. **Study type matches `evidence_source`.** A title naming a mouse or cell-line study
+   attached to `HUMAN_CLINICAL` is a misclassification — check the abstract before
+   accepting.
+6. **Title is not doing a snippet's job.** If the `snippet` is the paper's title rather
+   than its finding, that is §6 of the evidence SOP — request an abstract sentence
+   stating the result instead.
+
+Record the outcome in the review body — e.g. "12 new evidence items, all titled; spot-checked
+4 against cache; PMID:X title is about hepatic fibrosis but is cited for a renal claim."
+
 ## Review Decision: Formal GitHub Review
 
 After completing the review, you MUST submit a formal GitHub review (not just a comment).
@@ -346,6 +412,7 @@ Submit `--approve` when **all** of the following hold:
 - All pathophysiology entries are atomic (not chained multi-step sentences)
 - When matching deep-research artifacts exist, the **Content-Completeness Checklist** was completed and no blocking omissions remain across any dimension (phenotypes, subtypes, pathophysiology, treatments, genetics, biomarkers, references)
 - GeneReviews baseline check completed (item 15): if a GeneReviews article exists, it is tagged, cached, and **actively mined** — evidence items with GR snippets exist for ≥1 claim in each of the four major sections present in the GR abstract (Clinical Characteristics, Diagnosis, Management, Genetic Counseling)
+- **Reference-title check completed** (see "Reference Titles and Publication Relevance"): every NEW evidence item carries `reference_title` and every NEW `references[]` entry carries `title`, and the titles were read and are consistent with the disease and with the specific claims they evidence
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 
@@ -356,6 +423,8 @@ Submit `--request-changes` when **any one** of the following is true:
 - Significant ontology misuse (e.g., GO MF term in `biological_processes`)
 - Pathophysiology entries bundled into chains rather than single atomic events
 - Claim–evidence mismatch (evidence snippet does not support the stated claim)
+- A NEW evidence item lacks `reference_title`, or a NEW `references[]` entry lacks `title` (pre-existing untitled items elsewhere in the file are backlog and are NOT blocking)
+- A `reference_title` disagrees with the cached publication title, or the title shows the publication is about a different disease or cannot plausibly be the source of the claim it evidences
 - A central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype was omitted even though the supporting evidence is clear, quotable, and in scope for this YAML
 - A GeneReviews article exists for a new Mendelian entry but is not tagged (`tags: [GeneReviews]`) in the top-level `references:` block
 - GeneReviews is tagged but no evidence items in the YAML cite it with exact GR snippets (tagged-but-not-mined)

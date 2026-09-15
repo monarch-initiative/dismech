@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 10
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014163 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -89,6 +89,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -447,31 +457,55 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-17T21:17:14.671483
+**Generated:** 2026-09-06T14:45:21.060075
 
-1. walsh2023thetroublewith pages 1-2
-2. mazzarotto2021systematiclargescaleassessment pages 1-2
-3. walsh2023thetroublewith pages 11-13
-4. fitzsimons2024electrophysiologicalphenotypingof pages 1-3
-5. kolokotronis2019biallelicmutationin pages 7-9
-6. kolokotronis2019biallelicmutationin pages 1-2
-7. arbustini2014leftventricularnoncompaction pages 1-2
-8. sedaghathamedani2017clinicalgeneticsand pages 1-2
-9. mahendran2024emerginghallmarksof pages 6-10
-10. fitzsimons2024electrophysiologicalphenotypingof pages 8-10
-11. fitzsimons2024electrophysiologicalphenotypingof pages 7-8
-12. https://doi.org/10.1007/s12265-023-10459-6.
-13. https://doi.org/10.14814/phy2.16029.
-14. https://doi.org/10.1093/eurheartjsupp/suae002;
-15. https://clinicaltrials.gov/study/NCT06024759
-16. https://clinicaltrials.gov/study/NCT01470014
-17. https://clinicaltrials.gov/study/NCT02568072
-18. https://doi.org/10.3390/cimb46080517.
-19. https://doi.org/10.1093/eurheartjsupp/suae002,
-20. https://doi.org/10.1007/s12265-023-10459-6,
-21. https://doi.org/10.1093/eurheartj/ehx545,
-22. https://doi.org/10.1038/s41436-020-01049-x,
-23. https://doi.org/10.1002/humu.23757,
-24. https://doi.org/10.1016/j.jacc.2014.08.030,
-25. https://doi.org/10.14814/phy2.16029,
-26. https://doi.org/10.5772/intechopen.109098,
+1. probst2011sarcomeregenemutations pages 8-9
+2. llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2
+3. aung2020prognosticsignificanceof pages 1-2
+4. hirono2022thromboemboliceventsin pages 1-2
+5. wang2017awideand pages 1-2
+6. wessels2015compoundheterozygousor pages 2-3
+7. kolokotronis2019biallelicmutationin pages 7-9
+8. wessels2015compoundheterozygousor pages 3-4
+9. martineztittonel2025leftventricularnoncompaction pages 5-7
+10. wessels2015compoundheterozygousor pages 1-2
+11. mori2024metabolicremodelingand pages 1-2
+12. chen2013inactivationofmyosin pages 1-2
+13. sedaghathamedani2017clinicalgeneticsand pages 1-2
+14. hirono2022leftventricularnoncompaction pages 1-2
+15. wessels2015compoundheterozygousor pages 5-6
+16. mazzarotto2020thegeneticarchitecture pages 1-3
+17. https://doi.org/10.1038/ejhg.2014.211
+18. https://doi.org/10.14740/cr1673
+19. https://doi.org/10.1161/CIRCIMAGING.119.009712
+20. https://doi.org/10.1136/openhrt-2021-001908
+21. https://doi.org/10.1038/s41598-024-62530-0;
+22. https://doi.org/10.3390/cells13221913
+23. https://doi.org/10.1161/JAHA.113.000231;
+24. https://doi.org/10.3390/ijms23168840
+25. https://doi.org/10.1038/ejhg.2014.211.
+26. https://doi.org/10.1161/CIRCIMAGING.119.009712.
+27. https://doi.org/10.1136/openhrt-2021-001908.
+28. https://doi.org/10.3390/cells13221913.
+29. https://doi.org/10.1038/s41598-024-62530-0.
+30. https://clinicaltrials.gov/study/NCT06024759.
+31. https://doi.org/10.1161/JAHA.113.000231.
+32. https://doi.org/10.3390/ijms23168840.
+33. https://doi.org/10.1093/eurheartjsupp/suae002.
+34. https://doi.org/10.14740/cr1673.
+35. https://doi.org/10.1093/eurheartjsupp/suae002,
+36. https://doi.org/10.1161/circgenetics.110.959270,
+37. https://doi.org/10.1038/ejhg.2014.211,
+38. https://doi.org/10.1093/eurheartj/ehx545,
+39. https://doi.org/10.21037/cdt-22-198,
+40. https://doi.org/10.1101/2020.01.03.19015602,
+41. https://doi.org/10.1161/jaha.117.006210,
+42. https://doi.org/10.20944/preprints202507.1652.v1,
+43. https://doi.org/10.14740/cr1673,
+44. https://doi.org/10.1161/circimaging.119.009712,
+45. https://doi.org/10.1136/openhrt-2021-001908,
+46. https://doi.org/10.1002/humu.23757,
+47. https://doi.org/10.3390/cells13221913,
+48. https://doi.org/10.1038/s41598-024-62530-0,
+49. https://doi.org/10.3390/ijms23168840,
+50. https://doi.org/10.1161/jaha.113.000231,

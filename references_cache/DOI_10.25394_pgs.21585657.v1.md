@@ -1,0 +1,21 @@
+---
+reference_id: DOI:10.25394/pgs.21585657.v1
+title: ELUCIDATING CELLULAR MECHANISMS UNDERLYING RETINAL GANGLION CELL NEURODEGENERATION IN A HUMAN PLURIPOTENT STEM CELL-DERIVED MODEL
+authors:
+- "Huang, Kang-Chieh"
+journal: Purdue University Graduate School
+year: '2023'
+doi: 10.25394/pgs.21585657.v1
+keywords:
+- Biochemistry and cell biology not elsewhere classified
+content_type: abstract_only
+---
+
+# ELUCIDATING CELLULAR MECHANISMS UNDERLYING RETINAL GANGLION CELL NEURODEGENERATION IN A HUMAN PLURIPOTENT STEM CELL-DERIVED MODEL
+**Authors:** Huang, Kang-Chieh
+**Journal:** Purdue University Graduate School (2023)
+**DOI:** [10.25394/pgs.21585657.v1](https://doi.org/10.25394/pgs.21585657.v1)
+
+## Content
+
+Glaucoma is a leading cause of blindness characterized by the progressive loss of retinal ganglion cells (RGCs), essentially severing the connection between the eye and the brain. Among many underlying causes of the disease, mutations in the Optineurin (OPTN) gene result in severe RGC neurodegeneration in the absence of elevated intraocular pressure, providing a novel opportunity to study molecular mechanisms that lead to RGC neurodegeneration associated with glaucoma. Efforts of this study establishing a human pluripotent stem cell (hPSC)-derived in vitro disease model by inserting OPTN(E50K) mutation via CRISPR/Cas9 genome editing and investigate the cellular mechanisms of RGC neurodegeneration associated with glaucoma. OPTN(E50K) RGCs revealed neurodegeneration phenotypes, including downregulation of RGCs transcription factors, neurite retraction, and hyperexcitability, suggesting that OPTN(E50K) RGCs can serve as an appropriate disease model to study glaucoma-associated neurodegeneration. Since OPTN serves a primary role as an autophagy receptor, we further hypothesized that the OPTN(E50K) mutation disrupts autophagy in RGCs, and modulation of autophagy by mammalian target of rapamycin (mTOR)-independent pathways can preserve RGC phenotypes by maintaining mTOR signaling. OPTN(E50K) RGCs exhibited a higher number of OPTN puncta along with an overall reduced expression of OPTN protein, indicating a gain of toxic protein accumulation or loss of protein function. Furthermore, OPTN(E50K) RGCs revealed an accumulation of the autophagosome protein LC3 in a punctal manner as well as increased expression of lysosomal proteins, suggesting a disruption of degradation pathway in autophagosome and lysosome fusion. As mTOR complex 1 (mTORC1) signaling serves as a negative regulator of autophagy, a downregulation of mTORC1 signaling via activation of stress sensor adenosine monophosphate-activated protein kinase (AMPK) was observed as a possible compensatory mechanism for autophagy deficits in OPTN(E50K) RGCs. Pharmacological inhibition of mTOR in wild-type hRGCs resulted in similar disease-related phenotypes, while preservation of the mTOR pathway in OPTN(E50K) RGCs by treatment with the mTOR-independent autophagy modulator trehalose cleared OPTN accumulated puncta, preserving mTORC1 signaling, as well as rescuing neurodegenerative phenotypes. To further validate these associations in an animal model, the microbead occlusion mouse model was established by injection of magnetic microbeads in the anterior chamber to block aqueous outflow resulting ocular hypertension. In agreement with our findings in hRGCs, a decrease in mTOR signaling associated with an increase in the expression of autophagy-associated proteins was observed in RGCs in the microbead occlusion model. Additionally, these disease-related phenotypes were observed specifically within RGCs but not cortical neurons with an underlying OPTN(E50K) mutation, demonstrating that autophagy represents an essential pathway in RGCs to maintain homeostasis, and selective disrupt of autophagy in RGCs leads to neurodegeneration. Taken together, the results of this study highlight an essential balance between autophagy and mTORC1 signaling that is essential for the homeostasis of RGCs, while disruption to these signaling pathways contributes to neurodegenerative features in glaucoma. These results also demonstrated the ability to pharmacologically intervene to experimentally manipulate these pathways and rescue neurodegenerative phenotypes, providing a potential therapeutic target to prevent glaucoma-associated neurodegeneration. 

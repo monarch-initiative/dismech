@@ -3,58 +3,55 @@
 An `Environmental` entry with no `evidence:` block is an uncited causation
 claim that every current validator (`just validate`, `validate-terms`,
 `count-verified-snippets`) is structurally blind to, since `evidence` is
-optional on the class. A baseline grandfathers the pre-existing backlog so
-this test fails only on newly introduced ones.
+optional on the class. The backlog is zero, so this is a hard gate: an
+exposure that cannot be cited carries a `review_notes` waiver instead.
 
 See scripts/check_environmental_evidence.py and dismech issue #8296.
 """
 
-import subprocess
-from collections import Counter
 from pathlib import Path
 
+from dismech.yaml_io import safe_load
 from scripts import check_environmental_evidence as cee
 from scripts.check_environmental_evidence import (
-    BASELINE_REF_ENV,
-    _baseline_key,
-    baseline_from_ref,
+    MIN_WAIVER_WORDS,
+    WAIVER_SENTINEL,
+    find_thin_waivers,
     find_violations,
-    load_baseline,
-    new_findings,
-    resolve_baseline,
+    find_waivers,
+    is_waived,
     scan_repo,
-    write_baseline,
+    waiver_detail,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _entry(name: str | None = "Smoking", evidence=None) -> dict:
+def _entry(name: str | None = "Smoking", evidence=None, **extra) -> dict:
     entry = {}
     if name is not None:
         entry["name"] = name
     if evidence is not None:
         entry["evidence"] = evidence
+    entry.update({k: v for k, v in extra.items() if v is not None})
     return entry
 
 
-def test_no_new_evidence_free_environmental_exposures():
-    # resolve_baseline() grandfathers against origin/main when CI sets
-    # ENVIRONMENTAL_EVIDENCE_BASELINE_REF (so the base branch is green by
-    # construction and parallel merges cannot clobber the grandfather set),
-    # and falls back to the committed baseline for local runs / shallow
-    # checkouts.
-    baseline = resolve_baseline()
-    new = [
-        f"{rel}:{location}: {name!r}"
-        for rel, location, name in new_findings(scan_repo(), baseline)
+def test_no_evidence_free_environmental_exposures():
+    # Hard gate: the dismech#8296 backlog was worked to zero and the baseline
+    # ratchet removed, so any finding here is a new one. An exposure that
+    # genuinely cannot be cited is recorded with a `review_notes` waiver
+    # instead (see the waiver tests below), which is why this can be absolute.
+    found = [
+        f"{rel}:{location}: {name!r}" for rel, location, name in scan_repo()
     ]
-    assert not new, (
-        "New evidence-free `environmental:` exposure(s) detected. Every "
+    assert not found, (
+        "Evidence-free `environmental:` exposure(s) detected. Every "
         "environmental entry is an uncited causation claim until it carries "
         "an `evidence:` block. Add a citable PMID/DOI with a verified "
-        "snippet, or record provenance in `notes` if no citable source "
-        "exists:\n  " + "\n  ".join(new)
+        "snippet, or -- if you searched and found nothing quotable -- record "
+        "that in `review_notes:` beginning 'Left deliberately uncited.':\n  "
+        + "\n  ".join(found)
     )
 
 
@@ -109,6 +106,167 @@ def test_accepts_an_entry_with_one_quoted_item_among_empty_ones():
     assert not list(find_violations({"environmental": [entry]}))
 
 
+# --- review_notes waiver (dismech#8296) ---------------------------------
+#
+# Some exposures cannot be cited and never will be: a curator searched, found
+# no abstract stating the claim, and recorded that. Before the waiver such an
+# entry was indistinguishable from one nobody had looked at, so the backlog
+# could never reach zero. The sentinel is deliberately narrow -- see the
+# negative cases below, which are the whole point of it.
+
+# Long enough to clear MIN_WAIVER_WORDS, because a waiver that records no
+# search is no longer a waiver -- see test_a_bare_sentinel_does_not_waive.
+WAIVER = (
+    "Left deliberately uncited. Targeted PubMed searches for fluid intake and "
+    "recurrent attacks, and for hydration status and serum urate, returned no "
+    "study whose abstract states this claim directly."
+)
+
+
+def test_waived_entry_is_not_a_violation():
+    entry = _entry("Dehydration", review_notes=WAIVER)
+    assert not list(find_violations({"environmental": [entry]}))
+
+
+def test_waived_entry_is_reported_as_a_waiver():
+    entry = _entry("Dehydration", review_notes=WAIVER)
+    assert list(find_waivers({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration")
+    ]
+
+
+def test_waiver_matching_is_case_insensitive_and_ignores_leading_space():
+    assert is_waived({"review_notes": "  left DELIBERATELY uncited. " + WAIVER_DETAIL})
+
+
+def test_notes_cannot_waive_only_review_notes_can():
+    # `notes` is disease content and is written by anyone; a waiver any prose
+    # can trigger is not a waiver. Same sentence, wrong slot -> still a
+    # violation.
+    entry = _entry("Dehydration", notes=WAIVER)
+    assert not is_waived(entry)
+    assert list(find_violations({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration")
+    ]
+
+
+def test_sentinel_must_be_a_prefix_not_a_mention():
+    # Prose that merely refers to the convention must not waive.
+    entry = _entry(
+        "Dehydration",
+        review_notes="Considered whether this should be left deliberately uncited.",
+    )
+    assert not is_waived(entry)
+    assert list(find_violations({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration")
+    ]
+
+
+def test_empty_or_non_string_review_notes_does_not_waive():
+    assert not is_waived({"review_notes": ""})
+    assert not is_waived({"review_notes": None})
+    assert not is_waived({"review_notes": ["Left deliberately uncited."]})
+    assert not is_waived({})
+
+
+def test_a_waived_entry_that_also_has_evidence_is_not_reported_as_a_waiver():
+    # Evidence supersedes the waiver: reporting it under --waivers would
+    # suggest the claim is still unsourced.
+    entry = _entry(
+        "Dehydration",
+        review_notes=WAIVER,
+        evidence=[{"reference": "PMID:1", "snippet": "Real quote."}],
+    )
+    assert not list(find_violations({"environmental": [entry]}))
+    assert not list(find_waivers({"environmental": [entry]}))
+
+
+def test_waiver_sentinel_constant_is_lowercase_for_prefix_matching():
+    # is_waived() lowercases the review_notes before comparing, so a sentinel
+    # carrying capitals would never match.
+    assert WAIVER_SENTINEL == WAIVER_SENTINEL.lower()
+    assert WAIVER.lower().startswith(WAIVER_SENTINEL)
+
+
+WAIVER_DETAIL = WAIVER[len(WAIVER_SENTINEL) :].strip()
+
+
+def test_a_bare_sentinel_records_no_search():
+    # The sentinel alone is a *claim* that a search happened, with nothing
+    # behind it. "" is distinct from None: claimed-and-recorded-nothing needs
+    # a different message from did-not-claim.
+    assert waiver_detail({"review_notes": "Left deliberately uncited."}) == ""
+    assert waiver_detail({"review_notes": "Ordinary note."}) is None
+
+
+def test_a_bare_sentinel_does_not_waive():
+    # The substance floor lives in the script, not only here. The tests are
+    # path-filtered and do not run on a kb-only curation PR -- the exact shape
+    # of PR that adds a waiver -- so a floor enforced only in pytest would
+    # never run on the changes it exists to police.
+    entry = _entry("Dehydration", review_notes="Left deliberately uncited.")
+    assert not is_waived(entry)
+    assert list(find_violations({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration")
+    ]
+    assert not list(find_waivers({"environmental": [entry]}))
+
+
+def test_a_thin_waiver_is_reported_as_thin_not_merely_uncited():
+    entry = _entry("Dehydration", review_notes="Left deliberately uncited. Looked.")
+    assert list(find_thin_waivers({"environmental": [entry]})) == [
+        ("environmental[0]", "Dehydration", 1)
+    ]
+
+
+def test_a_substantive_waiver_is_not_reported_as_thin():
+    detail = " ".join(["word"] * MIN_WAIVER_WORDS)
+    entry = _entry("Dehydration", review_notes=f"Left deliberately uncited. {detail}")
+    assert is_waived(entry)
+    assert not list(find_thin_waivers({"environmental": [entry]}))
+
+
+def test_committed_kb_waivers_say_what_was_searched():
+    """Every waiver in kb/ must record the search, not just claim one.
+
+    This is the check that makes the mechanism honest. `is_waived()` only
+    asks whether the sentinel is present, so `review_notes: "Left
+    deliberately uncited."` with nothing after it would satisfy the checker
+    while recording no work at all -- which is precisely the failure mode the
+    docstring and CLAUDE.md promise the waiver is not.
+
+    Deliberately reads the YAML rather than using `scan_waivers()`, which
+    returns only (path, location, name) and by construction yields entries
+    whose review_notes already starts with the sentinel; asserting anything
+    about *that* set's paths or prefixes is a tautology.
+    """
+    thin = []
+    for path in sorted((ROOT / "kb").rglob("*.yaml")):
+        try:
+            with path.open(encoding="utf-8") as handle:
+                data = safe_load(handle)
+        except Exception:  # malformed YAML is another check's job
+            continue
+        if not isinstance(data, dict):
+            continue
+        for idx, entry in enumerate(data.get("environmental") or []):
+            if not isinstance(entry, dict) or not is_waived(entry):
+                continue
+            detail = waiver_detail(entry) or ""
+            if len(detail.split()) < MIN_WAIVER_WORDS:
+                rel = path.relative_to(ROOT).as_posix()
+                thin.append(
+                    f"{rel}:environmental[{idx}]: {entry.get('name')!r} "
+                    f"({len(detail.split())} words after the sentinel)"
+                )
+    assert not thin, (
+        "A `Left deliberately uncited.` waiver must say which searches were "
+        "run and why they failed -- it records a negative result, it is not a "
+        "way to skip the search. These carry the sentinel but little or "
+        "nothing after it:\n  " + "\n  ".join(thin)
+    )
+
+
 def test_missing_environmental_key_yields_no_findings():
     assert not list(find_violations({}))
 
@@ -152,135 +310,3 @@ def test_scan_covers_kb_beyond_disorders(tmp_path):
     ]
 
 
-def test_baseline_key_is_location_independent():
-    # Locations shift whenever the environmental list above them grows; the
-    # key must not.
-    assert _baseline_key("kb/x.yaml", "Smoking") == _baseline_key(
-        "kb/x.yaml", "Smoking"
-    )
-
-
-def test_baseline_does_not_grandfather_an_unrelated_exposure(tmp_path):
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline([("kb/disorders/X.yaml", "environmental[0]", "Smoking")], baseline_path)
-    baseline = load_baseline(baseline_path)
-    assert new_findings(
-        [("kb/disorders/X.yaml", "environmental[1]", "Obesity")], baseline
-    )
-    # Same exposure name, different file: still a new finding.
-    assert new_findings(
-        [("kb/disorders/Y.yaml", "environmental[0]", "Smoking")], baseline
-    )
-
-
-def test_extra_reuse_of_a_baselined_exposure_is_a_new_finding(tmp_path):
-    """Two grandfathered evidence-free 'Smoking' entries in one file stay quiet;
-    a third does not."""
-    known = [
-        ("kb/disorders/X.yaml", "environmental[0]", "Smoking"),
-        ("kb/disorders/X.yaml", "environmental[1]", "Smoking"),
-    ]
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline(known, baseline_path)
-    baseline = load_baseline(baseline_path)
-
-    assert not new_findings(known, baseline)
-
-    reused = [*known, ("kb/disorders/X.yaml", "environmental[2]", "Smoking")]
-    extra = new_findings(reused, baseline)
-    assert len(extra) == 1
-    assert extra[0][1] == "environmental[2]"
-
-
-def test_baseline_records_occurrence_counts(tmp_path):
-    baseline_path = tmp_path / "baseline.txt"
-    write_baseline(
-        [
-            ("kb/disorders/X.yaml", "environmental[0]", "Smoking"),
-            ("kb/disorders/X.yaml", "environmental[1]", "Smoking"),
-            ("kb/disorders/Y.yaml", "environmental[0]", "Obesity"),
-        ],
-        baseline_path,
-    )
-    baseline = load_baseline(baseline_path)
-
-    assert baseline[_baseline_key("kb/disorders/X.yaml", "Smoking")] == 2
-    assert baseline[_baseline_key("kb/disorders/Y.yaml", "Obesity")] == 1
-    assert "count<TAB>path<TAB>name" in baseline_path.read_text()
-
-
-def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
-    """An older `path<TAB>name` baseline still grandfathers its entries."""
-    baseline_path = tmp_path / "baseline.txt"
-    baseline_path.write_text(
-        "# legacy header\nkb/disorders/X.yaml\tSmoking\n", encoding="utf-8"
-    )
-    baseline = load_baseline(baseline_path)
-
-    assert not new_findings(
-        [("kb/disorders/X.yaml", "environmental[0]", "Smoking")], baseline
-    )
-
-
-# --- ref-derived grandfather baseline (baseline_from_ref / resolve_baseline) ---
-
-
-def _init_git_repo(path: Path) -> None:
-    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
-
-
-def test_baseline_from_ref_reads_kb_disorders_at_the_ref(tmp_path):
-    disorders = tmp_path / "kb" / "disorders"
-    disorders.mkdir(parents=True)
-    (disorders / "X.yaml").write_text(
-        "name: T\nenvironmental:\n- name: Smoking\n  notes: no evidence\n",
-        encoding="utf-8",
-    )
-    _init_git_repo(tmp_path)
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=tmp_path, check=True)
-
-    counts = baseline_from_ref("HEAD", root=tmp_path)
-    assert counts is not None
-    assert counts[_baseline_key("kb/disorders/X.yaml", "Smoking")] == 1
-
-
-def test_baseline_from_ref_returns_none_for_an_unknown_ref(tmp_path):
-    _init_git_repo(tmp_path)
-    assert baseline_from_ref("no-such-ref-deadbeef", root=tmp_path) is None
-
-
-def test_resolve_baseline_prefers_the_explicit_ref_over_env_and_committed_file(monkeypatch):
-    seen = {}
-    sentinel = Counter({"kb/x.yaml\tfoo": 3})
-
-    def fake(ref, **kw):
-        seen["ref"] = ref
-        return sentinel
-
-    monkeypatch.setattr(cee, "baseline_from_ref", fake)
-    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
-    assert resolve_baseline("origin/explicit") is sentinel
-    assert seen["ref"] == "origin/explicit"
-
-
-def test_resolve_baseline_reads_the_env_var(monkeypatch):
-    seen = {}
-    sentinel = Counter({"k": 1})
-
-    def fake(ref, **kw):
-        seen["ref"] = ref
-        return sentinel
-
-    monkeypatch.setattr(cee, "baseline_from_ref", fake)
-    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
-    assert resolve_baseline() is sentinel
-    assert seen["ref"] == "origin/from-env"
-
-
-def test_resolve_baseline_falls_back_when_the_ref_is_unreadable(monkeypatch):
-    monkeypatch.setattr(cee, "baseline_from_ref", lambda ref, **kw: None)
-    monkeypatch.delenv(BASELINE_REF_ENV, raising=False)
-    assert resolve_baseline("bad-ref") == load_baseline()
