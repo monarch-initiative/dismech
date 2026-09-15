@@ -34201,6 +34201,76 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 79",
+    "disease_id": "MONDO:0013215",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB79 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic truncating variants in TPRN, which encodes taperin. Every human allele reported so far is a frameshift or nonsense change in the first coding exon, so the disease is studied entirely through protein loss rather than through a graded allelic series.\nTaperin sits at the taper: the narrowed base of the hair cell stereocilium, where the rod pivots against the cuticular plate when sound deflects it. That address was how the protein got its name, and it puts DFNB79 in the same structural compartment as the CLIC5 disease already curated here (DFNB103) - the two proteins are physical partners, and super-resolution imaging shows TPRN, CLIC5 and PTPRQ arranged as concentric rings around the actin core at the taper.\nWhat taperin does there took fifteen years to establish. It is an F-actin bundler. Its N-terminal region cross-links actin filaments into bundles that are notably bendable rather than rigid, which is the property a pivot point needs, and it binds the membrane receptor PTPRQ, tying the actin core to the overlying plasma membrane. Losing it does not stop stereocilia being built. Bundles form, and then come apart: rootlets warp, TRIOBP-5 and ANKRD24 disappear from the rootlets of the shortest row, stereocilia are pruned, retract asynchronously and fuse, and inner hair cells later accumulate abnormal endosome-like vesicles and acquire efferent contacts on the cell body that normally exist only in immature or damaged cochleae. This is a maintenance disease, not a morphogenesis disease.\nTwo features separate DFNB79 from its taper-region neighbour DFNB103, and both are negative findings that should not be overwritten by analogy. First, the vestibular system is spared: Tprn-null mice have no circling or head bobbing and no significant vestibular evoked potential deficit through two months, and the affected children in whom balance was formally tested had normal Romberg and tandem gait. CLIC5 loss, by contrast, causes vestibular areflexia in patients and florid circling in mice. Second, the human hearing phenotype is inconsistent in a way that is not explained by allele. The same c.42_52del11 null allele produced stable severe hearing loss into the third decade in a Moroccan family, severe-to-profound loss in one Pakistani family, and progressive loss in another; the authors who found the discordance proposed a genetic modifier and nobody has mapped it.\nGene replacement is a live preclinical prospect and a dosage problem at the same time. AAV delivery of Tprn at an appropriate level restores the rings and rescues hearing in Tprn knockout mice - but overexpressing taperin is itself pathogenic, causing excessive actin bundling, extra stereocilia rows, over-elongation and degeneration. Too little and too much both destroy the bundle, which is an unusual constraint for a recessive loss-of-function disease and the central practical question this entry records.",
+    "pathophysiology": [
+      "TPRN Loss of Function",
+      "Loss of F-Actin Bundling at the Stereocilia Taper",
+      "Stereociliary Rootlet Destabilization",
+      "Progressive Stereocilia Retraction and Fusion",
+      "Inner Hair Cell Synaptic and Vesicular Abnormality"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "actin crosslink formation",
+      "stereocilium maintenance",
+      "auditory receptor cell stereocilium organization"
+    ],
+    "phenotypes": [
+      "Progressive Sensorineural Hearing Impairment",
+      "Prelingual Severe to Profound Hearing Impairment",
+      "Normal Vestibular Function"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0000399",
+      "HP:0001751"
+    ],
+    "frequencies": [
+      "EXCLUDED"
+    ],
+    "genes": [
+      "TPRN"
+    ],
+    "treatments": [
+      "Genetic Counselling with Serial Audiometry",
+      "Cochlear Implantation",
+      "Hearing Amplification"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_79.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_79.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 93",
     "disease_id": "MONDO:0013963",
     "category": "Mendelian",
@@ -62603,14 +62673,24 @@ window.searchData = [
       "Decreased total lymphocyte count",
       "Decreased circulating immunoglobulin concentration",
       "Recurrent respiratory infections",
-      "Bird-like facies"
+      "Bird-like facies",
+      "Decreased naive T cell proportion",
+      "Decreased total B cell count",
+      "Myelodysplasia",
+      "Pancytopenia",
+      "Polydactyly",
+      "Clinodactyly",
+      "Hyperpigmentation of the skin"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Constitutional",
       "Neurologic",
       "Growth",
-      "Craniofacial"
+      "Craniofacial",
+      "Hematologic",
+      "Skeletal",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -62618,8 +62698,11 @@ window.searchData = [
       "Growth",
       "Head and Neck",
       "Immune",
+      "Integument",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
+      "Neoplasm",
       "Nervous System",
       "Respiratory"
     ],
@@ -62631,7 +62714,14 @@ window.searchData = [
       "HP:0001888",
       "HP:0004313",
       "HP:0002205",
-      "HP:0000320"
+      "HP:0000320",
+      "HP:0031397",
+      "HP:0010976",
+      "HP:0002863",
+      "HP:0001876",
+      "HP:0010442",
+      "HP:0030084",
+      "HP:0000953"
     ],
     "frequencies": [],
     "genes": [
@@ -62645,7 +62735,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cernunnos-XLF_deficiency.yaml",
     "page_url": "../pages/disorders/Cernunnos-XLF_deficiency.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 15,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
@@ -143058,6 +143148,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Hyper-IgM Syndrome Type 1",
+    "disease_id": "MONDO:0010626",
+    "category": "Genetic",
+    "parents": [
+      "Hyper-IgM syndrome",
+      "Combined immunodeficiency",
+      "Primary immunodeficiency"
+    ],
+    "creation_date": "2026-08-27T01:46:30Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hyper-IgM syndrome type 1 (X-linked hyper-IgM syndrome, CD40 ligand deficiency) is an X-linked combined immunodeficiency caused by hemizygous loss-of-function variants in CD40LG, which encodes CD40 ligand (CD154), the activation-induced surface protein of CD4-positive T cells. Loss of CD40L abolishes engagement of CD40 on B cells, so B cells cannot undergo immunoglobulin class switch recombination and germinal centers fail to develop: serum IgG, IgA, and IgE are very low or absent while IgM is normal or elevated, and class-switched memory B cells are markedly reduced. The same molecular lesion abolishes CD40-dependent licensing of macrophages and dendritic cells, which is why the disorder behaves as a combined rather than a purely antibody deficiency and why affected boys are susceptible to opportunistic pathogens, most characteristically Pneumocystis jirovecii and Cryptosporidium. Most patients present in the first year of life with recurrent sinopulmonary infection, Pneumocystis pneumonia, and protracted diarrhea. Chronic neutropenia with oral ulceration is common, and Cryptosporidium-associated sclerosing cholangitis and biliary-tract malignancy dominate long-term morbidity and mortality. Management combines immunoglobulin replacement, Pneumocystis prophylaxis, and G-CSF for neutropenia; allogeneic hematopoietic cell transplantation is the only curative option.",
+    "pathophysiology": [
+      "Loss of Functional CD40 Ligand on Activated CD4+ T Cells",
+      "Failed CD40 Engagement on B Cells",
+      "Defective Immunoglobulin Class Switch Recombination",
+      "Abortive Germinal Center Reaction with Follicular Dendritic Cell Depletion",
+      "Failed CD40-Dependent Licensing of Macrophages and Dendritic Cells",
+      "Cryptosporidium-Associated Biliary Tract Injury"
+    ],
+    "cell_types": [
+      "activated CD4+ T helper cell",
+      "B cell",
+      "class switched memory B cell",
+      "follicular dendritic cell",
+      "macrophage",
+      "dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000896",
+      "CL:0000236",
+      "CL:0000972",
+      "CL:0000442",
+      "CL:0000235",
+      "CL:0000451"
+    ],
+    "biological_processes": [
+      "CD40 signaling pathway",
+      "immunoglobulin class switch recombination (isotype switching)",
+      "germinal center formation",
+      "macrophage activation",
+      "T cell costimulation"
+    ],
+    "phenotypes": [
+      "Recurrent sinopulmonary infections",
+      "Pneumocystis jirovecii pneumonia",
+      "Chronic diarrhea",
+      "Chronic neutropenia",
+      "Oral ulcer",
+      "Sclerosing cholangitis",
+      "Liver disease",
+      "Malignancy",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgA concentration",
+      "Increased circulating IgM level",
+      "Decreased class-switched memory B cell proportion",
+      "Neurologic complications"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005425",
+      "HP:0020102",
+      "HP:0002028",
+      "HP:0001875",
+      "HP:0000155",
+      "HP:0030991",
+      "HP:0001392",
+      "HP:0002664",
+      "HP:0004315",
+      "HP:0002720",
+      "HP:0003496",
+      "HP:0030388",
+      "HP:0012638"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "CD40LG"
+    ],
+    "treatments": [
+      "Immunoglobulin replacement therapy",
+      "Pneumocystis jirovecii pneumonia prophylaxis",
+      "Recombinant G-CSF for chronic neutropenia",
+      "Allogeneic hematopoietic cell transplantation",
+      "Live-vaccine avoidance"
+    ],
+    "environmental": [
+      "Exposure to Cryptosporidium-contaminated water"
+    ],
+    "biochemical": [],
+    "source_file": "Hyper-IgM_Syndrome_Type_1.yaml",
+    "page_url": "../pages/disorders/Hyper-IgM_Syndrome_Type_1.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hyper-IgM Syndrome Type 2",
     "disease_id": "MONDO:0011528",
     "category": "Mendelian",
@@ -143228,6 +143437,7 @@ window.searchData = [
       "Recurrent Respiratory Tract Infection",
       "Bronchiectasis",
       "Severe Skin Disease",
+      "Impaired Specific Antibody Response",
       "Hypoproteinaemia"
     ],
     "phenotype_categories": [
@@ -143247,6 +143457,7 @@ window.searchData = [
       "HP:0025794",
       "HP:0002205",
       "HP:0002110",
+      "HP:0032140",
       "HP:0003075"
     ],
     "frequencies": [],
@@ -143255,10 +143466,14 @@ window.searchData = [
     ],
     "treatments": [],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "IgG fractional catabolic rate",
+      "Albumin fractional catabolic rate",
+      "IgA fractional catabolic rate"
+    ],
     "source_file": "Hypercatabolic_Hypoproteinemia.yaml",
     "page_url": "../pages/disorders/Hypercatabolic_Hypoproteinemia.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 0,
@@ -152926,7 +153141,7 @@ window.searchData = [
     "creation_date": "2026-07-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Immunodeficiency 131 (IMD131; IRF4-mediated combined immunodeficiency) is an autosomal dominant combined immunodeficiency caused by a recurrent heterozygous multimorphic missense mutation, p.Thr95Arg (T95R), in the DNA-binding domain of the transcription factor interferon regulatory factor 4 (IRF4). Affected individuals present in early childhood with agammaglobulinemia and profound susceptibility to opportunistic infection, notably Pneumocystis jirovecii pneumonia. B cells show impaired maturation, decreased immunoglobulin isotype switching, and defective plasma cell differentiation; T cells show reduced TH17 and T follicular helper (TFH) populations with decreased cytokine production. The T95R substitution alters IRF4's canonical DNA-binding specificities and behaves simultaneously as a loss-of-function (hypomorph), gain-of-function (hypermorph), and neomorph, a \"multimorphic\" pathophysiology that dysregulates the normal IRF4 transcriptional program in lymphocytes.\n",
+    "description": "Immunodeficiency 131 (IMD131; IRF4-mediated combined immunodeficiency) is an autosomal dominant combined immunodeficiency caused by a recurrent heterozygous multimorphic missense mutation, p.Thr95Arg (T95R), in the DNA-binding domain of the transcription factor interferon regulatory factor 4 (IRF4). Affected individuals present in childhood with agammaglobulinemia and profound susceptibility to opportunistic infection, notably Pneumocystis jirovecii pneumonia. B cells show impaired maturation, decreased immunoglobulin isotype switching, and defective plasma cell differentiation; T cells show reduced TH17 and T follicular helper (TFH) populations with decreased cytokine production. The T95R substitution alters IRF4's canonical DNA-binding specificities and behaves simultaneously as a loss-of-function (hypomorph), gain-of-function (hypermorph), and neomorph, a \"multimorphic\" pathophysiology that dysregulates the normal IRF4 transcriptional program in lymphocytes.\n",
     "pathophysiology": [
       "IRF4 T95R Multimorphic DNA-Binding Alteration",
       "Dysregulated IRF4 Transcriptional Program",
@@ -152962,12 +153177,14 @@ window.searchData = [
       "Decreased total B cell count",
       "Recurrent pneumonia",
       "Chronic diarrhea",
-      "Skin rash"
+      "Skin rash",
+      "Abdominal pain"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Blood",
       "Cellular",
+      "Constitutional",
       "Digestive",
       "Immune",
       "Integument",
@@ -152983,7 +153200,8 @@ window.searchData = [
       "HP:0010976",
       "HP:0006532",
       "HP:0002028",
-      "HP:0000988"
+      "HP:0000988",
+      "HP:0002027"
     ],
     "frequencies": [],
     "genes": [
@@ -152998,11 +153216,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Immunodeficiency_131.yaml",
     "page_url": "../pages/disorders/Immunodeficiency_131.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -181534,7 +181752,17 @@ window.searchData = [
       "Decreased proportion of CD4-positive T cells",
       "Sclerosing cholangitis",
       "Chronic hepatitis due to cryptosporidium infection",
-      "Autoimmunity"
+      "Autoimmunity",
+      "Autoimmune hemolytic anemia",
+      "Autoimmune thrombocytopenia",
+      "Decreased total neutrophil count",
+      "Pancytopenia",
+      "Decreased total T cell count",
+      "Abnormal CD4:CD8 ratio",
+      "Decreased mitogen-induced T-cell proliferation",
+      "Panhypogammaglobulinemia",
+      "Acute otitis media",
+      "Skin rash"
     ],
     "phenotype_categories": [
       "Immunologic",
@@ -181542,12 +181770,15 @@ window.searchData = [
       "Gastrointestinal",
       "Growth",
       "Laboratory",
-      "Hepatobiliary"
+      "Hepatobiliary",
+      "Hematologic",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cellular",
       "Digestive",
+      "Ear",
       "Growth",
       "Head and Neck",
       "Immune",
@@ -181580,7 +181811,17 @@ window.searchData = [
       "HP:0032218",
       "HP:0030991",
       "HP:0200124",
-      "HP:0002960"
+      "HP:0002960",
+      "HP:0001890",
+      "HP:0001973",
+      "HP:0001875",
+      "HP:0001876",
+      "HP:0005403",
+      "HP:0031394",
+      "HP:0031381",
+      "HP:0003139",
+      "HP:0000371",
+      "HP:0000988"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -181603,11 +181844,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MHC_Class_II_Deficiency.yaml",
     "page_url": "../pages/disorders/MHC_class_II_deficiency.html",
-    "num_phenotypes": 24,
+    "num_phenotypes": 34,
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
   },
   {
@@ -259766,11 +260007,25 @@ window.searchData = [
       "Hypergammaglobulinemia",
       "Elevated IgE",
       "Autoimmunity",
+      "Autoimmune cytopenia",
       "Autoimmune hemolytic anemia",
       "Lymphoproliferative disorder",
       "Hepatosplenomegaly",
       "Lymphoma",
-      "Atrial septal defect"
+      "Atrial septal defect",
+      "Atopic dermatitis",
+      "Eosinophilia",
+      "Decreased circulating IgM concentration",
+      "Decreased naive T cell proportion",
+      "Increased plasmablast proportion",
+      "Decreased class-switched memory B cell proportion",
+      "Increased double-negative T cell number",
+      "Increased gamma-delta T cell proportion",
+      "Persistent human papillomavirus infection",
+      "Decreased specific antibody response to vaccination",
+      "Decreased regulatory T cell proportion",
+      "Hypothyroidism",
+      "Short stature"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -259778,6 +260033,8 @@ window.searchData = [
       "Cardiovascular",
       "Cellular",
       "Digestive",
+      "Endocrine",
+      "Growth",
       "Immune",
       "Integument",
       "Metabolism",
@@ -259798,14 +260055,29 @@ window.searchData = [
       "HP:0010702",
       "HP:0003212",
       "HP:0002960",
+      "HP:5210419",
       "HP:0001890",
       "HP:0005523",
       "HP:0001433",
       "HP:0002665",
-      "HP:0001631"
+      "HP:0001631",
+      "HP:0001047",
+      "HP:0001880",
+      "HP:0002850",
+      "HP:0031397",
+      "HP:0032128",
+      "HP:0030388",
+      "HP:0002851",
+      "HP:0500270",
+      "HP:0020114",
+      "HP:0032140",
+      "HP:0020113",
+      "HP:0000821",
+      "HP:0004322"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "STK4"
@@ -259813,17 +260085,18 @@ window.searchData = [
     "treatments": [
       "Immunoglobulin replacement therapy",
       "Antimicrobial prophylaxis",
-      "Hematopoietic stem cell transplantation"
+      "Hematopoietic stem cell transplantation",
+      "Immunomodulatory therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "STK4_Deficiency.yaml",
     "page_url": "../pages/disorders/STK4_Deficiency.html",
-    "num_phenotypes": 18,
+    "num_phenotypes": 32,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "2"
   },
   {
@@ -265855,26 +266128,28 @@ window.searchData = [
       "RAG1/RAG2 deficiency",
       "IL7R deficiency",
       "JAK3 deficiency",
-      "Artemis deficiency"
+      "Artemis deficiency",
+      "Reticular dysgenesis"
     ],
     "description": "Severe combined immunodeficiency (SCID) is a group of inborn errors of immunity characterized by profound defects in T-lymphocyte development and function, with variable effects on B and NK cells, that abrogate adaptive immunity. The shared final common pathway is failure of hematopoietic stem cells to differentiate into mature, functional T lymphocytes, producing absent cellular and (directly or indirectly) humoral immunity. Distinct molecular mechanisms define the major subtypes: defective cytokine receptor signaling (IL2RG, JAK3, IL7R), defective V(D)J recombination or DNA double-strand-break repair (RAG1, RAG2, DCLRE1C/Artemis), and toxic metabolite accumulation from purine-salvage enzyme deficiency (ADA). Affected infants present in the first months of life with recurrent and opportunistic infections, chronic diarrhea, failure to thrive, and absent thymic shadow, and the condition is fatal in infancy without immune reconstitution by hematopoietic stem cell transplantation, gene therapy, or (for ADA) enzyme replacement.",
     "pathophysiology": [
       "Cytokine receptor signaling defect",
       "Defective V(D)J recombination and DNA repair",
       "Toxic purine metabolite accumulation",
+      "Defective haematopoietic precursor survival",
       "Blocked T-lymphocyte development",
       "Absent adaptive immunity"
     ],
     "cell_types": [
       "thymocyte",
-      "T cell",
       "hematopoietic stem cell",
+      "T cell",
       "B cell"
     ],
     "cell_type_ids": [
       "CL:0000893",
-      "CL:0000084",
       "CL:0000037",
+      "CL:0000084",
       "CL:0000236"
     ],
     "biological_processes": [
@@ -265882,6 +266157,7 @@ window.searchData = [
       "V(D)J recombination",
       "DNA recombination",
       "adenosine catabolic process",
+      "haematopoiesis",
       "T cell differentiation in thymus",
       "adaptive immune response"
     ],
@@ -265898,7 +266174,17 @@ window.searchData = [
       "Decreased total B cell count",
       "Reduced total natural killer cell count",
       "Hypoplasia of the thymus",
-      "Hepatosplenomegaly"
+      "Hepatosplenomegaly",
+      "Erythroderma",
+      "Increased total eosinophil count",
+      "Increased circulating IgE concentration",
+      "Lymphadenopathy",
+      "Absence of circulating granulocytes",
+      "Dermatitis",
+      "Hemolytic anemia",
+      "Pulmonary alveolar proteinosis",
+      "Autoimmunity",
+      "Bronchiectasis"
     ],
     "phenotype_categories": [
       "Clinical",
@@ -265930,7 +266216,17 @@ window.searchData = [
       "HP:0010976",
       "HP:0040218",
       "HP:0000778",
-      "HP:0001433"
+      "HP:0001433",
+      "HP:0001019",
+      "HP:0001880",
+      "HP:0003212",
+      "HP:0002716",
+      "HP:0012234",
+      "HP:0011123",
+      "HP:0001878",
+      "HP:0006517",
+      "HP:0002960",
+      "HP:0002110"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -265943,24 +266239,26 @@ window.searchData = [
       "RAG2",
       "IL7R",
       "JAK3",
-      "DCLRE1C"
+      "DCLRE1C",
+      "AK2"
     ],
     "treatments": [
       "Hematopoietic stem cell transplantation",
       "Hematopoietic stem cell gene therapy",
       "Enzyme replacement therapy with pegademase (PEG-ADA)",
       "Immunoglobulin replacement therapy",
-      "Pneumocystis jirovecii pneumonia prophylaxis"
+      "Pneumocystis jirovecii pneumonia prophylaxis",
+      "Protective isolation and avoidance of live vaccines and non-irradiated blood products"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Severe_Combined_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Severe_Combined_Immunodeficiency.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 5,
-    "num_genes": 7,
-    "num_treatments": 5,
-    "causal_graph_edges": "25",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
   },
   {
@@ -306404,17 +306702,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2948,
-  "total_subtypes": 3730,
-  "total_disorders_and_subtypes": 6678,
-  "total_unique_evidence_sources": 41455,
-  "total_unique_publications": 39080,
+  "total_disorder_pages": 2950,
+  "total_subtypes": 3731,
+  "total_disorders_and_subtypes": 6681,
+  "total_unique_evidence_sources": 41476,
+  "total_unique_publications": 39101,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2943,
-  "total_unique_pathological_events": 17816,
+  "total_pathographs": 2945,
+  "total_unique_pathological_events": 17828,
   "total_modules": 174,
-  "total_research_reports": 3063,
+  "total_research_reports": 3064,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
