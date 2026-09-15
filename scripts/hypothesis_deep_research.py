@@ -21,8 +21,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import os
+import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -31,6 +36,14 @@ from typing import Any
 
 import yaml
 
+from dismech.deep_research_policy import (
+    BIOMNI_DISABLED_DETAIL,
+    biomni_enabled,
+    deep_research_subprocess_environment,
+    explicitly_requests_biomni,
+)
+from dismech.hypothesis_analysis_run import iter_analysis_run_problems
+from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
 DEFAULT_KB_DIR = Path("kb/disorders")
@@ -53,6 +66,34 @@ OPENSCIENTIST_JOB_TIMEOUT_SECONDS = 7200
 # or subprocess.run() kills the client before the job can complete. Keep this
 # comfortably above OPENSCIENTIST_JOB_TIMEOUT_SECONDS.
 DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
+
+# Ontology term validation for the report this script generates, mirroring the
+# `dr_term_validation` variable the justfile research recipes use. Reports made
+# here suggest HP/GO/CL/UBERON/MONDO terms like every other deep-research report,
+# and nothing checked them before deep-research-client 0.2.11.
+#
+# HGNC is skipped because gene CURIEs cannot be checked reliably: `sqlite:obo:hgnc`
+# holds them under the lowercase `hgnc:` this repo uses, so an uppercase
+# `HGNC:4283` resolves to nothing and is reported as invented, while `ols:`
+# resolves the same CURIE to "mitochondrial chromosome". Both are false alarms.
+#
+# Unlike reference validation, this path does not read or write
+# `references_cache/`, so it does not need the `patch_reference_validator`
+# repairs that `scripts/run_deep_research_client.sh` applies.
+#
+# Note what is still missing here, since it is the asymmetry a reader will hit:
+# this script does NOT reference-validate (no `--validate-references`), unlike
+# every justfile research recipe. That gap predates term validation. Closing it
+# means moving this script onto `scripts/run_deep_research_client.sh` first --
+# the reference path reads and writes `references_cache/` and must not run
+# unpatched.
+TERM_VALIDATION_ARGS = [
+    "--validate-terms",
+    "--term-cache-dir",
+    "terms_cache",
+    "--term-skip-prefix",
+    "HGNC",
+]
 
 
 class LiteralString(str):
@@ -224,6 +265,24 @@ def output_file_for(record: HypothesisRecord, output_root: Path, provider: str) 
     return output_dir_for(record, output_root) / f"{normalize_provider(provider)}.md"
 
 
+def has_reviewable_artifacts(artifact_dir: Path) -> bool:
+    """Return whether a bundle contains a non-empty, reviewable file.
+
+    Raw, local-only, and controlled payload directories deliberately do not
+    count: their presence says nothing about whether code, a manifest, or a
+    derived result was preserved for review.
+    """
+    excluded_parts = {"raw", "local", "controlled"}
+    if not artifact_dir.is_dir():
+        return False
+    return any(
+        path.is_file()
+        and path.stat().st_size > 0
+        and excluded_parts.isdisjoint(path.relative_to(artifact_dir).parts)
+        for path in artifact_dir.rglob("*")
+    )
+
+
 def existing_outputs(
     record: HypothesisRecord, output_root: Path
 ) -> list[ExistingHypothesisOutput]:
@@ -244,7 +303,7 @@ def existing_outputs(
                 citations_exists=citations_path.exists()
                 and citations_path.stat().st_size > 0,
                 artifact_dir=artifact_dir,
-                artifact_exists=artifact_dir.is_dir() and any(artifact_dir.iterdir()),
+                artifact_exists=has_reviewable_artifacts(artifact_dir),
             )
         )
     return outputs
@@ -259,8 +318,13 @@ def build_provider_args(provider: str) -> list[str]:
     return ["--provider", normalized]
 
 
-def template_vars(record: HypothesisRecord) -> dict[str, str]:
-    return {
+def template_vars(
+    record: HypothesisRecord,
+    *,
+    artifact_dir: Path | None = None,
+    overrides: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    values = {
         "disease_name": record.disease_name,
         "category": record.category,
         "hypothesis_group_id": record.hypothesis_group_id,
@@ -268,6 +332,33 @@ def template_vars(record: HypothesisRecord) -> dict[str, str]:
         "hypothesis_status": record.status,
         "hypothesis_yaml": dump_hypothesis_yaml(record),
     }
+    if artifact_dir is not None:
+        values["artifact_dir"] = str(artifact_dir)
+    if overrides:
+        values.update(overrides)
+    return values
+
+
+def passthrough_template_vars(extra_args: Sequence[str]) -> dict[str, str]:
+    """Collect explicit deep-research-client ``--var key=value`` arguments."""
+    values: dict[str, str] = {}
+    for index, argument in enumerate(extra_args[:-1]):
+        if argument != "--var":
+            continue
+        assignment = str(extra_args[index + 1])
+        if "=" in assignment:
+            key, value = assignment.split("=", 1)
+            values[key] = value
+    return values
+
+
+def template_placeholders(template: Path) -> set[str]:
+    """Return simple named placeholders required by one research template."""
+    try:
+        text = template.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return set()
+    return set(re.findall(r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)\}(?!\})", text))
 
 
 def build_command(
@@ -277,9 +368,12 @@ def build_command(
     output_root: Path,
     template: Path,
     extra_args: Sequence[str],
+    validate_terms: bool = True,
+    template_overrides: Mapping[str, str] | None = None,
 ) -> list[str]:
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
+    artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
     command = [
         "uv",
         "run",
@@ -288,10 +382,14 @@ def build_command(
         "--template",
         str(template),
     ]
-    for key, value in template_vars(record).items():
+    for key, value in template_vars(
+        record, artifact_dir=artifact_dir, overrides=template_overrides
+    ).items():
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
     command.extend(provider_default_params(normalized, extra_args))
+    if validate_terms:
+        command.extend(term_validation_args(extra_args))
     command.extend(
         [
             "--output",
@@ -304,6 +402,33 @@ def build_command(
     return command
 
 
+def term_validation_args(extra_args: Sequence[str]) -> list[str]:
+    """Return the default term-validation flags, unless the caller set their own.
+
+    Any explicit ``--validate-terms`` or ``--term-*`` argument passed after ``--``
+    means the caller is steering term validation themselves, so the defaults step
+    aside rather than appearing twice on the command line.
+
+    ``--no-term-labels`` is the one ``--term-``-prefixed spelling this does not
+    match, since it begins ``--no-term-``. That is the behaviour we want -- the
+    caller is turning label comparison off, not taking over the cache directory
+    or the skipped prefixes -- so the defaults still apply and the run validates
+    terms with labels off.
+
+    Args:
+        extra_args: Arguments the caller passed through after ``--``.
+
+    Returns:
+        The default flags, or an empty list when the caller supplied their own.
+    """
+    if any(
+        str(arg).startswith("--validate-terms") or str(arg).startswith("--term-")
+        for arg in extra_args
+    ):
+        return []
+    return list(TERM_VALIDATION_ARGS)
+
+
 def provider_default_params(provider: str, extra_args: Sequence[str]) -> list[str]:
     """Inject provider-specific default --param values not already supplied.
 
@@ -311,11 +436,25 @@ def provider_default_params(provider: str, extra_args: Sequence[str]) -> list[st
     we raise it to the API maximum unless the caller passed an explicit
     ``--param timeout=...``.
     """
-    if normalize_provider(provider) != "openscientist":
-        return []
-    if any(str(arg).startswith("timeout=") for arg in extra_args):
-        return []
-    return ["--param", f"timeout={OPENSCIENTIST_JOB_TIMEOUT_SECONDS}"]
+    normalized = normalize_provider(provider)
+    if normalized == "openscientist":
+        if any(str(arg).startswith("timeout=") for arg in extra_args):
+            return []
+        return ["--param", f"timeout={OPENSCIENTIST_JOB_TIMEOUT_SECONDS}"]
+    if normalized == "biomni":
+        defaults: list[str] = []
+        supplied_params = {
+            str(extra_args[index + 1]).split("=", 1)[0]
+            for index, arg in enumerate(extra_args[:-1])
+            if arg == "--param" and "=" in str(extra_args[index + 1])
+        }
+        lake_root = os.getenv("BIOMNI_DATA_PATH") or str(Path.home() / ".biomni-lake")
+        if "path" not in supplied_params:
+            defaults.extend(["--param", f"path={Path(lake_root).expanduser()}"])
+        if "skip_data_lake" not in supplied_params:
+            defaults.extend(["--param", "skip_data_lake=false"])
+        return defaults
+    return []
 
 
 def shell_join(parts: Sequence[str]) -> str:
@@ -329,6 +468,155 @@ def tail_detail(result: subprocess.CompletedProcess[str]) -> str:
     return text.splitlines()[-1][:500]
 
 
+def bind_report_to_artifact_manifest(report_path: Path, artifact_dir: Path) -> str:
+    """Bind a newly written DRC report to the exact canonical manifest bytes.
+
+    The provider response becomes the report body, so it cannot populate DRC's
+    YAML frontmatter itself. The runner performs this one post-processing step
+    immediately after a new report is written and before invoking the hard gate.
+    Existing reports are never rebound during validation.
+    """
+    manifest_path = artifact_dir / "MANIFEST.yaml"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        return f"cannot bind report: {manifest_path} is not a regular file"
+    if report_path.is_symlink() or not report_path.is_file():
+        return f"cannot bind report: {report_path} is not a regular file"
+
+    try:
+        if manifest_path.stat().st_size <= 0:
+            return f"cannot bind report: {manifest_path} is empty"
+        manifest_bytes = manifest_path.read_bytes()
+        report_text = report_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        return f"cannot bind report to manifest: {error}"
+
+    report_lines = report_text.splitlines()
+    if not report_lines or report_lines[0] != FRONTMATTER_DELIMITER:
+        return "cannot bind report: report must begin with YAML frontmatter"
+    try:
+        frontmatter_end = report_lines.index(FRONTMATTER_DELIMITER, 1)
+        metadata = safe_load("\n".join(report_lines[1:frontmatter_end]))
+    except (ValueError, yaml.YAMLError) as error:
+        return f"cannot bind report: invalid YAML frontmatter: {error}"
+    if not isinstance(metadata, Mapping):
+        return "cannot bind report: YAML frontmatter must be a mapping"
+
+    updated_metadata = dict(metadata)
+    updated_metadata["artifact_manifest_sha256"] = (
+        f"sha256:{hashlib.sha256(manifest_bytes).hexdigest()}"
+    )
+    try:
+        rendered_metadata = yaml.safe_dump(
+            updated_metadata,
+            sort_keys=False,
+            allow_unicode=True,
+        ).rstrip()
+    except yaml.YAMLError as error:
+        return f"cannot bind report: YAML frontmatter cannot be serialized: {error}"
+    body = "\n".join(report_lines[frontmatter_end + 1 :])
+    updated_report = (
+        f"{FRONTMATTER_DELIMITER}\n{rendered_metadata}\n{FRONTMATTER_DELIMITER}"
+    )
+    if body:
+        updated_report += f"\n{body}"
+    if report_text.endswith(("\n", "\r")):
+        updated_report += "\n"
+    try:
+        report_path.write_text(updated_report, encoding="utf-8")
+    except OSError as error:
+        return f"cannot bind report to manifest: {error}"
+    return ""
+
+
+def analysis_contract_status(
+    report_path: Path,
+    artifact_dir: Path,
+    *,
+    required: bool = False,
+) -> tuple[str | None, str]:
+    """Classify an explicit computational-run marker and hard-gate success.
+
+    Ordinary literature reports carry neither marker and retain the historical
+    runner behavior. A provider cannot, however, turn an explicit failed
+    analysis into ``OK`` merely by exiting zero or returning useful prose.
+    """
+    try:
+        lines = report_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as error:
+        return "INVALID_ANALYSIS_RUN", f"cannot inspect analysis status: {error}"
+
+    success_marker = "ANALYSIS_STATUS: SUCCEEDED"
+    failure_marker = "ANALYSIS_STATUS: FAILED"
+    if failure_marker in lines:
+        return "ANALYSIS_FAILED", "provider explicitly reported a failed analysis"
+    if success_marker not in lines:
+        if required:
+            return (
+                "INVALID_ANALYSIS_RUN",
+                "analysis template requires an exact ANALYSIS_STATUS marker",
+            )
+        return None, ""
+
+    problems = list(iter_analysis_run_problems(report_path, artifact_dir))
+    if problems:
+        return "INVALID_ANALYSIS_RUN", problems[0][:500]
+    return "OK", ""
+
+
+def template_requires_analysis_contract(template: Path) -> bool:
+    """Return whether template frontmatter opts into the computational gate."""
+    try:
+        text = template.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return False
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return False
+    try:
+        frontmatter_end = lines.index("---", 1)
+        metadata = safe_load("\n".join(lines[1:frontmatter_end]))
+    except (ValueError, OSError, UnicodeError, yaml.YAMLError):
+        return False
+    return (
+        isinstance(metadata, Mapping)
+        and str(metadata.get("analysis_contract", "")).casefold() == "required"
+    )
+
+
+def existing_output_is_complete(
+    output: ExistingHypothesisOutput, *, analysis_contract_required: bool
+) -> bool:
+    """Return whether an existing provider output is safe to treat as complete."""
+    status, _detail = analysis_contract_status(
+        output.path,
+        output.artifact_dir,
+        required=analysis_contract_required,
+    )
+    return status in {None, "OK"}
+
+
+def quarantine_existing_artifacts(artifact_dir: Path) -> Path | None:
+    """Move pre-overwrite artifacts outside the worktree to prevent stale reuse."""
+    if not artifact_dir.exists():
+        return None
+    backup_root = Path(tempfile.mkdtemp(prefix=f"{artifact_dir.name}-pre-overwrite-"))
+    shutil.move(str(artifact_dir), str(backup_root / artifact_dir.name))
+    return backup_root
+
+
+def finish_artifact_quarantine(
+    backup_root: Path | None, *, status: str, detail: str
+) -> str:
+    """Discard an intentional overwrite backup only after a valid new run."""
+    if backup_root is None:
+        return detail
+    if status == "OK":
+        shutil.rmtree(backup_root)
+        return detail
+    message = f"pre-overwrite artifacts preserved at {backup_root}"
+    return f"{detail}; {message}" if detail else message
+
+
 def run_record(
     record: HypothesisRecord,
     *,
@@ -339,17 +627,64 @@ def run_record(
     timeout_seconds: int,
     dry_run: bool,
     overwrite: bool,
+    validate_terms: bool = True,
+    template_overrides: Mapping[str, str] | None = None,
 ) -> RunResult:
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
     citations_file = Path(f"{output_file}.citations.md")
+    artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
+    analysis_contract_required = template_requires_analysis_contract(template)
     command = build_command(
         record,
         provider=normalized,
         output_root=output_root,
         template=template,
         extra_args=extra_args,
+        validate_terms=validate_terms,
+        template_overrides=template_overrides,
     )
+
+    supplied_template_vars = template_vars(
+        record,
+        artifact_dir=artifact_dir,
+        overrides=template_overrides,
+    )
+    passthrough_vars = passthrough_template_vars(extra_args)
+    supplied_template_vars.update(passthrough_vars)
+    nonblank_template_vars = {
+        key for key, value in supplied_template_vars.items() if str(value).strip()
+    }
+    missing_template_vars = sorted(
+        template_placeholders(template) - nonblank_template_vars
+    )
+    canonical_artifact_dir = str(artifact_dir)
+    if (
+        "artifact_dir" in passthrough_vars
+        and passthrough_vars["artifact_dir"] != canonical_artifact_dir
+    ):
+        missing_detail = (
+            "artifact_dir is runner-controlled and must equal "
+            f"{canonical_artifact_dir!r}"
+        )
+    elif missing_template_vars:
+        missing_detail = "missing template variable(s): " + ", ".join(
+            missing_template_vars
+        )
+    else:
+        missing_detail = ""
+    if missing_detail:
+        return RunResult(
+            record=record,
+            provider=normalized,
+            status="INVALID_TEMPLATE_VARIABLES",
+            returncode=2,
+            duration_seconds=0.0,
+            output_file=output_file,
+            citations_file=citations_file,
+            command=command,
+            detail=missing_detail,
+        )
 
     if dry_run:
         return RunResult(
@@ -364,7 +699,38 @@ def run_record(
             detail="",
         )
 
+    biomni_requested = normalized == "biomni" or explicitly_requests_biomni(extra_args)
+    if biomni_requested and not biomni_enabled():
+        return RunResult(
+            record=record,
+            provider=normalized,
+            status="PROVIDER_DISABLED",
+            returncode=2,
+            duration_seconds=0.0,
+            output_file=output_file,
+            citations_file=citations_file,
+            command=command,
+            detail=BIOMNI_DISABLED_DETAIL,
+        )
+
     if output_file.exists() and not overwrite:
+        contract_status, contract_detail = analysis_contract_status(
+            output_file,
+            artifact_dir,
+            required=analysis_contract_required,
+        )
+        if contract_status not in {None, "OK"}:
+            return RunResult(
+                record=record,
+                provider=normalized,
+                status=contract_status,
+                returncode=0,
+                duration_seconds=0.0,
+                output_file=output_file,
+                citations_file=citations_file,
+                command=command,
+                detail=contract_detail,
+            )
         return RunResult(
             record=record,
             provider=normalized,
@@ -378,6 +744,7 @@ def run_record(
         )
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
+    artifact_backup = quarantine_existing_artifacts(artifact_dir) if overwrite else None
     started = time.monotonic()
     try:
         result = subprocess.run(
@@ -386,28 +753,101 @@ def run_record(
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
+            env=deep_research_subprocess_environment(),
         )
         duration = time.monotonic() - started
         output_ok = output_file.exists() and output_file.stat().st_size > 0
+        detail = tail_detail(result)
         if result.returncode == 0 and output_ok:
-            status = "OK"
+            try:
+                report_claims_analysis_success = (
+                    "ANALYSIS_STATUS: SUCCEEDED"
+                    in output_file.read_text(encoding="utf-8").splitlines()
+                )
+            except (OSError, UnicodeError):
+                report_claims_analysis_success = False
+            binding_detail = (
+                bind_report_to_artifact_manifest(output_file, artifact_dir)
+                if report_claims_analysis_success
+                else ""
+            )
+            if binding_detail:
+                status = "INVALID_ANALYSIS_RUN"
+                detail = binding_detail
+            else:
+                contract_status, contract_detail = analysis_contract_status(
+                    output_file,
+                    artifact_dir,
+                    required=analysis_contract_required,
+                )
+                status = contract_status or "OK"
+                if contract_detail:
+                    detail = contract_detail
         elif result.returncode == 0:
             status = "MISSING_OUTPUT"
         else:
             status = f"ERROR_{result.returncode}"
+        provider_ran = normalized
+
+        # A run that fell back to another provider wrote a report named for the
+        # provider we asked for. The output path is how a provider is read back
+        # here (`existing_outputs`) exactly as it is in the justfile recipes, so
+        # the report is renamed to whoever actually produced it.
+        #
+        # Gated on the report existing rather than on the run succeeding, which
+        # is what the justfile recipes do and for the same reason: the client
+        # writes the report BEFORE validating it and exits 3 when validation
+        # fails, so an ERROR_3 run leaves a real report on disk. Aligning only
+        # on OK would leave exactly that report misnamed.
+        if output_ok:
+            try:
+                alignment = align_report_provider(output_file, normalized)
+            except AlignmentError as error:
+                # Do not overwrite a status that already records a real failure:
+                # an ERROR_3 run failed validation, and that is the more useful
+                # thing to report. Only a run that otherwise succeeded becomes
+                # ERROR_ALIGN.
+                if status == "OK":
+                    status = "ERROR_ALIGN"
+                    detail = str(error)
+                else:
+                    detail = f"{detail}; alignment failed: {error}".lstrip("; ")
+            else:
+                if alignment.fell_back and alignment.actual_provider:
+                    provider_ran = alignment.actual_provider
+                    output_file = alignment.report
+                    citations_file = Path(f"{output_file}.citations.md")
+                    fallback_note = (
+                        f"{normalized} could not run this job; "
+                        f"{provider_ran} produced the report instead"
+                    )
+                    detail = (
+                        f"{fallback_note}; {detail}".rstrip("; ")
+                        if detail
+                        else fallback_note
+                    )
+
+        detail = finish_artifact_quarantine(
+            artifact_backup, status=status, detail=detail
+        )
         return RunResult(
             record=record,
-            provider=normalized,
+            provider=provider_ran,
             status=status,
             returncode=result.returncode,
             duration_seconds=duration,
             output_file=output_file,
             citations_file=citations_file,
             command=command,
-            detail=tail_detail(result),
+            detail=detail,
         )
     except subprocess.TimeoutExpired:
         duration = time.monotonic() - started
+        detail = finish_artifact_quarantine(
+            artifact_backup,
+            status="TIMEOUT",
+            detail=f"timeout after {timeout_seconds}s",
+        )
         return RunResult(
             record=record,
             provider=normalized,
@@ -417,7 +857,7 @@ def run_record(
             output_file=output_file,
             citations_file=citations_file,
             command=command,
-            detail=f"timeout after {timeout_seconds}s",
+            detail=detail,
         )
 
 
@@ -544,6 +984,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         subparser.add_argument("--kb-dir", type=Path, default=DEFAULT_KB_DIR)
         subparser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
 
+    def add_dataset_template_flags(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("--dataset-inputs")
+        subparser.add_argument("--target-variables")
+        subparser.add_argument("--analysis-objective")
+
     list_parser = subparsers.add_parser("list", help="List hypothesis research status.")
     add_common_flags(list_parser)
     list_parser.add_argument("--disorder")
@@ -552,12 +997,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     run_parser = subparsers.add_parser("run", help="Run one hypothesis search.")
     add_common_flags(run_parser)
+    add_dataset_template_flags(run_parser)
     run_parser.add_argument("provider")
     run_parser.add_argument("disorder")
     run_parser.add_argument("hypothesis_group_id")
     run_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--overwrite", action="store_true")
+    run_parser.add_argument(
+        "--no-term-validation",
+        action="store_true",
+        help="Skip ontology term validation of the generated report.",
+    )
     run_parser.add_argument(
         "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
     )
@@ -571,6 +1022,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     missing_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     missing_parser.add_argument("--dry-run", action="store_true")
     missing_parser.add_argument("--overwrite", action="store_true")
+    missing_parser.add_argument(
+        "--no-term-validation",
+        action="store_true",
+        help="Skip ontology term validation of the generated reports.",
+    )
     missing_parser.add_argument("--report-dir", type=Path, default=Path("output"))
     missing_parser.add_argument(
         "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
@@ -581,6 +1037,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
     args.research_args = research_args
     return args
+
+
+def cli_template_overrides(args: argparse.Namespace) -> dict[str, str]:
+    """Collect optional dataset-template variables from runner flags."""
+    return {
+        key: value
+        for key in ("dataset_inputs", "target_variables", "analysis_objective")
+        if (value := getattr(args, key, None)) is not None
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -612,12 +1077,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             dry_run=args.dry_run,
             overwrite=args.overwrite,
+            validate_terms=not args.no_term_validation,
+            template_overrides=cli_template_overrides(args),
         )
         print_run_result(result)
-        return 1 if result.status.startswith(("ERROR_", "TIMEOUT", "MISSING_")) else 0
+        if result.status == "PROVIDER_DISABLED":
+            return 2
+        return 0 if result.status in {"OK", "DRY_RUN", "SKIPPED_EXISTS"} else 1
 
     if args.command == "run-missing":
         provider = normalize_provider(args.provider)
+        analysis_contract_required = template_requires_analysis_contract(args.template)
+        if analysis_contract_required:
+            print(
+                "execution-gated dataset templates require an explicit disorder and "
+                "hypothesis; use the run command, not run-missing",
+                file=sys.stderr,
+            )
+            return 2
+        biomni_requested = provider == "biomni" or explicitly_requests_biomni(
+            args.research_args
+        )
+        if biomni_requested and not args.dry_run and not biomni_enabled():
+            print(BIOMNI_DISABLED_DETAIL, file=sys.stderr)
+            return 2
         if args.disorder:
             records = extract_hypotheses(
                 resolve_disorder_path(args.kb_dir, args.disorder)
@@ -627,10 +1110,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         records = [
             record
             for record in records
-            if provider
-            not in {
-                output.provider for output in existing_outputs(record, args.output_root)
-            }
+            if not any(
+                output.provider == provider
+                and existing_output_is_complete(
+                    output,
+                    analysis_contract_required=analysis_contract_required,
+                )
+                for output in existing_outputs(record, args.output_root)
+            )
         ]
         if args.max_hypotheses is not None:
             records = records[: args.max_hypotheses]
@@ -652,6 +1139,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 timeout_seconds=args.timeout_seconds,
                 dry_run=args.dry_run,
                 overwrite=args.overwrite,
+                validate_terms=not args.no_term_validation,
+                template_overrides=cli_template_overrides(args),
             )
             results.append(result)
             print_run_result(result)

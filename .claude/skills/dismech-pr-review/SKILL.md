@@ -259,9 +259,33 @@ mandatory baseline where applicable. The goal is not to "box-check" GeneReviews 
 cited — it is to **actively mine** GeneReviews as an authoritative clinical source
 and back specific claims with quoted snippets from each major section.
 
-**Step 1 — Is a GeneReviews article tagged?**
+**Step 1 — Does a GeneReviews chapter exist, and is it tagged?**
 
-Check the top-level `references:` block for an entry with `tags: [GeneReviews]`.
+Run the offline check. It works in the review sandbox (no network needed — it
+reads the committed Bookshelf index under `cache/bookshelf/`) and it is what
+replaces the PubMed `curl` this step used to ask for:
+
+```bash
+just check-genereviews kb/disorders/<Entry>.yaml
+```
+
+Read the `GeneReviews` line of its report (the `StatPearls` line is
+informational; see below):
+
+| Verdict | What to do |
+|---|---|
+| `TAGGED` | proceed to Step 2 |
+| `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
+| `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
+| `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
+| `CANDIDATE_CHAPTER` | a partial title match (`CONTAINS` / `TITLE_IN_NAME` / `NEAR`) or a retired chapter: **read the title** and decide; this is the judgement the check leaves to you |
+| `NO_CHAPTER` | nothing in the snapshot names this entry — no action, and the entry's "no GeneReviews chapter" note is verified |
+
+The index is a dated snapshot (the summary line prints the date). A chapter
+published since then is missed; when you have network, `--online` adds a live
+title search, but never treat its absence as a failure of the entry.
+
+The tag it is looking for:
 
 ```yaml
 references:
@@ -270,16 +294,13 @@ references:
       - GeneReviews
 ```
 
-If no such tag exists, search PubMed:
-```bash
-curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE NAME>[TI] GeneReviews[TI]"
-```
-
-- If a GeneReviews article **exists** and is **not tagged** in a new Mendelian entry,
-  that is a **blocking omission** — flag it as `REQUEST_CHANGES`.
-- If no GeneReviews article exists, no action needed.
+**StatPearls is not GeneReviews.** The report's `StatPearls` line says whether a
+StatPearls chapter names the disease. StatPearls is a point-of-care reference
+across all of medicine with a light editorial process; it may be cited (and
+tagged `StatPearls`) for orientation, but it is never the phenotype baseline, and
+its absence is never a gap. Do not ask a curator to mine it, and do not accept it
+in place of a GeneReviews chapter that the check says exists. See
+`docs/genereviews-baseline-check.md`.
 
 **Step 2 — If GeneReviews is tagged, verify the cache exists**
 

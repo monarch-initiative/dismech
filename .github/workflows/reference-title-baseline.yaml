@@ -22,9 +22,9 @@ name: Refresh Reference-Title Baseline
 # `auto/reference-title-baseline` so it behaves exactly like the sibling
 # regen branches: `claude-code-review.yml` declines agentic review of bot PRs
 # matching `auto/generate-*`, and a branch outside that glob would be a standing
-# inconsistency. It is moot in practice -- a pull_request run on a
-# GITHUB_TOKEN-pushed branch never executes any jobs -- which is exactly why the
-# approval has to come from this workflow's own final step.
+# inconsistency. The branch and PR writes use the ai4c-agent App so required PR
+# checks run normally; the separate ai4c-reviewer approval remains deterministic
+# because this is a generated baseline rather than material for an LLM review.
 
 on:
   push:
@@ -47,14 +47,15 @@ jobs:
   refresh-baseline:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Re-anchor on the current tip of main
         shell: bash
@@ -97,12 +98,25 @@ jobs:
             git diff --stat tests/reference_title_baseline.txt
           fi
 
+      - name: Generate ai4c-agent auto-lane token
+        id: auto-merge-token
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create or update Pull Request
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.auto-merge-token.outputs.token }}
         shell: bash
         run: |
+          # With checkout credentials deliberately absent, this makes the App
+          # the actor for branch pushes as well as PR creation and auto-merge.
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -138,7 +152,21 @@ jobs:
           git push --force-with-lease origin "$BRANCH_NAME"
 
           enable_auto_merge() {
-            gh pr merge "$1" \
+            local pr_number="$1"
+
+            # Replace a request armed by an older workflow run so enabledBy is
+            # the App rather than github-actions[bot]. A no-request state is
+            # normal for a newly created PR.
+            if [ "$(gh pr view "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json autoMergeRequest \
+              --jq '.autoMergeRequest != null')" = "true" ]; then
+              gh pr merge "$pr_number" \
+                --repo "$GITHUB_REPOSITORY" \
+                --disable-auto
+            fi
+
+            gh pr merge "$pr_number" \
               --repo "$GITHUB_REPOSITORY" \
               --squash \
               --auto
@@ -148,9 +176,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --json number \
-            --limit 1 \
-            --jq '.[0].number // empty')"
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
 
           if [ -n "$EXISTING_PR_NUMBER" ]; then
             echo "Updated existing baseline PR #$EXISTING_PR_NUMBER; enabling auto-merge."
@@ -196,16 +224,27 @@ jobs:
           EOF
           )"
 
+          CREATED_PR_NUMBER="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
+
+          if [ -z "$CREATED_PR_NUMBER" ]; then
+            echo "Failed to resolve created baseline PR for $BRANCH_NAME."
+            exit 1
+          fi
+
+          echo "Created baseline PR #$CREATED_PR_NUMBER; enabling auto-merge."
+          enable_auto_merge "$CREATED_PR_NUMBER"
+
       # Load-bearing, not a formality: branch protection requires an approving
-      # review before the auto-merge armed above can fire, and a pull_request
-      # run on a GITHUB_TOKEN-pushed auto/* branch sits at
-      # conclusion=action_required with zero jobs executed -- so nothing else
-      # ever approves this PR, and pr-shepherd's sweep cannot rescue it either
-      # (it needs both an approval and a passing check). Without this step the
-      # workflow would open a PR that can never merge, leaving the baseline
-      # permanently stale -- worse than not having the workflow at all, since
-      # the test now correctly skips on staleness. See the composite action and
-      # generate-pages.yaml.
+      # review before the auto-merge armed above can fire. The App-authenticated
+      # push starts the required PR checks; this separate reviewer identity
+      # deterministically approves the exact generated commit without paying for
+      # an LLM review. See the composite action and generate-pages.yaml.
       - name: Approve regen PR
         if: steps.check-changes.outputs.has_changes == 'true'
         uses: ./.github/actions/approve-regen-pr
