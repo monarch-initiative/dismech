@@ -327,14 +327,14 @@ def ontology_label_lookup() -> Callable[[str], str | None]:
         if prefix not in adapters:
             try:
                 adapters[prefix] = get_adapter(f"ols:{prefix}")
-            except Exception:  # noqa: BLE001 - an unknown prefix is "unresolved"
+            except Exception:  # an unknown prefix is "unresolved"
                 adapters[prefix] = None
         adapter = adapters[prefix]
         if adapter is None:
             return None
         try:
             return adapter.label(curie)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return None
 
     return lookup
@@ -397,7 +397,7 @@ def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorF
         for path in sorted(Path(kb_dir).glob("*.yaml")):
             try:
                 data = safe_load(path.read_text(encoding="utf-8"))
-            except Exception:  # noqa: BLE001 - not this tool's business
+            except Exception:  # not this tool's business
                 continue
             for node in (data or {}).get("pathophysiology") or []:
                 if isinstance(node, dict) and node.get("name"):
