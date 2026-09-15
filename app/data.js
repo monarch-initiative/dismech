@@ -34201,6 +34201,76 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 79",
+    "disease_id": "MONDO:0013215",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB79 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic truncating variants in TPRN, which encodes taperin. Every human allele reported so far is a frameshift or nonsense change in the first coding exon, so the disease is studied entirely through protein loss rather than through a graded allelic series.\nTaperin sits at the taper: the narrowed base of the hair cell stereocilium, where the rod pivots against the cuticular plate when sound deflects it. That address was how the protein got its name, and it puts DFNB79 in the same structural compartment as the CLIC5 disease already curated here (DFNB103) - the two proteins are physical partners, and super-resolution imaging shows TPRN, CLIC5 and PTPRQ arranged as concentric rings around the actin core at the taper.\nWhat taperin does there took fifteen years to establish. It is an F-actin bundler. Its N-terminal region cross-links actin filaments into bundles that are notably bendable rather than rigid, which is the property a pivot point needs, and it binds the membrane receptor PTPRQ, tying the actin core to the overlying plasma membrane. Losing it does not stop stereocilia being built. Bundles form, and then come apart: rootlets warp, TRIOBP-5 and ANKRD24 disappear from the rootlets of the shortest row, stereocilia are pruned, retract asynchronously and fuse, and inner hair cells later accumulate abnormal endosome-like vesicles and acquire efferent contacts on the cell body that normally exist only in immature or damaged cochleae. This is a maintenance disease, not a morphogenesis disease.\nTwo features separate DFNB79 from its taper-region neighbour DFNB103, and both are negative findings that should not be overwritten by analogy. First, the vestibular system is spared: Tprn-null mice have no circling or head bobbing and no significant vestibular evoked potential deficit through two months, and the affected children in whom balance was formally tested had normal Romberg and tandem gait. CLIC5 loss, by contrast, causes vestibular areflexia in patients and florid circling in mice. Second, the human hearing phenotype is inconsistent in a way that is not explained by allele. The same c.42_52del11 null allele produced stable severe hearing loss into the third decade in a Moroccan family, severe-to-profound loss in one Pakistani family, and progressive loss in another; the authors who found the discordance proposed a genetic modifier and nobody has mapped it.\nGene replacement is a live preclinical prospect and a dosage problem at the same time. AAV delivery of Tprn at an appropriate level restores the rings and rescues hearing in Tprn knockout mice - but overexpressing taperin is itself pathogenic, causing excessive actin bundling, extra stereocilia rows, over-elongation and degeneration. Too little and too much both destroy the bundle, which is an unusual constraint for a recessive loss-of-function disease and the central practical question this entry records.",
+    "pathophysiology": [
+      "TPRN Loss of Function",
+      "Loss of F-Actin Bundling at the Stereocilia Taper",
+      "Stereociliary Rootlet Destabilization",
+      "Progressive Stereocilia Retraction and Fusion",
+      "Inner Hair Cell Synaptic and Vesicular Abnormality"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "actin crosslink formation",
+      "stereocilium maintenance",
+      "auditory receptor cell stereocilium organization"
+    ],
+    "phenotypes": [
+      "Progressive Sensorineural Hearing Impairment",
+      "Prelingual Severe to Profound Hearing Impairment",
+      "Normal Vestibular Function"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Vestibular"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0000399",
+      "HP:0001751"
+    ],
+    "frequencies": [
+      "EXCLUDED"
+    ],
+    "genes": [
+      "TPRN"
+    ],
+    "treatments": [
+      "Genetic Counselling with Serial Audiometry",
+      "Cochlear Implantation",
+      "Hearing Amplification"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_79.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_79.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 93",
     "disease_id": "MONDO:0013963",
     "category": "Mendelian",
@@ -51353,7 +51423,8 @@ window.searchData = [
       "CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling",
       "Disrupted neural crest cell development",
       "Inappropriate p53 activation",
-      "Impaired cranial and otic placode-derived development"
+      "Impaired cranial and otic placode-derived development",
+      "Impaired thymic development and T-cell output"
     ],
     "cell_types": [
       "Migratory neural crest cell"
@@ -51367,7 +51438,8 @@ window.searchData = [
       "Neural crest cell migration",
       "Signal transduction by p53 class mediator",
       "Otic placode formation",
-      "Inner ear morphogenesis"
+      "Inner ear morphogenesis",
+      "Thymus development"
     ],
     "phenotypes": [
       "Coloboma",
@@ -51390,12 +51462,21 @@ window.searchData = [
       "External Genital Hypoplasia",
       "Growth Retardation",
       "Vestibular Dysfunction",
-      "Apnea"
+      "Apnea",
+      "Olfactory bulb hypoplasia",
+      "Autistic behavior",
+      "Scoliosis",
+      "Thymic hypoplasia",
+      "T-cell lymphopenia",
+      "Severe combined immunodeficiency",
+      "Recurrent infections"
     ],
     "phenotype_categories": [
-      "Phenotypic"
+      "Phenotypic",
+      "Immunological"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Digestive",
       "Ear",
@@ -51404,6 +51485,7 @@ window.searchData = [
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Immune",
       "Musculoskeletal",
       "Nervous System",
       "Respiratory"
@@ -51429,10 +51511,20 @@ window.searchData = [
       "HP:0003241",
       "HP:0001510",
       "HP:0001751",
-      "HP:0002104"
+      "HP:0002104",
+      "HP:0040326",
+      "HP:0000729",
+      "HP:0002650",
+      "HP:0000778",
+      "HP:0005403",
+      "HP:0004430",
+      "HP:0002719"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "CHD7"
@@ -51447,11 +51539,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "CHARGE_Syndrome.yaml",
     "page_url": "../pages/disorders/CHARGE_syndrome.html",
-    "num_phenotypes": 21,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 28,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
   },
   {
@@ -62581,14 +62673,24 @@ window.searchData = [
       "Decreased total lymphocyte count",
       "Decreased circulating immunoglobulin concentration",
       "Recurrent respiratory infections",
-      "Bird-like facies"
+      "Bird-like facies",
+      "Decreased naive T cell proportion",
+      "Decreased total B cell count",
+      "Myelodysplasia",
+      "Pancytopenia",
+      "Polydactyly",
+      "Clinodactyly",
+      "Hyperpigmentation of the skin"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Constitutional",
       "Neurologic",
       "Growth",
-      "Craniofacial"
+      "Craniofacial",
+      "Hematologic",
+      "Skeletal",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -62596,8 +62698,11 @@ window.searchData = [
       "Growth",
       "Head and Neck",
       "Immune",
+      "Integument",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
+      "Neoplasm",
       "Nervous System",
       "Respiratory"
     ],
@@ -62609,7 +62714,14 @@ window.searchData = [
       "HP:0001888",
       "HP:0004313",
       "HP:0002205",
-      "HP:0000320"
+      "HP:0000320",
+      "HP:0031397",
+      "HP:0010976",
+      "HP:0002863",
+      "HP:0001876",
+      "HP:0010442",
+      "HP:0030084",
+      "HP:0000953"
     ],
     "frequencies": [],
     "genes": [
@@ -62623,7 +62735,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Cernunnos-XLF_deficiency.yaml",
     "page_url": "../pages/disorders/Cernunnos-XLF_deficiency.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 15,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
@@ -71180,6 +71292,150 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "45",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Ciguatera Fish Poisoning",
+    "disease_id": "MONDO:0043230",
+    "category": "Environmental",
+    "parents": [
+      "Foodborne Intoxication",
+      "Marine Biotoxin Poisoning"
+    ],
+    "creation_date": "2026-09-15T02:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ciguatera fish poisoning is an acquired foodborne intoxication caused by eating reef fish whose flesh carries ciguatoxins - lipophilic, heat-stable cyclic polyether toxins originating in the benthic dinoflagellates Gambierdiscus and Fukuyoa. The algal precursors, gambiertoxins, enter the reef food web when herbivorous fish graze toxin-bearing macroalgae, are oxidised in fish liver to more polar and more potent congeners, and biomagnify into carnivorous predators such as jacks, groupers, snappers, barracuda and moray eels. Because the toxins are tasteless, odourless and unaffected by cooking or freezing, no consumer-level inspection prevents exposure. The unifying molecular mechanism is binding at neurotoxin receptor site 5 on the alpha subunit of voltage-gated sodium channels, which shifts the voltage dependence of activation to more hyperpolarised potentials and impairs inactivation, so channels open near the resting membrane potential. The resulting sodium influx, amplified by concurrent block of delayed-rectifier and A-type potassium currents, drives repetitive firing in peripheral sensory afferents, enteric and autonomic neurons, and cardiac conduction tissue, and produces osmotically driven swelling at the nodes of Ranvier and in adaxonal Schwann cell cytoplasm. Patients present within hours of the meal with nausea, vomiting, diarrhoea and abdominal pain, followed by perioral and distal paresthesia, pruritus and the near-pathognomonic cold allodynia in which innocuous cool contact is felt as burning pain; bradycardia and hypotension occur in a minority and can be life-threatening. Gastrointestinal features settle within days while neurological features persist for weeks to months, and roughly a fifth of patients develop a chronic relapsing syndrome of fatigue, dysesthesia and pruritus that can be reactivated by alcohol, nuts or a further fish meal. No antidote exists; management is supportive, with intravenous mannitol and neuropathic-pain agents both supported only by low-quality evidence.",
+    "pathophysiology": [
+      "Gambierdiscus Ciguatoxin Production on Reef Substrate",
+      "Trophic Biotransformation and Biomagnification in Reef Fish",
+      "Ingestion and Systemic Distribution of Ciguatoxin",
+      "Voltage-Gated Sodium Channel Site 5 Activation",
+      "Potassium Current Inhibition in Sensory Neurons",
+      "Sustained Sodium Influx and Membrane Depolarization",
+      "Repetitive Firing of Peripheral Sensory Afferents",
+      "Nodal and Adaxonal Schwann Cell Swelling",
+      "Calcium-Dependent CGRP Release and Neurogenic Inflammation",
+      "Cold Sensitisation of Nav1.8/TRPA1-Positive Afferents",
+      "Enteric and Autonomic Neuron Hyperexcitability",
+      "Cardiac Conduction and Vasomotor Disturbance"
+    ],
+    "cell_types": [
+      "dorsal root ganglion sensory neuron",
+      "peripheral sensory afferent neuron",
+      "myelinating Schwann cell",
+      "peptidergic CGRP-expressing sensory neuron",
+      "Nav1.8/TRPA1-positive primary afferent neuron",
+      "enteric neuron",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001451",
+      "CL:3000004",
+      "CL:0000218",
+      "CL:4033176",
+      "CL:0000101",
+      "CL:0007011",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "sodium ion transmembrane transport",
+      "membrane depolarization",
+      "action potential",
+      "CGRP release from sensory nerve terminals",
+      "detection of temperature stimulus involved in sensory perception of pain"
+    ],
+    "phenotypes": [
+      "Nausea",
+      "Vomiting",
+      "Diarrhea",
+      "Abdominal pain",
+      "Perioral and distal paresthesia",
+      "Cold allodynia",
+      "Pruritus",
+      "Hyperesthesia",
+      "Myalgia",
+      "Arthralgia",
+      "Parageusia",
+      "Headache",
+      "Muscle weakness",
+      "Fatigue",
+      "Hyperhidrosis",
+      "Bradycardia",
+      "Hypotension",
+      "Ataxia",
+      "Hyporeflexia",
+      "Vertigo",
+      "Dysuria"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Neurological",
+      "Musculoskeletal",
+      "Neuromuscular",
+      "Constitutional",
+      "Autonomic",
+      "Cardiovascular",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0002027",
+      "HP:0003401",
+      "HP:0012533",
+      "HP:0000989",
+      "HP:0100963",
+      "HP:0003326",
+      "HP:0002829",
+      "HP:0031249",
+      "HP:0002315",
+      "HP:0001324",
+      "HP:0012378",
+      "HP:0000975",
+      "HP:0001662",
+      "HP:0002615",
+      "HP:0001251",
+      "HP:0001265",
+      "HP:0002321",
+      "HP:0100518"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Supportive and symptomatic care",
+      "Intravenous mannitol",
+      "Atropine for symptomatic bradycardia",
+      "Neuropathic-pain pharmacotherapy for persistent symptoms",
+      "Avoidance of relapse-triggering foods"
+    ],
+    "environmental": [
+      "Consumption of ciguatoxin-contaminated carnivorous reef fish",
+      "Sea surface warming and coral reef disturbance"
+    ],
+    "biochemical": [],
+    "source_file": "Ciguatera_Fish_Poisoning.yaml",
+    "page_url": "../pages/disorders/Ciguatera_Fish_Poisoning.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Cisplatin Toxicity",
@@ -120044,19 +120300,20 @@ window.searchData = [
   },
   {
     "name": "GLUT1 Deficiency Syndrome",
-    "disease_id": "MONDO:0011724",
+    "disease_id": "MONDO:0000188",
     "category": "Mendelian",
     "parents": [
-      "GLUT1 Deficiency Syndrome (Umbrella)",
+      "Inborn Error of Metabolism",
       "Inborn Carbohydrate Metabolic Disorder",
-      "Metabolic Epilepsy"
+      "Metabolic Epilepsy",
+      "Epilepsy",
+      "Movement Disorder"
     ],
     "creation_date": "2026-07-06T00:00:00Z",
     "updated_date": null,
     "subtypes": [
       "Classic GLUT1 Deficiency Syndrome",
-      "GLUT1 DS with Paroxysmal Exertion-Induced Dyskinesia",
-      "Dystonia 9"
+      "GLUT1 DS with Paroxysmal Exertion-Induced Dyskinesia"
     ],
     "description": "Glucose transporter type 1 (GLUT1) deficiency syndrome (Glut1DS) is a disorder of brain energy metabolism caused by heterozygous (rarely biallelic) pathogenic variants in SLC2A1, which encodes the GLUT1 facilitative glucose transporter responsible for transporting glucose across the endothelial cells of the blood-brain barrier and into erythrocytes. Reduced GLUT1 function starves the brain of its principal metabolic fuel, producing a cerebral energy deficit that manifests as an infantile-onset, often pharmacoresistant epileptic encephalopathy with acquired microcephaly, developmental delay, and a complex movement disorder (ataxia, dystonia, spasticity) in the classic severe form. Milder and later-onset presentations exist across a phenotypic spectrum, including paroxysmal exertion-induced dyskinesia (GLUT1 deficiency syndrome 2 / DYT18) and episodic choreoathetosis with spasticity (dystonia 9 / DYT9). The diagnostic hallmark is hypoglycorrhachia (low CSF glucose) with a low CSF:blood glucose ratio in the setting of normoglycemia. The ketogenic diet, which supplies ketone bodies as an alternative cerebral fuel bypassing the GLUT1 transport defect, is first-line disease-specific therapy.",
     "pathophysiology": [
@@ -120065,21 +120322,28 @@ window.searchData = [
       "Cerebral Glucose Energy Deficit",
       "Neuronal Hyperexcitability and Hypersynchrony",
       "Impaired Neurodevelopment and Movement Disorder",
-      "Recurrent Pharmacoresistant Seizures"
+      "Recurrent Pharmacoresistant Seizures",
+      "Erythrocyte GLUT1 Dysfunction",
+      "Arrested Cerebral Angiogenesis and Microvascular Diminution",
+      "Exertion- and Fasting-Sensitive Basal Ganglia Energy Failure"
     ],
     "cell_types": [
       "Brain Microvascular Endothelial Cell",
-      "Erythrocyte",
-      "Neuron"
+      "Neuron",
+      "Astrocyte",
+      "Erythrocyte"
     ],
     "cell_type_ids": [
       "CL:2000044",
-      "CL:0000232",
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000127",
+      "CL:0000232"
     ],
     "biological_processes": [
       "D-glucose transmembrane transport",
-      "Generation of Precursor Metabolites and Energy"
+      "Generation of Precursor Metabolites and Energy",
+      "brain development",
+      "cerebral angiogenesis"
     ],
     "phenotypes": [
       "Pharmacoresistant Seizures",
@@ -120090,24 +120354,53 @@ window.searchData = [
       "Spasticity",
       "Paroxysmal Exercise/Exertion-Induced Dyskinesia",
       "Speech Difficulty",
-      "Hypotonia"
+      "Hypotonia",
+      "Intellectual disability",
+      "Absence seizures",
+      "Myoclonic seizures",
+      "Generalized tonic-clonic seizures",
+      "Focal seizures",
+      "Generalized 2.5-4 Hz spike-wave EEG",
+      "Paroxysmal eye-head movements",
+      "Gait disturbance",
+      "Hypoglycorrhachia (low CSF glucose)",
+      "Reduced CSF lactate",
+      "Hemolytic anemia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurological",
+      "Laboratory",
+      "Hematologic"
+    ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
       "Head and Neck",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001250",
       "HP:0001263",
-      "HP:0000253",
+      "HP:0005484",
       "HP:0001251",
       "HP:0001332",
       "HP:0001257",
       "HP:0007166",
       "HP:0001260",
-      "HP:0001252"
+      "HP:0001252",
+      "HP:0001249",
+      "HP:0002121",
+      "HP:0032794",
+      "HP:0002069",
+      "HP:0007359",
+      "HP:0010850",
+      "HP:0007704",
+      "HP:0001288",
+      "HP:0011972",
+      "HP:0030086",
+      "HP:0001878"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -120119,22 +120412,33 @@ window.searchData = [
     ],
     "treatments": [
       "Ketogenic Diet Therapy",
+      "Modified Atkins Diet and other ketogenic dietary variants",
       "Triheptanoin",
       "Anti-Seizure Medications to Avoid",
-      "Multidisciplinary Supportive Care"
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling",
+      "Evaluation of At-Risk Relatives and Early Treatment",
+      "Neurological Surveillance",
+      "AAV9-Mediated GLUT1 Gene Replacement (Experimental)"
     ],
-    "environmental": [],
+    "environmental": [
+      "Prolonged or strenuous exercise",
+      "Fasting and hunger"
+    ],
     "biochemical": [
-      "Hypoglycorrhachia"
+      "Hypoglycorrhachia",
+      "CSF lactate",
+      "Erythrocyte 3-O-methyl-D-glucose uptake",
+      "Erythrocyte surface GLUT1 (METAglut1)"
     ],
     "source_file": "GLUT1_Deficiency_Syndrome.yaml",
     "page_url": "../pages/disorders/GLUT1_Deficiency_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "GM1 Gangliosidosis Type 1",
@@ -129117,15 +129421,18 @@ window.searchData = [
       "Reduced IGF-1 Production and Action",
       "Impaired Linear Growth",
       "Loss of IGF-1 Negative Feedback on GH Secretion",
-      "Reduced Pro-Aging Signaling and Metabolic Protection"
+      "Reduced Pro-Aging Signaling and Metabolic Protection",
+      "STAT5B-Dependent Regulatory T-Cell Failure"
     ],
     "cell_types": [
       "Hepatocyte (principal IGF-1 source)",
-      "Growth-plate chondrocyte"
+      "Growth-plate chondrocyte",
+      "CD4+CD25high regulatory T cell"
     ],
     "cell_type_ids": [
       "CL:0000182",
-      "CL:0000138"
+      "CL:0000138",
+      "CL:0000815"
     ],
     "biological_processes": [
       "Growth hormone receptor signaling pathway",
@@ -129134,7 +129441,9 @@ window.searchData = [
       "Regulation of growth",
       "Growth hormone secretion",
       "Reduced (pro-aging) IGF-1 receptor signaling",
-      "Enhanced insulin receptor signaling (insulin sensitivity)"
+      "Enhanced insulin receptor signaling (insulin sensitivity)",
+      "interleukin-2-mediated signaling pathway",
+      "regulatory T cell differentiation"
     ],
     "phenotypes": [
       "Short stature",
@@ -129142,7 +129451,10 @@ window.searchData = [
       "Decreased circulating IGF-1",
       "Elevated circulating growth hormone",
       "Hypoglycemia",
-      "Severe T-cell immunodeficiency",
+      "Primary Immunodeficiency",
+      "Decreased Regulatory T-Cell Proportion",
+      "Lymphocytic Interstitial Pneumonia",
+      "Hypergammaglobulinemia",
       "Eczema"
     ],
     "phenotype_categories": [
@@ -129150,12 +129462,15 @@ window.searchData = [
       "Laboratory abnormality"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
       "Endocrine",
       "Growth",
       "Immune",
       "Integument",
       "Metabolism",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0004322",
@@ -129163,7 +129478,10 @@ window.searchData = [
       "HP:0030353",
       "HP:0000845",
       "HP:0001943",
-      "HP:0005352",
+      "HP:0002721",
+      "HP:0020113",
+      "HP:0006527",
+      "HP:0010702",
       "HP:0000964"
     ],
     "frequencies": [
@@ -129186,11 +129504,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Growth_Hormone_Insensitivity_Syndrome.yaml",
     "page_url": "../pages/disorders/Growth_Hormone_Insensitivity_Syndrome.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -135306,7 +135624,9 @@ window.searchData = [
       "HP:0004313",
       "HP:0001888"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT"
+    ],
     "genes": [
       "FAT4"
     ],
@@ -142828,6 +143148,125 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Hyper-IgM Syndrome Type 1",
+    "disease_id": "MONDO:0010626",
+    "category": "Genetic",
+    "parents": [
+      "Hyper-IgM syndrome",
+      "Combined immunodeficiency",
+      "Primary immunodeficiency"
+    ],
+    "creation_date": "2026-08-27T01:46:30Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hyper-IgM syndrome type 1 (X-linked hyper-IgM syndrome, CD40 ligand deficiency) is an X-linked combined immunodeficiency caused by hemizygous loss-of-function variants in CD40LG, which encodes CD40 ligand (CD154), the activation-induced surface protein of CD4-positive T cells. Loss of CD40L abolishes engagement of CD40 on B cells, so B cells cannot undergo immunoglobulin class switch recombination and germinal centers fail to develop: serum IgG, IgA, and IgE are very low or absent while IgM is normal or elevated, and class-switched memory B cells are markedly reduced. The same molecular lesion abolishes CD40-dependent licensing of macrophages and dendritic cells, which is why the disorder behaves as a combined rather than a purely antibody deficiency and why affected boys are susceptible to opportunistic pathogens, most characteristically Pneumocystis jirovecii and Cryptosporidium. Most patients present in the first year of life with recurrent sinopulmonary infection, Pneumocystis pneumonia, and protracted diarrhea. Chronic neutropenia with oral ulceration is common, and Cryptosporidium-associated sclerosing cholangitis and biliary-tract malignancy dominate long-term morbidity and mortality. Management combines immunoglobulin replacement, Pneumocystis prophylaxis, and G-CSF for neutropenia; allogeneic hematopoietic cell transplantation is the only curative option.",
+    "pathophysiology": [
+      "Loss of Functional CD40 Ligand on Activated CD4+ T Cells",
+      "Failed CD40 Engagement on B Cells",
+      "Defective Immunoglobulin Class Switch Recombination",
+      "Abortive Germinal Center Reaction with Follicular Dendritic Cell Depletion",
+      "Failed CD40-Dependent Licensing of Macrophages and Dendritic Cells",
+      "Cryptosporidium-Associated Biliary Tract Injury"
+    ],
+    "cell_types": [
+      "activated CD4+ T helper cell",
+      "B cell",
+      "class switched memory B cell",
+      "follicular dendritic cell",
+      "macrophage",
+      "dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000896",
+      "CL:0000236",
+      "CL:0000972",
+      "CL:0000442",
+      "CL:0000235",
+      "CL:0000451"
+    ],
+    "biological_processes": [
+      "CD40 signaling pathway",
+      "immunoglobulin class switch recombination (isotype switching)",
+      "germinal center formation",
+      "macrophage activation",
+      "T cell costimulation"
+    ],
+    "phenotypes": [
+      "Recurrent sinopulmonary infections",
+      "Pneumocystis jirovecii pneumonia",
+      "Chronic diarrhea",
+      "Chronic neutropenia",
+      "Oral ulcer",
+      "Sclerosing cholangitis",
+      "Liver disease",
+      "Malignancy",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgA concentration",
+      "Increased circulating IgM level",
+      "Decreased class-switched memory B cell proportion",
+      "Neurologic complications"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005425",
+      "HP:0020102",
+      "HP:0002028",
+      "HP:0001875",
+      "HP:0000155",
+      "HP:0030991",
+      "HP:0001392",
+      "HP:0002664",
+      "HP:0004315",
+      "HP:0002720",
+      "HP:0003496",
+      "HP:0030388",
+      "HP:0012638"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "CD40LG"
+    ],
+    "treatments": [
+      "Immunoglobulin replacement therapy",
+      "Pneumocystis jirovecii pneumonia prophylaxis",
+      "Recombinant G-CSF for chronic neutropenia",
+      "Allogeneic hematopoietic cell transplantation",
+      "Live-vaccine avoidance"
+    ],
+    "environmental": [
+      "Exposure to Cryptosporidium-contaminated water"
+    ],
+    "biochemical": [],
+    "source_file": "Hyper-IgM_Syndrome_Type_1.yaml",
+    "page_url": "../pages/disorders/Hyper-IgM_Syndrome_Type_1.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hyper-IgM Syndrome Type 2",
     "disease_id": "MONDO:0011528",
     "category": "Mendelian",
@@ -142998,6 +143437,7 @@ window.searchData = [
       "Recurrent Respiratory Tract Infection",
       "Bronchiectasis",
       "Severe Skin Disease",
+      "Impaired Specific Antibody Response",
       "Hypoproteinaemia"
     ],
     "phenotype_categories": [
@@ -143017,6 +143457,7 @@ window.searchData = [
       "HP:0025794",
       "HP:0002205",
       "HP:0002110",
+      "HP:0032140",
       "HP:0003075"
     ],
     "frequencies": [],
@@ -143025,10 +143466,14 @@ window.searchData = [
     ],
     "treatments": [],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "IgG fractional catabolic rate",
+      "Albumin fractional catabolic rate",
+      "IgA fractional catabolic rate"
+    ],
     "source_file": "Hypercatabolic_Hypoproteinemia.yaml",
     "page_url": "../pages/disorders/Hypercatabolic_Hypoproteinemia.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 0,
@@ -152696,7 +153141,7 @@ window.searchData = [
     "creation_date": "2026-07-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Immunodeficiency 131 (IMD131; IRF4-mediated combined immunodeficiency) is an autosomal dominant combined immunodeficiency caused by a recurrent heterozygous multimorphic missense mutation, p.Thr95Arg (T95R), in the DNA-binding domain of the transcription factor interferon regulatory factor 4 (IRF4). Affected individuals present in early childhood with agammaglobulinemia and profound susceptibility to opportunistic infection, notably Pneumocystis jirovecii pneumonia. B cells show impaired maturation, decreased immunoglobulin isotype switching, and defective plasma cell differentiation; T cells show reduced TH17 and T follicular helper (TFH) populations with decreased cytokine production. The T95R substitution alters IRF4's canonical DNA-binding specificities and behaves simultaneously as a loss-of-function (hypomorph), gain-of-function (hypermorph), and neomorph, a \"multimorphic\" pathophysiology that dysregulates the normal IRF4 transcriptional program in lymphocytes.\n",
+    "description": "Immunodeficiency 131 (IMD131; IRF4-mediated combined immunodeficiency) is an autosomal dominant combined immunodeficiency caused by a recurrent heterozygous multimorphic missense mutation, p.Thr95Arg (T95R), in the DNA-binding domain of the transcription factor interferon regulatory factor 4 (IRF4). Affected individuals present in childhood with agammaglobulinemia and profound susceptibility to opportunistic infection, notably Pneumocystis jirovecii pneumonia. B cells show impaired maturation, decreased immunoglobulin isotype switching, and defective plasma cell differentiation; T cells show reduced TH17 and T follicular helper (TFH) populations with decreased cytokine production. The T95R substitution alters IRF4's canonical DNA-binding specificities and behaves simultaneously as a loss-of-function (hypomorph), gain-of-function (hypermorph), and neomorph, a \"multimorphic\" pathophysiology that dysregulates the normal IRF4 transcriptional program in lymphocytes.\n",
     "pathophysiology": [
       "IRF4 T95R Multimorphic DNA-Binding Alteration",
       "Dysregulated IRF4 Transcriptional Program",
@@ -152732,12 +153177,14 @@ window.searchData = [
       "Decreased total B cell count",
       "Recurrent pneumonia",
       "Chronic diarrhea",
-      "Skin rash"
+      "Skin rash",
+      "Abdominal pain"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Blood",
       "Cellular",
+      "Constitutional",
       "Digestive",
       "Immune",
       "Integument",
@@ -152753,7 +153200,8 @@ window.searchData = [
       "HP:0010976",
       "HP:0006532",
       "HP:0002028",
-      "HP:0000988"
+      "HP:0000988",
+      "HP:0002027"
     ],
     "frequencies": [],
     "genes": [
@@ -152768,11 +153216,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Immunodeficiency_131.yaml",
     "page_url": "../pages/disorders/Immunodeficiency_131.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -161905,7 +162353,10 @@ window.searchData = [
       "Downslanted Palpebral Fissures",
       "Broad Nasal Bridge",
       "Congenital Heart Defects",
-      "Renal Anomalies"
+      "Renal Anomalies",
+      "Structural Brain Abnormalities",
+      "Attention Deficit Hyperactivity Disorder",
+      "Cryptorchidism"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -161914,7 +162365,9 @@ window.searchData = [
       "Craniofacial",
       "Ophthalmologic",
       "Cardiac",
-      "Renal"
+      "Renal",
+      "Behavioral",
+      "Genitourinary"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -161935,7 +162388,10 @@ window.searchData = [
       "HP:0000494",
       "HP:0000431",
       "HP:0001627",
-      "HP:0000077"
+      "HP:0000077",
+      "HP:0012443",
+      "HP:0007018",
+      "HP:0000028"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -161946,17 +162402,19 @@ window.searchData = [
       "FLI1"
     ],
     "treatments": [
-      "Multidisciplinary Supportive Care"
+      "Multidisciplinary Supportive Care",
+      "Prophylactic Platelet Transfusion",
+      "Genetic Counseling and Prenatal Diagnosis"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Jacobsen_Syndrome.yaml",
     "page_url": "../pages/disorders/Jacobsen_Syndrome.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 13,
     "num_pathophysiology": 2,
     "num_genes": 2,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
+    "num_treatments": 3,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
   },
   {
@@ -174258,7 +174716,7 @@ window.searchData = [
       "LCCS11",
       "LCCS12"
     ],
-    "description": "Lethal congenital contracture syndrome (LCCS) is a genetically heterogeneous group of autosomal recessive fetal akinesia deformation sequence disorders in which developmental failure of the fetal motor unit abolishes fetal movement. The numbered forms (LCCS1-LCCS12) place the primary lesion at different levels of that motor unit - anterior horn motor neuron survival in LCCS1-LCCS3, Schwann cell myelination and node-of-Ranvier assembly in LCCS2 and LCCS7-LCCS9 and LCCS11, and the sarcomere and neuromuscular junction in LCCS4-LCCS6 - but they converge on the same downstream sequence: absent fetal movement, multiple joint contractures, muscle hypoplasia, micrognathia, polyhydramnios, pulmonary hypoplasia, and prenatal or early neonatal death. \"Lethal\" is a historical label rather than an invariant outcome: some GLDN-related infants survive the neonatal period with intensive respiratory and nutritional support.",
+    "description": "Lethal congenital contracture syndrome (LCCS) comprises genetically heterogeneous autosomal recessive disorders with prenatal akinesia and congenital contractures. The numbered subtypes involve GLE1-associated spinal motor-neuron development, ERBB3 signaling, PIP5K1C-dependent phosphoinositide metabolism, MYBPC1-associated muscle function, DNM2-dependent trafficking, ZBTB42-associated muscle development, CNTNAP1 paranodal junctions, ADCY6 and ADGRG6 peripheral myelination, NEK9-associated skeletal development, GLDN nodal organization, and combined neuronal and muscle DST isoforms. Some mechanistic steps are inferred from cellular or animal models and should not be transferred between subtypes. Reduced movement can produce joint deformations, impaired fetal swallowing and pulmonary hypoplasia, but primary skeletal abnormalities and central nervous system involvement also occur. Prenatal and neonatal mortality is high in selected series; GLDN- and CNTNAP1-associated disease can permit longer survival with substantial morbidity.",
     "pathophysiology": [
       "Nuclear mRNA Export Failure",
       "PI3K-Akt Signaling Loss",
@@ -174272,11 +174730,11 @@ window.searchData = [
       "Myofibril Assembly Failure",
       "Endocytic Trafficking Failure",
       "Neurogenic Skeletal Muscle Atrophy and Hypoplasia",
-      "Absent Fetal Movement",
-      "Joint Contracture Formation",
       "Impaired Swallowing",
-      "Pulmonary Hypoplasia",
-      "Neonatal Respiratory Failure"
+      "Paranodal Axoglial Junction Failure",
+      "Loss of Slow Myosin-binding Protein C Function",
+      "Combined Neuronal and Muscle Dystonin Deficiency",
+      "Focal Bulbar Paresis"
     ],
     "cell_types": [
       "spinal cord motor neuron",
@@ -174300,8 +174758,7 @@ window.searchData = [
       "neuronal action potential propagation",
       "myofibril assembly",
       "endocytosis",
-      "skeletal muscle tissue development",
-      "lung development"
+      "skeletal muscle tissue development"
     ],
     "phenotypes": [
       "Absent Fetal Movement",
@@ -174323,7 +174780,31 @@ window.searchData = [
       "Dysphagia",
       "Overlapping Fingers",
       "Vocal Cord Paresis",
-      "Severe Hypotonia"
+      "Severe Hypotonia",
+      "Skeletal Muscle Hypoplasia",
+      "Retrognathia",
+      "Hand Clenching",
+      "Knee Extension Contracture",
+      "Diaphragmatic Paralysis",
+      "Laryngomalacia",
+      "Tracheomalacia",
+      "Hip Dislocation",
+      "Muscle Weakness",
+      "Motor Developmental Delay",
+      "Central Nervous System Hypomyelination",
+      "Brain Atrophy",
+      "Seizures",
+      "Cerebral Visual Impairment",
+      "Hearing Impairment",
+      "Cleft Palate",
+      "Optic Atrophy",
+      "Short Long Bones",
+      "Thin Ribs",
+      "Pulmonary Hypertension",
+      "Patent Ductus Arteriosus",
+      "Central Apnea",
+      "Short Umbilical Cord",
+      "Scoliosis"
     ],
     "phenotype_categories": [
       "Prenatal",
@@ -174334,12 +174815,16 @@ window.searchData = [
       "Neurologic",
       "Genitourinary",
       "Ophthalmologic",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Neurodevelopmental",
+      "Audiologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Eye",
       "Genitourinary",
       "Growth",
@@ -174373,7 +174858,31 @@ window.searchData = [
       "HP:0002015",
       "HP:0010557",
       "HP:0001604",
-      "HP:0001290"
+      "HP:0001290",
+      "HP:0009004",
+      "HP:0000278",
+      "HP:0001188",
+      "HP:0034672",
+      "HP:0006597",
+      "HP:0001601",
+      "HP:0002779",
+      "HP:0002827",
+      "HP:0001324",
+      "HP:0001270",
+      "HP:0003429",
+      "HP:0012444",
+      "HP:0001250",
+      "HP:0100704",
+      "HP:0000365",
+      "HP:0000175",
+      "HP:0000648",
+      "HP:0003026",
+      "HP:0000883",
+      "HP:0002092",
+      "HP:0001643",
+      "HP:0002871",
+      "HP:0001196",
+      "HP:0002650"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -174397,18 +174906,20 @@ window.searchData = [
       "Mechanical Ventilation and Chronic Respiratory Support",
       "Enteral Nutritional Support",
       "Genetic Counseling and Prenatal Testing",
-      "Palliative and Supportive Care",
-      "Contracture Management and Rehabilitation"
+      "Contracture Management and Rehabilitation",
+      "Perinatal Palliative Care and Shared Goals of Care",
+      "Tracheostomy",
+      "Selected Orthopedic Surgery"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Lethal_Congenital_Contracture_Syndrome.yaml",
     "page_url": "../pages/disorders/Lethal_Congenital_Contracture_Syndrome.html",
-    "num_phenotypes": 20,
+    "num_phenotypes": 44,
     "num_pathophysiology": 17,
     "num_genes": 12,
-    "num_treatments": 5,
-    "causal_graph_edges": "30",
+    "num_treatments": 7,
+    "causal_graph_edges": "59",
     "causal_graph_longest_path": "6"
   },
   {
@@ -181241,7 +181752,17 @@ window.searchData = [
       "Decreased proportion of CD4-positive T cells",
       "Sclerosing cholangitis",
       "Chronic hepatitis due to cryptosporidium infection",
-      "Autoimmunity"
+      "Autoimmunity",
+      "Autoimmune hemolytic anemia",
+      "Autoimmune thrombocytopenia",
+      "Decreased total neutrophil count",
+      "Pancytopenia",
+      "Decreased total T cell count",
+      "Abnormal CD4:CD8 ratio",
+      "Decreased mitogen-induced T-cell proliferation",
+      "Panhypogammaglobulinemia",
+      "Acute otitis media",
+      "Skin rash"
     ],
     "phenotype_categories": [
       "Immunologic",
@@ -181249,12 +181770,15 @@ window.searchData = [
       "Gastrointestinal",
       "Growth",
       "Laboratory",
-      "Hepatobiliary"
+      "Hepatobiliary",
+      "Hematologic",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cellular",
       "Digestive",
+      "Ear",
       "Growth",
       "Head and Neck",
       "Immune",
@@ -181287,7 +181811,17 @@ window.searchData = [
       "HP:0032218",
       "HP:0030991",
       "HP:0200124",
-      "HP:0002960"
+      "HP:0002960",
+      "HP:0001890",
+      "HP:0001973",
+      "HP:0001875",
+      "HP:0001876",
+      "HP:0005403",
+      "HP:0031394",
+      "HP:0031381",
+      "HP:0003139",
+      "HP:0000371",
+      "HP:0000988"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -181310,11 +181844,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MHC_Class_II_Deficiency.yaml",
     "page_url": "../pages/disorders/MHC_class_II_deficiency.html",
-    "num_phenotypes": 24,
+    "num_phenotypes": 34,
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
   },
   {
@@ -211736,7 +212270,10 @@ window.searchData = [
       "Lymphoma",
       "Increased sensitivity to ionizing radiation",
       "Spontaneous chromosomal breakage with 7;14 rearrangements",
-      "Hypergonadotropic hypogonadism"
+      "Hypergonadotropic hypogonadism",
+      "Intellectual disability",
+      "Dysmorphic facial features",
+      "Recurrent sinopulmonary infections"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -211744,7 +212281,8 @@ window.searchData = [
       "Immunologic",
       "Oncologic",
       "Laboratory",
-      "Endocrine"
+      "Endocrine",
+      "Craniofacial"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -211757,7 +212295,8 @@ window.searchData = [
       "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0000252",
@@ -211766,23 +212305,27 @@ window.searchData = [
       "HP:0002665",
       "HP:0011133",
       "HP:0040012",
-      "HP:0000815"
+      "HP:0000815",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0005425"
     ],
     "frequencies": [],
     "genes": [
       "NBN"
     ],
     "treatments": [
-      "Hematopoietic stem cell transplantation"
+      "Hematopoietic stem cell transplantation",
+      "Genetic counseling and prenatal diagnosis"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Nijmegen_breakage_syndrome.yaml",
     "page_url": "../pages/disorders/Nijmegen_breakage_syndrome.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
@@ -259464,11 +260007,25 @@ window.searchData = [
       "Hypergammaglobulinemia",
       "Elevated IgE",
       "Autoimmunity",
+      "Autoimmune cytopenia",
       "Autoimmune hemolytic anemia",
       "Lymphoproliferative disorder",
       "Hepatosplenomegaly",
       "Lymphoma",
-      "Atrial septal defect"
+      "Atrial septal defect",
+      "Atopic dermatitis",
+      "Eosinophilia",
+      "Decreased circulating IgM concentration",
+      "Decreased naive T cell proportion",
+      "Increased plasmablast proportion",
+      "Decreased class-switched memory B cell proportion",
+      "Increased double-negative T cell number",
+      "Increased gamma-delta T cell proportion",
+      "Persistent human papillomavirus infection",
+      "Decreased specific antibody response to vaccination",
+      "Decreased regulatory T cell proportion",
+      "Hypothyroidism",
+      "Short stature"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -259476,6 +260033,8 @@ window.searchData = [
       "Cardiovascular",
       "Cellular",
       "Digestive",
+      "Endocrine",
+      "Growth",
       "Immune",
       "Integument",
       "Metabolism",
@@ -259496,14 +260055,29 @@ window.searchData = [
       "HP:0010702",
       "HP:0003212",
       "HP:0002960",
+      "HP:5210419",
       "HP:0001890",
       "HP:0005523",
       "HP:0001433",
       "HP:0002665",
-      "HP:0001631"
+      "HP:0001631",
+      "HP:0001047",
+      "HP:0001880",
+      "HP:0002850",
+      "HP:0031397",
+      "HP:0032128",
+      "HP:0030388",
+      "HP:0002851",
+      "HP:0500270",
+      "HP:0020114",
+      "HP:0032140",
+      "HP:0020113",
+      "HP:0000821",
+      "HP:0004322"
     ],
     "frequencies": [
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "STK4"
@@ -259511,17 +260085,18 @@ window.searchData = [
     "treatments": [
       "Immunoglobulin replacement therapy",
       "Antimicrobial prophylaxis",
-      "Hematopoietic stem cell transplantation"
+      "Hematopoietic stem cell transplantation",
+      "Immunomodulatory therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "STK4_Deficiency.yaml",
     "page_url": "../pages/disorders/STK4_Deficiency.html",
-    "num_phenotypes": 18,
+    "num_phenotypes": 32,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "2"
   },
   {
@@ -262487,6 +263062,134 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Schimke immuno-osseous dysplasia",
+    "disease_id": "MONDO:0009458",
+    "category": "Genetic",
+    "parents": [
+      "immuno-osseous dysplasia",
+      "spondyloepiphyseal dysplasia",
+      "osteochondrodysplasia",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-08-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Schimke immuno-osseous dysplasia (SIOD) is an ultra-rare autosomal recessive pleiotropic disorder caused by biallelic loss-of-function variants in SMARCAL1, which encodes an ATP-driven annealing helicase that stabilizes and restarts stalled replication forks. Loss of this genome-maintenance activity produces replication stress and DNA-damage accumulation that preferentially injures highly proliferative and replication-stress-sensitive compartments: growth-plate chondrocytes (spondyloepiphyseal dysplasia with disproportionate short-trunk short stature), podocytes (steroid-resistant nephrotic syndrome from focal segmental glomerulosclerosis progressing to end-stage renal disease), thymocytes and T cells (T-cell lymphopenia with IL7R promoter hypermethylation and recurrent, sometimes opportunistic, infections), and the vasculature (defective elastogenesis with premature arteriosclerosis and cerebral ischemic events). Additional features include hyperpigmented macules, an unusual facies, hypothyroidism, cytopenias and bone marrow failure, migraine-like headaches, and a predisposition to non-Hodgkin lymphoma. The disease spans a spectrum from a severe infantile-onset form that is usually lethal in childhood to a milder later-onset form compatible with survival into adulthood when renal disease is treated; disease severity correlates inversely with residual SMARCAL1 activity. Kidney transplantation (FSGS does not recur in the graft) with minimized immunosuppression is the mainstay for renal failure; conventional myeloablative HSCT has carried very high mortality, attributed to the hypersensitivity of SMARCAL1-deficient cells to genotoxic agents, while sequential reduced-intensity haploidentical HSCT and kidney transplantation from the same donor has achieved immunosuppression-free renal function in early reports.",
+    "pathophysiology": [
+      "SMARCAL1 Annealing Helicase Deficiency",
+      "Replication Stress and Genome Instability",
+      "Impaired Chondrogenesis",
+      "Podocyte Injury and Glomerulosclerosis",
+      "Thymic T-cell Development Failure",
+      "Defective Elastogenesis and Premature Arteriosclerosis"
+    ],
+    "cell_types": [
+      "growth plate chondrocyte",
+      "podocyte",
+      "T cell",
+      "thymocyte",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000653",
+      "CL:0000084",
+      "CL:0000893",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "replication fork processing",
+      "DNA damage response",
+      "chondrocyte proliferation",
+      "cartilage development",
+      "T cell differentiation in thymus",
+      "T cell homeostasis",
+      "elastic fiber assembly"
+    ],
+    "phenotypes": [
+      "Disproportionate short stature",
+      "Spondyloepiphyseal dysplasia",
+      "Intrauterine growth retardation",
+      "Steroid-resistant nephrotic syndrome",
+      "Focal segmental glomerulosclerosis",
+      "Proteinuria",
+      "End-stage renal disease",
+      "T-cell lymphopenia",
+      "Recurrent infections",
+      "Cerebral ischemic events",
+      "Premature atherosclerosis",
+      "Hyperpigmented macules",
+      "Characteristic facies",
+      "Sparse hair",
+      "Hypothyroidism",
+      "Bone marrow failure",
+      "Thrombocytopenia",
+      "Non-Hodgkin lymphoma",
+      "Migraine-like headaches"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003521",
+      "HP:0002655",
+      "HP:0001511",
+      "HP:0012588",
+      "HP:0000097",
+      "HP:0000093",
+      "HP:0003774",
+      "HP:0005403",
+      "HP:0002719",
+      "HP:0002637",
+      "HP:0002621",
+      "HP:0001034",
+      "HP:0001999",
+      "HP:0008070",
+      "HP:0000821",
+      "HP:0005528",
+      "HP:0001873",
+      "HP:0012539",
+      "HP:0002076"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SMARCAL1"
+    ],
+    "treatments": [
+      "Kidney transplantation",
+      "Minimized post-transplant immunosuppression",
+      "Hematopoietic stem cell transplantation",
+      "Sequential haploidentical HSCT and kidney transplantation",
+      "Supportive and preventive management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Schimke_Immuno-osseous_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Schimke_immuno-osseous_dysplasia.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Schindler Disease",
     "disease_id": "MONDO:0012221",
     "category": "Mendelian",
@@ -265425,26 +266128,28 @@ window.searchData = [
       "RAG1/RAG2 deficiency",
       "IL7R deficiency",
       "JAK3 deficiency",
-      "Artemis deficiency"
+      "Artemis deficiency",
+      "Reticular dysgenesis"
     ],
     "description": "Severe combined immunodeficiency (SCID) is a group of inborn errors of immunity characterized by profound defects in T-lymphocyte development and function, with variable effects on B and NK cells, that abrogate adaptive immunity. The shared final common pathway is failure of hematopoietic stem cells to differentiate into mature, functional T lymphocytes, producing absent cellular and (directly or indirectly) humoral immunity. Distinct molecular mechanisms define the major subtypes: defective cytokine receptor signaling (IL2RG, JAK3, IL7R), defective V(D)J recombination or DNA double-strand-break repair (RAG1, RAG2, DCLRE1C/Artemis), and toxic metabolite accumulation from purine-salvage enzyme deficiency (ADA). Affected infants present in the first months of life with recurrent and opportunistic infections, chronic diarrhea, failure to thrive, and absent thymic shadow, and the condition is fatal in infancy without immune reconstitution by hematopoietic stem cell transplantation, gene therapy, or (for ADA) enzyme replacement.",
     "pathophysiology": [
       "Cytokine receptor signaling defect",
       "Defective V(D)J recombination and DNA repair",
       "Toxic purine metabolite accumulation",
+      "Defective haematopoietic precursor survival",
       "Blocked T-lymphocyte development",
       "Absent adaptive immunity"
     ],
     "cell_types": [
       "thymocyte",
-      "T cell",
       "hematopoietic stem cell",
+      "T cell",
       "B cell"
     ],
     "cell_type_ids": [
       "CL:0000893",
-      "CL:0000084",
       "CL:0000037",
+      "CL:0000084",
       "CL:0000236"
     ],
     "biological_processes": [
@@ -265452,6 +266157,7 @@ window.searchData = [
       "V(D)J recombination",
       "DNA recombination",
       "adenosine catabolic process",
+      "haematopoiesis",
       "T cell differentiation in thymus",
       "adaptive immune response"
     ],
@@ -265468,7 +266174,17 @@ window.searchData = [
       "Decreased total B cell count",
       "Reduced total natural killer cell count",
       "Hypoplasia of the thymus",
-      "Hepatosplenomegaly"
+      "Hepatosplenomegaly",
+      "Erythroderma",
+      "Increased total eosinophil count",
+      "Increased circulating IgE concentration",
+      "Lymphadenopathy",
+      "Absence of circulating granulocytes",
+      "Dermatitis",
+      "Hemolytic anemia",
+      "Pulmonary alveolar proteinosis",
+      "Autoimmunity",
+      "Bronchiectasis"
     ],
     "phenotype_categories": [
       "Clinical",
@@ -265500,7 +266216,17 @@ window.searchData = [
       "HP:0010976",
       "HP:0040218",
       "HP:0000778",
-      "HP:0001433"
+      "HP:0001433",
+      "HP:0001019",
+      "HP:0001880",
+      "HP:0003212",
+      "HP:0002716",
+      "HP:0012234",
+      "HP:0011123",
+      "HP:0001878",
+      "HP:0006517",
+      "HP:0002960",
+      "HP:0002110"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -265513,24 +266239,26 @@ window.searchData = [
       "RAG2",
       "IL7R",
       "JAK3",
-      "DCLRE1C"
+      "DCLRE1C",
+      "AK2"
     ],
     "treatments": [
       "Hematopoietic stem cell transplantation",
       "Hematopoietic stem cell gene therapy",
       "Enzyme replacement therapy with pegademase (PEG-ADA)",
       "Immunoglobulin replacement therapy",
-      "Pneumocystis jirovecii pneumonia prophylaxis"
+      "Pneumocystis jirovecii pneumonia prophylaxis",
+      "Protective isolation and avoidance of live vaccines and non-irradiated blood products"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Severe_Combined_Immunodeficiency.yaml",
     "page_url": "../pages/disorders/Severe_Combined_Immunodeficiency.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 5,
-    "num_genes": 7,
-    "num_treatments": 5,
-    "causal_graph_edges": "25",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "4"
   },
   {
@@ -280673,6 +281401,119 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "T-cell Immunodeficiency, Congenital Alopecia, and Nail Dystrophy",
+    "disease_id": "MONDO:0011132",
+    "category": "Genetic",
+    "parents": [
+      "Severe combined immunodeficiency",
+      "Primary immunodeficiency",
+      "Congenital athymia"
+    ],
+    "creation_date": "2026-08-26T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Human nude SCID is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in FOXN1, the winged-helix (forkhead) transcription factor mutated at the nude locus of mice and rats. FOXN1 is expressed in thymic epithelium and in terminally differentiating skin epithelium, and its loss produces a single-gene lesion with two anatomically separate consequences. In the thymic anlage, thymic epithelial cells fail to differentiate, so no functional thymic microenvironment forms; the resulting athymia abolishes thymopoiesis and produces profound T-cell lymphopenia with numerically preserved B and NK cells, presenting in the first months of life as severe, recurrent, life-threatening infection. In the skin, loss of the same factor disrupts the growth-differentiation balance of keratinocytes in hair follicles and nail bed, producing congenital alopecia universalis and nail dystrophy (characteristically proximal arciform leukonychia and koilonychia). Because the defect is in thymic stroma rather than in hematopoietic stem cells, hematopoietic cell transplantation does not reconstitute thymopoiesis unless the graft itself carries mature donor T cells, and cultured thymus tissue implantation is the mechanism-directed treatment. The disease is ultra-rare; most reported patients descend from a single R255X founder pedigree in Acerno, southern Italy. Cross-references: OMIM:601705, Orphanet ORPHA:169095.\nTwo adjacent FOXN1-related entities are deliberately NOT covered by this entry. (1) FOXN1 haploinsufficiency (OMIM 600838), an autosomal dominant condition in which heterozygous carriers are ascertained through low TRECs on newborn screening and show T-cell lymphopenia that improves with age, usually with normal or near-normal hair and only subtle nail dystrophy; IUIS lists it as a separate row from the AR disease. (2) Compound heterozygous hypomorphic FOXN1 genotypes, which can produce selective thymic hypoplasia with entirely normal hair and nails. Both are described in the genetic and notes sections here only to keep the boundary of this entry explicit.",
+    "pathophysiology": [
+      "FOXN1 Transcription Factor Loss of Function",
+      "Failed Thymic Epithelial Cell Differentiation",
+      "Athymia",
+      "Absent Thymopoiesis",
+      "Profound T-Cell Lymphopenia",
+      "Severe Recurrent Infection",
+      "Impaired Keratinocyte Terminal Differentiation"
+    ],
+    "cell_types": [
+      "thymic epithelial cell",
+      "cortical thymic epithelial cell",
+      "medullary thymic epithelial cell",
+      "T cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002293",
+      "CL:0002364",
+      "CL:0002365",
+      "CL:0000084",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "thymic epithelial cell differentiation",
+      "thymus epithelium morphogenesis",
+      "thymus development",
+      "T cell differentiation in thymus",
+      "T cell homeostasis",
+      "defense response",
+      "keratinocyte differentiation",
+      "hair follicle development"
+    ],
+    "phenotypes": [
+      "Profound T-Cell Lymphopenia",
+      "Severe Combined Immunodeficiency Phenotype",
+      "Severe Recurrent Infection from Birth",
+      "Athymia",
+      "Congenital Alopecia Universalis",
+      "Nail Dystrophy",
+      "Leukonychia",
+      "Koilonychia",
+      "Omenn Syndrome Features",
+      "Neural Tube Defect",
+      "Anencephaly"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Imaging",
+      "Dermatologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005403",
+      "HP:0004430",
+      "HP:0002719",
+      "HP:0005359",
+      "HP:0002289",
+      "HP:0008404",
+      "HP:0001820",
+      "HP:0001598",
+      "HP:0001019",
+      "HP:0045005",
+      "HP:0002323"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FOXN1",
+      "FOXN1 (heterozygous - distinct entity, not this disease)"
+    ],
+    "treatments": [
+      "Cultured Thymus Tissue Implantation",
+      "Hematopoietic Cell Transplantation",
+      "Infection Prophylaxis and Protective Isolation",
+      "Immunoglobulin Replacement Therapy",
+      "Genetic Counseling and Carrier Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "T-cell_Immunodeficiency_Congenital_Alopecia_and_Nail_Dystrophy.yaml",
+    "page_url": "../pages/disorders/T-cell_Immunodeficiency,_Congenital_Alopecia,_and_Nail_Dystrophy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "TACO1-Related COX Deficiency",
     "disease_id": "MONDO:0033638",
     "category": "Mendelian",
@@ -289780,6 +290621,12 @@ window.searchData = [
       "Trichorrhexis Nodosa",
       "Hypertelorism",
       "Decreased Circulating Immunoglobulin Concentration",
+      "Immunodeficiency",
+      "Recurrent Infections",
+      "Skin Abnormality",
+      "Congenital Heart Defect",
+      "Platelet Anomalies",
+      "Hypothyroidism",
       "Intrauterine Growth Retardation",
       "Mild Intellectual Disability",
       "Short Stature",
@@ -289790,14 +290637,19 @@ window.searchData = [
       "Dermatological",
       "Craniofacial",
       "Immunological",
+      "Cardiovascular",
+      "Hematological",
+      "Endocrine",
       "Growth",
       "Neurological",
       "Hepatic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Cellular",
       "Digestive",
+      "Endocrine",
       "Eye",
       "Growth",
       "Immune",
@@ -289811,6 +290663,12 @@ window.searchData = [
       "HP:0009886",
       "HP:0000316",
       "HP:0004313",
+      "HP:0002721",
+      "HP:0002719",
+      "HP:0000951",
+      "HP:0001627",
+      "HP:0001872",
+      "HP:0000821",
       "HP:0001511",
       "HP:0001256",
       "HP:0004322",
@@ -289828,18 +290686,19 @@ window.searchData = [
     ],
     "treatments": [
       "Parenteral Nutrition",
-      "Immunoglobulin Replacement"
+      "Immunoglobulin Replacement",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Trichohepatoenteric_Syndrome.yaml",
     "page_url": "../pages/disorders/Trichohepatoenteric_Syndrome.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 15,
     "num_pathophysiology": 5,
     "num_genes": 2,
-    "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Trichothiodystrophy",
@@ -291914,6 +292773,11 @@ window.searchData = [
       "Blood Glucose Monitoring",
       "Lifestyle Modifications",
       "Immunotherapy (Teplizumab)",
+      "Rituximab (Anti-CD20 Immunotherapy)",
+      "Abatacept (Costimulation Blockade)",
+      "Golimumab (Anti-TNF-\u03b1 Therapy)",
+      "Rotavirus Vaccination",
+      "BCG Vaccination",
       "Continuous Glucose Monitoring"
     ],
     "environmental": [
@@ -291930,8 +292794,8 @@ window.searchData = [
     "num_phenotypes": 16,
     "num_pathophysiology": 12,
     "num_genes": 13,
-    "num_treatments": 5,
-    "causal_graph_edges": "36",
+    "num_treatments": 10,
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "7"
   },
   {
@@ -300245,18 +301109,23 @@ window.searchData = [
     "creation_date": "2026-05-16T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Wiedemann-Steiner syndrome (WDSTS; OMIM 605130) is an autosomal dominant Mendelian disorder of the epigenetic machinery caused by heterozygous pathogenic variants in KMT2A. It is characterized by developmental delay, intellectual disability, characteristic facial features, hypertrichosis cubiti, growth restriction, and variably present neurologic, gastrointestinal, skeletal, cardiac, ophthalmologic, genitourinary, immune, and dental findings. Most molecularly confirmed cases result from a de novo variant, although rare familial transmission and parental mosaicism are documented.\n",
+    "description": "Wiedemann-Steiner syndrome (WDSTS; OMIM 605130) is an autosomal dominant Mendelian disorder of the epigenetic machinery caused by heterozygous pathogenic variants in KMT2A. It is characterized by developmental delay, intellectual disability, characteristic facial features, hypertrichosis cubiti, growth restriction, and variably present neurologic, gastrointestinal, skeletal, cardiac, ophthalmologic, genitourinary, immune, and dental findings. The immune component is an antibody deficiency - hypogammaglobulinemia with poor specific antibody responses and reduced class-switched memory B cells - and is why KMT2A deficiency is listed among the IUIS combined immunodeficiencies with syndromic features; it can present as an early-onset common-variable-immunodeficiency-like picture before the syndromic features are recognized. Most molecularly confirmed cases result from a de novo variant, although rare familial transmission and parental mosaicism are documented.\n",
     "pathophysiology": [
       "KMT2A Haploinsufficiency",
       "Altered H3K4 Methylation and Transcriptional Regulation",
       "Centrosome Dysfunction and Impaired Microtubule Nucleation",
-      "Reduced Dendritic Spine Density and Neuronal Dysregulation"
+      "Reduced Dendritic Spine Density and Neuronal Dysregulation",
+      "Impaired Terminal B-Cell Differentiation and Antibody Deficiency"
     ],
     "cell_types": [
-      "neuron"
+      "neuron",
+      "class-switched memory B cell",
+      "circulating follicular helper T cell"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000972",
+      "CL:0002038"
     ],
     "biological_processes": [
       "chromatin organization",
@@ -300264,7 +301133,9 @@ window.searchData = [
       "epigenetic regulation of gene expression",
       "microtubule nucleation",
       "mitotic spindle organization",
-      "dendritic spine development"
+      "dendritic spine development",
+      "B cell differentiation",
+      "immunoglobulin production"
     ],
     "phenotypes": [
       "Characteristic Facial Features",
@@ -300285,6 +301156,9 @@ window.searchData = [
       "Ophthalmologic Anomalies",
       "Obstructive Sleep Apnea",
       "Immune Dysfunction and Recurrent Infections",
+      "Hypogammaglobulinemia",
+      "Decreased Class-Switched Memory B Cells",
+      "Impaired Specific Antibody Response",
       "Genitourinary Anomalies",
       "Brachydactyly",
       "Dental Anomalies",
@@ -300306,7 +301180,9 @@ window.searchData = [
       "Endocrine"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
+      "Cellular",
       "Digestive",
       "Endocrine",
       "Eye",
@@ -300316,6 +301192,7 @@ window.searchData = [
       "Immune",
       "Integument",
       "Limbs",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -300338,6 +301215,9 @@ window.searchData = [
       "HP:0000478",
       "HP:0002870",
       "HP:0002719",
+      "HP:0004313",
+      "HP:0030388",
+      "HP:0012475",
       "HP:0000119",
       "HP:0001156",
       "HP:0000164",
@@ -300368,11 +301248,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Wiedemann-Steiner_Syndrome.yaml",
     "page_url": "../pages/disorders/Wiedemann-Steiner_Syndrome.html",
-    "num_phenotypes": 22,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 25,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 12,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "4"
   },
   {
@@ -301083,7 +301963,8 @@ window.searchData = [
       "Hematopoietic stem cell transplantation",
       "Gene therapy",
       "Supportive management of infections, bleeding, and eczema",
-      "Intravenous immunoglobulin prophylaxis"
+      "Intravenous immunoglobulin prophylaxis",
+      "Splenectomy with lifelong anti-infective prophylaxis"
     ],
     "environmental": [],
     "biochemical": [],
@@ -301092,8 +301973,8 @@ window.searchData = [
     "num_phenotypes": 29,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "41",
+    "num_treatments": 5,
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "4"
   },
   {
@@ -305821,17 +306702,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2945,
+  "total_disorder_pages": 2950,
   "total_subtypes": 3731,
-  "total_disorders_and_subtypes": 6676,
-  "total_unique_evidence_sources": 41380,
-  "total_unique_publications": 39008,
+  "total_disorders_and_subtypes": 6681,
+  "total_unique_evidence_sources": 41476,
+  "total_unique_publications": 39101,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2940,
-  "total_unique_pathological_events": 17784,
+  "total_pathographs": 2945,
+  "total_unique_pathological_events": 17828,
   "total_modules": 174,
-  "total_research_reports": 3061,
+  "total_research_reports": 3064,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
