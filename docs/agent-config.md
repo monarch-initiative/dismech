@@ -55,7 +55,13 @@ workflows:
       - { effort: low_effort,    model: claude-haiku-4-5-20251001, selector: "..." }
       - { effort: medium_effort, model: claude-sonnet-5,         selector: "..." }
       - { effort: high_effort,   model: claude-opus-5,           selector: "..." }
+      - { effort: very-hard,     model: claude-fable-5-1,        selector: "..." }
 ```
+
+The `very-hard` GitHub label routes exceptionally difficult curation to Fable
+5.1. All three other tiers exclude that label, including the default
+`high_effort` tier. Apply exactly one effort label: `very-hard` combined with
+`low_effort`, `medium_effort`, or `high_effort` is excluded from every selector.
 
 ## Adding a workflow
 

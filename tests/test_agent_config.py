@@ -65,14 +65,37 @@ def test_matrix_mode(config):
         "claude-haiku-4-5-20251001",
         "claude-sonnet-5",
         "claude-opus-5",
+        "claude-fable-5-1",
     ]
     # each entry carries the effort tier and label selector for the fan-out
     assert {entry["effort"] for entry in matrix} == {
         "low_effort",
         "medium_effort",
         "high_effort",
+        "very-hard",
     }
     assert all(entry.get("selector") for entry in matrix)
+
+
+@pytest.mark.parametrize(
+    "extra_label", [None, "low_effort", "medium_effort", "high_effort"]
+)
+def test_very_hard_routing(config, extra_label):
+    """Fable alone handles very-hard; conflicting effort labels select no tier."""
+    labels = {"curation", "very-hard"}
+    if extra_label:
+        labels.add(extra_label)
+    matches = []
+    for entry in resolver.resolve_matrix(config, "curation-scanner"):
+        clauses = entry["selector"].split()
+        if all(
+            clause[7:] not in labels
+            if clause.startswith("-label:")
+            else clause[6:] in labels
+            for clause in clauses
+        ):
+            matches.append(entry["model"])
+    assert matches == ([] if extra_label else ["claude-fable-5-1"])
 
 
 def test_single_model_mode_rejects_matrix_workflow(config):
