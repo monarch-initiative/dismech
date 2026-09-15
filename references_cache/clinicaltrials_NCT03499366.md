@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03499366"
+reference_id: clinicaltrials:NCT03499366
 title: A Clinical Observational Follow-up Study of European Pediatric Cases of Acute Flaccid Myelitis Associated With EV-D68 Infection.
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Clinical Observational Follow-up Study of European Pediatric Cases of Acute Flaccid Myelitis Associated With EV-D68 Infection.

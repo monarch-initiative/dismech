@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02144935"
+reference_id: clinicaltrials:NCT02144935
 title: "Collaborative Assessment of Pediatric Transverse Myelitis: Understand, Reveal, Educate or CAPTURE Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Collaborative Assessment of Pediatric Transverse Myelitis: Understand, Reveal, Educate or CAPTURE Study

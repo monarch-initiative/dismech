@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05307679"
+reference_id: clinicaltrials:NCT05307679
 title: "A Phase II, Randomized, Double-Blind, Placebo-Controlled, Parallel Group Study to Evaluate the Safety, Efficacy, and Pharmacodynamics of 52 Weeks of Treatment With Basmisanil in Participants Aged 2 to 14 Years Old With Dup15q Syndrome Followed by a 2-Year Optional Open-Label Extension"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II, Randomized, Double-Blind, Placebo-Controlled, Parallel Group Study to Evaluate the Safety, Efficacy, and Pharmacodynamics of 52 Weeks of Treatment With Basmisanil in Participants Aged 2 to 14 Years Old With Dup15q Syndrome Followed by a 2-Year Optional Open-Label Extension

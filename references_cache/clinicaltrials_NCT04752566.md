@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04752566"
+reference_id: clinicaltrials:NCT04752566
 title: "A Phase 3, Prospective, Multicenter, Double Blind, Randomized, Placebo Controlled Study to Evaluate the Efficacy and Safety of Eculizumab in Patients With Guillain-Barré Syndrome (GBS)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3, Prospective, Multicenter, Double Blind, Randomized, Placebo Controlled Study to Evaluate the Efficacy and Safety of Eculizumab in Patients With Guillain-Barré Syndrome (GBS)

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03201965"
+reference_id: clinicaltrials:NCT03201965
 title: "A Randomized Phase 3 Study to Evaluate the Efficacy and Safety of Daratumumab in Combination With Cyclophosphamide, Bortezomib and Dexamethasone (CyBorD) Compared to CyBorD Alone in Newly Diagnosed Systemic AL Amyloidosis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized Phase 3 Study to Evaluate the Efficacy and Safety of Daratumumab in Combination With Cyclophosphamide, Bortezomib and Dexamethasone (CyBorD) Compared to CyBorD Alone in Newly Diagnosed Systemic AL Amyloidosis
