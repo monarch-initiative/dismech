@@ -3,14 +3,37 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import textwrap
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "audit_variant_mechanism.py"
 _spec = importlib.util.spec_from_file_location("audit_variant_mechanism", SCRIPT_PATH)
 audit = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(audit)
+
+
+@pytest.fixture(autouse=True)
+def _restore_kb_cache_env():
+    """Keep ``main()``'s ``kb_cache.default_off()`` inside this test.
+
+    ``default_off()`` belongs in ``main()`` (CLAUDE.md), but it sets a
+    process-wide environment variable. Calling ``main()`` from a test would
+    otherwise disable the parsed-KB cache for every test that runs after it in
+    the same pytest process -- which silently failed ``tests/test_kb_cache.py``.
+    """
+    sentinel = object()
+    before = os.environ.get("DISMECH_KB_CACHE", sentinel)
+    try:
+        yield
+    finally:
+        if before is sentinel:
+            os.environ.pop("DISMECH_KB_CACHE", None)
+        else:
+            os.environ["DISMECH_KB_CACHE"] = before
 
 BASE = """\
 name: Test Disorder
@@ -90,3 +113,28 @@ def test_summary_breaks_out_unknown_only_entries(tmp_path, capsys):
     assert "with functional_impact_category:        1" in out
     assert "of which recorded as UNKNOWN only:    1" in out
     assert "without (the gap):                      0" in out
+
+
+def test_with_cached_hits_also_filters_under_all(tmp_path, capsys):
+    """``--with-cached-hits`` used to be dropped when ``--all`` was given.
+
+    ``--all`` widens the listing from the gap to every Mendelian entry; it is
+    not a request to stop filtering, so an entry with no cached mechanism
+    sentence must still be excluded.
+    """
+    annotated = textwrap.dedent(
+        """\
+        genetic_context:
+          functional_impact_category: LOSS_OF_FUNCTION
+        """
+    )
+    path = _write(tmp_path, annotated)
+
+    # No PMID is cited, so cached_hits is 0 for this entry.
+    assert audit.main([path, "--cache-dir", str(tmp_path), "--format", "list", "--all"]) == 0
+    assert "Test Disorder" in capsys.readouterr().out
+
+    assert audit.main(
+        [path, "--cache-dir", str(tmp_path), "--format", "list", "--all", "--with-cached-hits"]
+    ) == 0
+    assert capsys.readouterr().out.strip() == ""

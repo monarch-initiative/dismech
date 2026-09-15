@@ -107,6 +107,19 @@ Conventions used, which later tranches should keep:
 - **Evidence grade follows the cited paper, not the claim.** Where a sentence was already
   quoted elsewhere in the same file, the new item keeps that grade
   (`check-snippet-grading` is keyed on the sentence).
+- **A quote that states established human genetics inside a paper reporting something
+  else takes `quote_role: BACKGROUND`**, keeping the `evidence_source` the quoted content
+  deserves. The SMAD3 sentence opening a `Smad3-/-` mouse study, and the PIK3CD
+  allelic-dichotomy sentence framing a three-sibling case series, are both
+  `HUMAN_CLINICAL` + `BACKGROUND`. Leave the slot off where the role has not actually
+  been assessed.
+- **In a discriminating experiment, the order of `would_support` / `would_refute` is
+  load-bearing.** Where an experiment forks between two competing hypotheses, both are
+  listed in both slots and the pairing is *positional*: the first entry of
+  `would_support` pairs with the first of `would_refute`. Nothing validates this, so
+  reordering either list silently inverts the claim. The prose
+  `supporting_outcome` / `refuting_outcome` carry the disambiguation; keep them
+  consistent with the order.
 
 ## Contested mechanisms: recorded, not skipped
 

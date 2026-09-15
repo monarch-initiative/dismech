@@ -65,7 +65,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech import kb_cache  # noqa: E402
 
 MENDELIAN_MODES = {
     "HP:0000006": "AD",
@@ -132,8 +132,12 @@ def cached_mechanism_hits(text, cache_dir):
 
 
 def audit_file(path, cache_dir=None):
-    """Return a row dict for one entry, or None if it is not a Disease mapping."""
-    entry = safe_load_path(path)
+    """Return a row dict for one entry, or None if it is not a Disease mapping.
+
+    The parsed document comes from ``kb_cache`` and is shared and read-only;
+    nothing below assigns into it.
+    """
+    entry = kb_cache.load_document(path)
     if not isinstance(entry, dict):
         return None
     with open(path, encoding="utf-8") as fh:
@@ -166,25 +170,36 @@ def audit_file(path, cache_dir=None):
 
 
 def main(argv=None):
+    kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("files", nargs="*", help="KB files (default: kb/disorders/*.yaml)")
     ap.add_argument("--format", choices=["summary", "list", "tsv"], default="summary")
     ap.add_argument("--out", help="Write the tsv/list output to this path instead of stdout")
-    ap.add_argument("--single-gene", action="store_true", help="Only entries with exactly one CAUSATIVE gene")
+    ap.add_argument("--single-gene", action="store_true",
+                    help="Only entries with exactly one CAUSATIVE gene (tsv/list; not --format summary)")
     ap.add_argument("--with-cached-hits", action="store_true",
-                    help="Only entries with at least one cited cached reference naming a mechanism")
-    ap.add_argument("--all", action="store_true", help="List annotated entries too (tsv/list)")
+                    help="Only entries with at least one cited cached reference naming a mechanism "
+                         "(tsv/list; not --format summary)")
+    ap.add_argument("--all", action="store_true",
+                    help="List annotated entries too (tsv/list). Widens the base set; "
+                         "--single-gene and --with-cached-hits still apply")
     ap.add_argument("--cache-dir", default="references_cache")
     args = ap.parse_args(argv)
 
     files = args.files or sorted(glob.glob("kb/disorders/*.yaml"))
     rows = [r for r in (audit_file(f, args.cache_dir) for f in files) if r]
     mendelian = [r for r in rows if r["mendelian"]]
-    gaps = [r for r in mendelian if not r["annotated"]]
-    if args.single_gene:
-        gaps = [r for r in gaps if r["n_causal"] == 1]
-    if args.with_cached_hits:
-        gaps = [r for r in gaps if r["cached_hits"]]
+
+    def _selected(base):
+        """Apply the selection flags. Both apply under --all too, so that
+        --with-cached-hits is never silently dropped."""
+        if args.single_gene:
+            base = [r for r in base if r["n_causal"] == 1]
+        if args.with_cached_hits:
+            base = [r for r in base if r["cached_hits"]]
+        return base
+
+    gaps = _selected([r for r in mendelian if not r["annotated"]])
 
     if args.format == "summary":
         print(f"entries scanned:                          {len(rows)}")
@@ -203,7 +218,7 @@ def main(argv=None):
         print("categories in use: " + ", ".join(f"{c}={n}" for c, n in cats.most_common()))
         return 0
 
-    selected = gaps if not args.all else (mendelian if not args.single_gene else [r for r in mendelian if r["n_causal"] == 1])
+    selected = _selected(mendelian) if args.all else gaps
     cols = ["file", "name", "modes", "causal_genes", "n_causal", "prose", "cached_hits", "categories", "legacy_functional_impact"]
     lines = []
     if args.format == "tsv":
