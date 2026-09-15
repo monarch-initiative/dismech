@@ -77096,7 +77096,8 @@ window.searchData = [
       "epididymal epithelial cell"
     ],
     "cell_type_ids": [
-      "CL:0000066"
+      "CL:0000066",
+      "CL:0000068"
     ],
     "biological_processes": [
       "chloride transmembrane transport"
@@ -77137,14 +77138,16 @@ window.searchData = [
       "Prenatal CFTR Modulator Therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Seminal Fructose"
+    ],
     "source_file": "Congenital_Bilateral_Absence_of_Vas_Deferens.yaml",
     "page_url": "../pages/disorders/Congenital_Bilateral_Absence_of_Vas_Deferens.html",
     "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -257110,6 +257113,111 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "SLC35A1-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0011342",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-09-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SLC35A1-CDG is an autosomal recessive type II congenital disorder of glycosylation caused by biallelic loss of function of SLC35A1, the only known Golgi CMP-sialic acid transporter. The transporter imports the activated sialic acid donor CMP-Neu5Ac from the cytosol into the Golgi lumen, where sialyltransferases use it to cap N-glycans, O-glycans and glycolipids. When it fails, the cell makes globally hyposialylated glycoconjugates even though cytosolic sialic acid synthesis is intact.\n**The lesion is in delivery, not in supply, and that has a therapeutic consequence.** Several CDG subtypes respond to oral monosaccharide supplementation, because the missing sugar can be pushed in from the diet. Sialic acid supplementation cannot bypass an SLC35A1 defect: the cell already has sialic acid, and what has failed is the step that moves the activated donor across the Golgi membrane. This is why an otherwise analogous disorder has no dietary treatment.\n**One upstream lesion, two mechanistic branches, and they are not mutually exclusive.** The hyposialylation node branches into a hematologic arm (platelet desialylation and clearance, impaired megakaryocytopoiesis, loss of the leukocyte sialyl-Lewis-x ligand) and a neurological arm (deficient brain sialoglycans). The branch structure is mechanistic. It is *not* a claim that patients fall into two camps, and this entry previously made that mistake.\nOnly three patients with proven SLC35A1-CDG are on record, and the published comparison of all three settles the point. Patient 1 (2005) is reported with macrothrombocytopenia and coagulopathy, with every neurological feature listed as *not reported* rather than absent. Patient 2 (2013) has both arms: intellectual disability, seizures, ataxia, microcephaly and hypotonia alongside macrothrombocytopenia and coagulopathy. Patient 3 (2017) has the neurological arm with explicitly no hematological abnormality. So one of three patients has both, one has one arm with the other unassessed, and one has a single arm.\n**No genotype-to-branch correlation survives those three patients.** Patient 2, who has both arms, is homozygous for a missense allele (p.Gln101His) with 50% residual transport - the mildest reported genotype and the broadest reported phenotype. An earlier version of this entry proposed that truncating alleles track with the hematologic picture and hypomorphic missense with the neurological one; Patient 2 refutes it, and no such correlation is asserted here.\nOne missense allele has a second mechanism beyond reduced transport: p.Glu196Lys, but not p.Thr156Arg, disrupts the physical association between SLC35A1 and the sialyltransferase ST3Gal4. So the same gene produces sialylation failure by two routes, and one allele uses both.",
+    "pathophysiology": [
+      "SLC35A1 Transporter Loss of Function",
+      "Golgi CMP-Sialic Acid Donor Depletion",
+      "Global Hyposialylation of Glycoconjugates",
+      "Platelet Desialylation and Hepatic Clearance",
+      "Impaired Megakaryocytopoiesis",
+      "Loss of Leukocyte Sialyl-Lewis-x",
+      "Deficient Brain Sialoglycan Synthesis",
+      "Impaired Neuronal Connectivity and Excitability"
+    ],
+    "cell_types": [
+      "platelet",
+      "Kupffer cell",
+      "megakaryocyte",
+      "neutrophil",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000091",
+      "CL:0000556",
+      "CL:0000775",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "sialylation",
+      "ganglioside biosynthetic process"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Decreased total neutrophil count",
+      "Recurrent infections",
+      "Encephalopathy",
+      "Global developmental delay",
+      "Seizure",
+      "Ataxia",
+      "Intellectual disability",
+      "Hypotonia",
+      "Microcephaly",
+      "Abnormal bleeding",
+      "Type II transferrin isoform profile"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic",
+      "Neurologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0001875",
+      "HP:0002719",
+      "HP:0001298",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0000252",
+      "HP:0001892",
+      "HP:0012301"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC35A1"
+    ],
+    "treatments": [
+      "Supportive Management",
+      "Sialidase Inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin glycoform analysis",
+      "Sialyl-Lewis-x on polymorphonuclear cells"
+    ],
+    "source_file": "SLC35A1-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/SLC35A1-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "SLC35A2-congenital disorder of glycosylation",
     "disease_id": "MONDO:0010478",
     "category": "Mendelian",
@@ -305713,17 +305821,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2944,
+  "total_disorder_pages": 2945,
   "total_subtypes": 3731,
-  "total_disorders_and_subtypes": 6675,
-  "total_unique_evidence_sources": 41359,
-  "total_unique_publications": 38987,
+  "total_disorders_and_subtypes": 6676,
+  "total_unique_evidence_sources": 41380,
+  "total_unique_publications": 39008,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2939,
-  "total_unique_pathological_events": 17776,
+  "total_pathographs": 2940,
+  "total_unique_pathological_events": 17784,
   "total_modules": 174,
-  "total_research_reports": 3060,
+  "total_research_reports": 3061,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
