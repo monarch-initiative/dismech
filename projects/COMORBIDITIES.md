@@ -1,12 +1,14 @@
 ---
 title: Comorbidities and Trajectories (Scoping)
 status: IN_PROGRESS
-description: 'Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported. Do not start curation yet; this is a scoping log and candidate list.'
+description: 'Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported. Scoping log plus a candidate queue; curation against the queue is open.'
 ---
 
 # Comorbidities and Trajectories (Scoping)
 
-Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported. Do **not** start curation yet; this is a scoping log and candidate list.
+Goal: curate comorbidity/trajectory evidence from the literature (complementary to EHR-derived signals such as Disease Trajectories / Distraj), with directionality when supported.
+
+Curation against this queue is **open**. (An earlier version of this file said "do not start curation yet"; that hold no longer applies — `kb/comorbidities/` now holds curated entries, and the candidate table below is a work list.) A Disease Trajectories edge is a prioritization pointer, not evidence: an entry's mechanistic and causal content has to come from the literature, and an EHR co-occurrence statistic belongs in `association_signals` as corroboration.
 
 ## Key observations from Disease Trajectories (EHR-based)
 - The temporal component is **not dominant**: most edges are "same time" rather than directional.
@@ -30,7 +32,7 @@ These are **directional** edges with GO enrichment terms (from `tmp/disease-traj
 | Edge (A -> B) | Phase (A before B) | Genetic FDR | Top GO terms (lowest FDR) |
 |---|---:|---:|---|
 | K21 -> K25 (GERD -> Gastric ulcer) | 1.0 | 8.18e-04 | Regulation of neuroinflammatory response; Positive regulation of acute inflammatory response; Positive regulation of nitric oxide biosynthesis |
-| K21 -> K58 (GERD -> Irritable bowel syndrome) | 1.0 | 2.10e-04 | cAMP/cGMP phosphodiesterase activity (multiple PDE terms) |
+| K21 -> K58 (GERD -> Irritable bowel syndrome) — **curated**, `com_Gastroesophageal_Reflux_Disease__Irritable_Bowel_Syndrome` | 1.0 | 2.10e-04 | cAMP/cGMP phosphodiesterase activity (multiple PDE terms) |
 | F10 -> G93 (Alcohol-related disorders -> Other disorders of brain) | 1.0 | 8.75e-11 | Transmitter-gated ion channel activity; Benzodiazepine receptor activity; Chemical synaptic transmission |
 
 ## Scheduling (curation backlog)
@@ -42,4 +44,7 @@ These are **directional** edges with GO enrichment terms (from `tmp/disease-traj
 
 ## Notes
 - This list is **not** evidence; it is a prioritization queue for manual literature curation.
+- Do not maintain a curated-entry list here — `kb/comorbidities/` is the source of truth
+  (`rg --files kb/comorbidities -g "*.yaml" | sort`). Mark a queue row curated, as with
+  K21 -> K58 above, rather than duplicating the directory.
 - Disease Trajectories (EHR) is complementary to the dismech model; our goal is mechanistic + evidence-backed comorbidity directionality, not to mirror EHR associations.
