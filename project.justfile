@@ -718,6 +718,20 @@ validate-graphs:
 # causal-connectivity (fraction of phenotype nodes reached by a causal edge) and
 # gene-to-mechanism wiring (fraction of causal genes wired into a mechanism).
 # Pass --list-unconnected to see floating phenotype / unwired gene names per file.
+#
+# GATING: exits non-zero when the KB-wide aggregate falls below the
+# `min_compliance` set for the metric in conf/qc_config.yaml -- currently 50.0
+# for `phenotypes[].causal_inlink`, and unset (advisory) for
+# `genetic[].mechanism_outlink`. `--fail-under` / `--genes-fail-under` override
+# per invocation. Runs in `just qc` and as an ungated whole-KB CI step, for the
+# reason check-duplicate-keys and check-causal-targets do: the aggregate moves
+# when an entry is added anywhere, so a changed-path filter would miss it.
+#
+# This is the complement of check-causal-targets, not a duplicate of it. That
+# one asks whether a declared target RESOLVES; this asks whether a phenotype is
+# REACHED at all. An entry can pass the first perfectly with every phenotype
+# floating, which is what Schizophrenia did -- one dangling target, six
+# phenotypes simply never wired.
 [group('QC')]
 compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
@@ -876,7 +890,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage

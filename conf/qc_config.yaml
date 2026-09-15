@@ -64,11 +64,29 @@ paths:
   # at least one causal edge (a pathophysiology `downstream` target or an
   # upstream phenotype `sequela`). Surfaces "floating" phenotypes that score
   # full recommended-slot compliance yet are disconnected in the pathograph.
-  # min_compliance is intentionally null for now: KB-wide baseline coverage is
-  # low, so this contributes to weighted scoring without gating CI.
+  #
+  # min_compliance is a RATCHET AGAINST EROSION, not a per-PR gate, and the
+  # distinction matters for reading a failure. `just compliance-connectivity`
+  # applies this floor to the KB-WIDE AGGREGATE (every phenotype node in
+  # kb/disorders/ pooled), not per file, so no single entry can trip it: at
+  # 33k nodes, 100 new entries with every phenotype disconnected move the
+  # aggregate by only ~1.5 points. What it catches is sustained drift -- entries
+  # being added faster than they are wired up, over months.
+  #
+  # Set at 50.0 against a measured 53.9% (18989/35255) when the floor was first
+  # turned on, so there is ~3.9 points of headroom, about 270 fully disconnected
+  # new entries. That margin is deliberate: a tighter floor would go red on
+  # ordinary curation batches that have nothing to do with connectivity, which
+  # is the failure mode that makes a gate get disabled rather than fixed. Raise
+  # it as the corpus improves -- it is meant to move up, never down.
+  #
+  # The per-entry signal this CANNOT give you is `just compliance-connectivity
+  # --list-unconnected`, which names the floating phenotypes file by file, and
+  # `just check-causal-targets`, which is the hard per-entry gate for the
+  # adjacent defect (a target naming nothing).
   "phenotypes[].causal_inlink":
     weight: 1.5
-    min_compliance: null
+    min_compliance: 50.0
 
   # Graph-derived metric (dismech.qc_plugins, not a schema slot): source-side
   # complement of causal_inlink. Fraction of mechanism-relevant top-level
