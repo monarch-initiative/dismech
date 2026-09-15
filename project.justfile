@@ -876,7 +876,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1185,6 +1185,23 @@ node-class-scan *args:
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
+# whose SKILL.md is missing or miscased is simply never loaded -- no error, and
+# the only symptom is a skill that never triggers, which is indistinguishable
+# from one nobody needed. `microbiome-curation` sat that way for close to a
+# month. Ungated and whole-tree for the same reason check-duplicate-keys is:
+# skill files ride into the repo on PRs about something else (this one arrived
+# in a curation PR adding CMT disorder entries), so a changed-path check is
+# skipped by exactly the changes that break it. Offline, well under a second.
+[group('QC')]
+check-skill-files:
+    uv run python scripts/check_skill_files.py
+
+# Census of every skill and its description length, exit 0.
+[group('QC')]
+list-skill-files:
+    uv run python scripts/check_skill_files.py --list
 
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
