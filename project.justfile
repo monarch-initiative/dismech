@@ -876,7 +876,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -900,6 +900,25 @@ qc-deep-research-strict:
 [group('QC')]
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
+# Census of KNOWLEDGE_GAP discussion completeness: unanchored gaps, missing
+# status, proposed experiments with no way to tell a supporting result from a
+# refuting one, and bare-name experiment targets that no other check sees.
+# Report-only by default (most states are pre-existing backlog); --strict exits
+# non-zero on the two states that are breakage rather than backlog.
+[group('QC')]
+knowledge-gap-audit *args="":
+    uv run python scripts/knowledge_gap_discussion_audit.py {{args}}
+
+# The gating half of knowledge-gap-audit. Both strict states are at zero, which
+# is the condition CLAUDE.md sets for promoting a reported state to a hard gate
+# (as check-environmental-evidence was once #8296 reached zero). Ungated and
+# whole-KB in CI for the reason its neighbours are: a bare experiment target is
+# written by a curation PR, and a curation PR touches only kb/, so it matches
+# neither pytest path filter.
+[group('QC')]
+check-knowledge-gap-targets *files:
+    uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
 # Compare each model->mechanism link's `model_scale` against its target node's
 # `biological_scale`. Reports upward extrapolation (model below its target's
@@ -931,6 +950,18 @@ diet-audit *args="":
 [group('QC')]
 immune-antigen-audit *args="":
     uv run python scripts/immune_antigen_audit.py {{args}}
+
+# Census of Mendelian entries (single-locus inheritance + CAUSATIVE gene) that
+# carry no structured variant mechanism -- no
+# `GeneticContext.functional_impact_category` anywhere in the file. Advisory;
+# always exits 0. `--format list` ranks the gap by how many cited cached
+# references already contain a quotable mechanism sentence.
+#   just variant-mechanism-audit
+#   just variant-mechanism-audit --format list --single-gene --with-cached-hits
+#   just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
+[group('QC')]
+variant-mechanism-audit *args="":
+    uv run python scripts/audit_variant_mechanism.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1017,8 +1048,14 @@ gen-dashboard:
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    just gen-phenotype-systems
     just gen-priority-dashboard
     echo "Dashboard generated in dashboard/"
+
+# Generate the phenotype-systems dashboard page (needs app/hpo_category_cache.json from `just gen-browser-data`)
+[group('QC')]
+gen-phenotype-systems:
+    uv run python -m dismech.phenotype_systems --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
 
 # Generate MONDO curation priority dashboard
 [group('QC')]
@@ -1410,6 +1447,18 @@ list-snippet-grading *args="":
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
+
+# REPORT-ONLY -- no baseline, no gate, and never an autofill; each item is
+# decided by reading the sentence. Three tiers: A, deterministic, from NLM
+# structured-abstract section labels; B, the MeSH animal-without-Humans
+# heuristic, which covers a narrow slice and is a lower bound rather than a
+# measure of the problem; C, a recorded `quote_role` that contradicts tier A.
+# Pass `--format tsv` for detail, `--tier A` to narrow, or file paths to scan
+# only those.
+# Worklist for `quote_role`: evidence items whose snippet may not be the cited paper's own finding (#10262).
+[group('QC')]
+list-background-citations *args="":
+    uv run python scripts/check_background_citations.py {{args}}
 
 # Guard against reference titles that name a paper other than the one cited --
 # a correct PMID with a verified snippet and an invented `reference_title`,
