@@ -49,12 +49,21 @@ causes and different fixes:
     a committed backlog, so it is baselined rather than gating outright.
 
 ``self``
-    A node listing itself as its own downstream target. Reported, never gating:
-    the two committed cases are both a *pathophysiology node and a phenotype
-    sharing one name*, which the flat node namespace collapses into a single
-    node, turning a legitimate mechanism→phenotype edge into a self-loop. That
-    is a graph-model bug (issue #9896), not a curation error, and deleting the
-    edges would destroy evidenced content.
+    A node listing itself as its own downstream target, in any of the
+    :data:`BARE_TARGET_SLOTS`. This script still reports every instance but
+    does not gate on it: most committed cases are a node and a same-named
+    node in another section (typically a pathophysiology node and a
+    phenotype sharing one name), which the flat node namespace collapses into
+    a single node, turning a legitimate mechanism→phenotype edge into a
+    self-loop rather than a literal self-causation claim (issue #9896).
+
+    The ``pathophysiology`` / ``downstream`` case only is now gated
+    separately by ``downstream_self_loop_errors`` in
+    ``src/dismech/entity_refs.py`` (``just check-entity-refs`` and
+    ``test_entity_ref_foreign_keys``), which resolves against the raw YAML
+    rather than the built graph and so is not fooled by the name collision.
+    The other four slots below are not covered by that gate and still rely on
+    this script's report-only pass.
 
 Relationship to `just validate-graphs`
 --------------------------------------
