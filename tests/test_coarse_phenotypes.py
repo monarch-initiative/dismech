@@ -6,16 +6,24 @@ reasons for such a binding exist and the KB already records all three as prose
 nothing can read; the guard turns them into `coarse_binding_basis` so that the
 *unexplained* binding is the only thing that fails.
 
-These tests pin two things the design depends on and that a later refactor could
-quietly lose:
+These tests pin three things the design depends on and that a later refactor
+could quietly lose:
 
 * the coarse set is the schema's `PhenotypeCategoryEnum` meanings, not a depth
   or information-content computation — so `HP:0001627` "Abnormal heart
   morphology" (which carries "Congenital heart defect" as an EXACT synonym) is
   *not* coarse, however shallow it looks;
-* each basis has a companion requirement, and those are never grandfathered,
-  because a declared basis can only come from content written after the slot
-  existed.
+* two of the four values take no companion at all. The guard asks a curator to
+  state a reason, not to do extra work to prove it;
+* where a companion *is* required it is never grandfathered, because a declared
+  basis can only come from content written after the slot existed.
+
+A `spectrum_terms` slot for listing a variable spectrum's constituents inside
+the binding was built and removed. It inverted the value's meaning — requiring
+enumeration in the one case where enumeration is impossible — and where the
+findings *are* known and evidenced they are ordinary `phenotypes` entries, which
+the phenotype table, the facets and the exports can all see. The last test here
+keeps it from coming back.
 """
 
 import subprocess
@@ -92,44 +100,20 @@ def test_any_declared_basis_clears_the_missing_finding():
     assert _kinds(data) == []
 
 
-def test_spectrum_summary_needs_at_least_two_bound_terms():
-    """One finding is not a spectrum — bind that finding instead."""
+def test_variable_spectrum_is_a_bare_declaration():
+    """The value the maintainer actually asked for.
+
+    A spectrum is the case where the findings are "a little bit random and not
+    all over the place" — so requiring a list of them, as the first
+    implementation did, asks for exactly what is unavailable. Stating the reason
+    is the whole obligation.
+    """
     data = _pheno(
         "HP:0000478",
         "Abnormality of the eye",
-        coarse_binding_basis="SPECTRUM_SUMMARY",
-        spectrum_terms=[{"term": {"id": "HP:0000486", "label": "Strabismus"}}],
-    )
-    kinds = _kinds(data)
-    assert [k for k, _ in kinds] == ["companion"]
-    assert "found 1" in kinds[0][1]
-
-
-def test_spectrum_summary_with_real_constituents_passes():
-    data = _pheno(
-        "HP:0000478",
-        "Abnormality of the eye",
-        coarse_binding_basis="SPECTRUM_SUMMARY",
-        spectrum_terms=[
-            {"term": {"id": "HP:0000486", "label": "Strabismus"}},
-            {"term": {"id": "HP:0000545", "label": "Myopia"}},
-        ],
+        coarse_binding_basis="VARIABLE_SPECTRUM",
     )
     assert _kinds(data) == []
-
-
-def test_a_spectrum_of_coarse_terms_defeats_the_purpose():
-    data = _pheno(
-        "HP:0000478",
-        "Abnormality of the eye",
-        coarse_binding_basis="SPECTRUM_SUMMARY",
-        spectrum_terms=[
-            {"term": {"id": "HP:0000707", "label": "Abnormality of the nervous system"}},
-            {"term": {"id": "HP:0000486", "label": "Strabismus"}},
-            {"term": {"id": "HP:0000545", "label": "Myopia"}},
-        ],
-    )
-    assert any("itself a top-level term" in d for _, d in _kinds(data))
 
 
 def test_no_hpo_term_must_actually_claim_something_narrower():
@@ -186,7 +170,7 @@ def test_pathograph_hub_is_defined_by_incoming_edges():
     assert _kinds(hub) == []
 
 
-def test_a_hub_with_a_frequency_is_a_spectrum_summary():
+def test_a_hub_with_a_frequency_is_a_variable_spectrum():
     """Frequency is a claim about patients; a hub makes none."""
     data = _with_mechanism(
         _pheno(
@@ -212,13 +196,14 @@ def test_a_node_pointing_at_itself_does_not_make_it_a_hub():
     assert any("no causal edge in this entry targets" in d for _, d in _kinds(data))
 
 
-def test_hub_constituents_use_spectrum_terms_not_causal_edges():
+def test_a_hub_is_not_required_to_point_at_its_constituents():
     """The correction that matters: hub -> finding is subsumption, not causation.
 
     `sequelae` is a CausalEdge. A coloboma is not *caused by* an eye
     abnormality, it *is* one — so requiring outgoing edges would have had
     curators drawing an is-a hierarchy as a causal chain to satisfy a guard.
-    A hub may name its constituents, and `spectrum_terms` asserts no causation.
+    A hub reached by a mechanism is complete on its own; its constituents, where
+    they are known, are ordinary phenotype entries beside it.
     """
     data = _with_mechanism(
         _pheno(
@@ -226,12 +211,14 @@ def test_hub_constituents_use_spectrum_terms_not_causal_edges():
             "Abnormality of the eye",
             name="Ocular abnormalities",
             coarse_binding_basis="PATHOGRAPH_HUB",
-            spectrum_terms=[
-                {"term": {"id": "HP:0000589", "label": "Coloboma"}},
-                {"term": {"id": "HP:0000568", "label": "Microphthalmia"}},
-            ],
         ),
         "Ocular abnormalities",
+    )
+    data["phenotypes"].append(
+        {
+            "name": "Coloboma",
+            "phenotype_term": {"term": {"id": "HP:0000589", "label": "Coloboma"}},
+        }
     )
     assert _kinds(data) == []
 
@@ -255,14 +242,6 @@ def test_hub_is_rejected_where_sequelae_cannot_exist():
 
 
 def test_companion_slots_without_their_basis_are_findings():
-    stray_spectrum = _pheno(
-        "HP:0000589",
-        "Coloboma",
-        coarse_binding_basis="SOURCE_UNSPECIFIED",
-        spectrum_terms=[{"term": {"id": "HP:0000486", "label": "Strabismus"}}],
-    )
-    assert any("spectrum_terms names the specific" in d for _, d in _kinds(stray_spectrum))
-
     stray_gap = _pheno(
         "HP:0000589",
         "Coloboma",
@@ -278,7 +257,8 @@ def test_companion_rules_apply_outside_the_coarse_subset():
     data = _pheno(
         "HP:0000924",
         "Abnormality of the skeletal system",
-        coarse_binding_basis="SPECTRUM_SUMMARY",
+        preferred_term="Abnormality of the skeletal system",
+        coarse_binding_basis="NO_HPO_TERM",
     )
     assert [k for k, _ in _kinds(data)] == ["companion"]
 
@@ -348,3 +328,25 @@ def test_baseline_only_shrinks():
         "If a new coarse binding is genuinely right, give it a coarse_binding_basis "
         "rather than adding a row here."
     )
+
+
+def test_the_schema_has_no_slot_for_listing_a_spectrum():
+    """Removed deliberately; do not reintroduce it.
+
+    A slot holding the constituent findings inside a coarse binding produces
+    second-class annotations: not in the phenotype table, not in the browser
+    facets, not in the exports, and not reachable by a `phenotypes#` entity
+    reference. Every finding worth recording is worth an ordinary `phenotypes`
+    entry with its own term and its own evidence — and if it has neither, it was
+    not evidenced in the first place.
+    """
+    import yaml
+
+    schema = yaml.safe_load(
+        (ROOT / "src" / "dismech" / "schema" / "dismech.yaml").read_text(encoding="utf-8")
+    )
+    assert "spectrum_terms" not in schema["slots"]
+    assert schema["classes"]["PhenotypeDescriptor"]["slots"] == [
+        "coarse_binding_basis",
+        "term_gap",
+    ]

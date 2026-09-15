@@ -1979,7 +1979,7 @@ Such a binding is not forbidden. It must **say why**, via
 
 | Value | Means | Requirement |
 |---|---|---|
-| `SPECTRUM_SUMMARY` | many findings, variable between patients | ≥2 `spectrum_terms`, none itself coarse |
+| `VARIABLE_SPECTRUM` | involvement varies in form between patients | none — a bare declaration |
 | `SOURCE_UNSPECIFIED` | the cited source characterizes it no further | none — the snippet is the proof |
 | `NO_HPO_TERM` | narrower than any HP term | `preferred_term` ≠ the bound label; record `term_gap` |
 | `PATHOGRAPH_HUB` | a deliberately unqualified convergence node | ≥1 causal edge in the entry targets it; no `frequency` |
@@ -2001,22 +2001,26 @@ set is the `PhenotypeCategoryEnum` meanings — the same list that drives the
 browser's *Phenotype Systems* facet — and widening it is a schema PR with an
 argument, not a threshold.
 
-**`spectrum_terms` is the cheap way to keep the specifics.** Its entries carry
-HP terms but no frequency and no evidence of their own (the summary phenotype's
-evidence covers them), so recording a spectrum costs a term lookup rather than a
-curated phenotype per finding. They *are* term-validated — unlike terms under
-`qualifiers` (next section) — because the slot's range is `PhenotypeDescriptor`,
-whose `term` is enum-bound. Use a first-class `phenotypes` entry instead whenever
-a finding has its own frequency or evidence.
+**If you can list the findings, it is not a spectrum — they are phenotypes.**
+`VARIABLE_SPECTRUM` is for the case where involvement is real but its form varies
+with no characteristic finding to bind, so there is nothing to list; that is why
+it takes no companion slot. Where the source *does* name findings and you have a
+quote for them, curate each as an ordinary `phenotypes` entry with its own term
+and evidence. A `spectrum_terms` slot for listing them inside the binding was
+built and removed before this shipped: it produced second-class annotations that
+the phenotype table, the facets and the exports could not see, and it inverted
+the value's meaning by demanding enumeration of exactly the case where
+enumeration is impossible. Do not reintroduce it.
 
 **A hub is defined by its INCOMING edges.** Do not connect a `PATHOGRAPH_HUB` to
 its constituent findings with `sequelae`: that slot is a `CausalEdge`, and a
 coloboma is not *caused by* an eye abnormality, it *is* one. Drawing subsumption
-as causation would corrupt the graph to satisfy a guard. Name constituents in
-`spectrum_terms` instead. A hub is also **not** a "disruption of eye development"
-node — that belongs in `pathophysiology`, binds GO, and asserts a process, where
+as causation would corrupt the graph to satisfy a guard. A hub reached by a
+mechanism is complete on its own; the specific findings, where known, are
+ordinary phenotype entries beside it. A hub is also **not** a "disruption of eye
+development" node — that belongs in `pathophysiology`, binds GO, and asserts a process, where
 a hub binds HP and asserts a system-level outcome; the two may sit in sequence.
-A coarse node carrying a `frequency` is a `SPECTRUM_SUMMARY`, not a hub.
+A coarse node carrying a `frequency` is a `VARIABLE_SPECTRUM`, not a hub.
 
 The 164 bindings predating the slot are grandfathered in
 `tests/coarse_phenotype_baseline.txt`, which may only shrink. Worked examples,

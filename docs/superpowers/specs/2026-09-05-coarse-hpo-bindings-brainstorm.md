@@ -25,14 +25,25 @@ and the decision is registered as §4b of the
 **Two things changed between this proposal and what was built**, recorded here
 rather than edited away:
 
-1. **The `PATHOGRAPH_HUB` rule inverted.** Part 3 below requires a hub to have
+1. **`spectrum_terms` does not exist.** Part 2b below proposes it as the
+   companion of `SPECTRUM_SUMMARY`, and calls it "the recommended shape". It was
+   built, then removed on review, and the value was renamed `VARIABLE_SPECTRUM`
+   to stop the name implying enumerability. Two reasons. It inverts the meaning
+   of the value — a spectrum is the case where the findings cannot be pinned
+   down, so requiring a list demands what is unavailable; the maintainer's
+   original framing was "really impossible to just pin down particular specific
+   terms". And the worked example proved the opposite case is not a spectrum at
+   all: where the source names findings and you have a quote, they are ordinary
+   `phenotypes` entries, and the slot's version of them was invisible to the
+   phenotype table, facets, exports and entity references. `VARIABLE_SPECTRUM` is
+   now a bare declaration like `SOURCE_UNSPECIFIED`.
+2. **The `PATHOGRAPH_HUB` rule inverted.** Part 3 below requires a hub to have
    outgoing `sequelae` into its specific findings. That is wrong. `sequelae` is
    a `CausalEdge`, and a coloboma is not *caused by* an eye abnormality — it *is*
    one, so the requirement would have had curators drawing an is-a hierarchy as a
    causal chain to satisfy a guard. As built, a hub is defined by its **incoming**
    edges (something in the entry must target it) plus the absence of a
-   `frequency`; constituents go in `spectrum_terms`, which asserts no causation.
-2. **`spectrum_terms` is allowed on a hub too**, optionally, for the same reason.
+   `frequency`.
 
 Numbers below are the 2026-09-05 census taken before enactment: 168 unexplained
 bindings, of which four became the worked examples, leaving the 164 now
