@@ -28,9 +28,11 @@ events:
     microprotein atlas
   details: |
     Curated the Alzheimer-relevant findings of the brain microprotein atlas
-    (Miller et al., Nature Aging 2026, DOI:10.1038/s43587-026-01207-x) into this
-    entry. The paper was supplied as a PDF; the reference was cached with
-    `just fetch-reference DOI:10.1038/s43587-026-01207-x`.
+    (Miller et al., Nat Aging 2026, PMID:42736449) into this entry. The paper was
+    supplied as a PDF; the reference was cached with
+    `just fetch-reference PMID:42736449`, which returned full text
+    (content_type: full_text_html), so evidence quotes the results rather than
+    the abstract.
 
     What was added:
 
@@ -50,7 +52,7 @@ events:
       out. One DIRECT edge joins them.
     - experimental_models: the HMC3 micro-MKKS63 CRISPR-Cas9 knockout lines, as a
       CELL_LINE entry with `modeled_mechanisms` (PERTURBS, fidelity LOW,
-      model_scale CELLULAR), three respirometry readouts, and two typed
+      model_scale CELLULAR), four respirometry readouts, and two typed
       `divergences` (POPULATION_MISMATCH, CAUSE_UNREPRESENTED). This is the first
       `experimental_models` block on this entry.
     - datasets: `pride:PXD071500`, the raw mass spectrometry for the HMC3 work.
@@ -79,41 +81,45 @@ events:
       decreased oxidative phosphorylation with increased reactive oxygen species
       metabolism, and the reactive-oxygen arm was not measured here; conforming
       on half the node would assert the other half.
-    - The evidence item for the micro-MKKS63 finding is split in two rather than
-      quoting the abstract's whole sentence once. The sentence carries a human
-      tissue measurement ("is downregulated in AD") and a cell-line result ("its
-      loss impairs microglial mitochondrial respiration") in one clause chain, so
-      a single item would need two `evidence_source` values -
-      `check-snippet-grading` keys on the quoted sentence and would reject it,
-      correctly.
+    - The reserve-capacity readout is curated although the results text omits it:
+      it is the one parameter in the panel where the two knockout lines disagree
+      (significant for sgRNA1, not significant for sgRNA2). It carries no
+      evidence item, because the discordance is legible only in the figure
+      legend's block of per-line test statistics, which asserts nothing in
+      sentence form. Leaving the readout out entirely would have made the panel
+      look more uniform than it is.
+    - The coexpression-network evidence is graded COMPUTATIONAL/INDIRECT, not
+      HUMAN_CLINICAL, although its input is human RNA-seq. It is network
+      inference with Gene Ontology overrepresentation testing, which CLAUDE.md
+      places under COMPUTATIONAL, and a coexpression signature implies a
+      functional role only through an inference step.
     - PXD060912 (the outer-mitochondrial-membrane proximity-labeling dataset
       reanalyzed for the localization claim) is deliberately NOT curated as a
       dataset record. It is a lipid-droplet contact-site study with no Alzheimer
       content; it resolves fine, and a relevance triage says it does not belong
-      in this entry's datasets block. The reanalysis is recorded in the
-      depletion node's `notes` instead.
+      in this entry's datasets block. The reanalysis is cited as evidence on the
+      depletion node instead - it is the endogenous localization result, so it
+      rather than the overexpression immunofluorescence is what the node quotes.
 
-    A limitation that constrains the whole curation: the reference cache for this
-    DOI is `abstract_only` - the fetcher attempted full text and got the abstract.
-    Every snippet therefore comes from the abstract, and the finer detail
-    (peptide-spectrum counts, the coexpression networks, the individual
-    respirometry parameters, the sgRNA design) is recorded as `description` and
-    `notes` prose read from the PDF rather than as quoted evidence. Where that
-    choice is load-bearing - the three readouts, which carry no evidence of their
-    own because the abstract compresses all three into one clause - it is stated
-    in the relevant `notes`.
+    On the reference identifier. The first pass of this session cited the paper
+    by DOI, having concluded it was not yet in PubMed: the NCBI ID converter
+    returns no PMID for this DOI, and a `[Title]`-tagged PubMed search returned
+    nothing. Both were wrong tools. A direct `[AID]` query
+    (`term=10.1038/s43587-026-01207-x[AID]`) finds PMID:42736449. The curation
+    was redone against the PMID, which matters for more than tidiness in two
+    ways: `DOI` is in `skip_prefixes` in `conf/reference_validator_config.yaml`,
+    so DOI-cited snippets are never checked by linkml-reference-validator,
+    whereas the PMID ones now are; and the PMID fetch returned full text where
+    the DOI fetch returned `abstract_only`, so every evidence item now quotes a
+    primary result instead of a compressed abstract clause. The DOI cache file
+    was removed once nothing cited it.
 
-    Note also that `DOI` is in `skip_prefixes` in
-    `conf/reference_validator_config.yaml`, so `linkml-reference-validator` does
-    not check these snippets (the run reports "12 skipped by prefix"). All six
-    were instead verified by hand as exact substrings of
-    `references_cache/DOI_10.1038_s43587-026-01207-x.md`, and both
-    `reference_title` values were checked against the cache's `title:`
-    frontmatter. The paper is not yet indexed in PubMed - the DOI-to-PMID
-    conversion returns no PMID - so there is no PMID form to prefer.
-
-    Validation run: `just validate` (passed, 362/374 snippets verified, 12
-    skipped by prefix), `just validate-terms` (passed), `just verify-datasets`
-    (pride:PXD071500 OK), `just check-duplicate-keys`, `just check-entity-refs`,
-    `just check-causal-targets`, `just check-qualifier-terms`,
-    `just check-enum-values` (all OK), plus the whole-KB snippet gates.
+    Validation run: `just validate-disorders` (schema + terms + references),
+    `just verify-datasets` (pride:PXD071500 OK), `just check-duplicate-keys`,
+    `just check-entity-refs`, `just check-causal-targets`,
+    `just check-qualifier-terms`, `just check-enum-values`, and the whole-KB
+    snippet gates (`check-folded-hyphens`, `check-snippet-length`,
+    `check-title-snippets`, `check-snippet-grading`). All 16 evidence snippets
+    were additionally confirmed by hand as exact substrings of
+    `references_cache/PMID_42736449.md`, with every `reference_title` compared
+    against its `title:` frontmatter.
