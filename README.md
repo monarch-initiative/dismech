@@ -197,6 +197,8 @@ GitHub Actions workflow described in the operator documentation.
 
 This knowledge base is curated with **Claude Code** — an AI agent that knows the schema, validates ontology terms, and checks evidence against PubMed abstracts. There are two ways to start curating:
 
+If you are new, read the [Onboarding guide](docs/onboarding.md) first — it walks through a first curation end to end, on the web and in the CLI.
+
 ### Route 1: Clone the repo and use Claude Code CLI
 
 Best for power users who want full control, deep research providers, and iterative curation sessions.
