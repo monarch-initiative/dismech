@@ -28,14 +28,22 @@ just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
 | gap whose own prose already names a mechanism term | 558 |
 | gap with a quotable mechanism sentence already in a cited cached reference | 516 |
 
-These are the counts **before** this branch's edits. By mode the gap was: AR 327, AD 206,
-AD/AR 46, X-linked (all forms) 40, mitochondrial 5, mixed the rest. After the 26-entry
-tranche and the five contested entries below, the gap stands at 641 and the categories in
-use are `LOSS_OF_FUNCTION` 167, `PARTIAL_LOSS_OF_FUNCTION` 42, `GAIN_OF_FUNCTION` 37,
-`DOMINANT_NEGATIVE` 27, `UNKNOWN` 16, `HYPERMORPHIC` 5, `NEOMORPHIC` 2. Seven Mendelian
-entries carry `UNKNOWN` as their only category; the audit summary breaks that line out,
-because "nobody has looked" and "assessed, and contested" are different states wearing
-one enum value.
+**Those counts are a snapshot, not a standing fact.** They were taken on 2026-09-04
+against a KB of 2,612 disorder entries, before this branch's edits. By mode the gap was
+then: AR 327, AD 206, AD/AR 46, X-linked (all forms) 40, mitochondrial 5, mixed the rest.
+
+The KB moves fast enough that these numbers rot; do not quote them as current. Re-running
+`just variant-mechanism-audit` on the merged result (2,941 entries) gives 1,116 Mendelian
+entries, 376 carrying a category and a gap of 740, with categories in use
+`LOSS_OF_FUNCTION` 285, `PARTIAL_LOSS_OF_FUNCTION` 68, `GAIN_OF_FUNCTION` 67,
+`DOMINANT_NEGATIVE` 38, `UNKNOWN` 21, `HYPERMORPHIC` 7, `NEOMORPHIC` 5. The gap grew in
+absolute terms while this branch was open, because new Mendelian entries arrive faster
+than mechanism categories are curated onto them — which is the more useful thing this
+census says, and the reason the audit is a recipe rather than a table.
+
+Ten Mendelian entries carry `UNKNOWN` as their only category, five of them from this
+branch. The audit summary breaks that line out, because "nobody has looked" and
+"assessed, and contested" are different states wearing one enum value.
 
 The gap is large but cheap to work: for four entries in five the mechanism is already
 stated in the entry's own text, and for four in five a sentence that will verify as an
