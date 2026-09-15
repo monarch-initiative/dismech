@@ -1,0 +1,15 @@
+| Domain | Best quantitative finding | Evidence type/year | Source DOI or NCT |
+|---|---|---|---|
+| Prevalence | 5.2 cases per 1,000 pregnancies (0.52%) (pqac-00000018) | Systematic-review estimate cited in 2023 | [10.1186/s12887-023-04433-z](https://doi.org/10.1186/s12887-023-04433-z) |
+| Antepartum hemorrhage (APH) | 51.6% (2,347/4,687; 95% CI 42.7–60.6%; 29 studies; I²=97.9%) (pqac-00000020) | Systematic review/meta-analysis, 2017 | [10.1038/srep40320](https://doi.org/10.1038/srep40320) |
+| Postpartum hemorrhage (PPH) | 22.3% (95% CI 15.8–28.7%; 11 studies; 5,146 pregnancies); 27.4% for previa versus 14.5% for low-lying placenta (pqac-00000017) | Systematic review/meta-analysis, 2017 | [10.1371/journal.pone.0170194](https://doi.org/10.1371/journal.pone.0170194) |
+| Placenta accreta spectrum (PAS) | Median PAS incidence among pregnancies with placenta previa: 11.10% (IQR 7.65–17.35%) (pqac-00000008) | Systematic review/meta-analysis, 2019 | [10.1136/bmjopen-2019-031193](https://doi.org/10.1136/bmjopen-2019-031193) |
+| Prior cesarean delivery | Second-birth previa: 8.7/1,000 after prior cesarean versus 4.4/1,000 after vaginal birth; adjusted OR 1.60 (95% CI 1.44–1.76; n=399,674) (pqac-00000022) | Population cohort plus meta-analysis, 2011 | [10.1186/1471-2393-11-95](https://doi.org/10.1186/1471-2393-11-95) |
+| Fetal growth | IUGR/SGA: 8.7% with previa versus 5.8% in controls; pooled OR 1.19 (95% CI 1.10–1.27; 13 studies; 1,593,226 singleton pregnancies) (pqac-00000016) | Systematic review/meta-analysis, 2019 | [10.1515/jpm-2019-0116](https://doi.org/10.1515/jpm-2019-0116) |
+| Congenital abnormalities | Crude OR 1.81 (95% CI 1.34–2.28); adjusted OR 6.38 (95% CI 1.47–11.30); substantial heterogeneity (eight studies) (pqac-00000018) | Systematic review/meta-analysis, 2023 | [10.1186/s12887-023-04433-z](https://doi.org/10.1186/s12887-023-04433-z) |
+| First-trimester miRNA signature | Seven-miRNA panel: AUC 0.937, sensitivity 100.0%, specificity 83.75%; 24 future-previa and 80 control pregnancies (pqac-00000019) | Retrospective original study, 2024 | [10.3389/fmed.2024.1469855](https://doi.org/10.3389/fmed.2024.1469855) |
+| Pharmacologic PPH prevention trial | Completed phase 4 randomized trial; n=81; IV tranexamic acid versus intrauterine misoprostol versus oxytocin-only control (pqac-00000014) | Clinical trial, completed 2023 | [NCT05340205](https://clinicaltrials.gov/study/NCT05340205) |
+| Surgical PPH prevention trial | Completed randomized trial; n=60; balloon tamponade versus B-Lynch compression suture (pqac-00000015) | Clinical trial, completed 2021 | [NCT05133167](https://clinicaltrials.gov/study/NCT05133167) |
+
+
+*Table: Compact quantitative evidence covering prevalence, hemorrhage, PAS, major risk and outcome associations, a preliminary molecular biomarker, and completed interventional trials. Estimates should be interpreted in light of observational designs and substantial heterogeneity in several meta-analyses.*
