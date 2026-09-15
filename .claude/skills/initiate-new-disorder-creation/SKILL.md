@@ -382,16 +382,31 @@ source.
 > coverage is unlikely, skip directly to Step 4 — the PubMed search below will
 > confirm either way.
 
-#### 1. Search PubMed for a GeneReviews article
+#### 1. Check for a GeneReviews chapter
+
+Once the YAML carries its `name`, `synonyms` and `disease_term`, run the offline
+check against the committed Bookshelf index (`--online` adds a live PubMed
+title search when you have network, for chapters newer than the snapshot):
+
+```bash
+just check-genereviews --online kb/disorders/<Entry>.yaml
+```
+
+`UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
+chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
+you to read; `NO_CHAPTER` means none names the disease. The reviewer runs the
+same check, so its verdict is what the review will see. The `StatPearls` line
+is informational — a StatPearls chapter may be cited for orientation but is
+never the baseline (see `docs/genereviews-baseline-check.md`).
+
+Before the file exists, the same question can be put to PubMed directly with
+the `[book]` field, which selects GeneReviews chapters exactly:
 
 ```bash
 curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
-  --data-urlencode "db=pubmed" \
-  --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] GeneReviews[TI]"
+  --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
 ```
-
-If no results, try a broader search: `<DISEASE_NAME> GeneReviews[All Fields]`
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -454,7 +469,8 @@ When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
-problem.
+problem. A one-line `notes:` sentence recording it is still worth writing,
+and the reviewer's `just check-genereviews` run is what verifies it.
 
 ---
 
