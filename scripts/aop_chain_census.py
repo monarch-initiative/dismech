@@ -13,6 +13,7 @@ than trusting the numbers in that report, which go stale with every curation PR.
     just aop-chain-census --format tsv    # one row per entry
     just aop-chain-census --list-joint 3  # entries clearing the joint screen
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,8 +24,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
-from dismech import kb_cache  # noqa: E402
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech import kb_cache
+from dismech.yaml_io import safe_load_path
 
 ROOTS = ("kb/disorders", "kb/modules")
 MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
@@ -75,10 +76,10 @@ def scan(root_dir: pathlib.Path) -> list[dict]:
             all_edges: list[tuple[str, str]] = []
             cited_edges: list[tuple[str, str]] = []
             every_edge = every_edge_cited = 0
-            for node in (doc.get("pathophysiology") or []):
+            for node in doc.get("pathophysiology") or []:
                 if not isinstance(node, dict):
                     continue
-                for edge in (node.get("downstream") or []):
+                for edge in node.get("downstream") or []:
                     if not isinstance(edge, dict) or not edge.get("target"):
                         continue
                     pair = (node.get("name"), edge["target"])
@@ -99,12 +100,13 @@ def scan(root_dir: pathlib.Path) -> list[dict]:
             blocks = collections.Counter()
             blocks_linked = collections.Counter()
             for section in MODEL_SECTIONS:
-                for model in (doc.get(section) or []):
+                for model in doc.get(section) or []:
                     if not isinstance(model, dict):
                         continue
                     blocks[section] += 1
                     links = [
-                        link for link in (model.get("modeled_mechanisms") or [])
+                        link
+                        for link in (model.get("modeled_mechanisms") or [])
                         if isinstance(link, dict) and link.get("target")
                     ]
                     if links:
@@ -127,7 +129,8 @@ def scan(root_dir: pathlib.Path) -> list[dict]:
                     "blocks_linked": blocks_linked,
                     "has_linked_model": bool(linked),
                     "n_multi_experimental": sum(
-                        1 for m in (doc.get("experimental_models") or [])
+                        1
+                        for m in (doc.get("experimental_models") or [])
                         if isinstance(m, dict)
                     ),
                     "n_linked_models": sum(blocks_linked.values()),
@@ -143,12 +146,17 @@ def scan(root_dir: pathlib.Path) -> list[dict]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--root", default=".", type=pathlib.Path)
     ap.add_argument("--format", choices=("markdown", "tsv"), default="markdown")
-    ap.add_argument("--list-joint", type=int, metavar="N",
-                    help="list entries whose joint-screen chain is at least N nodes")
+    ap.add_argument(
+        "--list-joint",
+        type=int,
+        metavar="N",
+        help="list entries whose joint-screen chain is at least N nodes",
+    )
     args = ap.parse_args()
 
     kb_cache.default_off()
@@ -156,20 +164,43 @@ def main() -> int:
 
     if args.format == "tsv":
         w = csv.writer(sys.stdout, delimiter="\t")
-        w.writerow(["file", "edges", "edges_cited",
-                    "chain_measured", "chain_cited", "chain_multi", "chain_joint"])
+        w.writerow(
+            [
+                "file",
+                "edges",
+                "edges_cited",
+                "chain_measured",
+                "chain_cited",
+                "chain_multi",
+                "chain_joint",
+            ]
+        )
         for r in rows:
-            w.writerow([r["file"], r["edges"], r["edges_cited"],
-                        len(r["chain_measured"]), len(r["chain_cited"]),
-                        len(r["chain_multi"]), len(r["chain_joint"])])
+            w.writerow(
+                [
+                    r["file"],
+                    r["edges"],
+                    r["edges_cited"],
+                    len(r["chain_measured"]),
+                    len(r["chain_cited"]),
+                    len(r["chain_multi"]),
+                    len(r["chain_joint"]),
+                ]
+            )
         return 0
 
     if args.list_joint:
-        hits = sorted((r for r in rows if len(r["chain_joint"]) >= args.list_joint),
-                      key=lambda r: -len(r["chain_joint"]))
-        print(f"{len(hits)} entries with a joint-screen chain of >= {args.list_joint} nodes\n")
+        hits = sorted(
+            (r for r in rows if len(r["chain_joint"]) >= args.list_joint),
+            key=lambda r: -len(r["chain_joint"]),
+        )
+        print(
+            f"{len(hits)} entries with a joint-screen chain of >= {args.list_joint} nodes\n"
+        )
         for r in hits:
-            print(f'{len(r["chain_joint"])}  {r["file"]}  ({r["edges_cited"]}/{r["edges"]} edges cited)')
+            print(
+                f"{len(r['chain_joint'])}  {r['file']}  ({r['edges_cited']}/{r['edges']} edges cited)"
+            )
             print("     " + " -> ".join(r["chain_joint"]))
         return 0
 
@@ -184,22 +215,36 @@ def main() -> int:
     cited = sum(r["edges_cited"] for r in rows)
     ptot = sum(r["patho_edges"] for r in rows)
     pcit = sum(r["patho_edges_cited"] for r in rows)
-    print(f"Causal edges: {total:,}, carrying evidence: {cited:,} ({100 * cited / total:.0f}%)")
-    print(f"  of those, node-to-node (target is a pathophysiology node): {ptot:,}, "
-          f"cited {pcit:,} ({100 * pcit / ptot:.0f}%)\n")
+    print(
+        f"Causal edges: {total:,}, carrying evidence: {cited:,} ({100 * cited / total:.0f}%)"
+    )
+    print(
+        f"  of those, node-to-node (target is a pathophysiology node): {ptot:,}, "
+        f"cited {pcit:,} ({100 * pcit / ptot:.0f}%)\n"
+    )
 
-    print("| Model section | Model blocks | Blocks with `modeled_mechanisms` | Entries with one | Entries with a linked one |")
+    print(
+        "| Model section | Model blocks | Blocks with `modeled_mechanisms` | Entries with one | Entries with a linked one |"
+    )
     print("|---|---|---|---|---|")
     for section in MODEL_SECTIONS:
         with_any = sum(1 for r in rows if r["blocks"][section])
         with_linked = sum(1 for r in rows if r["blocks_linked"][section])
-        print(f"| `{section}` | {blocks[section]:,} | {blocks_linked[section]:,} "
-              f"| {with_any:,} | {with_linked:,} |")
+        print(
+            f"| `{section}` | {blocks[section]:,} | {blocks_linked[section]:,} "
+            f"| {with_any:,} | {with_linked:,} |"
+        )
 
     print()
-    print(f"- {sum(1 for r in rows if r['n_multi_experimental'] >= 2):,} entries carry >=2 `experimental_models` blocks.")
-    print(f"- {sum(1 for r in rows if r['n_linked_models'] >= 2):,} entries carry >=2 pathograph-linked models of any kind.")
-    print(f"- {sum(1 for r in rows if r['has_linked_model']):,} entries carry at least one pathograph-linked model.")
+    print(
+        f"- {sum(1 for r in rows if r['n_multi_experimental'] >= 2):,} entries carry >=2 `experimental_models` blocks."
+    )
+    print(
+        f"- {sum(1 for r in rows if r['n_linked_models'] >= 2):,} entries carry >=2 pathograph-linked models of any kind."
+    )
+    print(
+        f"- {sum(1 for r in rows if r['has_linked_model']):,} entries carry at least one pathograph-linked model."
+    )
 
     print("\n| Longest chain | Every node measured | Every edge cited | Both |")
     print("|---|---|---|---|")
@@ -212,7 +257,9 @@ def main() -> int:
     print("\n| Longest chain | >=2 models on every node |")
     print("|---|---|")
     for n in (3, 4, 5):
-        print(f"| >= {n} nodes | {sum(1 for r in rows if len(r['chain_multi']) >= n):,} |")
+        print(
+            f"| >= {n} nodes | {sum(1 for r in rows if len(r['chain_multi']) >= n):,} |"
+        )
     return 0
 
 
