@@ -171,6 +171,13 @@ Human, quantitative, with confidence intervals, and interventional rather than
 correlational — immunoglobulin replacement moves the exposure, and restoring the
 antibody level restores resistance to infection in a graded way.
 
+Compare what the TDAR framing rests on: a single 1993 rodent database
+([PMID:8365588](https://pubmed.ncbi.nlm.nih.gov/8365588/)) whose own abstract
+states that no single immune test was fully predictive of altered host
+resistance. The reframed claim is not a stronger version of the TDAR claim. It
+is a different claim — about a measured serum protein in patients rather than an
+assay endpoint in mice — and it is the one the evidence actually supports.
+
 ### No evidence-bearing edge into an infection outcome exists in the cluster
 
 Checked across the immunosuppression space:
@@ -183,6 +190,11 @@ Checked across the immunosuppression space:
 KER3702 is also the only downstream edge from AOP-Wiki's one *Reduced antibody
 production* Key Event (KE2398), and it runs to vaccine response rather than to
 infection.
+
+So across the whole immunosuppression space the wiki carries no evidence-bearing
+edge into an infection outcome. The relationship is well established in medicine
+— it is why immunoglobulin replacement is standard care in primary antibody
+deficiency — and absent from the framework.
 
 ## Module classification
 
