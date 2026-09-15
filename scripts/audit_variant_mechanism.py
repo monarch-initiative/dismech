@@ -65,7 +65,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from dismech import kb_cache  # noqa: E402
+from dismech import kb_cache
 
 MENDELIAN_MODES = {
     "HP:0000006": "AD",
@@ -78,16 +78,16 @@ MENDELIAN_MODES = {
 }
 
 PROSE_PATTERNS = {
-    "lof": re.compile(r"loss[- ]of[- ]function", re.I),
-    "gof": re.compile(r"gain[- ]of[- ]function", re.I),
-    "dn": re.compile(r"dominant[- ]negative", re.I),
-    "hi": re.compile(r"haploinsufficien", re.I),
-    "hypo": re.compile(r"hypomorph", re.I),
+    "lof": re.compile(r"loss[- ]of[- ]function", re.IGNORECASE),
+    "gof": re.compile(r"gain[- ]of[- ]function", re.IGNORECASE),
+    "dn": re.compile(r"dominant[- ]negative", re.IGNORECASE),
+    "hi": re.compile(r"haploinsufficien", re.IGNORECASE),
+    "hypo": re.compile(r"hypomorph", re.IGNORECASE),
 }
 MECHANISM_SENTENCE = re.compile(
     r"loss[- ]of[- ]function|gain[- ]of[- ]function|dominant[- ]negative|"
     r"haploinsufficien|hypomorph|null allele",
-    re.I,
+    re.IGNORECASE,
 )
 
 
