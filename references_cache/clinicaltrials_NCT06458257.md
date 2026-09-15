@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06458257"
+reference_id: clinicaltrials:NCT06458257
 title: The Efficacy of Allogeneic Hematopoietic Stem Cell Transplantation in Newly Diagnosed High-relapse-risk CEBPA Mutant Acute Myeloid Leukemia
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Efficacy of Allogeneic Hematopoietic Stem Cell Transplantation in Newly Diagnosed High-relapse-risk CEBPA Mutant Acute Myeloid Leukemia

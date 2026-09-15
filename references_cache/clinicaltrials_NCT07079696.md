@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07079696"
+reference_id: clinicaltrials:NCT07079696
 title: Investigating the Therapeutic Efficacy of All-trans Retinoic Acid in Autism Spectrum Disorder Patients With 15q11-13 Duplication Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Investigating the Therapeutic Efficacy of All-trans Retinoic Acid in Autism Spectrum Disorder Patients With 15q11-13 Duplication Syndrome

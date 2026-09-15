@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05154370"
+reference_id: clinicaltrials:NCT05154370
 title: "China National Registry of Neuro-Inflammatory Diseases: a Prospective Cohort Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # China National Registry of Neuro-Inflammatory Diseases: a Prospective Cohort Study

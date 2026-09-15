@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05281965"
+reference_id: clinicaltrials:NCT05281965
 title: A Clinical Study Evaluating the Efficacy and Safety of Retinoic Acid in Patients With 15q11-q13 Duplication Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Clinical Study Evaluating the Efficacy and Safety of Retinoic Acid in Patients With 15q11-q13 Duplication Syndrome

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03776656"
+reference_id: clinicaltrials:NCT03776656
 title: Evaluation of a Treatment With Allopurinol on Autistic Disorders and Epilepsy in Adenylosuccinate Lyase Deficiency (ADSL)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Evaluation of a Treatment With Allopurinol on Autistic Disorders and Epilepsy in Adenylosuccinate Lyase Deficiency (ADSL)

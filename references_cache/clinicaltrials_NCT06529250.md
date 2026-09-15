@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06529250"
+reference_id: clinicaltrials:NCT06529250
 title: "A Multicenter, Randomized, Controlled Clinical Trial of Intermediate-dose HAD Regimen for CEBPA Double-mutated Acute Myeloid Leukemia"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicenter, Randomized, Controlled Clinical Trial of Intermediate-dose HAD Regimen for CEBPA Double-mutated Acute Myeloid Leukemia
