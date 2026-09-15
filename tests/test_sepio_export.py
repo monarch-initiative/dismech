@@ -178,6 +178,27 @@ class TestEvidenceItemToLine:
         )
         assert line.dismech_directness is None
 
+    def test_quote_role_is_carried_as_a_dismech_extension(self):
+        """SEPIO has no slot for where in a document a quote sits (#10262)."""
+        line = evidence_item_to_line(
+            {
+                "reference": "PMID:1",
+                "snippet": "t",
+                "supports": "SUPPORT",
+                "quote_role": "BACKGROUND",
+            },
+            "s",
+            0,
+        )
+        assert line.dismech_quote_role == "BACKGROUND"
+
+    def test_quote_role_absent_when_unset(self):
+        """Absent means unassessed, and must not export as a default."""
+        line = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "SUPPORT"}, "s", 0
+        )
+        assert line.dismech_quote_role is None
+
     def test_raw_supports_absent_when_unset(self):
         """An item with no `supports` gets neither a direction nor a raw value."""
         line = evidence_item_to_line({"reference": "PMID:1", "snippet": "t"}, "s", 0)

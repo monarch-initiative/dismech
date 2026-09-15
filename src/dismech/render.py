@@ -110,6 +110,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # disorder.html.j2 and module.html.j2 render these chips and a drifting map
     # would describe the same treatment differently on the two pages.
     env.globals["treatment_platform_label"] = treatment_platform_label
+    # Hover text for the `quote_role` badge, read from the enum's own
+    # `description` in the schema (#10262). Sourced there rather than written
+    # into the template so the vocabulary and its prose stay in one place, the
+    # same rule `module_categories` follows.
+    env.globals["quote_role_tooltip"] = quote_role_tooltip
     return env
 
 
@@ -5792,6 +5797,34 @@ def _classification_slot_to_enum(
         if range_name in assignment_to_enum:
             mapping[slot_name] = assignment_to_enum[range_name]
     return mapping
+
+
+_QUOTE_ROLE_PREAMBLE = "Where this quote sits in the cited paper's argument. "
+
+
+@cache
+def _quote_role_descriptions() -> dict[str, str]:
+    """QuoteRoleEnum value -> its schema `description`, for badge hover text."""
+    values = (
+        ((_load_schema().get("enums") or {}).get("QuoteRoleEnum") or {}).get(
+            "permissible_values"
+        )
+        or {}
+    )
+    return {
+        key: " ".join(str((meta or {}).get("description") or "").split())
+        for key, meta in values.items()
+    }
+
+
+def quote_role_tooltip(value: str | None) -> str:
+    """Hover text for a `quote_role` badge; the bare value if the enum is absent."""
+    if not value:
+        return ""
+    description = _quote_role_descriptions().get(value)
+    if not description:
+        return str(value)
+    return _QUOTE_ROLE_PREAMBLE + description
 
 
 def _find_enum_for_value(value: str, enums: dict) -> str | None:

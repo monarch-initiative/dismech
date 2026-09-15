@@ -61,6 +61,49 @@ EOL_HYPHEN_RE = re.compile(r"[A-Za-z0-9]-$")
 # Continuation words that make a trailing hyphen a legitimate suspended hyphen.
 COORD_RE = re.compile(r"^(and|or|to|vs|nor|&)\b", re.IGNORECASE)
 
+# A trailing hyphen is sometimes a NEGATIVITY MARKER rather than a split
+# compound -- ``ER+/HER2- metastatic``, ``gsp+ and gsp- patients``,
+# ``T-B-NK- immunophenotype``. There the following space is real text, so
+# "repairing" it destroys the clinical meaning (and, in a snippet, the quote).
+# Four such lines were flagged as bugs and joined by the #4800 sweep before
+# review caught them; these rules stop the next sweep reintroducing them.
+#
+# The trade-off runs the other way from COORD_RE: an exemption here means a
+# genuine folding bug on such a line goes unreported. The patterns are kept
+# deliberately narrow for that reason -- each requires positive evidence of
+# marker notation, never merely "looks clinical".
+#
+# 1. The token carries a '+' of its own before the final '-' (``ER+/HER2-``).
+PLUS_IN_TOKEN_RE = re.compile(r"[A-Za-z0-9][+][^\s]*[A-Za-z0-9]-$")
+# 2. An all-uppercase marker run of three or more short segments
+#    (``T-B-NK-``). Three segments and letters-only are both required: two
+#    would exempt ``IL-6-mediated``, and allowing digits would exempt
+#    ``CD8-1-`` style compounds.
+MARKER_RUN_RE = re.compile(r"(?:^|\s)(?:[A-Z]{1,3}-){3,}$")
+
+
+def _has_plus_suffixed_sibling(content: str) -> bool:
+    """True if the line's final token also occurs '+'-suffixed on that line.
+
+    ``similar in gsp+ and gsp-`` is the shape: the same stem appears once as
+    the positive marker and once as the negative one, which no split compound
+    ever does.
+    """
+    m = re.search(r"([A-Za-z][A-Za-z0-9]*)-$", content)
+    if not m:
+        return False
+    return re.search(rf"\b{re.escape(m.group(1))}\+", content) is not None
+
+
+def is_status_marker(content: str) -> bool:
+    """True if the line's trailing hyphen is a negativity marker, not a split."""
+    content = content.rstrip()
+    return bool(
+        PLUS_IN_TOKEN_RE.search(content)
+        or MARKER_RUN_RE.search(content)
+        or _has_plus_suffixed_sibling(content)
+    )
+
 
 def _leading_spaces(s: str) -> int:
     return len(s) - len(s.lstrip(" "))
@@ -96,7 +139,11 @@ def find_violations_in_text(text: str):
                                 nxt = lines[j].strip()
                                 nxt_in_block = True
                             break
-                        if nxt_in_block and not COORD_RE.match(nxt):
+                        if (
+                            nxt_in_block
+                            and not COORD_RE.match(nxt)
+                            and not is_status_marker(content)
+                        ):
                             yield (i + 1, content.strip())
                 continue
             in_block = False  # de-indented: block ended; re-evaluate this line
