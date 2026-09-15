@@ -951,6 +951,18 @@ diet-audit *args="":
 immune-antigen-audit *args="":
     uv run python scripts/immune_antigen_audit.py {{args}}
 
+# Census of Mendelian entries (single-locus inheritance + CAUSATIVE gene) that
+# carry no structured variant mechanism -- no
+# `GeneticContext.functional_impact_category` anywhere in the file. Advisory;
+# always exits 0. `--format list` ranks the gap by how many cited cached
+# references already contain a quotable mechanism sentence.
+#   just variant-mechanism-audit
+#   just variant-mechanism-audit --format list --single-gene --with-cached-hits
+#   just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
+[group('QC')]
+variant-mechanism-audit *args="":
+    uv run python scripts/audit_variant_mechanism.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
@@ -1036,8 +1048,14 @@ gen-dashboard:
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    just gen-phenotype-systems
     just gen-priority-dashboard
     echo "Dashboard generated in dashboard/"
+
+# Generate the phenotype-systems dashboard page (needs app/hpo_category_cache.json from `just gen-browser-data`)
+[group('QC')]
+gen-phenotype-systems:
+    uv run python -m dismech.phenotype_systems --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
 
 # Generate MONDO curation priority dashboard
 [group('QC')]
@@ -1446,6 +1464,18 @@ list-snippet-grading *args="":
 [group('QC')]
 update-snippet-grading-baseline:
     uv run python scripts/check_snippet_grading.py --update-baseline
+
+# REPORT-ONLY -- no baseline, no gate, and never an autofill; each item is
+# decided by reading the sentence. Three tiers: A, deterministic, from NLM
+# structured-abstract section labels; B, the MeSH animal-without-Humans
+# heuristic, which covers a narrow slice and is a lower bound rather than a
+# measure of the problem; C, a recorded `quote_role` that contradicts tier A.
+# Pass `--format tsv` for detail, `--tier A` to narrow, or file paths to scan
+# only those.
+# Worklist for `quote_role`: evidence items whose snippet may not be the cited paper's own finding (#10262).
+[group('QC')]
+list-background-citations *args="":
+    uv run python scripts/check_background_citations.py {{args}}
 
 # Guard against reference titles that name a paper other than the one cited --
 # a correct PMID with a verified snippet and an invented `reference_title`,
