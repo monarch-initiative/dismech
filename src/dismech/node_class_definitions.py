@@ -58,7 +58,13 @@ def modifier_values(schema_path: str | Path = SCHEMA_PATH) -> frozenset[str]:
 
     with Path(schema_path).open(encoding="utf-8") as fh:
         schema = yaml.safe_load(fh)
-    values = schema["enums"]["ModifierEnum"]["permissible_values"]
+    try:
+        values = schema["enums"]["ModifierEnum"]["permissible_values"]
+    except KeyError as exc:
+        raise DefinitionError(
+            f"{schema_path}: no enums.ModifierEnum.permissible_values -- the enum "
+            "was renamed or moved; update modifier_values() to match"
+        ) from exc
     return frozenset(str(v) for v in values)
 
 CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*:[A-Za-z0-9._-]+$")

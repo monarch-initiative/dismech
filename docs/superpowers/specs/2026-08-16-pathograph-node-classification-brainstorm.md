@@ -644,10 +644,23 @@ just node-role-audit --format tsv       # everything, one row per tagged node
 
 `src/dismech/node_role_audit.py` maps every normalised value to the **facet it
 is answering** and checks the two facets that are computable against the graph.
-Regenerate the numbers below rather than quoting them; the slot has grown from
-2,322 tagged nodes to 4,334 (25.3% of 17,146) since the first census, and 87
-raw spellings now collapse to 69 values -- eleven of them, `trigger`, `modifier`
-and `consequence` included, are spelled two or three ways.
+Regenerate the numbers below rather than quoting them. They are a snapshot
+taken at `b5539d4` (2026-09-05), before this branch merged `main`: the slot
+had grown from 2,322 tagged nodes to 4,334 (25.3% of 17,146) since the first
+census, and 87 raw spellings collapsed to 69 values -- eleven of them,
+`trigger`, `modifier` and `consequence` included, spelled two or three ways.
+On the merged head ten days later the same run reports 4,776 tagged nodes,
+91 spellings collapsing to 72, and the verdict shares within a point of the
+figures below; a figure that has moved is the KB growing, not a regression.
+
+That later run also shows an `UNMAPPED` tail the facet table below does not
+have a row for: three values that arrived from `main` and that `ROLE_FACETS`
+does not cover (`parallel_branch`, and the pair
+`observed_` / `proposed_tissue_effector_with_unresolved_upstream_attribution`,
+both of which read as `EPISTEMIC`). The tool files them as their own verdict
+and lists them under "unmapped tail values" rather than guessing a facet. The
+`role` vocabulary is still live, so that tail is expected to keep appearing;
+it is a worklist for `ROLE_FACETS`, not a defect in the census.
 
 | facet | what the value claims | checked against | roles | nodes |
 |---|---|---|---:|---:|

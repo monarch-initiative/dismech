@@ -508,7 +508,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {node.id:30s} {n:4d} examples")
 
     for problem in problems:
-        print(f"{args.path}:{problem}", file=sys.stderr)
+        print(f"{args.path}: {problem}", file=sys.stderr)
     if problems:
         print(f"error: {len(problems)} problems", file=sys.stderr)
         return 1
