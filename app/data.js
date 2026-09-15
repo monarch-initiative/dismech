@@ -30936,6 +30936,78 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autosomal Dominant Nonsyndromic Hearing Loss 4B",
+    "disease_id": "MONDO:0013823",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNA4B is autosomal dominant, postlingual, slowly progressive sensorineural hearing loss caused by heterozygous missense variants in CEACAM16. It is a **tectorial membrane matrix disease**: the primary lesion is not in a hair cell but in the acellular extracellular structure that overlies the organ of Corti and drives the stereocilia.\nCEACAM16 is a secreted glycoprotein made by outer hair cells, deposited at the tips of the tallest stereocilia and in the tectorial membrane. It binds both alpha-tectorin and beta-tectorin, and the working model is that it cross-links them into the striated-sheet matrix that gives the membrane its mechanical properties. Losing it costs the membrane its striated-sheet organisation and Hensen's stripe, and the coupling between membrane and stereocilia degrades.\n**One gene, two inheritance patterns, two mechanisms.** Heterozygous missense variants cause this dominant disease; biallelic loss-of-function variants cause a separate recessive nonsyndromic hearing loss. The distinction is mechanistic rather than one of dosage: a missense monomer is still made and still enters the matrix, where it is thought to poison assembly, whereas a null allele simply removes the protein. That is why this entry does not treat the two as severity grades of one disease.\n**The functional data on dominant alleles point in opposite directions, and the entry does not smooth that over.** p.Gly169Arg is secreted much less efficiently than wild type; p.Arg255Gly is found at *increased* intracellular and extracellular levels. Both segregate with dominant hearing loss. A dominant-negative model accommodates both only if what matters is the presence of an abnormal monomer in the matrix rather than how much of it arrives, and no experiment has tested that directly.\n**The mouse model is a null, so it models the recessive disease.** Its structural and micromechanical findings are the strongest evidence for what CEACAM16 does, but no knock-in carrying a human dominant missense allele has been reported. Every model link here is graded against that limitation rather than against the mouse's own quality.\nClinically the trajectory resembles presbycusis closely enough that the papers themselves flag the differential, which matters for an adult presenting without a known family history.",
+    "pathophysiology": [
+      "CEACAM16 Missense Variant Producing an Abnormal Monomer",
+      "Altered CEACAM16 Secretion",
+      "Destabilized Tectorial Membrane Matrix Assembly",
+      "Impaired Tectorial Membrane to Stereocilia Coupling",
+      "Destabilized Cochlear Amplification"
+    ],
+    "cell_types": [
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Bilateral sensorineural hearing impairment",
+      "High-frequency sensorineural hearing impairment",
+      "Progressive hearing impairment",
+      "Postlingual sensorineural hearing impairment",
+      "Tinnitus"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0001757",
+      "HP:0001730",
+      "HP:0008596",
+      "HP:0000360"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CEACAM16"
+    ],
+    "treatments": [
+      "Hearing Amplification",
+      "Cochlear Implantation",
+      "Genetic Counselling",
+      "Avoidance of Noise and Ototoxic Exposure"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_4B.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_4B.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Dominant Nonsyndromic Hearing Loss 50",
     "disease_id": "MONDO:0013114",
     "category": "Mendelian",
@@ -34340,6 +34412,81 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Autosomal Recessive Optic Atrophy OPA7 Type",
+    "disease_id": "MONDO:0013069",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Optic Neuropathy"
+    ],
+    "creation_date": "2026-09-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "OPA7 is an ultra-rare, early-onset, bilateral progressive optic neuropathy caused by biallelic loss-of-function variants in TMEM126A. TMEM126A was the first gene identified for nonsyndromic autosomal recessive optic atrophy, a condition whose very existence was disputed until the OPA6 and OPA7 loci were mapped.\n**The mechanism was worked out backwards, and the order matters for how the evidence reads.** The gene was found in 2009 by homozygosity mapping in a consanguineous Algerian family, and the paper could say only that TMEM126A encodes a transmembrane mitochondrial protein of unknown function. The function arrived twelve years later: two independent 2021 studies established that TMEM126A is an assembly factor for the **ND4 distal membrane module** of respiratory chain complex I, and that losing it produces an **isolated complex I deficiency**. So this entry's molecular nodes rest on recent cell biology while its genetic and clinical nodes rest on the older human genetics, and the two were connected only afterwards.\n**That makes OPA7 bioenergetically a sibling of LHON.** Leber hereditary optic neuropathy is caused by mtDNA-encoded complex I subunit mutations; OPA7 is caused by failure to assemble one of complex I's modules. Different genome, different lesion, same enzyme and the same downstream deficit. It is also a sibling of the nuclear complex I deficiency disorders, and a curator coming from either direction should notice that this disease presents as isolated optic atrophy rather than as an infantile encephalopathy. That is the interesting part, not an inconsistency to explain away.\n**Retinal ganglion cell selectivity is the unexplained step.** Complex I is needed in every cell. What the literature offers is an observation across the hereditary optic neuropathies, that retinal ganglion cells and their axons appear especially susceptible to perturbed mitochondrial homeostasis, rather than a mechanism specific to TMEM126A. This entry records that as the shared explanation it is, not as something demonstrated here.\nThe recurrent Maghrebian founder allele c.163C>T p.Arg55* dominates the reported population, with a single ancestral origin confirmed by haplotype analysis; two later non-Maghreb alleles broadened the spectrum.",
+    "pathophysiology": [
+      "TMEM126A Loss of Function",
+      "Failure of ND4 Module Assembly into Complex I",
+      "Isolated Complex I Deficiency",
+      "Retinal Ganglion Cell Degeneration"
+    ],
+    "cell_types": [
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly"
+    ],
+    "phenotypes": [
+      "Optic atrophy",
+      "Reduced visual acuity",
+      "Optic disc pallor",
+      "Central scotoma",
+      "Color vision defect",
+      "Abnormal auditory evoked potentials",
+      "Peripheral axonal neuropathy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Audiologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000648",
+      "HP:0007663",
+      "HP:0000543",
+      "HP:0000603",
+      "HP:0000551",
+      "HP:0006958",
+      "HP:0003477"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "TMEM126A"
+    ],
+    "treatments": [
+      "Low-Vision Rehabilitation and Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Optic_Atrophy_OPA7_Type.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Optic_Atrophy_OPA7_Type.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
   },
   {
@@ -43973,6 +44120,126 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Bone Fragility With Contractures Arterial Rupture And Deafness",
+    "disease_id": "MONDO:0012892",
+    "category": "Mendelian",
+    "parents": [
+      "Connective Tissue Disease"
+    ],
+    "creation_date": "2026-09-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BCARD is an ultra-rare autosomal recessive multisystem connective tissue disorder caused by biallelic loss-of-function variants in PLOD3, which encodes lysyl hydroxylase 3 (LH3). About eleven patients across seven reports are on record.\n**It is a collagen glycosylation disease, not a collagen hydroxylation disease, and that is the single most important thing about it.** LH3 is bifunctional: it hydroxylates collagen lysines and then glycosylates the resulting hydroxylysines. The obvious reading, given its name and its family, is that the lysyl hydroxylase activity is what matters. Mouse genetics say otherwise. A mouse carrying a mutation that blocks *only* the lysyl hydroxylase activity develops normally. Reducing the glucosyltransferase activity instead kills embryos between E9.5 and E14.5 from failed basement membrane formation, and survival tracks the residual glucosyltransferase level directly. The essential function is the sugar, not the hydroxyl.\n**The mechanism is a secretion failure, which is why the phenotype is so widely distributed.** Hydroxylysine-linked sugars are needed for type VI collagen to tetramerise inside the cell and for types IV and VI to be secreted at all. Without them the collagens are not merely abnormal once deposited; they do not leave the cell properly. Basement membranes fail wherever those collagens are needed, which is nearly everywhere, and the clinical picture follows the expression pattern of the enzyme: cochlea, eye, skin, limb, heart and cartilage.\n**The resulting phenotype is a composite of three recognised disorders.** It overlaps most with Stickler syndrome, with variable features of Ehlers-Danlos syndrome and of epidermolysis bullosa; one patient had sub-lamina-densa blistering with reduced type VII collagen and no COL7A1 mutation at all. A curator meeting this disease through any one of those three doors will see a partial picture, which is what the proposed BCARD label was introduced to fix.\nThe vascular risk is what makes recognition urgent rather than academic: aneurysm and arterial dissection are part of the syndrome, and early identification changes surveillance.",
+    "pathophysiology": [
+      "PLOD3 Biallelic Loss of Function",
+      "Loss of Hydroxylysine-Linked Glycosylation",
+      "Failure of Type IV and VI Collagen Assembly and Secretion",
+      "Basement Membrane and Extracellular Matrix Failure",
+      "Multisystem Connective Tissue Fragility"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "hydroxylysine-linked O-glycosylation of collagen",
+      "peptidyl-lysine hydroxylation",
+      "protein secretion",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Reduced bone mineral density",
+      "Joint contracture",
+      "Scoliosis",
+      "Cataract",
+      "Retinal detachment",
+      "Sensorineural hearing impairment",
+      "Arterial dissection",
+      "Global developmental delay",
+      "High myopia",
+      "Abnormal facial shape",
+      "Abnormal palmar crease morphology",
+      "Vesicoureteral reflux",
+      "Abnormal intestine morphology",
+      "Abnormal heart morphology",
+      "Focal-onset seizure",
+      "Polymicrogyria",
+      "Gray matter heterotopia",
+      "Abnormal blistering of the skin"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Ophthalmologic",
+      "Auditory",
+      "Cardiovascular",
+      "Neurologic",
+      "Craniofacial",
+      "Dermatologic",
+      "Renal",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004349",
+      "HP:0034392",
+      "HP:0002650",
+      "HP:0000518",
+      "HP:0000541",
+      "HP:0000407",
+      "HP:0005294",
+      "HP:0001263",
+      "HP:0011003",
+      "HP:0001999",
+      "HP:0010490",
+      "HP:0000076",
+      "HP:0002242",
+      "HP:0001627",
+      "HP:0007359",
+      "HP:0002126",
+      "HP:0002282",
+      "HP:0008066"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "PLOD3"
+    ],
+    "treatments": [
+      "Vascular Surveillance",
+      "Ophthalmologic Surveillance",
+      "Audiologic Rehabilitation",
+      "Skeletal and Orthopedic Management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Glycosylated hydroxylysine in tissue"
+    ],
+    "source_file": "Bone_Fragility_With_Contractures_Arterial_Rupture_And_Deafness.yaml",
+    "page_url": "../pages/disorders/Bone_Fragility_With_Contractures_Arterial_Rupture_And_Deafness.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Bone Giant Cell Tumor",
@@ -305445,17 +305712,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2941,
+  "total_disorder_pages": 2944,
   "total_subtypes": 3731,
-  "total_disorders_and_subtypes": 6672,
-  "total_unique_evidence_sources": 41333,
-  "total_unique_publications": 38962,
+  "total_disorders_and_subtypes": 6675,
+  "total_unique_evidence_sources": 41358,
+  "total_unique_publications": 38987,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2936,
-  "total_unique_pathological_events": 17764,
+  "total_pathographs": 2939,
+  "total_unique_pathological_events": 17776,
   "total_modules": 174,
-  "total_research_reports": 3057,
+  "total_research_reports": 3060,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
