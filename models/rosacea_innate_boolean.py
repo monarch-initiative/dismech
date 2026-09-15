@@ -288,7 +288,7 @@ def main() -> int:
     print(f"wrote {args.output}")
 
     if args.show:
-        for key, scenario in results["scenarios"].items():
+        for scenario in results["scenarios"].values():
             active = ", ".join(scenario["active_phenotypes"]) or "none"
             print(f"\n{scenario['label']}\n  phenotypes: {active}")
         scan = results["intervention_scan"]
