@@ -139662,6 +139662,148 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hereditary Spastic Paraplegia 3A",
+    "disease_id": "MONDO:0008437",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Spastic Paraplegia"
+    ],
+    "creation_date": "2026-09-12T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Pure SPG3A",
+      "Complicated SPG3A",
+      "Severe early-onset complex SPG3A"
+    ],
+    "description": "Hereditary spastic paraplegia 3A (SPG3A, ATL1-HSP) is an autosomal dominant hereditary spastic paraplegia caused by heterozygous variants in ATL1, which encodes atlastin-1, a dynamin-like integral-membrane GTPase that catalyses homotypic fusion of endoplasmic reticulum tubules and is required for the interconnected tubular ER network. It is the second most common dominant HSP after SPG4 and the most common cause of HSP with onset before age ten. Most pathogenic variants are missense changes in the GTPase domain or the three-helix bundle. Many impair GTP hydrolysis-coupled membrane fusion and behave as dominant-negative alleles in cells, but at least two disease variants, including the one most frequently identified in patients, retain wild-type fusion activity in every assay, and several act as simple loss-of-function alleles in the fly, so no single molecular mechanism has been established for all alleles. In neurons the mutant protein disrupts the tubular ER, impairs axon growth and axonal transport, and, non-cell-autonomously, reduces astrocyte lipid-droplet formation and cholesterol supply to cortical projection neurons. The corticospinal axons that run from motor cortex to lumbosacral cord fail from their distal ends in a length-dependent pattern, producing the shared HSP syndrome of progressive lower-limb spasticity and weakness. SPG3A is distinguished among the dominant HSPs by an average onset of four years, a slow and often near-static course with preserved ambulation, and the relative infrequency of the dorsal-column and bladder involvement that is nearly universal in SPG4. Most cases are pure; about one in six mutation carriers in the largest screen had an axonal sensorimotor neuropathy with distal amyotrophy (the Silver syndrome phenotype), and a small mutational cluster, enriched for de novo variants, produces a severe very-early-onset complex phenotype that is often first diagnosed as cerebral palsy. Biallelic ATL1 variants in a few consanguineous families cause recessive disease with asymptomatic heterozygous parents. Heterozygous ATL1 variants also cause hereditary sensory neuropathy type 1D, an allelic disorder curated separately.",
+    "pathophysiology": [
+      "ATL1 Variant Impairing the Atlastin-1 GTPase Cycle",
+      "Impaired Homotypic ER Tubule Fusion",
+      "Disrupted Tubular ER Network in Neurons",
+      "Dysregulated BMP Signalling from Impaired BMPRII Trafficking",
+      "Impaired Astrocyte Lipid Droplet Formation and Cholesterol Supply to Neurons",
+      "Impaired Axonal ER Distribution, Organelle Transport and Axon Growth",
+      "Presynaptic Dysfunction of Corticospinal Neurons",
+      "Distal Length-Dependent Corticospinal Axon Degeneration",
+      "Loss of Supraspinal Inhibition of the Spinal Stretch Reflex",
+      "Progressive Lower-Limb Spasticity and Weakness",
+      "Distal Axonal Degeneration of Peripheral Motor and Sensory Nerves"
+    ],
+    "cell_types": [
+      "corticospinal upper motor neuron",
+      "motor neuron",
+      "astrocyte",
+      "spinal motor neuron",
+      "lower motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008048",
+      "CL:0000100",
+      "CL:0000127",
+      "CL:0008039"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum organization (ER-shaping machinery)",
+      "homotypic endoplasmic reticulum membrane fusion",
+      "endoplasmic reticulum tubular network organization",
+      "BMP signaling pathway",
+      "cholesterol transport from astrocytes to neurons",
+      "axon extension",
+      "axonal transport",
+      "mitochondrion organization",
+      "synapse organization",
+      "neuron projection maintenance"
+    ],
+    "phenotypes": [
+      "Lower limb spasticity",
+      "Lower limb muscle weakness",
+      "Foot dorsiflexor weakness",
+      "Spastic gait",
+      "Hyperreflexia",
+      "Babinski sign",
+      "Abnormal motor evoked potentials",
+      "Impaired vibratory sensation",
+      "Urinary urgency",
+      "Scoliosis",
+      "Distal amyotrophy",
+      "Peripheral axonal neuropathy",
+      "Dystonia",
+      "Axial hypotonia",
+      "Spastic tetraplegia",
+      "Intellectual disability",
+      "Seizure",
+      "Pseudobulbar paralysis",
+      "Dysphagia",
+      "Dysarthria",
+      "Abnormal cerebral white matter morphology"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Genitourinary",
+      "Skeletal",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002061",
+      "HP:0007340",
+      "HP:0009027",
+      "HP:0002064",
+      "HP:0001347",
+      "HP:0003487",
+      "HP:0012896",
+      "HP:0002495",
+      "HP:0000012",
+      "HP:0002650",
+      "HP:0003693",
+      "HP:0003477",
+      "HP:0001332",
+      "HP:0008936",
+      "HP:0002510",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0007024",
+      "HP:0002015",
+      "HP:0001260",
+      "HP:0002500"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "ATL1"
+    ],
+    "treatments": [
+      "Oral antispasticity pharmacotherapy",
+      "Botulinum toxin chemodenervation",
+      "Intrathecal baclofen pump",
+      "Physical therapy",
+      "Ankle-foot orthoses",
+      "Anticholinergic antispasmodic pharmacotherapy for urinary urgency",
+      "Genetic counselling and surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hereditary_Spastic_Paraplegia_3A.yaml",
+    "page_url": "../pages/disorders/Hereditary_Spastic_Paraplegia_3A.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Hereditary Spastic Paraplegia 44",
     "disease_id": "MONDO:0013179",
     "category": "Mendelian",
@@ -194228,6 +194370,93 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Mitochondrial Complex I Deficiency, Nuclear Type 13",
+    "disease_id": "MONDO:0032618",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex I Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MC1DN13 is the isolated complex I deficiency caused by biallelic variants in NDUFA2. NDUFA2 is an accessory subunit, not a catalytic one: a 99-residue protein with a thioredoxin-like fold that sits on the matrix arm of complex I and touches only one other subunit, the core subunit NDUFS1. That single contact is what makes the gene matter. Knocking NDUFA2 out of a cell line does not merely lower complex I activity, it leaves the N-module unassembled - NDUFS1, NDUFV1 and NDUFV2 go with it, and with them the NADH binding site. So the lesion is a failure to build one arm of the enzyme rather than a failure of catalysis at a preserved active site.\nFour patients have been reported, in three papers, and the striking thing about them is that only one had the disease the entity is named after. The first, described in 2008, had Leigh disease and hypertrophic cardiomyopathy and died at eleven months; his allele is a splice variant that skips exon 2 and leaves no protein or transcript detectable, which is as close to a null as this gene gets. The three since - two in 2018 and one in 2020 - have had cystic, cavitating or tigroid-like leukoencephalopathy and have survived into childhood, and their alleles are missense changes at the NDUFS1 interface, or a missense in trans with a frameshift. The published phenotype of NDUFA2 disease is therefore predominantly a leukodystrophy, while the MONDO and OMIM label places it in the complex I deficiency series and the founding case gave it a Leigh syndrome reputation. Both framings are in the literature and this entry keeps them apart rather than smoothing them together.\nA genotype-phenotype reading suggests itself and is worth stating carefully. The null allele produced the fatal infantile presentation; the interface missense alleles, which are predicted to destabilise the NDUFA2-NDUFS1 contact rather than abolish the protein, produced the slower leukodystrophic one. Nobody has measured residual NDUFA2 protein or residual complex I activity side by side across the four patients, so the correlation is a pattern in four cases and not a demonstrated dose relationship.\nOne published finding must not be attributed to this gene. The first of the two 2018 patients also carried a homozygous SLC22A5 variant and a separate diagnosis of primary systemic carnitine deficiency, so her low carnitine belongs to that second diagnosis. It nevertheless appears in the HPO annotation set for this disorder, and it is not curated here.",
+    "pathophysiology": [
+      "Biallelic NDUFA2 Variant",
+      "Destabilisation of the NDUFA2-NDUFS1 Contact",
+      "Failure of Complex I N-Module Assembly",
+      "Isolated Complex I Deficiency",
+      "Mitochondrial Membrane Depolarisation",
+      "Bioenergetic Failure in Brain and Heart"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial electron transport, NADH to ubiquinone"
+    ],
+    "phenotypes": [
+      "Decreased Activity of Mitochondrial Complex I",
+      "Leukoencephalopathy",
+      "Leigh Syndrome",
+      "Developmental Regression",
+      "Seizures",
+      "Focal Seizures",
+      "Movement Disorder",
+      "Loss of Ambulation",
+      "Hypertrophic Cardiomyopathy",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Metabolism",
+      "Nervous System",
+      "Cardiovascular",
+      "Head and Neck"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011923",
+      "HP:0002352",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0007359",
+      "HP:0100022",
+      "HP:0002505",
+      "HP:0001639",
+      "HP:0000252"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NDUFA2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_13.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_13.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 14",
@@ -306861,17 +307090,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2952,
-  "total_subtypes": 3731,
-  "total_disorders_and_subtypes": 6683,
-  "total_unique_evidence_sources": 41494,
-  "total_unique_publications": 39119,
+  "total_disorder_pages": 2954,
+  "total_subtypes": 3734,
+  "total_disorders_and_subtypes": 6688,
+  "total_unique_evidence_sources": 41545,
+  "total_unique_publications": 39170,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2947,
-  "total_unique_pathological_events": 17840,
+  "total_pathographs": 2949,
+  "total_unique_pathological_events": 17854,
   "total_modules": 174,
-  "total_research_reports": 3067,
+  "total_research_reports": 3069,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
