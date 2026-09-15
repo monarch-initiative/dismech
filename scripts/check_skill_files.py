@@ -61,17 +61,24 @@ SKILL_FILENAME = "SKILL.md"
 NAME_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 # Files that *execute* something and could therefore break when a skill's
-# supporting files move. Prose that mentions a skill path is not included: a
-# stale path in documentation is worth fixing but is not a broken build.
+# supporting files move. Markdown and other prose trees are deliberately out of
+# scope -- a stale skill path in documentation is worth fixing but is not a
+# broken build. Note this is a per-file choice, not a per-line one: a docstring
+# or comment inside one of these files is scanned like any other text, including
+# this module's own. That is why the paths named in the docstring above have to
+# stay real.
 REFERENCE_GLOBS = (
     "justfile",
     "project.justfile",
     ".github/workflows/*.yml",
     ".github/workflows/*.yaml",
+    ".github/actions/**/*.yml",
+    ".github/actions/**/*.yaml",
     "scripts/*.py",
     "src/dismech/**/*.py",
 )
 
+SKILLS_PREFIX = ".claude/skills/"
 REFERENCE_PATTERN = re.compile(r"\.claude/skills/[A-Za-z0-9_./-]+")
 
 
@@ -119,14 +126,17 @@ def check_skill(directory: Path) -> tuple[list[Finding], dict | None]:
     findings: list[Finding] = []
     expected = directory / SKILL_FILENAME
 
-    if not expected.is_file():
+    # Decide presence from the directory LISTING, never from `expected.is_file()`.
+    # macOS APFS and HFS+ are case-insensitive by default, so `is_file()` there
+    # answers True for a `skill.md` on disk -- meaning this gate would pass, on a
+    # curator's Mac, on precisely the defect it exists to catch, and CI would then
+    # fail on Linux. Comparing names makes the answer the same on every filesystem.
+    present = {p.name for p in directory.iterdir() if p.is_file()}
+
+    if SKILL_FILENAME not in present:
         # Name the wrong-case file when there is one. "SKILL.md is missing" sends
         # a reader looking for a file they can see sitting right there.
-        variants = [
-            p.name
-            for p in sorted(directory.iterdir())
-            if p.is_file() and p.name.lower() == SKILL_FILENAME.lower()
-        ]
+        variants = sorted(n for n in present if n.lower() == SKILL_FILENAME.lower())
         if variants:
             findings.append(
                 Finding(
@@ -203,6 +213,19 @@ def check_skill(directory: Path) -> tuple[list[Finding], dict | None]:
     return findings, frontmatter
 
 
+def _names_a_concrete_path(referenced: str) -> bool:
+    """True when the match names a specific file or directory inside a skill.
+
+    An elision (``.claude/skills/...``), a trailing slash, or the bare directory
+    itself resolves trivially and says nothing. Those previously *passed* only
+    because `.claude/skills/` happens to exist -- accepting them by accident
+    rather than on purpose.
+    """
+    if "..." in referenced or referenced.endswith("/"):
+        return False
+    return referenced.rstrip("/") != SKILLS_PREFIX.rstrip("/")
+
+
 def check_references(root: Path | None = None) -> list[Finding]:
     """Report `.claude/skills/...` paths referenced from code that no longer exist."""
     root = ROOT if root is None else root
@@ -219,6 +242,8 @@ def check_references(root: Path | None = None) -> list[Finding]:
             for match in REFERENCE_PATTERN.findall(text):
                 # Trailing punctuation from prose around the path, not part of it.
                 referenced = match.rstrip(".,;:)\"'")
+                if not _names_a_concrete_path(referenced):
+                    continue
                 key = (str(source), referenced)
                 if key in seen:
                     continue

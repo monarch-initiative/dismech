@@ -146,3 +146,33 @@ def test_reference_scan_flags_a_justfile_path_that_no_longer_exists(tmp_path):
 
 def test_committed_skill_references_all_resolve():
     assert check_skill_files.check_references() == []
+
+
+def test_miscasing_is_caught_even_on_a_case_insensitive_filesystem(tmp_path, monkeypatch):
+    """macOS answers `is_file()` True for skill.md, so presence comes from the listing.
+
+    Without this, the gate passes on a curator's Mac for exactly the defect it
+    exists to catch, and only CI (Linux) disagrees.
+    """
+    directory = _write_skill(tmp_path, "microbiome-curation", filename="skill.md")
+    monkeypatch.setattr(Path, "is_file", lambda self: self.exists() or self.name == "SKILL.md")
+    findings, _ = check_skill(directory)
+    assert [f.kind for f in findings] == ["miscased_skill_file"]
+
+
+def test_elisions_and_the_bare_directory_are_not_treated_as_references(tmp_path):
+    """These resolve only because `.claude/skills/` exists — not a real check."""
+    (tmp_path / "project.justfile").write_text(
+        "# see .claude/skills/... and .claude/skills/ for details\n"
+    )
+    assert check_skill_files.check_references(root=tmp_path) == []
+
+
+def test_composite_actions_are_scanned(tmp_path):
+    action = tmp_path / ".github" / "actions" / "resolve-agent-config"
+    action.mkdir(parents=True)
+    (action / "action.yml").write_text(
+        "runs:\n  steps:\n    - run: python .claude/skills/projman/scripts/gone.py\n"
+    )
+    findings = check_skill_files.check_references(root=tmp_path)
+    assert [f.kind for f in findings] == ["missing_referenced_path"]
