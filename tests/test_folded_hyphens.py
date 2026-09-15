@@ -85,8 +85,10 @@ EXEMPT = [
 ]
 
 REPORTABLE = [
-    # Two segments: `IL-6-mediated` is a genuine compound, kept reportable by
-    # MARKER_RUN_RE's >=3-segment requirement.
+    # A genuine compound that MARKER_RUN_RE excludes twice over -- two segments
+    # AND a digit -- so it pins neither half of the constraint on its own. Kept
+    # because it is the ordinary shape this exemption must never swallow, and
+    # because test_status_marker_guard_reaches_the_detector drives it end to end.
     "pharmacological blockade of IL-6-",
     # Three segments WITH a digit: `IL-2-R-mediated` is a genuine compound, and
     # it is the letters-only half of MARKER_RUN_RE that keeps it reportable --
@@ -96,9 +98,13 @@ REPORTABLE = [
     # A '+' elsewhere on the line is not marker notation. `cancer` never
     # appears '+'-suffixed, so the sibling rule must not fire.
     "Pediatric+adult WB-MRI surveillance trial that anchors the cancer-",
-    # Two uppercase segments only.
+    # Two segments of bare uppercase letters. This is the only case here that
+    # relaxing `{3,}` to `{2,}` would exempt, so it alone pins the segment count;
+    # a two-segment case containing a digit cannot, being excluded by the
+    # letters-only half regardless.
     "an otherwise unremarkable T-B-",
-    # Also two segments -- this one pins the segment count, not the digit rule.
+    # Digits in both segments as well as being two segments -- excluded twice
+    # over, like `IL-6-` above, so likewise a reportable case rather than a pin.
     "receptor subunit CD8-1-",
     # The ordinary case the whole checker exists for.
     "Clinical courses range from relapsing-",

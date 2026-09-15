@@ -76,9 +76,15 @@ COORD_RE = re.compile(r"^(and|or|to|vs|nor|&)\b", re.IGNORECASE)
 # 1. The token carries a '+' of its own before the final '-' (``ER+/HER2-``).
 PLUS_IN_TOKEN_RE = re.compile(r"[A-Za-z0-9][+][^\s]*[A-Za-z0-9]-$")
 # 2. An all-uppercase marker run of three or more short segments
-#    (``T-B-NK-``). Three segments and letters-only are both required: two
-#    would exempt ``IL-6-mediated``, and allowing digits would exempt
-#    ``CD8-1-`` style compounds.
+#    (``T-B-NK-``). Three segments and letters-only are both required, and a
+#    different compound demonstrates each: ``{2,}`` would exempt a two-segment
+#    run of bare letters such as ``T-B-``, and allowing digits would exempt a
+#    three-segment compound such as ``IL-2-R-mediated``.
+#
+#    A compound that falls foul of both halves at once -- ``IL-6-``,
+#    ``CD8-1-`` -- demonstrates neither, because either half alone already
+#    excludes it. Both were cited here as justification and neither works;
+#    see tests/test_folded_hyphens.py for the cases that do.
 MARKER_RUN_RE = re.compile(r"(?:^|\s)(?:[A-Z]{1,3}-){3,}$")
 
 
