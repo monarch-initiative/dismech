@@ -160761,6 +160761,7 @@ window.searchData = [
     "treatments": [
       "Dietary Modification",
       "Soluble Fiber (Psyllium)",
+      "High-Amylose Resistant Starch and Psyllium Blend",
       "Antispasmodics",
       "Loperamide",
       "Linaclotide",
@@ -160785,8 +160786,8 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 6,
     "num_genes": 2,
-    "num_treatments": 12,
-    "causal_graph_edges": "2",
+    "num_treatments": 13,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "1"
   },
   {
@@ -305715,7 +305716,7 @@ window.searchMetrics = {
   "total_disorder_pages": 2944,
   "total_subtypes": 3731,
   "total_disorders_and_subtypes": 6675,
-  "total_unique_evidence_sources": 41358,
+  "total_unique_evidence_sources": 41359,
   "total_unique_publications": 38987,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
