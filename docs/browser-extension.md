@@ -2,7 +2,11 @@
 
 A small Manifest V3 Chrome/Edge extension that turns the paper or disease page
 you are looking at into a dismech curation **GitHub issue** — one click, like a
-"send to dismech" bookmarklet. It lives in [`extension/`](https://github.com/monarch-initiative/dismech/tree/main/extension).
+"send to dismech" bookmarklet.
+
+**[Download dismech curator (ZIP)](downloads/dismech-extension.zip)** ·
+[Installation steps](#install-unpacked) ·
+[Source code](https://github.com/monarch-initiative/dismech/tree/main/extension)
 
 ## What it does
 
@@ -43,11 +47,56 @@ extension also works against a fork or a different Monarch repo.
 
 ## Install (unpacked)
 
-The extension is not (yet) on the Chrome Web Store — load it unpacked:
+You need Chrome or Edge on a desktop computer. The extension is not yet on the
+Chrome Web Store. Install it from the download below; no Git, terminal commands,
+or repository checkout is needed. “Unpacked” means the folder you get after
+extracting the ZIP file.
 
-1. `chrome://extensions` → enable **Developer mode**.
-2. **Load unpacked** → select the `extension/` directory.
-3. Pin *dismech curator*, open a paper/disease page, and click it.
+1. **[Download dismech-extension.zip](downloads/dismech-extension.zip)** and
+   find it in your **Downloads** folder.
+2. **Extract the ZIP:** on **Mac**, double-click it in Finder; on **Windows**,
+   right-click it in File Explorer and choose **Extract All…**, then **Extract**.
+   Open the extracted folder and find **dismech-extension**, containing
+   `manifest.json`, `popup.html`, and an `icons` folder. Windows may put it inside
+   another folder with the same name: use the inner folder containing those files.
+3. **Move that dismech-extension folder to Documents** (or another permanent
+   location). Keep it there while the extension is installed: the browser loads
+   its files from this folder.
+4. In a new browser tab, **paste `chrome://extensions` into the address bar**
+   and press Enter. For Edge, use `edge://extensions`. Turn on **Developer mode**.
+5. Click **Load unpacked**. In the folder picker, go to **Documents**, select
+   **dismech-extension** (the folder containing `manifest.json`), and click
+   **Select** / **Select Folder**. Select the folder, not the ZIP or an individual
+   file. A **dismech curator** card should now appear on the extensions page.
+6. Open the browser's **Extensions** menu (the puzzle-piece icon) and pin
+   **dismech curator** to the toolbar. Open a PubMed paper, click the curator icon,
+   review the preview, and choose **Create issue**. By default this opens a GitHub
+   form for you to review and submit; sign in to GitHub if prompted.
+
+### If you are stuck in the folder picker
+
+- **Only unrelated files in Downloads?** Click **Cancel**, then download and
+  extract the ZIP using steps 1–3 above. Opening the source-code page on GitHub
+  does not download the extension to your computer.
+- **ZIP or files are greyed out?** That is expected: this dialog selects folders.
+  Choose the extracted folder containing `manifest.json`.
+- **“Manifest file is missing or unreadable”?** You selected the wrong folder.
+  Open it in Finder/File Explorer and locate `manifest.json`; select its enclosing
+  folder in **Load unpacked**.
+
+### Updating
+
+Download and extract a fresh ZIP, replace the files in your installed
+**dismech-extension** folder, then click **Reload** on its card at
+`chrome://extensions` (or `edge://extensions`). Unpacked installations do not
+update automatically.
+
+### If you already have the repository checked out
+
+You can select the local repository's **extension** folder directly in
+**Load unpacked**. It contains `manifest.json` and needs no build step. On Mac,
+press **Command–Shift–G** in the folder picker to enter its full path, for example
+`~/repos/dismech/extension`.
 
 ## Permissions
 
