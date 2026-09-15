@@ -118,10 +118,8 @@ enum.
 - **`channelopathy_category`** — organ-system grouping for
   channelopathies (`cardiac channelopathy`, `neurological
   channelopathy`, etc.). Single-valued.
-- **`icdo_morphology`** — ICD-O cancer-morphology category
-  (`Carcinoma`, `Adenocarcinoma`, `Sarcoma`, `Leukemia`, `Lymphoma`,
-  `Melanoma`, `Glioma`, `Embryonal Neoplasm`, `Squamous Cell
-  Carcinoma`). Apply to neoplastic entries.
+- **`icdo_morphology`** — ICD-O cancer-morphology category. Apply to
+  neoplastic entries. Single-valued. See the dedicated section below.
 - **`icimd_category`** — International Classification of Inherited
   Metabolic Disorders (ICIMD) category/group. Apply to inherited
   metabolic disorders (inborn errors of metabolism). Multivalued. See
@@ -137,6 +135,60 @@ enum.
 - **`eu_occupational_category`** — item(s) of the European schedule of
   occupational diseases (Rec. 2003/670/EC as amended). Multivalued.
   See the dedicated section below.
+
+## ICD-O morphology (`icdo_morphology`)
+
+A coarse histogenetic vocabulary for neoplastic entries. It is **not** a slot
+for four-digit ICD-O codes — there is nowhere in the schema to put one yet
+(monarch-initiative/dismech#7548).
+
+### The values
+
+| Group | Values |
+|---|---|
+| Epithelial | `Carcinoma`, `Adenocarcinoma`, `Squamous Cell Carcinoma`, `Adenoma`, `Trophoblastic Tumor`, `Mesothelial Neoplasm` |
+| Mesenchymal | `Sarcoma`, `Pericytic Neoplasm` |
+| Neural / meningeal | `Glioma`, `Nerve Sheath Neoplasm`, `Meningioma` |
+| Melanocytic | `Melanoma` |
+| Germ cell / gonadal stromal | `Germ Cell Tumor`, `Sex Cord-Stromal Tumor` |
+| Neuroendocrine | `Neuroendocrine Neoplasm` |
+| Haematolymphoid | `Leukemia`, `Lymphoma`, `Plasma Cell Neoplasm`, `Multiple Myeloma`, `Myeloproliferative Neoplasm`, `Myelodysplastic Syndrome`, `Histiocytic and Dendritic Cell Neoplasm` |
+| Embryonal | `Embryonal Neoplasm` |
+
+### Picking one
+
+- **Match histogenesis, not site.** Medulloblastoma is `Embryonal Neoplasm`,
+  not `Glioma`; meningioma is `Meningioma`, not `Glioma`. Both are
+  intracranial and neither is glial.
+- **Match histogenesis, not name.** Embryonal carcinoma is a germ cell tumour
+  (`Germ Cell Tumor`), not `Embryonal Neoplasm` — that value covers the
+  blastomas, CNS embryonal tumours and Wilms tumour. Merkel cell "carcinoma"
+  and medullary thyroid "carcinoma" are neuroendocrine.
+- **Most values are behaviour-neutral.** `Nerve Sheath Neoplasm`,
+  `Pericytic Neoplasm`, `Mesothelial Neoplasm`, `Sex Cord-Stromal Tumor`,
+  `Trophoblastic Tumor` and `Neuroendocrine Neoplasm` all cover benign and
+  malignant members. Assigning one asserts histogenesis, not malignancy. Where
+  ICD-O splits a family on behaviour the values follow it — use `Adenoma` for
+  a benign glandular neoplasm and never round it up to `Adenocarcinoma`.
+- **Prefer the family over a split-out subtype** unless the entry really is
+  that subtype. `Plasma Cell Neoplasm` for the family, `Multiple Myeloma` for
+  myeloma itself; the same relation holds for `Carcinoma` vs `Adenocarcinoma`.
+- **Myeloid entries are not all `Leukemia`.** Polycythaemia vera, essential
+  thrombocythaemia and primary myelofibrosis are `Myeloproliferative
+  Neoplasm`; MDS is `Myelodysplastic Syndrome`.
+
+### When nothing fits
+
+**Omit the slot and say why** — in the entry's `notes` or a `CURATION_TODO`
+discussion. There is deliberately no `Other` value. Forcing a wrong value is
+the failure mode this vocabulary keeps hitting (mesothelioma tagged
+`Carcinoma`, polycythaemia vera tagged `Leukemia`), and the recorded omissions
+are what tell us which family to add next — the 2026-08 expansion came
+straight out of the notes on Glomus Tumor, Choriocarcinoma,
+Pheochromocytoma-Paraganglioma and GNAS-related pituitary adenoma. Entries
+still without a home include thymoma, chordoma, craniopharyngioma, the
+odontogenic tumours and GIST; see
+[`docs/reports/icdo-morphology-enum-review-2026-08-27.md`](../../../docs/reports/icdo-morphology-enum-review-2026-08-27.md).
 
 ## Occupational disease (`ilo_agent_category`, `ilo_disease_category`, `eu_occupational_category`)
 
