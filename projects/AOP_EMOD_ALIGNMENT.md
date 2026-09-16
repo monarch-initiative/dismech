@@ -10,6 +10,8 @@ description: >-
 tags: [FRAMEWORK_ALIGNMENT, EVIDENCE, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, SCHEMA_EVOLUTION]
 diseases:
   - Lead_Poisoning
+  - Liver_Cirrhosis
+  - Idiopathic_Pulmonary_Fibrosis
 modules:
   - cardiac_ion_channel_repolarization
   - cardiomyopathy_maladaptive_remodeling
@@ -20,6 +22,7 @@ modules:
   - drug_induced_liver_injury
   - drug_induced_nephrotoxicity
   - diabetic_vascular_complications
+  - fibrotic_response
 ---
 
 # AOP EMOD Framework Alignment
@@ -264,13 +267,18 @@ that merely resemble each other across the two models are left out.
 | Experiment Type | `EvidenceItem.evidence_source` | Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side |
 | Evidence (attached to the KER) | `CausalEdge.evidence` | A validated verbatim quote supporting causality between two Events — the unit a KER with no weight-of-evidence assessment needs |
 | Observation (attached to the Event) | `EnvironmentalMechanismTarget.evidence`, `ExperimentalReadout.evidence` | Grounds a stressor/exposure-to-mechanism record, with direction, in a quote validated against the cited source |
-| Event reuse across AOPs; consensus Events | `kb/modules/` plus `Pathophysiology.conforms_to` | Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and `conforms_to` declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs |
+| Event reuse across AOPs; consensus Events | `kb/modules/` plus `Pathophysiology.conforms_to` | Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and `conforms_to` declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs. Event reuse does not make an AOP a mechanism boundary, though — see [An AOP is a publication unit, not a mechanism boundary](#an-aop-is-a-publication-unit-not-a-mechanism-boundary) |
 
 The module layer is the part of dismech with no counterpart named elsewhere in this table,
 and it is the closest dismech comes to the AOP's stressor-agnostic posture — a module
 describes a conserved process rather than one disease. Where an AOP reuses one Event across
 several pathways, dismech writes the process once in `kb/modules/` and has each entry
 declare conformance to it.
+
+The first row is the cheapest bridge and the one worked through below:
+[The liver fibrosis NAM use case](#the-liver-fibrosis-nam-use-case) maps a curated
+`ExperimentalModel` onto the seven Key Events of AOP 38 and records what does and does
+not land on a mechanism node.
 
 ### What blocks integration until resolved
 
@@ -280,6 +288,168 @@ declare conformance to it.
 | No taxonomic applicability | AOPs qualify Events, KERs, and whole pathways by species; dismech records species only at model level, never on a mechanism |
 | Toxicokinetics inside the causal chain | ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which |
 | Stressor-agnostic vs disease-anchored | An AOP deliberately excludes the stressor so one pathway serves many chemicals; a dismech graph is anchored to a single disease and pulls the exposure in as a node |
+| AOP identity is provenance, not structure | A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs — the same causal step asserted ten times over. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms |
+| Method and test system unreachable from the evidence | EMOD reifies the observation: `Evidence` on the KER links an upstream and a downstream `Observation`, each pointing at an `Assay` carrying `detection_technology`, with taxon, sex and life stage on `Evidence` itself and organ and cell on the `Event`. dismech's `EvidenceItem` is a reference, a quote and a polarity attached directly to the claim, with no path to any of that. The node-level counterpart does exist — `Pathophysiology.assays` mirrors `Event.assays` — but is unused: 0 of the 564 assay entries in `kb/` bind an OBI term, and 2 sit on a pathophysiology node. See [How each model records the way a claim was measured](#how-each-model-records-the-way-a-claim-was-measured) |
+
+### Where the toxicokinetic boundary falls, in the pilot entry
+
+The toxicokinetics row above is not an abstract difference. In `Lead_Poisoning` it is where
+every exposure lands: all ten `environmental:` entries — paint, household dust, drinking
+water, spices, lead-soldered cans, battery manufacture, mining, e-waste recycling, and both
+adulterated-opioid routes — carry `environmental_effect: TRIGGERS` into one node,
+`Lead absorption` (`kb/disorders/Lead_Poisoning.yaml:105`). That node flows to
+`Systemic lead distribution` (line 131) before the chain reaches either
+initiating-event-shaped node: `Inhibition of delta-aminolevulinic acid dehydratase`
+(line 268) and `NMDA receptor blockade in glutamatergic neurons` (line 436,
+`biological_scale: MOLECULAR`). Absorption and systemic distribution are ADME.
+
+That is a negative result for one row of the candidate-correspondence table in
+[#8309](https://github.com/monarch-initiative/dismech/issues/8309), produced by #8309's own
+pilot entry. The table read the molecular initiating event as the "node targeted by a
+`TRIGGERS` `influences_mechanisms` link", hedged as loose because dismech targets "aren't
+required to be molecular or measurable". In this entry the fit is not loose but wrong in a
+specific direction: ten of ten `TRIGGERS` edges land on a toxicokinetic node, and every
+candidate for the initiating event sits two hops downstream. Neither the edge nor
+`biological_scale` marks which kind of step a node is.
+
+Worth stating alongside it: **none of the 35 Key Events tabulated below is a heme-synthesis
+or ALAD event.** The 21 cardiac Events are electrophysiologic and the 14 neurodevelopmental
+ones are glutamatergic, MEK/ERK, mitochondrial and BDNF. So the node this correction
+nominates as initiating-event-shaped has no counterpart anywhere in the comparator set —
+material for the seeding direction, where dismech supplies a candidate the eight lead AOPs
+never reach, rather than a gap on the dismech side.
+
+Recorded as a schema question at
+[question 6](#6-should-a-node-be-markable-as-toxicokinetic-rather-than-as-a-mechanism-step).
+
+### An AOP is a publication unit, not a mechanism boundary
+
+A dismech module draws a boundary around a mechanism. An AOP does not: it packages one
+causal story for publication and evaluation, so the same causal step is routinely carried by
+many AOPs, and one AOP set routinely spans several mechanisms. Three rules follow, and they
+bind on anything consuming AOP-Wiki lookups in bulk.
+
+1. An AOP identifier says which pathway *asserted* a causal step. It is provenance — carried
+   on the edge, and cited when reporting.
+2. It is not a grouping, counting, or de-duplication key.
+3. A mechanism is recovered from a set of relationships by grouping on shared Key Events —
+   the connected components of the relationship graph — not by parent AOP.
+
+This is the framework's own design rather than an artifact of how AOP-Wiki has been curated.
+Villeneuve et al. 2014 state it as three of the five founding principles
+([PMID:25466378](https://pubmed.ncbi.nlm.nih.gov/25466378/)):
+
+> (2) AOPs are modular and composed of reusable components-notably key events (KEs) and key
+> event relationships (KERs); (3) an individual AOP, composed of a single sequence of KEs and
+> KERs, is a pragmatic unit of AOP development and evaluation; (4) networks composed of
+> multiple AOPs that share common KEs and KERs are likely to be the functional unit of
+> prediction for most real-world scenarios
+
+The companion best-practices paper ([PMID:25466379](https://pubmed.ncbi.nlm.nih.gov/25466379/))
+instructs authors to build on existing KE and KER descriptions rather than write redundant
+ones, which is what produces the reuse in the first place.
+
+### How each model records the way a claim was measured
+
+Issue [#10772](https://github.com/monarch-initiative/dismech/issues/10772) asks where an
+evidence item says *how* a causal claim was measured — the test system the observation was
+made in, and the technique that produced the number. Neither is the study *category*, which
+is what `EvidenceItem.evidence_source` records with five values. The comparison is worth
+stating carefully, because the obvious framing — dismech lacks a field EMOD has — is wrong
+in both halves.
+
+**EMOD does not put the method on its evidence object either.** In
+[`src/linkml_aop/schema/aop_emod_linkml.yaml`](https://github.com/EHS-Data-Standards/linkml-aop/blob/main/src/linkml_aop/schema/aop_emod_linkml.yaml)
+the work is divided across four classes:
+
+| EMOD class | Attaches to | Slots carrying "how it was measured" |
+|---|---|---|
+| `Assay` | referenced by `Observation` and by `Event` | `title`, `description`, `detection_technology`, `biological_action_id`, `external_assay_id` |
+| `Observation` | the Event | `assay_id`, `biological_object_id`, `biological_process_id`, `biological_action_id`, `stressor_id`, `phenotype`, plus `events` and `citations` |
+| `Evidence` | the KER | `upstream_observation_id`, `downstream_observation_id`, `citation_id`, `taxon_term_id`, `sex_term_id`, `life_stage_term_id`, `experimental_design`, `notes` |
+| `Event` | — | `measured_or_detected`, `has_method_text`, `assays`, `organ_term_id`, `cell_term_id` |
+
+`Evidence` has no assay slot. It reaches the method indirectly, through the two Observations
+it links, each of which points at an Assay. The two things #10772 separates are not kept
+together on the EMOD side either: the technique lands on `Assay.detection_technology`,
+species, sex and life stage on `Evidence`, and organ and cell type on `Event`.
+
+So "add a ninth field to `EvidenceItem`" is not what EMOD did. The closer statement is that
+EMOD interposes a reified observation between the citation and the claim, and dismech has no
+such object — `EvidenceItem` collapses reference, polarity and quote into one thing attached
+directly to the claim. The Citation row of
+[What enables integration now](#what-enables-integration-now) already makes this point for
+provenance; the method is the same shape of difference.
+
+**`Pathophysiology.assays` is the structural counterpart of `Event.assays`, and it is
+effectively unused.** Both frameworks put the method on the node, so this is a rare place
+where the two models agree structurally and diverge only on whether the slot carries content.
+In dismech `assays` is defined on four classes — `Pathophysiology`, `Biochemical`,
+`ExperimentalReadout` and `Experiment` — with range `AssayDescriptor`, whose `term` binds to
+the `AssayTerm` dynamic enum rooted at `OBI:0000070` (assay). Counted across `kb/` on
+2026-09-07:
+
+- 564 assay entries in 87 files (80 disorders, 7 modules)
+- **none of them bind an OBI term.** Every one is a free-text `preferred_term` —
+  `FITC-dextran intestinal permeability assay`, `Kupffer-cell activation assay`
+- 514 sit on an `ExperimentalReadout` and 42 on an `Experiment`. Only 6 are on a
+  `Biochemical` marker and **2 on a pathophysiology node**, both on the `Hyperglycemia`
+  node of `Type_I_Diabetes`
+
+The five OBI CURIEs that do exist in `kb/` are not assays: four are `OBI:0002503` (feces
+specimen) used as a dataset `sample_types` value in `Parkinsons_Disease`, and one is
+`OBI:0003552` as an `Experiment.experiment_type` in
+`CTCF-related_Neurodevelopmental_Disorder`.
+
+Nothing checks the slot either. `OBI` is in the schema's prefix map but has no adapter in
+`conf/oak_config.yaml` and no `cache/enums/` membership cache, so an assay term cannot be
+validated the way an HP, GO or CL term is — and `CLAUDE.md` accordingly tells curators to
+prefer `biological_processes` (GO) until that gap closes. The accurate reading of the gap is
+therefore not that dismech has nowhere to record the method, but that it has the slot in the
+right place, steers curators away from it, and has never wired up the ontology behind it.
+That is the open construct already flagged under [What this page is](#what-this-page-is).
+
+**On the AOP side this is content today, not only schema.** `Event.measured_or_detected` is
+the deployed "How It Is Measured or Detected" field and is present in the v2.8 corpus this
+repo already queries: the `aop-wiki` skill surfaces it as `measurement_method` on all 1,598
+Events in the 08-06-2026 snapshot, alongside a `has_method` flag and a shipped `methods_nams`
+search config for NAM assay methods. That makes this divergence different in kind from the
+other rows above, which compare schema with schema. Here there is harvestable free text on
+one side and an empty slot on the other.
+
+**ECO is absent from dismech, and it is the vocabulary this would need.** There is no `ECO`
+prefix in the schema's prefix map and no ECO CURIE anywhere in `src/`, `conf/` or `kb/`. The
+ECO/OBI distinction decides where a term would go: OBI types the *assay* — a patch clamp was
+performed, a property of the experiment, which is why dismech put `assays` on the node —
+while ECO types the *evidence* — this claim is asserted on patch-clamp evidence, a property
+of the evidence item. `Assay.detection_technology` is the OBI-shaped one. Both of #10772's
+own examples resolve in both ontologies:
+
+| Example | ECO (types the evidence) | OBI (types the assay) |
+|---|---|---|
+| whole-cell voltage clamp | `ECO:0006014` whole-cell patch-clamp recording evidence | `OBI:0002178` whole-cell patch clamp assay |
+| FRET biosensor | `ECO:0001048` fluorescence resonance energy transfer evidence | — |
+
+Also on the ECO side: `ECO:0006012` patch-clamp recording evidence and `ECO:0005584`
+macropatch voltage clamp recording evidence.
+
+**Sibling gap.** [#9421](https://github.com/monarch-initiative/dismech/issues/9421) asks what
+`EvidenceItem` cannot say about how *strong* a claim is; #10772 asks what it cannot say about
+how it was *measured*. Item 5 of #9421 already proposes an ECO binding in almost these words,
+and one of its comments proposes letting an evidence item point at the model it came from —
+which would answer both without a new descriptor, and matches EMOD's indirection through a
+reified object rather than more slots on the evidence item. If a schema change ever happens
+it is likely to be one change, not two. **No schema change is proposed here**; #10772 is
+explicit that the decision belongs in its own issue.
+
+Until then the only home is the free-text `explanation`, which nothing gates —
+`check-snippet-length` and `check-title-snippets` act on `snippet`. For such a clause to be
+migratable later it has to be a literal fixed prefix a grep can find (`Measured by <method>
+in <system>.` as the first sentence, identically every time), and it must not restate
+`evidence_source`. Budget for the cleanup either way: `CLAUDE.md`'s "Retired Enum Values"
+section records that #10003 migrated 11,804 evidence items and left roughly 3,600
+`explanation` fields still arguing for a value the schema had dropped. Nothing flags prose
+that outlives the construct it describes.
 
 ---
 
@@ -305,21 +475,13 @@ has run on this constraint across ~2000 entries.
 
 ## The Lead_Poisoning use case
 
-<!--
-TODO: write this section. `Lead_Poisoning` is declared in the frontmatter and named in
-Scope as the pilot comparator, but nothing in the body currently uses it.
-
-Material is available in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 3, but two
-things there need rework before reuse:
-  - the "terminal mechanism node cannot sit in an AOP" claim is flagged SUSPECT — it
-    rests on the false premise that a Key Event requires KERs on both sides;
-  - the AOP 17 comparison predates the MIE and toxicokinetics reframing. Lead absorption
-    and systemic distribution are ADME and sit outside an AOP; `Inhibition of
-    delta-aminolevulinic acid dehydratase` is the MIE-shaped node.
-
-The AOP side of the comparison is expected to come from the OpenScientist network work
-rather than from a single published AOP, so AOP 17 may not remain the comparator.
--->
+[#8309](https://github.com/monarch-initiative/dismech/issues/8309) named one pilot
+comparison: [AOP 17](https://aopwiki.org/aops/17) against `Lead_Poisoning`. AOP 17's
+prototypical stressors are methylmercuric(II) chloride, mercuric chloride and acrylamide;
+lead is not among them, and #8309 named the pair as a mechanism-class comparator rather
+than a chemical one. The AOP side used below is drawn from lead's own pathways instead.
+The dismech side did not change — `Lead_Poisoning` remains the pilot comparator entry
+named in Scope.
 
 The AOP side draws on the eight AOPs that AOP-Wiki aggregates under lead as a prototypical
 stressor ([stressor 59](https://aopwiki.org/stressors/59)): AOPs 12, 499, and 500
@@ -461,6 +623,287 @@ of the question stays a query over the XML export.
 for the AOP side; whether it is still the right comparator is open, given the assessment
 recorded in
 [`AOP_EMOD_ALIGNMENT/assessments/`](AOP_EMOD_ALIGNMENT/assessments/openscientist-assessment-by-claude-code.yaml).
+
+---
+
+## The liver fibrosis NAM use case
+
+The lead pilot enters from the stressor: start from a chemical, collect the AOPs naming
+it a prototypical stressor, compare those against a dismech entry. This second case
+enters from the assay — start from a NAM built to measure Key Events and ask what it
+maps onto. It crosses the first row of the enabler table, Assay/NAM to
+`ExperimentalModel`, which nothing had exercised, and it meets different obstacles than
+the stressor-first pass because a NAM's readouts are Key Event measurements before they
+are anything about a chemical.
+
+The system is the Akura Twin 384-well liver fibrosis microphysiological system
+([PMID:40754287](https://pubmed.ncbi.nlm.nih.gov/40754287/), Schmidt & Suter-Dick,
+*Toxicology* 2025), curated in `Liver_Cirrhosis` and `drug_induced_liver_injury` as an
+`experimental_models` entry with `namo_type: namo:CoCulture`. HepaRG hepatocyte
+microtissues, with or without THP-1 monocytic cells, occupy one compartment of each of
+168 interconnected well pairs and hTERT-HSC stellate microtissues the other; TGF-β1,
+methotrexate and acetaminophen are the three challenges. The paper states its own purpose
+in AOP terms — built "to quantify the key events of the liver fibrosis AOP" — so the AOP
+framing is the authors', not applied afterwards.
+
+Its target is **AOP 38, Protein Alkylation leading to Liver Fibrosis**: OECD WPHA/WNT
+Endorsed, 94.12% record completion in the 2026-08-06 export. Of the eight lead AOPs only
+one is endorsed, so confidence in the AOP side is higher here than in the lead use case — though
+endorsement raises confidence in a hypothesis about a causal chain and does not make the
+chain a finding.
+
+### The correspondence
+
+Levels of biological organisation are AOP-Wiki's, from the 2026-08-06 export. Node names
+unqualified by a module prefix are `Liver_Cirrhosis` pathophysiology nodes.
+
+| KE | Event | LoBO | Akura Twin readout | dismech node | Fit |
+|---|---|---|---|---|---|
+| 244 | Alkylation, Protein *(MIE)* | Molecular | — | — | none — see below |
+| 55 | Increase, Cell injury/death | Cellular | albumin ↓ | Hepatocyte Injury and Death | yes |
+| 1492 | Tissue resident cell activation | Cellular | ALOX5AP, TREM2 ↑ | Kupffer Cell Activation | partial — THP-1 is not tissue-resident |
+| 1493 | Increased Pro-inflammatory mediators | Tissue | PAI-1, TGF-β1 ↑ | Hepatic Pro-Inflammatory Mediator Release | partial — confounded with the stimulus |
+| 265 | Increase, Hepatic stellate cell activation | Cellular | ACTA2, COL1A1, COL3A1, FN1 ↑ | Hepatic Stellate Cell Activation → `fibrotic_response#Mesenchymal Cell Activation` | yes |
+| 68 | Increase, Collagen accumulation | Tissue | Pro-Collagen 1A1, CTGF ↑ | `fibrotic_response#Excessive ECM Deposition` | yes — but the readout is curated on the KE 265 node |
+| 344 | Increase, Liver fibrosis *(AO)* | Organ | — | — | none — `Liver_Cirrhosis` is a later event, see below |
+
+**Five of seven Events map to a mechanism node, and the two that do not are the two
+endpoints.** That is a more useful statement of the fit than the count, and it is the
+same shape the lead pilot found from the other direction.
+
+#### Three rows are weaker than the other two
+
+Worth carrying rather than reading the table as uniform.
+
+- **KE 1492 says "tissue resident" and THP-1 is not.** Kupffer cells are yolk-sac-derived
+  and self-renewing; THP-1 is a monocytic line standing in for them, so the surrogacy sits
+  precisely on the word that defines the Event. The curated link already grades this
+  `PARTIALLY_RECAPITULATES` with `fidelity: LOW`, and the mapping inherits that grade
+  rather than overriding it.
+- **KE 1493 is confounded with the stimulus.** One of its two analytes is TGF-β1 measured
+  under exogenous TGF-β1 challenge — autoinduction. The other, PAI-1, is a canonical
+  TGF-β target gene and is not among the mediators KE 1493 itself lists (TNF-α, IL-1/6/8,
+  IFN-γ, chemokines, GM-CSF, PGE2, ROS/RNS, TGF-β). This is the thinnest row.
+- **The KE 68 readout hangs off the KE 265 node.** Pro-Collagen 1A1 and CTGF are curated
+  as readouts on `Hepatic Stellate Cell Activation`, whose `interpretation` calls them
+  the downstream consequence the node feeds. So the measurement instrumenting KE 68 is
+  attached to the node mapping KE 265, and KE 68 itself is reachable only through
+  `conforms_to` into the module.
+
+### Both endpoints fall outside the node layer
+
+**AO 344 has no dismech node, and the nearest object is a different event.** Nothing in
+`Liver_Cirrhosis` represents liver fibrosis at organ scale — the entry's pathograph runs
+from stellate activation to portal hypertension and synthetic dysfunction without one.
+The tempting move is to match the adverse outcome to the `Liver_Cirrhosis` entry itself,
+and that is wrong: **fibrosis and cirrhosis are not the same event.** Fibrosis is
+extracellular matrix accumulation; cirrhosis is the architectural end-stage downstream of
+it, and a chronically fibrotic liver is not yet a cirrhotic one. `fibrotic_response`
+already keeps the two apart, separating `Excessive ECM Deposition` from `Architectural
+Distortion and Organ Dysfunction`, and collapsing them here would undo that distinction
+in the one place the mapping is meant to demonstrate it.
+
+So the empty AO row is a **curation gap** — the KB has no organ-level liver-fibrosis
+event — rather than a statement about where correspondences attach.
+
+**KE 244 has no node either**, which is the lead pilot's MIE result reached from the
+opposite direction: dismech has no node for a chemical's molecular initiating
+interaction in this entry.
+
+#### Does the acetaminophen arm reach KE 244?
+
+The issue asks because NAPQI, acetaminophen's reactive metabolite, alkylates protein, and
+KE 244 is the one empty row. **This is not settled here** — the full text is
+subscription-only (`content_type: abstract_only` in `references_cache/PMID_40754287.md`;
+not open access, not in PMC), and the abstract does not say alkylation. Two things point
+against it:
+
+- **KE 244's own measurement methods are adduct mass spectrometry** — HPLC-ESI-MS/MS and
+  MALDI-TOF/MS. The abstract's readouts are albumin, glucose and lactate sensors, qPCR
+  and protein ELISA, and its only acetaminophen result is reduced albumin production,
+  which is KE 55.
+- **AOP 38 itself excludes acetaminophen.** Its `overall-assessment` field names APAP
+  among hepatotoxicants that do *not* produce the adverse outcome — "there is a wide
+  range of hepatotoxic chemicals (like Acetaminophen, Aflatoxin or Chlorpromazine) for
+  which liver fibrosis cannot be observed" — and acetaminophen is not among the AOP's five
+  prototypical stressors (allyl alcohol, carbon tetrachloride, retinol, dimethylnitrosamine,
+  thioacetamide).
+
+So the likely reading is that the acetaminophen arm is a KE 55 challenge, and that a
+system built expressly to quantify AOP 38 instruments it from KE 55 downward and leaves
+the MIE unmeasured. That is a statement about where a NAM sits on a pathway, not a defect
+in the assay or in the mapping — a partial AOP with unmeasured Events is explicitly useful
+for setting priorities and identifying what to test next. What would overturn it is a
+Methods section reporting GSH depletion, an APAP-protein adduct immunoassay, or CYP2E1
+activity; an author query (Suter-Dick, FHNW) or an institutional-repository copy would
+settle it.
+
+### Which layer the correspondence sits at
+
+Recorded as an observation; the structural question the issue raises belongs in its own
+decision, per this page's scope.
+
+An AOP Event is stressor-agnostic and reused across pathways, which is what the enabler
+table already pairs with `kb/modules/` plus `conforms_to`. The counts make the difference
+concrete. In the KB as of this writing, `fibrotic_response#Mesenchymal Cell Activation`
+is conformed to by **28** pathophysiology nodes and `fibrotic_response#Excessive ECM
+Deposition` by **21** — so a KE 265 or KE 68 correspondence asserted on the module node
+reaches every one of them, while the same correspondence asserted on
+`Liver_Cirrhosis` reaches one entry and has to be re-asserted on the next fibrotic
+disease.
+
+`Idiopathic_Pulmonary_Fibrosis` is the case that tests this rather than assuming it: its
+microengineered alveolar lung-on-chip
+([PMID:41406599](https://pubmed.ncbi.nlm.nih.gov/41406599/), `namo_type:
+namo:OrganOnChip`) links to `Fibroblast activation and myofibroblast differentiation` and
+`Excessive extracellular matrix deposition`, which conform to those same two module
+nodes. Two NAMs, two organs, one pair of module nodes — the module layer already holds
+what a KE correspondence would need to travel across.
+
+### Cross-reference is separable from citation
+
+The constraint that AOP-Wiki is not citable in dismech's validation stack — no fetcher,
+no cacheable body for a snippet to substring-match against — is about *citation*. It does
+not by itself settle *cross-reference*, and the two are separable because AOP-Wiki
+identifiers are registered and resolvable:
+
+| Prefix | Registry name | Resolves to |
+|---|---|---|
+| `aop` | AOPWiki | `aopwiki.org/aops/$1` |
+| `aop.events` | AOPWiki (Key Event) | `aopwiki.org/events/$1` |
+| `aop.relationships` | AOPWiki (Key Event Relationship) | `aopwiki.org/relationships/$1` |
+| `aop.stressor` | AOPWiki (Stressor) | `aopwiki.org/stressors/$1` |
+
+All four are in identifiers.org and Bioregistry with pattern `^\d+$`, and all four
+resolve — `https://identifiers.org/aop.events:265` lands on
+`https://aopwiki.org/events/265` (checked 2026-08-29).
+
+This is recorded as a fact about the identifiers, not as a proposal. Declaring any of
+these in the schema's `prefixes:`, and whether a `Pathophysiology` or disease-level
+cross-reference slot should exist to carry them, are open questions — see
+[Open schema questions](#open-schema-questions) below. No `aop*:` CURIE appears
+anywhere in `kb/`.
+
+### What the scale axis showed
+
+AOP-Wiki gives every Event a Level of Biological Organisation and dismech's counterpart
+is `biological_scale`, so it is the one axis both sides already carry — and it was empty
+on almost every node this use case touches. Tagging them is schema-free and makes the
+correspondence checkable:
+
+| dismech node | `biological_scale` | AOP LoBO it aligns with |
+|---|---|---|
+| `Liver_Cirrhosis` Hepatocyte Injury and Death | `CELLULAR` | KE 55 Cellular |
+| `Liver_Cirrhosis` Hepatic Stellate Cell Activation | `CELLULAR` | KE 265 Cellular |
+| `Liver_Cirrhosis` TGF-beta Signaling in Fibrogenesis | `MOLECULAR` | — (the stimulus arm; no KE) |
+| `Liver_Cirrhosis` Kupffer Cell Activation | `CELLULAR` | KE 1492 Cellular |
+| `Liver_Cirrhosis` Hepatic Pro-Inflammatory Mediator Release | `TISSUE` | KE 1493 Tissue |
+| `fibrotic_response` Tissue Injury | `TISSUE` | KE 55's module counterpart |
+| `fibrotic_response` Inflammatory Recruitment and Amplification | `TISSUE` | KE 1493 Tissue |
+| `fibrotic_response` Mesenchymal Cell Activation | `CELLULAR` | KE 265 Cellular |
+| `fibrotic_response` Excessive ECM Deposition | `TISSUE` | KE 68 Tissue |
+| `fibrotic_response` Architectural Distortion and Organ Dysfunction | `TISSUE` | — (cirrhosis-ward, downstream of AOP 38's AO) |
+
+Two things fell out of doing it.
+
+**One node was left unset, and the reason is the finding — since acted on.** `Kupffer
+Cell and Inflammatory Response` mapped to two Events at two different levels — KE 1492
+Cellular and KE 1493 Tissue — so no single `biological_scale` value described it, and
+guessing one would have hidden exactly what the mapping exposed. `biological_scale` is
+single-valued by design, and CLAUDE.md reads a node that would naturally take two as a
+signal that it bundles two mechanistic claims. That finding motivated a curation change
+(#10314): the node has since been split into `Kupffer Cell Activation` (`CELLULAR`, KE
+1492) and `Hepatic Pro-Inflammatory Mediator Release` (`TISSUE`, KE 1493), each with its
+own evidence and `modeled_mechanisms` readouts.
+
+**AOP's Organ level is not the gap it looks like.** `BiologicalScaleEnum` has no `ORGAN`
+value, but `TISSUE` is defined as "tissue / organ scale" and its description names organ
+substrates explicitly, so an organ-level Event has a scale to sit at whenever a node
+exists for it. The divergence table's "no population level" row stands; there is no
+comparable organ-level gap. That KE 344 is unmapped is a missing node, not a missing
+scale value.
+
+---
+
+## Open schema questions
+
+Six things this project has surfaced that dismech's schema currently cannot express.
+They are recorded here as questions, with the observation that raises each one, and
+deliberately without a proposed answer. Working them is tracked at
+[#10272](https://github.com/monarch-initiative/dismech/issues/10272); an answer belongs
+on this page, next to the question it resolves. The list is a first pass at naming what
+is missing, so a question may be reworded, split, merged, or dropped as the project
+develops.
+
+Three come from the liver fibrosis NAM use case above and three restate rows already in
+the divergence table as dismech-side questions rather than as descriptions of how the two
+frameworks differ.
+
+### 1. Should a pathophysiology node be able to carry a Key Event cross-reference?
+
+Five of AOP 38's seven Key Events correspond to a named dismech mechanism node, and
+nothing in the schema can record that. No slot exists, and no AOP identifier appears
+anywhere in the schema, so there is nothing for a correspondence to point at and nowhere
+to put it.
+
+A prior question sits underneath this one: whether dismech recognizes a Key Event as an
+entity at all, or only as a label applied to something it already has.
+
+### 2. Where does an adverse outcome correspondence attach?
+
+AOP 38's adverse outcome, KE 344 *Increase, Liver fibrosis*, has no dismech node. The
+nearest object is the `Liver_Cirrhosis` entry, and matching it there would conflate two
+different events — fibrosis is matrix accumulation, cirrhosis is the architectural
+end-stage downstream of it.
+
+Two questions are tangled here and only one is about the schema. Whether the KB should
+carry an organ-level liver-fibrosis event is **curation**, and until it does this case
+cannot settle anything. The schema question is whether an adverse outcome correspondence
+attaches to a pathophysiology node, to the disease entry, or to both — and whether that
+is the same slot as question 1 or a different one.
+
+Questions 1 and 2 are separable but entangled: the same identifier, possibly two levels.
+
+### 3. Should the AOP-Wiki prefixes be declared in the schema?
+
+`aop`, `aop.events`, `aop.relationships` and `aop.stressor` are registered in
+identifiers.org and Bioregistry, all with pattern `^\d+$`, and all four resolve —
+`https://identifiers.org/aop.events:265` lands on `https://aopwiki.org/events/265`
+(checked 2026-08-29).
+
+This is the smallest and most independent of the six, because declaring a prefix is a
+different act from citing an AOP page as evidence. Citation stays blocked: there is no
+fetcher and no cacheable body for a snippet to substring-match against, so an AOP or Key
+Event page cannot be an evidence `reference:`. Primary literature from the AOP's own
+`references` field can be, through the normal fetch-and-verify route.
+
+### 4. Should `BiologicalScaleEnum` gain a population level?
+
+AOP-Wiki's levels of biological organisation run Molecular, Cellular, Tissue, Organ,
+Individual, Population — 36 Events sit at Population in the 2026-08-06 export.
+`BiologicalScaleEnum` stops at `ORGANISM`.
+
+Note that Organ is *not* a second gap: `TISSUE` is defined as "tissue / organ scale" and
+its description names organ substrates explicitly, so an organ-level Event has a scale to
+sit at wherever a node exists for it. Population is the only level with no counterpart.
+
+### 5. Should species applicability be recordable on a mechanism?
+
+AOPs qualify Events, KERs and whole pathways by NCBITaxon. dismech records species only
+at model level — on `animal_models` and `experimental_models` — and never on a
+pathophysiology node, so a mechanism carries no statement about which organisms it is
+claimed to hold in.
+
+### 6. Should a node be markable as toxicokinetic rather than as a mechanism step?
+
+ADME sits outside an AOP by design: it determines dose at the initiating event, and
+folding it in is what would make the pathway chemical-specific instead of serving many
+chemicals. A dismech chain runs absorption and distribution steps together with mechanism
+steps and marks neither, so the two cannot be told apart by a reader or by tooling.
+
+`Lead_Poisoning` is the case that shows it — lead absorption and systemic distribution are
+ADME, while `Inhibition of delta-aminolevulinic acid dehydratase` is the initiating-event-shaped
+node, and the entry draws them the same way.
 
 ---
 
