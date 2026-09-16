@@ -33,11 +33,21 @@ declare which situation it is in, via ``coarse_binding_basis``, leaving the
 
 What counts as coarse
 ---------------------
-The 23 direct children of ``HP:0000118``, read from the ``meaning:`` values of
-``PhenotypeCategoryEnum`` (``schema/classifications/phenotype_category.yaml``) --
-the same list that drives the browser's *Phenotype Systems* facet. One source of
-truth, already label-verified by ``just validate-terms-schema``. A term in that
-set names a facet bucket; it cannot name a finding.
+Two hand-reviewed schema enums, treated as one list:
+
+**Tier 0** -- the 23 direct children of ``HP:0000118``, read from the
+``meaning:`` values of ``PhenotypeCategoryEnum``
+(``schema/classifications/phenotype_category.yaml``), which is also the list the
+browser's *Phenotype Systems* facet is built from, so the two cannot drift. A
+term in that set names a facet bucket; it cannot name a finding.
+
+**Tier 1** -- ``CoarsePhenotypeTermEnum``
+(``schema/classifications/coarse_phenotype_terms.yaml``): terms below those
+roots that still name a body system, a whole organ, or a gross body region.
+Curated by hand in one pass over every ``Abnormal*`` HP term used in the KB, and
+that file records both the inclusion rule and the reason each near-miss was left
+out. Both enums are ``meaning:``-bound, so ``just validate-terms-schema``
+verifies every label against HPO.
 
 Deliberately NOT a depth or information-content rule. Depth is a property of how
 HPO happens to be built, not of the claim: ``HP:0004322`` *Short stature* is the
@@ -48,6 +58,12 @@ defect" as an EXACT synonym and *is* the clinical concept when a paper says
 narrower binding than the source supports, which the term contract forbids
 outright. Membership in a hand-reviewed list is the whole specificity model;
 extending it is a schema PR with an argument attached.
+
+The tier-1 pass makes the point concretely. Of the 360 distinct ``Abnormal*``
+terms bound in the KB, 33 are buckets and the rest are findings -- and the two
+most-used of all, ``HP:0001999`` *Abnormal facial shape* (177) and
+``HP:0001627`` *Abnormal heart morphology* (149), are findings. Any pattern over
+the names would have caught both.
 
 Two finding classes
 -------------------
@@ -126,9 +142,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_causal_targets import BARE_TARGET_SLOTS  # noqa: E402
 
 BASELINE_PATH = ROOT / "tests" / "coarse_phenotype_baseline.txt"
-CATEGORY_ENUM_PATH = (
-    ROOT / "src" / "dismech" / "schema" / "classifications" / "phenotype_category.yaml"
-)
+CLASSIFICATIONS = ROOT / "src" / "dismech" / "schema" / "classifications"
+# Tier 0: the 23 organ-system roots, reused from the browser's facet vocabulary.
+CATEGORY_ENUM_PATH = CLASSIFICATIONS / "phenotype_category.yaml"
+# Tier 1: hand-curated terms below those roots that still name a bucket.
+COARSE_TERM_ENUM_PATH = CLASSIFICATIONS / "coarse_phenotype_terms.yaml"
 
 DEFAULT_ROOTS = ("kb/disorders", "kb/modules", "kb/comorbidities", "kb/groupings")
 
@@ -137,13 +155,32 @@ DESCRIPTOR_SLOT = "phenotype_term"
 DESCRIPTOR_LIST_SLOT = "target_phenotypes"
 
 
-def load_coarse_terms() -> dict[str, str]:
-    """CURIE -> enum key for the top-level HPO organ-system terms."""
-    enum = safe_load(CATEGORY_ENUM_PATH.read_text(encoding="utf-8"))
-    values = enum["enums"]["PhenotypeCategoryEnum"]["permissible_values"]
+def _meanings(path: Path, enum_name: str) -> dict[str, str]:
+    enum = safe_load(path.read_text(encoding="utf-8"))
+    values = enum["enums"][enum_name]["permissible_values"]
     terms = {v["meaning"]: k for k, v in values.items() if v.get("meaning")}
     if not terms:
-        raise SystemExit(f"no meanings found in {CATEGORY_ENUM_PATH}")
+        raise SystemExit(f"no meanings found in {path}")
+    return terms
+
+
+def load_coarse_terms() -> dict[str, str]:
+    """CURIE -> enum key for every term the guard treats as coarse.
+
+    Two schema enums, one list. Tier 0 is ``PhenotypeCategoryEnum`` -- the 23
+    organ-system roots, which are also the browser's facet vocabulary, so the
+    two cannot drift. Tier 1 is ``CoarsePhenotypeTermEnum``, hand-curated terms
+    below those roots that still name a system, organ or region. Both are
+    ``meaning:``-bound, so ``just validate-terms-schema`` checks every label in
+    them against HPO.
+    """
+    terms = _meanings(CATEGORY_ENUM_PATH, "PhenotypeCategoryEnum")
+    overlap = terms.keys() & _meanings(COARSE_TERM_ENUM_PATH, "CoarsePhenotypeTermEnum").keys()
+    if overlap:
+        # Tier 1 is defined as what sits BELOW the roots; a term in both means
+        # one list has drifted, and the census would double-count it.
+        raise SystemExit(f"term in both coarse enums: {sorted(overlap)}")
+    terms.update(_meanings(COARSE_TERM_ENUM_PATH, "CoarsePhenotypeTermEnum"))
     return terms
 
 

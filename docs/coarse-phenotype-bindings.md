@@ -19,26 +19,53 @@ the only thing that fails.
 
 ## What counts as coarse
 
-The 23 direct children of `HP:0000118`, taken from the `meaning:` values of
-`PhenotypeCategoryEnum` in `src/dismech/schema/classifications/phenotype_category.yaml`.
-That is the same list the browser's *Phenotype Systems* facet is built from, so
-there is one vocabulary rather than two, and `just validate-terms-schema` already
-verifies its labels. A term in that set names a facet bucket; it cannot name a
-finding.
+Two hand-reviewed schema enums, which the guard treats as one list of 56 terms.
 
-There is deliberately no depth rule and no information-content metric. Depth is a
-property of how HPO happens to be built, not of the claim:
+**Tier 0 — the organ-system roots.** The 23 direct children of `HP:0000118`,
+taken from the `meaning:` values of `PhenotypeCategoryEnum` in
+`src/dismech/schema/classifications/phenotype_category.yaml`. That is the same
+list the browser's *Phenotype Systems* facet is built from, so there is one
+vocabulary rather than two. A term in that set names a facet bucket; it cannot
+name a finding.
 
-| Term | Uses in `kb/` | Coarse? |
+**Tier 1 — buckets below the roots.** `CoarsePhenotypeTermEnum` in
+`src/dismech/schema/classifications/coarse_phenotype_terms.yaml`: 33 terms that
+name a body system, a whole organ, or a gross body region and assert nothing
+about what is wrong with it — `HP:0000077` *Abnormality of the kidney*,
+`HP:0000924` *Abnormality of the skeletal system*, `HP:0011024` *Abnormality of
+the gastrointestinal tract*. The morphology/physiology split terms directly under
+such a root come with it, since they divide the bucket without narrowing it.
+
+Both enums are `meaning:`-bound, so `just validate-terms-schema` verifies every
+label in them against HPO.
+
+### Why it is a list and not a rule
+
+Tier 1 was curated in one pass over all 360 distinct `Abnormal*` HP terms bound
+in the knowledge base. 33 are buckets; the rest are findings. The two most-used
+of all are findings:
+
+| Term | Uses | Coarse? |
 |---|---|---|
-| `HP:0004322` Short stature | 290 | **No.** It is exactly as specific as the literature ever gets. |
-| `HP:0001999` Abnormal facial shape | 178 | **No.** "Dysmorphic facies" is a real summary finding. |
-| `HP:0001627` Abnormal heart morphology | 150 | **No.** It carries "Congenital heart defect" as an EXACT synonym, and *is* the concept when a paper says CHD. |
-| `HP:0000478` Abnormality of the eye | 36 | **Yes.** |
+| `HP:0001999` Abnormal facial shape | 177 | **No.** "Dysmorphic facies" is a real summary finding. |
+| `HP:0001627` Abnormal heart morphology | 149 | **No.** It carries "Congenital heart defect" as an EXACT synonym, and *is* the concept when a paper says CHD. |
+| `HP:0002500` Abnormal cerebral white matter morphology | 48 | **No.** What a radiologist reports off an MRI. |
+| `HP:0012332` Abnormal autonomic nervous system physiology | 30 | **No.** Dysautonomia. |
+| `HP:0000077` Abnormality of the kidney | 26 | **Yes.** |
+| `HP:0000924` Abnormality of the skeletal system | 17 | **Yes.** |
 
-Any metric that ranked the first three as vague would push curators into
-asserting lesions their sources never named. Widening the set is a schema pull
-request with an argument attached, not a threshold.
+`HP:0000077` and `HP:0001627` sit one step below the same kind of root. No rule
+over depth, information content, or the shape of the label separates them —
+every such rule flags the two most-used terms in the KB and pushes curators into
+asserting lesions their sources never named. Membership in a reviewed list is
+the whole model; adding a term is a pull request with an argument attached.
+
+Four terms were left out as genuinely undecided rather than judged:
+`HP:0000504` Abnormality of vision, `HP:0000925` Abnormality of the vertebral
+column, `HP:0002926` Abnormality of thyroid physiology, `HP:0002270` Abnormality
+of the autonomic nervous system. Each is arguably a bucket and arguably a
+finding. The enum's own description records these and the excluded findings
+above, so the next person inherits the reasoning rather than redoing it.
 
 ## The slot
 
@@ -207,8 +234,10 @@ path, and a curation PR touches only `kb/`, matching neither the `python` nor th
 `schema` filter. The checks written to protect knowledge-base content are exactly
 the ones a content-only PR skips.
 
-The 164 bindings that predate the slot are grandfathered in
-`tests/coarse_phenotype_baseline.txt`. **That file may only shrink.** Clearing a
+The 341 bindings that predate the slot are grandfathered in
+`tests/coarse_phenotype_baseline.txt`. **That file may only shrink**, with one
+exception: deliberately widening the coarse set itself grows it once, as adding
+tier 1 took it from 164 to 341 in a reviewed pass. Clearing a
 row means a curator decided between the four values, or bound a specific term
 instead. A companion-rule violation is never grandfathered, because a declared
 basis can only come from content written after the slot existed.
@@ -221,16 +250,26 @@ unchecked.
 
 ## Burning down the backlog
 
-The census sorts the remaining work by term:
+341 bindings across 243 files, of which 180 files carry exactly one. The census
+sorts them by term:
 
 ```bash
-just list-coarse-phenotypes | head -30
+just list-coarse-phenotypes | head -40
 ```
 
-`HP:0002664` Neoplasm (47) and `HP:0000478` Abnormality of the eye (36) are half
-of it. Neoplasm is the best place to start: in cancer-predisposition entries the
-specific tumour types are usually already curated as sibling phenotypes, so the
-decision is `VARIABLE_SPECTRUM` versus `PATHOGRAPH_HUB` rather than new research.
+`HP:0002664` Neoplasm (46), `HP:0000478` Abnormality of the eye (33),
+`HP:0000077` Abnormality of the kidney (26) and `HP:0011024` Abnormality of the
+gastrointestinal tract (21) are a third of it. Two shapes are worth separating
+before starting:
+
+- **80 are hub candidates** — already reached by a causal edge and carrying no
+  frequency. `PATHOGRAPH_HUB` annotates what the node is already doing.
+- **164 make a clinical claim**, carrying a frequency, so they need a curator to
+  read the evidence and choose between `VARIABLE_SPECTRUM` and
+  `SOURCE_UNSPECIFIED`.
+
+Neoplasm is the best place to start on the rest: in cancer-predisposition entries
+the specific tumour types are usually already curated as sibling phenotypes.
 
 Do not clear a row by picking a narrower term the source does not support. If
 none of the four values fits and no specific term is defensible, leave the row
@@ -241,10 +280,6 @@ and say so in the pull request.
 - **GO and `biological_processes`.** The same design would work — a closed
   coarse set, one basis slot — and GO ships its own `goslim_*` subsets as a
   starting list. Nothing here is HP-specific except the vocabulary. Not now.
-- **The second tier.** `HP:0000924`, `HP:0012372`/`HP:0012373`,
-  `HP:0012638`/`HP:0012639` and the other organisational split terms are
-  candidates, but the tier is not uniform (see the table above), so it would
-  have to be enumerated by hand and lived with. Deferred.
 - **`phenotypes.category`.** The open register item about binding
   `PhenotypeCategoryEnum` to that free-text slot is independent; this guard only
   reads the enum's `meaning:` values.
