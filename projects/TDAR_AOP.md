@@ -159,6 +159,42 @@ the T-dependent antibody response were particularly beneficial"* describes
 predicting **immunotoxicants**, and cites the 1992 companion paper rather than
 this one.
 
+### The 1992 companion paper does not say TDAR is best, or that it predicts infection
+
+Following that citation to its source —
+[PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/) (Luster et al. 1992,
+*Risk assessment in immunotoxicology. I. Sensitivity and predictability of immune
+tests*) — settles two things the "particularly beneficial" phrase is routinely
+used to imply.
+
+**TDAR ranked second, not first.** The abstract reports:
+
+> "The tests that showed the highest association with immunotoxicity were the
+> splenic antibody plaque forming cell response (78%) and cell surface marker
+> analysis (83%)."
+
+The splenic antibody plaque-forming cell response *is* the TDAR assay. At 78% it
+is outscored by cell surface marker analysis at 83%. "Among the most predictive"
+is fair; anything stronger is not.
+
+**And the 78% measures a different endpoint.** It is the association with
+*immunotoxicity* — the ability to detect an immunotoxic compound — not with
+susceptibility to infection. The same abstract says the host-resistance question
+was still open at the time:
+
+> "Efforts are currently underway using this database to determine the
+> relationships between these immune tests and susceptibility to challenge with
+> infectious agents or transplantable tumor cells."
+
+That work became the 1993 paper above, whose conclusion (2) is that no single
+immune test was fully predictive of altered host resistance.
+
+So the chain of attribution closes without ever establishing the claim it is
+cited for. The phrase is real and sits in the 1993 abstract; it points to 1992;
+and 1992 measures compound detection, ranks TDAR second, and explicitly defers
+the infection question to the paper that then declines to answer it in TDAR's
+favour.
+
 One statement in the same abstract cuts the other way, toward the AOP's reading,
 and is recorded here so the page carries both sides — conclusion (3):
 
