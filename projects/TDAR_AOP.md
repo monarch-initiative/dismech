@@ -44,9 +44,12 @@ humoral immunity. It is a two-way comparison, and the two directions are kept
 separate because they have different audiences and different standards of proof.
 
 This page records findings. It does not decide adoption: whether dismech gains a
-module, an edge, or a schema construct as a result belongs in its own issue, and
-whether the AOP-side observations are communicated to the AOP community is a
-separate call again.
+module, an edge, or a schema construct as a result belongs in its own issue.
+
+The AOP-side observations are **not** being tracked as dismech work. They are
+findings about the framework rather than about this repository, and no issue,
+worklist, or follow-up here depends on them. They are recorded on this page
+because the comparison produced them, and that is all.
 
 **Relationship to [`AOP_EMOD_ALIGNMENT`](AOP_EMOD_ALIGNMENT.md).** That project
 asks how dismech's constructs map onto the AOP/EMOD data model, grounded on
@@ -155,6 +158,42 @@ The frequently quoted *"enumeration of lymphocyte populations and quantitation o
 the T-dependent antibody response were particularly beneficial"* describes
 predicting **immunotoxicants**, and cites the 1992 companion paper rather than
 this one.
+
+### The 1992 companion paper does not say TDAR is best, or that it predicts infection
+
+Following that citation to its source —
+[PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/) (Luster et al. 1992,
+*Risk assessment in immunotoxicology. I. Sensitivity and predictability of immune
+tests*) — settles two things the "particularly beneficial" phrase is routinely
+used to imply.
+
+**TDAR ranked second, not first.** The abstract reports:
+
+> "The tests that showed the highest association with immunotoxicity were the
+> splenic antibody plaque forming cell response (78%) and cell surface marker
+> analysis (83%)."
+
+The splenic antibody plaque-forming cell response *is* the TDAR assay. At 78% it
+is outscored by cell surface marker analysis at 83%. "Among the most predictive"
+is fair; anything stronger is not.
+
+**And the 78% measures a different endpoint.** It is the association with
+*immunotoxicity* — the ability to detect an immunotoxic compound — not with
+susceptibility to infection. The same abstract says the host-resistance question
+was still open at the time:
+
+> "Efforts are currently underway using this database to determine the
+> relationships between these immune tests and susceptibility to challenge with
+> infectious agents or transplantable tumor cells."
+
+That work became the 1993 paper above, whose conclusion (2) is that no single
+immune test was fully predictive of altered host resistance.
+
+So the chain of attribution closes without ever establishing the claim it is
+cited for. The phrase is real and sits in the 1993 abstract; it points to 1992;
+and 1992 measures compound detection, ranks TDAR second, and explicitly defers
+the infection question to the paper that then declines to answer it in TDAR's
+favour.
 
 One statement in the same abstract cuts the other way, toward the AOP's reading,
 and is recorded here so the page carries both sides — conclusion (3):
@@ -349,9 +388,18 @@ not as toxicity entries. Any such module would begin with no conformers.
 ## Not yet explored
 
 - The remainder of the OpenScientist report. The verification above covers its
-  central causal claim and the network structure; its assay mapping (F004), its
-  regulatory-framework section (F011), the AhR/PAC branch (F012, F014) and the
-  2026 B6C3F1/N in vivo dataset (F006) have not been checked.
+  central causal claim and the network structure. Six of its twelve finding
+  sections have not been checked: the assay mapping (F004), the 2026 B6C3F1/N in
+  vivo dataset (F006, F013), the convergent-literature section citing Burleson,
+  Descotes and White (F007), the 2024 *Front. Toxicol.* mapping said to confirm
+  the four-AOP network independently (F008), the regulatory-framework and NAM 3R
+  section (F011), and the AhR/PAC branch (F012, F014).
+- Two of the checked sections were only partly checked. F009's sources were
+  assessed for what they bear on — Bohrer and Cippa both skip the TDAR node — but
+  not verified against their abstracts. F010's High/High weight-of-evidence claim
+  was confirmed for KER2928 only, not for KER1510 or KER2027.
+- The report's own five limitations and six proposed follow-up experiments have
+  not been assessed at all.
 - The Luster 1992 companion paper (*Fundam. Appl. Toxicol.* 18, 200-210), which
   is where the "particularly beneficial" claim for TDAR originates.
 - AOP 14's bridge, whose KER570 evidence blocks are empty.
