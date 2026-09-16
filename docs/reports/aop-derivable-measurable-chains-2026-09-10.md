@@ -51,15 +51,15 @@ different units and both are given:
 
 | Model section | Model blocks | Blocks with `modeled_mechanisms` | Entries with one | Entries with a linked one |
 |---|---|---|---|---|
-| `experimental_models` (NAM) | 648 | 589 | 402 | 369 |
-| `animal_models` | 1,682 | 1,254 | 913 | 694 |
+| `experimental_models` (NAM) | 649 | 590 | 403 | 370 |
+| `animal_models` | 1,687 | 1,259 | 917 | 698 |
 | `computational_models` | 99 | 79 | 39 | 35 |
 
 Entry-level filters, for the record:
 
 - **161** entries carry ≥2 `experimental_models` blocks.
-- **523** entries carry ≥2 pathograph-linked models of any kind.
-- **881** entries carry at least one pathograph-linked model.
+- **525** entries carry ≥2 pathograph-linked models of any kind.
+- **885** entries carry at least one pathograph-linked model.
 
 ## The chain screen
 
@@ -292,18 +292,18 @@ selects AOP-derivable chains.
 
 | Longest chain | Every node measured | Every edge cited | **Both** |
 |---|---|---|---|
-| ≥2 nodes | 281 | 1,346 | 123 |
-| ≥3 nodes | 97 | 1,047 | **38** |
-| ≥4 nodes | 21 | 729 | **6** |
+| ≥2 nodes | 282 | 1,349 | 123 |
+| ≥3 nodes | 97 | 1,051 | **38** |
+| ≥4 nodes | 21 | 731 | **6** |
 | ≥5 nodes | 5 | 435 | **1** |
 
-36,938 `pathophysiology[].downstream[]` edges KB-wide, 15,768 carrying evidence (43%).
+37,001 `pathophysiology[].downstream[]` edges KB-wide, 15,790 carrying evidence (43%).
 Restricted to the node-to-node subset these chains are built from — edges whose target
 resolves to another `pathophysiology` node, excluding those terminating on a phenotype —
-18,018 edges, 7,371 cited (41%). Fully-cited chains reach
+18,058 edges, 7,386 cited (41%). Fully-cited chains reach
 **12 nodes**, where fully-measured ones stop at 5.
 
-**Edge evidence is about thirty-five times more available than node measurability** — 729
+**Edge evidence is about thirty-five times more available than node measurability** — 731
 entries carry a four-node chain cited at every step, against 21 measured at every node. So
 the binding constraint on deriving an AOP from any one dismech entry is `modeled_mechanisms`
 coverage, not literature. The 38 entries clearing the joint screen at three nodes are the
