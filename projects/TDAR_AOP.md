@@ -133,6 +133,40 @@ The only quantitative bridge to infection in the cluster is the
 Concanavalin A splenocyte proliferation, not TDAR — one Key Event upstream. The
 report inherited that substitution rather than introducing it.
 
+### The High/High weight-of-evidence ratings are not in the export
+
+The report's F010 presents a table of terminal-KER ratings — Evidence **High**,
+Quantitative Understanding **High** for all three AOPs — introduced as
+"Extraction of the AOP-Wiki Key Event Relationship (KER) weight-of-evidence
+tables". No such tables are present.
+
+In the `09-15-2026` export, each KER's four evidence blocks carry `free_text`,
+`tables` and `headers`. For all three terminal KERs, `tables` is empty, `headers`
+is empty, `has_any_tables` is `false`, and no `High` / `Moderate` / `Low` token
+appears anywhere in the record:
+
+| KER | AOP | Edge | `weight_of_evidence` | `quantitative_understanding` | Rating tokens |
+|---|---|---|---|---|---|
+| KER1510 | 154 | IL-2 & IL-4 suppression → Impaired TDAR | **0 chars** | **0 chars** | none |
+| KER2928 | 277 | Suppression of T-cell activation → Impaired TDAR | 1,506 chars | 207 chars | none |
+| KER2027 | 315 | IL-4 suppression → Impaired TDAR | 260 chars | 292 chars | none |
+
+Nor are the ratings on the parent AOP records, whose `woe_evidence` is narrative
+prose rather than a ratings table. AOP 277 and AOP 315 contain no rating token at
+all; AOP 154 contains only **Moderate**, never High.
+
+So the claim that the terminal KER is rated High/High in all three pathways, and
+the "exceptional confidence" the report draws from it, cannot be confirmed from
+the export, and the one rating word that does appear anywhere in the three AOP
+records is weaker than the claim. KER1510 is the sharpest case: AOP 154 is the
+OECD-endorsed pathway of the three, and its terminal KER carries no evidence text
+whatsoever. AOP 315, by contrast, is still `Under Development`.
+
+This does not prove the ratings do not exist — they may be held in a structured
+field the XML export does not carry, or be visible on the rendered wiki page. It
+does mean the report's stated method, extraction from KER weight-of-evidence
+tables, cannot have produced them from this data.
+
 ### The primary source does not support the reading placed on it
 
 [PMID:8365588](https://pubmed.ncbi.nlm.nih.gov/8365588/) (Luster et al. 1993,
@@ -157,7 +191,22 @@ claim. Three statements in its own abstract qualify it:
 The frequently quoted *"enumeration of lymphocyte populations and quantitation of
 the T-dependent antibody response were particularly beneficial"* describes
 predicting **immunotoxicants**, and cites the 1992 companion paper rather than
-this one.
+this one. The 1993 abstract names it outright — *"(Luster et al., Fundam. Appl.
+Toxicol., 18, 200-210, 1992)"* — immediately before that sentence, so the
+identification rests on the paper's own citation and not on inference.
+
+One statement in the **1993** abstract cuts the other way, toward the AOP's
+reading, and is recorded here so the page carries both sides — conclusion (3):
+
+> "The ability to resist infectious agent challenge is dependent upon the degrees
+> of immunosuppression and the quantity of infectious agent administered."
+
+That is a dose-dependence claim about immunosuppression and host resistance, and
+it is the paper's clearest support for a graded relationship. What it does not
+supply is the part the pathway needs: it names neither TDAR nor any single immune
+test as the measure of "degrees of immunosuppression", which is what conclusion
+(2) explicitly declines to do.
+
 
 ### The 1992 companion paper does not say TDAR is best, or that it predicts infection
 
@@ -194,18 +243,6 @@ cited for. The phrase is real and sits in the 1993 abstract; it points to 1992;
 and 1992 measures compound detection, ranks TDAR second, and explicitly defers
 the infection question to the paper that then declines to answer it in TDAR's
 favour.
-
-One statement in the same abstract cuts the other way, toward the AOP's reading,
-and is recorded here so the page carries both sides — conclusion (3):
-
-> "The ability to resist infectious agent challenge is dependent upon the degrees
-> of immunosuppression and the quantity of infectious agent administered."
-
-That is a dose-dependence claim about immunosuppression and host resistance, and
-it is the paper's clearest support for a graded relationship. What it does not
-supply is the part the pathway needs: it names neither TDAR nor any single immune
-test as the measure of "degrees of immunosuppression", which is what conclusion
-(2) explicitly declines to do.
 
 ### Reframed from TDAR to impaired antibody response, the evidence is strong
 
@@ -394,12 +431,17 @@ not as toxicity entries. Any such module would begin with no conformers.
   Descotes and White (F007), the 2024 *Front. Toxicol.* mapping said to confirm
   the four-AOP network independently (F008), the regulatory-framework and NAM 3R
   section (F011), and the AhR/PAC branch (F012, F014).
-- Two of the checked sections were only partly checked. F009's sources were
-  assessed for what they bear on — Bohrer and Cippa both skip the TDAR node — but
-  not verified against their abstracts. F010's High/High weight-of-evidence claim
-  was confirmed for KER2928 only, not for KER1510 or KER2027.
+- One checked section was only partly checked. F009's sources
+  ([PMID:30068597](https://pubmed.ncbi.nlm.nih.gov/30068597/), Bohrer 2018;
+  [PMID:26430088](https://pubmed.ncbi.nlm.nih.gov/26430088/), Cippà 2015) were
+  assessed for what they bear on — both skip the TDAR node — but not verified
+  against their abstracts.
 - The report's own five limitations and six proposed follow-up experiments have
   not been assessed at all.
-- The Luster 1992 companion paper (*Fundam. Appl. Toxicol.* 18, 200-210), which
-  is where the "particularly beneficial" claim for TDAR originates.
-- AOP 14's bridge, whose KER570 evidence blocks are empty.
+- Only the abstract of the 1992 companion paper
+  ([PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/)) was consulted, not
+  its full text.
+- AOP 14's bridge into *Increased, Disease susceptibility* (KE323). Note this is
+  not the same gap as KER570, whose empty evidence blocks are recorded above:
+  KE323 has **no incoming relationship at all**, so there is no KER there to
+  evidence.
