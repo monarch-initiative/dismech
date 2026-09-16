@@ -14,24 +14,105 @@ This tree answers that question per disease, using
 reimplementation of BOOMER, which resolves competing ontology mappings by finding
 the most probable globally consistent assignment.
 
+**Curated proxy merges (2026-09-11):** the generator now carries MONDO xref
+annotations into [pair-specific merge permissions](proxy-merges/README.md).
+We migrated and reran 43 Mendelian inputs without changing their hypotheses,
+priors, or labels. Of 22 previously completed retracted results, 21 now accept
+all high-prior mappings at confidence 0.9; COL11A2 retains one DO conflict at
+0.5. The 21 previously timed-out inputs still time out. CANVAS and cblE now
+accept both annotated external equivalents; [their current top-five solutions](proxy-merges/alternatives/)
+are independently enumerated. The earlier counts below describe historical runs.
+
+**Probability correction (2026-09-11, before proxy migration):** the upstream fix is merged and the
+[1,213 previously completed Mendelian searches have been rerun](runs/unique-solutions-completed/README.md).
+The refreshed results are 1,176 consistent, 32 retracted, and 5 timed out;
+no chosen mapping assignments changed. Completed confidence scores now range
+from 0.5 to 0.95. The 321 earlier timeouts and 194 older analyses remain
+unrefreshed; their probability scores still predate the correction. See the
+[pinned solver and reproduction instructions](patches/README.md).
+
+[Three low-confidence case investigations](low-confidence/README.md) trace
+ADan amyloidosis, CANVAS, and cblE ties to namespace non-equivalence assumptions,
+then compare source definitions, merge history, and primary evidence.
+
+[Residual low-confidence triage](remaining-low-confidence/README.md) identifies
+11 current ties and two 0.7 results. Gorlin syndrome, PRAAS, and TPMT deficiency
+are the clearest family/subtype mapping corrections to review; complete
+alternative assignments and source context are recorded for all thirteen.
+
 ## Layout
 
 ```
 analyses/boomer/
   index.tsv                     roll-up: one row per disorder
+  mendelian.tsv                 Mendelian selection reasons and grounding eligibility
   disorders/<NAME>/
     README.md                   what was checked, per-subtype verdicts, what boomer did
     kb.yaml                     boomer input; `pyboomer solve kb.yaml -t 60 -C 6`
+    proxy-merges.json           MONDO annotations, merge decisions, and source hashes
     solution.yaml               boomer output, machine-readable
     solution.md                 boomer output, rendered
   groupings/                    grouping membership vs MONDO (no solver needed)
   cross-source/                 direct ICD/NCIT mappings vs MONDO's own xrefs
+  icd10/                        ICD coverage, missing entries, and ORDO mapping paths
+  proxy-merges/                 pinned annotations, decisions, migration, and baselines
   scripts/                      generators; nothing here is hand-written
 ```
 
 One knowledge base per *disorder* rather than per subtype pair: an entry's
 subtypes share a parent, so solving them together lets a conflict in one bear on
 the others, and it matches how a curator reads the result.
+
+The scope also includes Mendelian diseases without grounded subtypes. These
+inputs test cross-source mappings and can expose conflicting MONDO equivalences;
+they do not assert or validate a subtype hierarchy.
+
+The [ICD enrichment](icd10/current/README.md) adds directional ORDO→WHO ICD-10
+and reviewed direct ICD10CM hypotheses to Mendelian inputs. **1,005 of 1,550
+Mendelian inputs now contain an ICD term (64.8%)**. WHO ICD-10 and ICD10CM remain
+separate vocabularies. The [subsequent solver batch](runs/pending/README.md)
+attempted all 1,357 new and 177 changed inputs: **1,181 consistent, 32 retracted,
+321 timed out**. No `NOT_RUN` or `STALE_INPUT` entries remain. Timeout outputs
+are provisional, not completed verdicts. The original results below are historical.
+
+## Mendelian selection
+
+This first expansion uses the repository's explicit **`category: Mendelian`**
+designation. It does not infer category membership from gene associations,
+inheritance, disease names, or MONDO ancestry. Entries categorized as Genetic,
+Complex, Cancer, or another category are not newly added by this pass, even
+when they may be biologically Mendelian. Existing analyses are retained.
+
+This is a reproducible curation-defined cohort, not a reclassification of the
+KB. It includes chromosomal syndromes that the KB itself categorizes as
+Mendelian. [`mendelian.tsv`](mendelian.tsv) records every candidate with
+`KB_CATEGORY_MENDELIAN` and whether it has the primary MONDO grounding needed
+by the analysis. Candidates without that grounding are reported and skipped.
+
+`cd analyses && just boomer-expand-mendelian` adds eligible diseases absent from
+the existing index as **inputs only**, with `NOT_RUN` status and no solution files.
+It preserves every indexed analysis folder. It checks that
+the existing folders are complete and refuses to overwrite unindexed folders.
+It merges new index rows with the old rows; it does **not** refresh old results.
+Use `just boomer-disorders` for a full refresh of the union of the original
+grounded-subtype scope and the Mendelian scope. The CLI also supports
+`--scope subtypes` and `--scope mendelian` for either cohort alone.
+
+The initial expansion (2026-09-08) selected **1,562 candidates**: **1,550** have
+a primary MONDO grounding and **12** do not. Of the eligible entries, **193**
+already had an analysis, so **1,357 inputs were added**, bringing the combined
+index to **1,728**. **1,339 additions have no grounded subtypes**; the other 18
+have 54 grounded subtype pairs. The previous 371 analysis folders and their
+index values were retained. The new inputs have no solver verdict or posterior.
+Their `n_retracted` is `NA`, not zero: retractions have not been assessed.
+
+The solver stage was deferred after an 11-hypothesis Marfan input hit the
+60-second timeout. That smoke-test output was kept outside this tree. The
+current local Boomer implementation can limit clique size with `-C 6`, but
+that can separate interacting hypotheses; it is not a guarantee of a full
+joint solve. Do not treat lowering that limit as a semantics-preserving fix for
+timeouts. The older reproduction claims below describe the original run and
+should be rechecked against the installed Boomer version before relying on them.
 
 ## What each KB contains
 
@@ -41,6 +122,7 @@ the others, and it matches how a curator reads the result.
 | MONDO | hard | subsumption edges and `owl:disjointWith` axioms relating the entry's term to each subtype's term |
 | dismech→MONDO | probabilistic | one identity claim per grounded term (p=0.90), with the competing `ProperSubClassOf` readings in both directions (0.07 / 0.03) |
 | MONDO→external | probabilistic | MONDO's `skos:exactMatch` links (p=0.95) into DOID, NCIT, ORDO, OMIM, ICD10CM, icd11f, MESH, EFO |
+| ORDO→ICD10, reviewed dismech→ICD10CM | probabilistic | Mendelian entries only: exact equivalence p=0.95; broad/narrow directional proper subclass p=0.90; original predicates and review decisions retained in `icd10/import-decisions.tsv` |
 | external | hard | each of those ontologies' **own** subsumption edges among the mapped terms |
 
 Ontologies are loaded as *hard* facts deliberately: the question is whether
@@ -77,10 +159,11 @@ enrichment proposal rather than a guess.
 Nothing contradicts dismech in any source, which is worth stating as its own
 result.
 
-## Current results
+## Original subtype-cohort results
 
-371 disorders, 1,471 grounded parent/subtype pairs. Full roll-up in
-[`index.tsv`](index.tsv).
+The original 371 disorders contain 1,471 grounded parent/subtype pairs. The
+figures in this section describe that original cohort; [`index.tsv`](index.tsv)
+also includes the later Mendelian expansion.
 
 | Per pair | n | | Per disorder | n |
 |---|---|---|---|---|
@@ -272,7 +355,7 @@ of.
 That is a real but bounded benefit. It is not a case for taking on boomer as a
 dependency, and none has been taken.
 
-## Reproducibility
+## Original subtype-run reproducibility
 
 Regeneration is **partially** reproducible, and it is worth being precise about
 which half:
@@ -336,16 +419,51 @@ above.
 ## No dependency was added
 
 `build_analyses.py` takes `--boomer-src` pointing at a `boomer-py` checkout;
-`grouping_audit.py` and `crosssource_audit.py` need no solver at all. **Nothing
-in the repo imports boomer.** That is deliberate — boomer-py is early-stage, and
-this analysis does not justify taking it on as a runtime dependency.
+`solve_pending.py` uses the same convention. These analysis scripts add that
+source directory to `sys.path` and import Boomer directly. The justfile defaults
+to `~/repos/boomer-py/src`, overridable with `BOOMER_SRC`. There is no Boomer
+package or Git dependency in dismech's `pyproject.toml` or lockfile, and no
+automatic download during these solves. `grouping_audit.py` and
+`crosssource_audit.py` need no solver at all. Keeping Boomer outside dismech's
+runtime dependencies is deliberate; its use here is confined to analysis.
+
+The September 8 batch used a clean checkout at
+`16769dc84375af522357fc7b67077ee862bbc8e8`; the September 11 refresh used
+`744038e30741009930f57919ca2f03c6473ed198`. Each refreshed folder's `solve.json`
+records its current solver commit. See the [probability correction](patches/README.md).
 
 ## Regenerating
+
+The 43 inputs migrated for curated proxy merges use `SubClassOf` for
+same-vocabulary external hierarchy edges; the other saved inputs still use
+the older `ProperSubClassOf` representation. Both forms coexist until a full
+regeneration. In the migrated inputs, namespace constraints supply the
+non-equivalence separately, except for explicitly permitted proxy pairs.
+
+To fill missing external labels in the existing inputs without re-running the
+analysis, run `cd analyses && just boomer-labels`. This changes only `labels:`
+in each `kb.yaml`; facts, priors, saved solutions, reports and `index.tsv` stay
+unchanged. Existing labels are retained and new labels are appended in CURIE
+order. Repeating this command against the same snapshots makes no changes.
+The next solve/render uses the added labels in its human-readable output.
+
+Labels come from `rdfs:label` in the same local OAK semantic-sql builds used
+for external hierarchy checks. We deliberately do not use the validation
+adapters in `conf/oak_config.yaml`: that config covers a different set of
+prefixes and uses live OLS for MONDO/NCIT, which could mix newer labels with
+older hierarchy snapshots. `--oak-dir` selects the external snapshot directory
+(the labels recipe also accepts the `OAK_DIR` environment variable). Unresolved
+IDs are reported and left unlabeled, never assigned guessed labels.
+
+A full regeneration below also includes the labels, but additionally re-reads
+the current disease entries and ontology hierarchies and runs the solver; that
+can produce substantive changes beyond labels if those inputs have changed.
 
 ```bash
 uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
     --out analyses/boomer/disorders --index analyses/boomer/index.tsv \
-    --boomer-src ~/repos/boomer-py/src
+    --boomer-src ~/repos/boomer-py/src --scope expanded \
+    --selection-report analyses/boomer/mendelian.tsv
 
 uv run python analyses/boomer/scripts/grouping_audit.py \
     --out analyses/boomer/groupings/violations.tsv
@@ -370,10 +488,11 @@ neither needs a solver:
   narrower than its term and a `narrowMatch` one wider, so neither licenses the
   descendant expectation; 74 of 100 are skipped on that basis.
 - [`cross-source/`](cross-source/) — dismech's direct ICD/NCIT mappings against
-  MONDO's own xrefs. **A negative result**: 8 disagreements, 6 of them
-  granularity the `mapping_predicate` already records honestly
-  (`ICD10CM:Q93.5` vs `ICD10:Q93.51` as `narrowMatch`). Nothing for a reasoner to
-  resolve. Recorded so the check is not repeated expecting signal.
+  MONDO's own xrefs. The refreshed audit has **10 disagreements**, including
+  two competing exact assertions to review. It now keeps WHO ICD-10 and
+  ICD10CM distinct. Differences involving broad/narrow/close mappings require
+  review of both granularity and predicate direction; they are not automatically
+  contradictions or automatically correct curation.
 
 That the subtype (88.1%) and grouping (91.7%) checks land on comparable
 agreement rates with the same failure mode, across two structurally independent parts of the
