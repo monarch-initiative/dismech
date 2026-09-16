@@ -2364,7 +2364,8 @@ def collect_research_reviews(
         # Keep DR uppercase (not Dr. Smith) and require research context:
         # a bare word boundary also matches HLA-DR and 'DQ rather than DR'.
         r"|(?<![\w-])DR[-\s]+(?:report|provider|tool|run|artifact|section|content"
-        r"|prose|citation|provenance|suggested|proposed|sourced)s?\b"
+        r"|prose|citation|provenance|suggested|proposed|sourced|surfaced"
+        r"|summary|summaries|bibliography|query|queries)s?\b"
     )
     reviews = []
     for field, title in (

@@ -455,6 +455,9 @@ def test_research_reviews_require_context_for_dr_abbreviation(tmp_path):
         "DR citations were checked.",
         "DR-provider outputs differ.",
         "DR-suggested mechanisms need verification.",
+        "The DR summary misattributes a finding.",
+        "The DR-surfaced study could not be found.",
+        "The DR bibliography lead concerns a different disease.",
         "Deep Research audit.",
         "Test-deep-research-falcon.md was assessed.",
     ]
