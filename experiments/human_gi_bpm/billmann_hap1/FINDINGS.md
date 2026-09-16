@@ -90,5 +90,9 @@ consists largely of clinically established mitochondrial disease genes that are
    OXPHOS dependency lead, cited to Billmann 2026 (the *screen*, which is
    citable) rather than to this run.
 2. Stub nominations for the uncurated mitochondrial disease genes above.
+   **Resolved 2026-09-16:** all four are now curated — NDUFA2 (MC1DN13)
+   independently upstream, and ATPAF2 (MC5DN1), TMEM70 (MC5DN2) and MTFMT
+   (COXPD15) as full entries in the follow-up tranche to this pilot
+   (issues #11924-#11926).
 3. If BPM-style leads prove useful, revisit the `compensates_for` schema
    question flagged in the GIDEON assessment report.
