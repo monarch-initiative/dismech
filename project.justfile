@@ -3003,6 +3003,16 @@ ncit-edges-list limit="20":
 ncit-p302-audit *args="":
     uv run python scripts/ncit_p302_audit.py {{args}}
 
+# Census how many references_cache/PMID_*.md files cached abstract_only are
+# actually recoverable full text under the JATS extractor fix from #10876
+# (issue #10878). --phase idconv|recoverability|missing-tables|summarize|all;
+# missing-tables is offline and fast, idconv/recoverability hit PMC/NCBI and
+# are resumable -- recoverability over the full PMC-linked set takes ~2h
+# without an NCBI_API_KEY. See docs/reports/ for the write-up.
+[group('Research')]
+abstract-only-recovery-census *args="--phase summarize":
+    uv run python scripts/audit_abstract_only_recovery.py {{args}}
+
 # ============== Classification Schemas ==============
 
 classifications_dir := "src/dismech/schema/classifications"
