@@ -19,7 +19,7 @@ they disagree.
 
 This began as a simpler question: which entries have at least two experimental model
 systems attached? That is the obvious first cut, because an entry with several models
-sounds like an entry whose mechanism has been measured. It returns 154 entries, and almost
+sounds like an entry whose mechanism has been measured. It returns 161 entries, and almost
 none of them are usable. The reason is worth setting out before the counts, because it
 governs how every table below should be read.
 
@@ -42,19 +42,24 @@ requiring them on *consecutive* nodes returns a small, directly usable one.
 
 ## KB totals
 
-Counted 2026-09-10 across `kb/disorders/` and `kb/modules/`:
+Every count below is from `just aop-chain-census`, run against `main` on 2026-09-15.
+Regenerate it rather than trusting these figures: they move with every curation PR.
 
-| Model section | Entries | Pathograph-linked (`modeled_mechanisms` present) |
-|---|---|---|
-| `experimental_models` (NAM) | 619 | 557 |
-| `animal_models` | 1,542 | 1,108 |
-| `computational_models` | 103 | 79 |
+A *model block* is one entry in an `experimental_models:` / `animal_models:` /
+`computational_models:` list. An entry can hold several, so blocks and entries are
+different units and both are given:
+
+| Model section | Model blocks | Blocks with `modeled_mechanisms` | Entries with one | Entries with a linked one |
+|---|---|---|---|---|
+| `experimental_models` (NAM) | 647 | 588 | 401 | 368 |
+| `animal_models` | 1,678 | 1,250 | 910 | 691 |
+| `computational_models` | 99 | 79 | 39 | 35 |
 
 Entry-level filters, for the record:
 
-- **154** entries carry ≥2 `experimental_models` blocks.
-- **473** entries carry ≥2 pathograph-linked models of any kind.
-- **797** entries carry at least one pathograph-linked model.
+- **161** entries carry ≥2 `experimental_models` blocks.
+- **521** entries carry ≥2 pathograph-linked models of any kind.
+- **878** entries carry at least one pathograph-linked model.
 
 ## The chain screen
 
@@ -221,6 +226,7 @@ and none of them is in these counts:
 | `environmental[].influences_mechanisms` | no |
 | `treatments[].target_mechanisms` | no |
 | `phenotypes[].sequelae` | no |
+| `phenotypes[].reports_on` | no |
 | `experimental_models[]` / `animal_models[]` / `computational_models[].modeled_mechanisms` | no |
 
 The restriction is deliberate: a Key Event Relationship is a step from one mechanism to the
@@ -291,10 +297,10 @@ selects AOP-derivable chains.
 | ≥4 nodes | 21 | 725 | **6** |
 | ≥5 nodes | 5 | 434 | **1** |
 
-36,793 node-to-node mechanism edges KB-wide, 15,722 carrying evidence (43%). Restricted
-further to edges whose target resolves to another `pathophysiology` node — the ones these
-chains are actually built from, excluding those that terminate on a phenotype — 17,932
-edges, 7,332 cited (41%). Fully-cited chains reach
+36,793 `pathophysiology[].downstream[]` edges KB-wide, 15,722 carrying evidence (43%).
+Restricted to the node-to-node subset these chains are built from — edges whose target
+resolves to another `pathophysiology` node, excluding those terminating on a phenotype —
+17,932 edges, 7,332 cited (41%). Fully-cited chains reach
 **12 nodes**, where fully-measured ones stop at 5.
 
 **Edge evidence is about thirty-five times more available than node measurability** — 725
