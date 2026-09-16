@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geroscience Repurposing: FDA-Approved Drugs Against the Hallmarks of Aging - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Geroscience Repurposing: FDA-Approved Drugs Against the Hallmarks of Aging</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Geroscience Repurposing: FDA-Approved Drugs Against the Hallmarks of Aging</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (11)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/cellular_senescence.html">cellular senescence</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/deregulated_nutrient_sensing.html">deregulated nutrient sensing</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/disabled_macroautophagy.html">disabled macroautophagy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/epigenetic_alterations.html">epigenetic alterations</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/genomic_instability_aging.html">genomic instability aging</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/gut_dysbiosis.html">gut dysbiosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/inflammaging.html">inflammaging</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/loss_of_proteostasis.html">loss of proteostasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mitochondrial_dysfunction.html">mitochondrial dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/stem_cell_exhaustion.html">stem cell exhaustion</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/telomere_attrition.html">telomere attrition</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/GEROSCIENCE_REPURPOSING.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="geroscience-repurposing-fda-approved-drugs-against-the-hallmarks-of-aging">Geroscience Repurposing: FDA-Approved Drugs Against the Hallmarks of Aging</h1>
+<h2 id="overview">Overview</h2>
+<p>Geroscience holds that biological aging is the dominant modifiable risk factor
+for the major chronic diseases, and that targeting it should delay several of
+them at once. A drug that does this is a <em>gerotherapeutic</em>. The practical
+question is which of the drugs we already have is the best candidate to test,
+and that question has an answer with a method behind it: Kulkarni, Aleksic,
+Berger, Sierra, Kuchel and Barzilai, <a href="https://pubmed.ncbi.nlm.nih.gov/35343051/">Geroscience-guided repurposing of
+FDA-approved drugs to target aging</a>
+(<em>Aging Cell</em> 2022, <code>PMID:35343051</code>), screened DrugAge for compounds that
+significantly extend rodent lifespan, kept only the FDA-approved ones, and
+scored the survivors on a 12-point scale.</p>
+<p>This project brings that result into dismech. The KB already has the hallmarks
+of aging as mechanism modules under <code>kb/modules/</code>. What it largely lacked was
+the drug side: as of the start of this project, <strong>9 of 13 aging-related modules
+carried no <code>treatments</code> at all</strong>, so a query like "what pharmacologic
+interventions act on <a href="../modules/inflammaging.html">inflammaging</a>?" returned nothing, even though the answer is
+well documented.</p>
+<p>The unit of work here is a <strong>treatment with <code>target_mechanisms</code></strong> on an aging
+module — a specific drug asserted to act on a specific hallmark node, with an
+effect direction and cited, snippet-verified evidence. That turns a review
+table's tick mark into something the pathograph can draw and a query can reach.</p>
+<h2 id="why-the-reviews-own-scoring-is-recorded-but-not-curated-as-evidence">Why the review's own scoring is recorded but not curated as evidence</h2>
+<p>The 12-point score is a <em>prioritization</em>, not a mechanistic claim, and it is a
+snapshot: the authors themselves note that "future studies may change the
+priority order for drugs that did not receive points due to the paucity of
+clinical data." Several drugs score 0 on human endpoints because nobody has run
+the trial at the right dose in the right population — not because the trial was
+run and was negative. Aspirin is the clearest case: the animal work uses
+anti-inflammatory doses, while every large human trial used antiplatelet doses,
+which the authors argue is the wrong comparison rather than a refutation.</p>
+<p>So the ranking lives in this project file and in module treatment
+<code>description</code> prose. <strong>Evidence items cite the primary studies</strong>, which is where
+the mechanism claims actually are. Citing the review for a mechanism it merely
+tabulates would put a secondary source where a primary one belongs.</p>
+<h2 id="the-scoring-framework">The scoring framework</h2>
+<p>An ordinal 12-point scale, split evenly so that a drug with a strong basic
+rationale but no human data is not penalized for the gap:</p>
+<table>
+<thead>
+<tr>
+<th>Half</th>
+<th>Component</th>
+<th>Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Preclinical (6)</td>
+<td>Hallmarks of aging attenuated</td>
+<td>2 if ≥3 hallmarks, 1 if &lt;3</td>
+</tr>
+<tr>
+<td></td>
+<td>Preclinical healthspan / age-related disease</td>
+<td>2</td>
+</tr>
+<tr>
+<td></td>
+<td>Preclinical lifespan</td>
+<td>2 if significant in the NIA Interventions Testing Program, 1 if outside it</td>
+</tr>
+<tr>
+<td>Clinical (6)</td>
+<td>Healthspan: targets an age-related disease that is <em>not</em> the drug's indication</td>
+<td>3 if RCT, 1 if observational</td>
+</tr>
+<tr>
+<td></td>
+<td>Mortality: reduces all-cause or off-target-disease death</td>
+<td>3 if RCT, 1 if observational</td>
+</tr>
+</tbody>
+</table>
+<p>The ITP distinction matters and is worth preserving in curation prose. The
+Interventions Testing Program uses genetically heterogeneous UM-HET3 mice,
+replicated across three sites, and is the reason a lifespan claim from it
+outranks a single-lab result.</p>
+<h2 id="the-ranking">The ranking</h2>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Drug / class</th>
+<th>Hallmarks</th>
+<th>Preclin. healthspan</th>
+<th>Preclin. lifespan</th>
+<th>Human healthspan</th>
+<th>Human mortality</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>SGLT2 inhibitors</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>3</td>
+<td><strong>12</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Metformin</td>
+<td>2</td>
+<td>2</td>
+<td>1</td>
+<td>3</td>
+<td>3</td>
+<td><strong>11</strong></td>
+</tr>
+<tr>
+<td>3=</td>
+<td>Acarbose</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>0 (not assessed)</td>
+<td><strong>9</strong></td>
+</tr>
+<tr>
+<td>3=</td>
+<td>Rapamycin / rapalogs</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>0 (not assessed)</td>
+<td><strong>9</strong></td>
+</tr>
+<tr>
+<td>3=</td>
+<td>Methylene blue</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>0 (not assessed)</td>
+<td><strong>9</strong></td>
+</tr>
+<tr>
+<td>6</td>
+<td>ACE inhibitors / ARBs</td>
+<td>2</td>
+<td>2</td>
+<td>1</td>
+<td>3</td>
+<td>0</td>
+<td><strong>8</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Dasatinib + quercetin (senolytics)</td>
+<td>2</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>0 (not assessed)</td>
+<td><strong>6</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Aspirin</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>0 (not assessed)</td>
+<td>0 (not assessed)</td>
+<td><strong>6</strong></td>
+</tr>
+<tr>
+<td>9</td>
+<td>N-acetyl cysteine</td>
+<td>1</td>
+<td>2</td>
+<td>2</td>
+<td>0 (not assessed)</td>
+<td>0 (not assessed)</td>
+<td><strong>5</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Note the difference between the two zeros. ACEi/ARB scores 0 on mortality
+because the studies exist and were <strong>predominantly negative</strong>; acarbose,
+rapamycin, methylene blue, senolytics, aspirin and NAC score 0 because the
+question was <strong>not assessed</strong>. Only the first is evidence against.</p>
+<h2 id="drug-module-matrix">Drug × module matrix</h2>
+<p>Which hallmark modules each candidate has a documented mechanistic claim
+against, mapped onto <code>kb/modules/</code>. <code>✓</code> = curated as a treatment with
+<code>target_mechanisms</code>; <code>·</code> = claim documented in the source literature, not yet
+curated; blank = no applicable studies found.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>SGLT2i</th>
+<th>Metformin</th>
+<th>Acarbose</th>
+<th>Rapamycin</th>
+<th>Methylene blue</th>
+<th>ACEi/ARB</th>
+<th>D+Q</th>
+<th>Aspirin</th>
+<th>NAC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deregulated_nutrient_sensing</code></td>
+<td>·</td>
+<td>✓</td>
+<td>·</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>·</td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>disabled_macroautophagy</code></td>
+<td>✓</td>
+<td>✓</td>
+<td></td>
+<td>·</td>
+<td></td>
+<td>·</td>
+<td></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>inflammaging</code></td>
+<td></td>
+<td>✓</td>
+<td>·</td>
+<td>·</td>
+<td></td>
+<td>·</td>
+<td>✓</td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mitochondrial_dysfunction</code></td>
+<td>·</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>·</td>
+<td></td>
+<td>·</td>
+</tr>
+<tr>
+<td><code>gut_dysbiosis</code></td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td></td>
+<td>·</td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cellular_senescence</code></td>
+<td></td>
+<td>·</td>
+<td></td>
+<td>·</td>
+<td>·</td>
+<td></td>
+<td>✓</td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stem_cell_exhaustion</code></td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>·</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>genomic_instability_aging</code></td>
+<td></td>
+<td>·</td>
+<td></td>
+<td>·</td>
+<td></td>
+<td></td>
+<td>·</td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>epigenetic_alterations</code></td>
+<td></td>
+<td></td>
+<td>·</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>·</td>
+<td></td>
+</tr>
+<tr>
+<td><code>loss_of_proteostasis</code></td>
+<td></td>
+<td>·</td>
+<td>·</td>
+<td>·</td>
+<td>·</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>telomere_attrition</code></td>
+<td></td>
+<td>·</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>The empty cells are informative and should not be filled in speculatively. The
+review records "No applicable studies" for many drug × hallmark pairs — SGLT2
+inhibitors and methylene blue against epigenetics and stem-cell renewal, ACEi
+and NAC against most hallmarks — and the newer or less-studied agents are
+simply thinner than metformin and rapamycin, not proven inactive there.</p>
+<h2 id="curation-status">Curation status</h2>
+<ul>
+<li>[x] Survey aging-module treatment coverage (9 of 13 modules had none)</li>
+<li>[x] <code>inflammaging</code> — metformin, senolytics (D+Q)</li>
+<li>[x] <code>gut_dysbiosis</code> — metformin, acarbose</li>
+<li>[x] <code>disabled_macroautophagy</code> — aspirin, metformin, SGLT2 inhibition</li>
+<li>[x] <code>mitochondrial_dysfunction</code> — methylene blue, metformin</li>
+<li>[x] <code>stem_cell_exhaustion</code> — metformin preconditioning</li>
+<li>[ ] <code>genomic_instability_aging</code> — rapamycin (Werner fibroblasts), aspirin (UVB DNA damage)</li>
+<li>[ ] <code>epigenetic_alterations</code> — acarbose (PDX-1 methylation), aspirin (colonic hypermethylation)</li>
+<li>[ ] <code>loss_of_proteostasis</code> — rapamycin, metformin (UPR via AMPK/ERK1/2)</li>
+<li>[ ] <code>cellular_senescence</code> — extend beyond D+Q to metformin, rapamycin, methylene blue senomorphic effects</li>
+<li>[ ] <code>telomere_attrition</code> — metformin; thin evidence, may stay uncurated</li>
+<li>[ ] <code>deregulated_nutrient_sensing</code> — add acarbose (insulin/IGF-1) and SGLT2i (AMP/ATP ratio, mTORC1)</li>
+<li>[ ] Consider a <code>Gerotherapeutics</code> grouping over modules carrying these treatments</li>
+</ul>
+<h2 id="curation-notes">Curation notes</h2>
+<p><strong>Effect direction is where the honesty lives.</strong> <code>MODULATES</code> is the right value
+more often than it is comfortable. Methylene blue improves mitochondrial
+respiration but its effect on reactive oxygen species runs in <em>opposite</em>
+directions depending on the substrate, so its link to
+<code>Bioenergetic Decline and Oxidative Stress</code> is <code>MODULATES</code>, and the entry
+carries a second evidence item quoting the unfavorable half of the result.
+Curating it as <code>RESTORES</code> with only the favorable quote would have been
+schema-valid and wrong.</p>
+<p><strong><code>directness: INDIRECT</code> is the tool for the lifespan-to-mechanism leap.</strong> That
+canagliflozin extends median male lifespan by 14% does not show the benefit runs
+through autophagy. The lifespan result belongs in the entry — it is why the drug
+is worth curating at all — but as <code>INDIRECT</code> support, not as evidence for the
+mechanism link.</p>
+<p><strong>Watch <code>evidence_source</code> on human-cell studies.</strong> Much of the strongest
+metformin evidence comes from human T cells or adipose explants treated <em>ex
+vivo</em>. That is <code>IN_VITRO</code>, not <code>HUMAN_CLINICAL</code>, however human the donor. Xu et
+al. 2018 needs splitting into two items for this reason: the human-explant
+senolytic result is <code>IN_VITRO</code>, the mouse survival result <code>MODEL_ORGANISM</code>.</p>
+<p><strong>Sex dimorphism is a real finding, not a caveat to drop.</strong> Acarbose extends
+median male lifespan by 16–17% and female by 4–5%; canagliflozin extends male
+lifespan and not female at all. Where the source reports it, keep it in the
+evidence <code>explanation</code>.</p>
+<p><strong>One drug legitimately appears against several modules.</strong> Metformin is curated
+against <a href="../modules/inflammaging.html">inflammaging</a>, macroautophagy, mitochondrial dysfunction, gut dysbiosis
+and stem-cell exhaustion. This is not duplication: Bharath et al. found the
+autophagic and mitochondrial actions run "largely in parallel" rather than one
+through the other, so they are separate mechanistic claims that happen to share
+a drug.</p>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li><strong>Should there be a gerotherapeutic module?</strong> The candidates share a target
+  (aging) but not a mechanism, and a module is a conserved <em>pathological
+  process</em>, not a drug class. A <code>Grouping</code> over the hallmark modules is the
+  better fit; recorded as a checklist item above rather than assumed.</li>
+<li><strong>ACEi/ARB is the awkward case.</strong> It scores 8, but its renoprotection is
+  explained by hemodynamics rather than by gerotherapeutic action — the review
+  says so explicitly. Curating it against an aging hallmark on the strength of
+  its score would overstate the evidence.</li>
+<li><strong>RTB101 / dactolisib</strong> was excluded from the ranking for not being
+  FDA-approved, despite phase 2b/3 respiratory-infection results in older
+  adults. If it is ever curated, the exclusion reason should be recorded so it
+  is not mistaken for a negative result.</li>
+</ul>
+<h2 id="sources">Sources</h2>
+<ul>
+<li>Kulkarni AS, Aleksic S, Berger DM, Sierra F, Kuchel GA, Barzilai N.
+  Geroscience-guided repurposing of FDA-approved drugs to target aging: A
+  proposed process and prioritization. <em>Aging Cell</em>. 2022;21(4):e13596.
+  <code>PMID:35343051</code>, <a href="https://doi.org/10.1111/acel.13596">doi:10.1111/acel.13596</a>.</li>
+<li>Primary studies are cited per-claim in the module <code>evidence</code> blocks; see
+  <code>git log</code> on <code>kb/modules/</code> and the history records under
+  <code>history/modules/</code> for the per-session curation record.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

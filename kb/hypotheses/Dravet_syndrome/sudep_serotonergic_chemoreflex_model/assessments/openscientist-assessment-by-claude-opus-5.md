@@ -51,11 +51,12 @@ contradicts.
   an observational cohort is not a demonstrated absence of effect; and the claim that PCCA
   is "the event type most closely tied to terminal SUDEP" is not supported by that
   abstract. Curate as a bounding observation, not a refutation.
-- **"Autoresuscitation, not chemoreflex gain"** → PMID:26272185 shows fluoxetine protects
-  without raising *basal ventilation*, and that breathing stimulants which do raise it
-  fail to protect. But basal ventilation is not chemoreflex **gain** (the slope of
-  ventilation against CO₂), which is what the model claims and which that experiment did
-  not measure. A real competing locus; not the refutation implied.
+- **"Autoresuscitation, not chemoreflex gain"** → PMID:26272185 directly measures
+  the ventilatory response to 7% CO₂: fluoxetine protects without increasing that
+  response, whereas doxapram and PK-THPP increase it without protecting. This is a real
+  CO₂-response-level double dissociation. It does not fully settle the Dravet mechanism
+  because breathing was not measured during audiogenic seizures and DBA/1 is not an
+  `Scn1a`-haploinsufficient model.
 
 ## Bottom line
 
