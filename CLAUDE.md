@@ -27,6 +27,9 @@ Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
+  Use when curating noncoding variant effects, including regulatory structural
+  variants, expression changes, and target-gene relationships.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 
@@ -1977,56 +1980,6 @@ Do **not** migrate an existing `INCREASED`/`DECREASED` annotation to
 `GAIN_OF_FUNCTION`/`LOSS_OF_FUNCTION` without that qualitative justification. "The pathway
 is very active" is `INCREASED`; "the pathway is no longer under host regulatory control"
 is `GAIN_OF_FUNCTION`.
-
-### Variant class and genomic context
-
-`variant_type` and `genomic_contexts` are optional **static enums** on both
-`Variant` and `GeneticContext` (including pathophysiology nodes).
-Write their human-readable permissible values directly; their Sequence Ontology
-identifiers live in the schema's `meaning` mappings, not in each disease entry:
-
-```yaml
-variants:
-- name: Regulatory deletion
-  variant_type: deletion
-  genomic_contexts:
-  - intron
-  description: Describe the affected element, host gene/transcript, and regulatory target here.
-```
-
-`variant_type` describes the physical alteration, not its effect. `genomic_contexts`
-is multivalued because an SV can overlap multiple features and transcripts can
-differ. Identify the relevant genes/transcripts in `description`; an intronic host
-gene is not necessarily the regulatory target. Do not infer a protein-coding or
-regulatory mechanism solely from these classifications. Keep expression effects in
-`regulatory_category` and mechanistic detail in `functional_effects` and the
-pathophysiology chain.
-
-Use the same fields in `pathophysiology[].genetic_context` so the initiating
-mechanism can be queried without parsing `allele_type` prose. Separate alternative
-deletion and inversion triggers when their physical classes or overlaps differ.
-Annotate the regulatory target gene on the downstream expression mechanism;
-do not make an intact target look like the physically altered gene of the trigger.
-Legacy `allele_type` remains valid and does not require migration.
-
-On an individual `Variant`, use `regulatory_target_gene` for the gene whose
-expression is affected or proposed to be affected. This does not assert sequence
-overlap. An SV that overlaps the gene and also alters its regulation may specify
-both `gene` and `regulatory_target_gene`. Keep uncertainty in the evidence and
-effect description; the target field alone does not establish the mechanism.
-
-`Pathophysiology.regulatory_category` can classify an expression-effect claim
-using the same existing enum. Classification and confidence are independent:
-`regulatory_category: GOE` with `mechanism_confidence: HYPOTHETICAL` means that
-ectopic expression is the proposed mechanism, not a measured observation.
-
-The legacy free-text `type` remains valid. New curation need not populate both
-forms, and existing entries do not require migration. Rendering and graph exports
-prefer `variant_type` when supplied, retaining different legacy `type` text as
-additional detail. For a physical alteration outside the controlled vocabulary,
-retain free-text `type` rather than forcing an inaccurate enum value. Omit unknown
-genomic contexts. These fields do not identify a particular enhancer or define
-genomic coordinates.
 
 ### Treatment Terms (NCIT)
 Treatments are annotated with NCI Thesaurus (NCIT) clinical-intervention terms, all
