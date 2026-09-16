@@ -696,6 +696,63 @@ snippet checks surface — it is a curation pass, not a config edit. (2) Delete 
 blob once open PRs have drained.
 
 
+### `quote_role`: provenance of the finding, separate from provenance of the sentence
+
+**Decision.** `EvidenceItem` carries an optional `quote_role`
+(`PRIMARY_RESULT` / `BACKGROUND` / `REVIEW_SYNTHESIS`) recording **where in the cited
+publication's own argument the quoted sentence sits**. Absent means unassessed and stays
+legal; nothing gates on it.
+
+**Why a fourth axis.** `reference` records which paper a quote came from. It does not
+record whether that paper *produced* the finding or was repeating somebody else's, and
+until this slot the model represented the two identically. The case that forced it
+([#10262](https://github.com/monarch-initiative/dismech/issues/10262)) is a chick-embryo
+study whose introduction states the human clinical picture, quoted for that human fact:
+
+- `MODEL_ORGANISM` asserts a chick measured human perinatal mortality. False.
+- `HUMAN_CLINICAL` asserts a study type the paper never ran. Also false.
+- `OTHER`, which review pressure settles on, says nothing at all, and collapses this case
+  together with the unrelated "quoted from a review" case.
+
+`HUMAN_CLINICAL` + `BACKGROUND` is true, and queryable. The distinction is orthogonal to
+all three existing axes and composes with each: `supports` is direction, `directness` is
+inferential distance, `evidence_source` is study type.
+
+**Why this passes the "derived, not authored" test** that
+[the evidence model](evidence-model.md) sets for new appraisal slots. It is not an
+appraisal: it is a fact about the cited document, and a partly *derivable* one. For a
+reference whose cached body carries NLM structured-abstract section labels, the zone a
+snippet sits in is a string containment; `just list-background-citations` reports that
+derivation as a worklist. Derivable is not autofilled: the derivation covers a minority of
+the corpus and a structured `BACKGROUND:` paragraph routinely closes with the authors' own
+framing, so the report proposes and a curator decides, the same line `dismech-terms` draws
+for ontology-term suggestions.
+
+**Three values, not four, and no `UNKNOWN`.** `REVIEW_SYNTHESIS` is load-bearing rather
+than decorative: it is what separates the two unrelated reasons an item ends up `OTHER`.
+`UNKNOWN` is omitted because absent already means "nobody has assessed this";
+`DirectnessEnum` carries both spellings and CLAUDE.md then has to instruct curators not to
+use one of them.
+
+**Mapped out, not modelled on.** Values carry CiTO mappings (`cito:citesAsEvidence`,
+`cito:obtainsBackgroundFrom`, `cito:citesAsAuthority`), following the §4 static-enum ruling.
+All three are `close_mappings`, not `exact_mappings`, because the two vocabularies describe
+different ends of the same citation: a CiTO property types the *citing* entity's use of a
+reference, while `quote_role` records where the sentence sits inside the *cited* document.
+They correlate and they come apart. An item quoting an introduction sentence as support for
+a KB claim is `citesAsEvidence` from the citing side while its `quote_role` is `BACKGROUND`,
+which is the case the slot exists for, so an exact mapping would assert an equivalence that
+fails precisely where it matters.
+
+**Not decided here.** A quoted *aim* statement ("the aim of the present study was to…")
+has no value in this enum; it is neither the paper's finding nor somebody else's fact.
+`just list-background-citations` reports those separately rather than the enum growing a
+value for them; see [#10262](https://github.com/monarch-initiative/dismech/issues/10262).
+Whether `quote_role` should ever be gated, and whether the same treatment should reach a
+full text's own section headings
+([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
+
+
 ## 7. Curation process & governance
 
 **Decision.** DisMech is **agent-forward**: most curation is performed by AI agents,
