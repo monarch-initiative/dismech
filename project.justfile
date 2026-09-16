@@ -1297,6 +1297,31 @@ aop-chain-census *args:
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
 
+# The complement of check-causal-targets: phenotypes that NO causal edge
+# explains. That check finds edges whose target resolves to nothing; this finds
+# phenotype nodes nothing points at, which is invisible to it -- an entry whose
+# every edge resolves cleanly can still leave every one of its phenotypes as a
+# disconnected island beside the pathophysiology layer. Reuses
+# `dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+# `phenotypes[].causal_inlink` compliance score, so the recipe and the score
+# cannot disagree. This is the triage view of that metric, not a replacement for
+# `just compliance-connectivity`, which stays the compliance view AND the gate
+# (phenotype inlink + gene outlink, enforcing the corpus `min_compliance` floor)
+# and has no per-entry ranking, tsv output, or attachment classes. The floor is
+# corpus-level so no single entry trips it; this is the per-entry worklist, which
+# is why it stays report-only and exit 0: connecting a phenotype is real curation
+# (which mechanism produces which feature), so an edge added to clear a report is
+# worse than no edge. The useful output is the
+# per-entry triage --
+# entries where NOTHING is connected, ranked by phenotypes stranded -- not the
+# corpus percentage. --format tsv/json, --zero-only, --strict, --fail-under.
+# See issue #11935.
+#
+# Phenotypes no causal edge explains: per-entry triage, exit 0.
+[group('QC')]
+list-disconnected-phenotypes *args="":
+    uv run python scripts/check_disconnected_phenotypes.py {{args}}
+
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
 # carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
