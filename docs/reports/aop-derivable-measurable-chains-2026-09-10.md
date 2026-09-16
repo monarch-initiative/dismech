@@ -210,6 +210,24 @@ dismech-derived Event can populate AOP's *what was measured* but not its
 `scripts/aop_chain_census.py`, run as `just aop-chain-census`. Regenerable from the KB
 alone; no network access is involved.
 
+**Only one kind of arrow is counted.** "Causal edge" here means a
+`pathophysiology[].downstream[]` entry — a mechanism node pointing at another mechanism
+node. The rendered disorder page draws several other kinds of arrow into the same graph,
+and none of them is in these counts:
+
+| Arrow type | Counted? |
+|---|---|
+| `pathophysiology[].downstream[]` | **yes** |
+| `environmental[].influences_mechanisms` | no |
+| `treatments[].target_mechanisms` | no |
+| `phenotypes[].sequelae` | no |
+| `experimental_models[]` / `animal_models[]` / `computational_models[].modeled_mechanisms` | no |
+
+The restriction is deliberate: a Key Event Relationship is a step from one mechanism to the
+next, so an exposure link, a treatment link or a model link is not a KER. But it means an
+entry's edge count here is lower than the arrow count on its page. `Chickenpox` has 3
+node-to-node edges and 3 further `environmental` links, all six cited; it counts as 3/3.
+
 **One node universe for every column.** A chain is a simple path (no repeated node) over
 `pathophysiology` nodes only. A `downstream` target naming a phenotype ends the chain and
 does not count toward its length — phenotypes carry no `downstream` edges of their own, so
@@ -273,8 +291,10 @@ selects AOP-derivable chains.
 | ≥4 nodes | 21 | 725 | **6** |
 | ≥5 nodes | 5 | 434 | **1** |
 
-36,793 causal edges KB-wide, 15,722 carrying evidence (43%). Restricted to the node-to-node
-edges these chains are built from: 17,932 edges, 7,332 cited (41%). Fully-cited chains reach
+36,793 node-to-node mechanism edges KB-wide, 15,722 carrying evidence (43%). Restricted
+further to edges whose target resolves to another `pathophysiology` node — the ones these
+chains are actually built from, excluding those that terminate on a phenotype — 17,932
+edges, 7,332 cited (41%). Fully-cited chains reach
 **12 nodes**, where fully-measured ones stop at 5.
 
 **Edge evidence is about thirty-five times more available than node measurability** — 725
