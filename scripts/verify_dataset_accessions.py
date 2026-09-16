@@ -375,15 +375,18 @@ def resolve_dbgap(local_id: str, throttle: Throttle, api_key: str | None):
             break
 
     # Same defence in depth as _eutils_lookup: confirm we got the study we asked
-    # for rather than whatever the server chose to return.
-    if canonical and not canonical.lower().startswith(base.lower()):
+    # for rather than whatever the server chose to return. A resource carrying
+    # no phs identifier at all cannot be checked, so it is reported rather than
+    # falling through to OK -- "we could not confirm this is the study you asked
+    # for" is a different answer from "it is".
+    if not canonical:
+        return ERROR, "", f"dbGaP returned a study with no phs identifier for {base}", {}
+    if not canonical.lower().startswith(base.lower()):
         return NOT_FOUND, "", f"dbGaP returned {canonical}, not {base}", {}
 
-    extra: dict[str, Any] = {}
-    if canonical:
-        extra["canonical_accession"] = canonical
-        if "." in local_id and canonical.lower() != local_id.lower():
-            extra["version_note"] = f"KB pins {local_id}; dbGaP current is {canonical}"
+    extra: dict[str, Any] = {"canonical_accession": canonical}
+    if "." in local_id and canonical.lower() != local_id.lower():
+        extra["version_note"] = f"KB pins {local_id}; dbGaP current is {canonical}"
     conditions = [
         c["text"] for c in (study.get("condition") or []) if c.get("text")
     ]
@@ -400,6 +403,11 @@ def resolve_immport(local_id: str, throttle: Throttle, api_key: str | None):
     ``api.immport.org`` requires a bearer token, but the search service backing
     the public ImmPort data browser does not, and it answers a field-restricted
     ``studyAccession=`` query with exactly the one matching study.
+
+    No KB file cites an ``immport:`` accession yet, so unlike the dbGaP resolver
+    beside it this one has been exercised against the response shape and not
+    against a corpus. Treat a first wholesale failure here as a question about
+    the resolver, not about the accessions.
     """
     if throttle:
         throttle.wait()
@@ -417,12 +425,18 @@ def resolve_immport(local_id: str, throttle: Throttle, api_key: str | None):
     for key, out in (
         ("condition_or_disease", "conditions"),
         ("pubmed_id", "pubmed_ids"),
-        ("species", "organism"),
         ("actual_enrollment", "sample_count"),
         ("assay_method", "assay_methods"),
     ):
         if source.get(key):
             extra[out] = source[key]
+    # `extra["organism"]` is a scalar in every other resolver; ImmPort returns a
+    # list, so join it rather than making this one key change shape by prefix.
+    species = source.get("species")
+    if species:
+        extra["organism"] = (
+            "; ".join(str(s) for s in species) if isinstance(species, list) else str(species)
+        )
     title = source.get("brief_title") or source.get("official_title") or ""
     return OK, title, "", extra
 

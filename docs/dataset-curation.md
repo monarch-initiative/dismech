@@ -92,9 +92,20 @@ phs001604  Affection_Status: Childhood asthma case or control  -> outcome
 phs000424  MHASTHMA: Asthma (General Medical History)          -> incidental (GTEx)
 ```
 
-Both mention asthma; only the first is an asthma study. On the asthma entry this
-cut the hits needing manual triage from 9 to 1. `--no-data-dict` skips the check
-when speed matters more than precision.
+Both mention asthma; only the first is an asthma study. `--no-data-dict` skips
+the check when speed matters more than precision.
+
+**A cue on both sides of one variable reads as incidental, not as an outcome.**
+"Self-reported physician diagnosis of asthma (medical history)" carries an
+outcome-looking phrase and a history-looking one, and promoting it would
+auto-approve exactly the GTEx-class hit this tier exists to reject — so within a
+single variable the incidental cue wins and the study stays in `SUBJECT_ONLY`
+for a person to read. Across *different* variables the outcome reading still
+wins: a study with a history checkbox and a separate affection-status variable
+is an outcome study. (An earlier draft quoted a measured "9 hits needing triage
+down to 1" for asthma. That figure predates this veto and the removal of the
+weak `diagnosis of` cue, both of which promote fewer studies, so it is not
+restated here — it needs a live dbGaP run to re-measure.)
 
 > **Never read `*.var_report.xml`.** Its per-variable summary statistics are
 > *disease-cohort* distributions, not clinical reference intervals. Curating one
@@ -308,6 +319,12 @@ NCBI GEO / SRA / BioProject / dbGaP, EBI BioStudies (ArrayExpress) / PRIDE /
 MetaboLights / MGnify, EGA, ImmPort, MassIVE, NASA OSDR, and Metabolomics
 Workbench.
 
+dbGaP resolves against the **dbGaP FHIR API**, not E-utilities. NCBI has
+withdrawn the `gap` database (`esearch.fcgi?db=gap` answers `Invalid db name
+specified: gap`), so the previous resolver returned `NOT_FOUND` — i.e. "treat as
+fabricated" — for every real dbGaP accession. If dbGaP verification ever starts
+failing wholesale again, check that before doubting the accessions.
+
 Adding another means writing a resolver in `scripts/verify_dataset_accessions.py`
 and registering its accession shape. Migrating an existing one to the reference
 cache (the `geo:` treatment) means instead giving it a `linkml-reference-validator`
@@ -315,12 +332,6 @@ source and adding it to `REFERENCE_CACHED_PREFIXES`. Worth doing next by volume:
 `ega` (382 accessions), `massive` (120), `metabolomics_workbench` (81), `dbgap`
 (71). lrv already ships a `BIOPROJECT` source, and its generic `json_api` source
 may cover others with configuration rather than code.
-
-dbGaP resolves against the **dbGaP FHIR API**, not E-utilities. NCBI has
-withdrawn the `gap` database (`esearch.fcgi?db=gap` answers `Invalid db name
-specified: gap`), so the previous resolver returned `NOT_FOUND` — i.e. "treat as
-fabricated" — for every real dbGaP accession. If dbGaP verification ever starts
-failing wholesale again, check that before doubting the accessions.
 
 For discovery, the ArrayExpress and EGA study indexes resolve offline against
 committed retrieval metadata. Their bulk archives are gitignored and rebuilt with

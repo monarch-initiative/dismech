@@ -64,9 +64,13 @@ duplicate-record hazard that
 (73.6 % GEO re-imports) and OmicsDI (89 % duplicates). Anything it returns is
 additive.
 
-**dismech is nearly empty on both new repositories.** The KB currently holds 3
-`dbgap:` accessions and 0 ImmPort accessions across ~290 dataset records — against
-project guidance that says to *prefer* dbGaP for rare disease.
+**dismech is thin on dbGaP and empty on ImmPort.** The KB holds 71 unique
+`dbgap:` accessions across 65 files and 0 ImmPort accessions (re-measured
+2026-09-15; an earlier draft of this report said "3 `dbgap:` accessions", which
+was wrong — it counted one discovery run's proposals rather than the KB).
+Those 71 were hand-placed, none came from a discovery script, and the figure is
+still small against project guidance that says to *prefer* dbGaP for rare
+disease.
 
 ## Access: use SPARQL, not the REST API
 

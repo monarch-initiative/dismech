@@ -10,11 +10,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from disease_title_match import (
+    ADJECTIVAL_FORMS,
     compile_phrases,
     entry_phrases,
     fold_diacritics,
     inflected_variants,
     match_title,
+    query_phrases,
 )
 
 from discover_dbgap_immport import (  # isort: skip
@@ -22,12 +24,18 @@ from discover_dbgap_immport import (  # isort: skip
     BLOCKED_STUDIES,
     BLOCKED_TITLE_RE,
     DATA_DICT_RE,
+    MAX_FHIR_PAGES,
+    OUTCOME_CUES,
+    _fhir_studies,
+    _immport_total,
+    _truncate,
     affection_signal,
     decode_body,
     infer_data_type,
     tier,
     to_record,
 )
+import discover_dbgap_immport  # isort: skip
 from verify_dataset_accessions import RESOLVERS, SHAPE  # isort: skip
 
 
@@ -315,3 +323,253 @@ def test_fhir_test_study_is_blocked():
     assert "phs002409" in BLOCKED_STUDIES
     assert BLOCKED_TITLE_RE.search("FHIR Test Study's ALPHA")
     assert not BLOCKED_TITLE_RE.search("Genome Wide Association Study of Asthma")
+
+
+# --------------------------------------------------------------------------- #
+# Review round 1 (PR #10567) regressions
+#
+# Every test below reproduces a defect the reviewer found in the first round of
+# this work. They are grouped here so a future change that reintroduces one is
+# named rather than merely red.
+# --------------------------------------------------------------------------- #
+
+
+def test_every_adjectival_forms_key_is_reachable():
+    """`head.lower().strip("'s")` strips a character *set*, not a suffix, so it
+    ate the head noun's own trailing s: diabetes -> diabete, stenosis -> tenosi.
+    Seven of the fourteen hand-verified pairs were unreachable, and the tests
+    only exercised Asthma, one of the survivors."""
+    unreachable = [key for key in ADJECTIVAL_FORMS if not inflected_variants(key)]
+    assert unreachable == []
+
+
+def test_inflected_variants_for_the_keys_that_used_to_be_unreachable():
+    assert inflected_variants("Rheumatoid Arthritis") == ["Rheumatoid Arthritic"]
+    assert inflected_variants("Psoriasis") == ["Psoriatic"]
+    assert inflected_variants("Type 2 Diabetes") == ["Type 2 Diabetic", "Type 2 Diabetics"]
+
+
+def test_a_possessive_head_still_reaches_the_table():
+    """Dropping the possessive is what the strip was *for*; keep that working."""
+    assert inflected_variants("Asthma's") == ["Asthmatic", "Asthmatics"]
+    assert inflected_variants("Asthma\u2019s") == ["Asthmatic", "Asthmatics"]
+
+
+def test_all_caps_titles_do_not_defeat_the_camelcase_relaxation():
+    """Accepting any following uppercase letter admitted exactly the matches the
+    module docstring says are blocked -- repository titles are full of ALL-CAPS
+    fragments, and a phrase followed by more capitals is not a CamelCase seam."""
+    for phrase, title in (
+        ("Adenoma", "FAMILIAL ADENOMATOUS POLYPOSIS"),
+        ("Adenoma", "Familial ADENOMATOUS Polyposis"),
+        ("Lymphoma", "LYMPHOMATOID PAPULOSIS COHORT"),
+    ):
+        assert match_title(title, compile_phrases([phrase]), [])[0] == "", (phrase, title)
+
+
+def test_camelcase_still_matches_after_the_all_caps_fix():
+    patterns = compile_phrases(["Asthma"])
+    assert match_title("AsthmaNet -APRIL and Oral Corticosteroids", patterns, [])[0] == "Asthma"
+    assert match_title("The AsthmaNet Network", patterns, [])[0] == "Asthma"
+
+
+def test_an_incidental_cue_in_the_same_variable_vetoes_the_outcome_reading():
+    """A self-reported-diagnosis checkbox is what a mega-cohort records. Reading
+    it as an outcome promoted the study to VARIABLE_MATCH, which is
+    auto-approved -- the GTEx class of hit the tier exists to reject."""
+    signal, _ = affection_signal(
+        [("MHASTHMA", "Self-reported physician diagnosis of asthma (medical history)")],
+        _ASTHMA,
+    )
+    assert signal == "INCIDENTAL"
+
+
+def test_bare_diagnosis_of_is_no_longer_an_outcome_cue():
+    assert affection_signal([("AST_DX", "Age at diagnosis of asthma")], _ASTHMA) == ("", "")
+    assert not OUTCOME_CUES.search("Age at diagnosis of asthma")
+
+
+def test_outcome_across_variables_still_wins_over_incidental():
+    """The veto is per variable. A study carrying a history checkbox *and* a
+    separate affection-status variable is still an outcome study."""
+    signal, quoted = affection_signal(
+        [
+            ("MHASTHMA", "Self-reported asthma (medical history)"),
+            ("Affection_Status", "Case or Control for asthma"),
+        ],
+        _ASTHMA,
+    )
+    assert signal == "OUTCOME"
+    assert "Affection_Status" in quoted
+
+
+def test_inflected_variants_are_not_issued_as_repository_queries():
+    """dbGaP `condition:text=` searches MeSH entry terms and ImmPort
+    `conditionOrDisease=` a curated disease field; neither holds "Asthmatic",
+    so querying the variants is a wasted request per variant per entry."""
+    phrases, _ = entry_phrases({"name": "Asthma"}, "Asthma")
+    assert "Asthmatic" in phrases
+    assert "Asthmatic" not in query_phrases(phrases)
+    assert "Asthma" in query_phrases(phrases)
+
+
+def test_fhir_search_follows_every_page(monkeypatch):
+    """Reading only the first bundle silently truncated the coded pass, which is
+    the pass the "same coverage as the catalog" argument rests on."""
+    pages = {
+        "https://x/?q=1": {
+            "entry": [{"resource": {"id": "a"}}],
+            "link": [{"relation": "next", "url": "https://x/?q=2"}],
+        },
+        "https://x/?q=2": {
+            "entry": [{"resource": {"id": "b"}}, {"resource": {"id": "c"}}],
+            "link": [{"relation": "self", "url": "https://x/?q=2"}],
+        },
+    }
+    monkeypatch.setattr(discover_dbgap_immport, "DBGAP_FHIR", "https://x/")
+    monkeypatch.setattr(discover_dbgap_immport, "http_json", lambda url, **kw: pages.get(url))
+    monkeypatch.setitem(pages, "https://x/?q=1&_count=50&_format=json", pages["https://x/?q=1"])
+    assert [s["id"] for s in _fhir_studies("q=1")] == ["a", "b", "c"]
+
+
+def test_fhir_page_walk_is_capped_and_says_so(monkeypatch, capsys):
+    """A server that always offers a next link must not loop forever, and the
+    cap is reported when it bites -- the convention MAX_DICT_TABLES already set."""
+    monkeypatch.setattr(discover_dbgap_immport, "DBGAP_FHIR", "https://x/")
+    calls = {"n": 0}
+
+    def endless(url, **kw):
+        calls["n"] += 1
+        return {
+            "entry": [{"resource": {"id": str(calls["n"])}}],
+            "link": [{"relation": "next", "url": f"https://x/?page={calls['n'] + 1}"}],
+        }
+
+    monkeypatch.setattr(discover_dbgap_immport, "http_json", endless)
+    studies = _fhir_studies("condition=D001249")
+    assert len(studies) == MAX_FHIR_PAGES
+    assert "page cap" in capsys.readouterr().err
+
+
+def test_fhir_page_walk_stops_on_a_self_referential_next_link(monkeypatch):
+    monkeypatch.setattr(discover_dbgap_immport, "DBGAP_FHIR", "https://x/")
+    same = "https://x/?condition=D1&_count=50&_format=json"
+    monkeypatch.setattr(
+        discover_dbgap_immport,
+        "http_json",
+        lambda url, **kw: {
+            "entry": [{"resource": {"id": "a"}}],
+            "link": [{"relation": "next", "url": same}],
+        },
+    )
+    assert len(_fhir_studies("condition=D1")) == 1
+
+
+def test_immport_total_is_read_from_either_response_shape():
+    assert _immport_total({"hits": {"total": 12}}) == 12
+    assert _immport_total({"hits": {"total": {"value": 12}}}) == 12
+    assert _immport_total({"hits": {}}) is None
+    assert _immport_total(None) is None
+
+
+def test_immport_truncation_is_reported_not_silent(capsys):
+    discover_dbgap_immport._report_immport_truncation("Asthma", {"hits": {"total": 56}}, 10)
+    assert "truncated" in capsys.readouterr().err
+
+
+def test_immport_reports_nothing_when_the_page_held_everything(capsys):
+    discover_dbgap_immport._report_immport_truncation("Asthma", {"hits": {"total": 10}}, 10)
+    assert capsys.readouterr().err == ""
+
+
+def test_truncation_never_appends_a_period_to_a_mid_word_cut():
+    """`desc[:700].rsplit(". ", 1)[0] + "."` returned the raw slice plus a full
+    stop whenever the slice held no sentence break, punctuating a cut word as
+    though the sentence ended there."""
+    long_clause = "supercalifragilistic " * 60
+    out = _truncate(long_clause, limit=700)
+    # An ellipsis reads as truncated; a bare full stop reads as a finished
+    # sentence, which is what the old expression produced.
+    assert out.endswith("...")
+    assert not out[:-3].endswith(".")
+    # ...and the cut lands on a word boundary, so no half word is quoted.
+    assert out[:-3].split()[-1] == "supercalifragilistic"
+    assert len(out) <= 700 + 3
+
+
+def test_truncation_prefers_a_whole_sentence_when_there_is_one():
+    text = "First sentence here. " + "filler word " * 100
+    out = _truncate(text, limit=700)
+    assert out == "First sentence here."
+
+
+def test_short_descriptions_are_left_alone():
+    assert _truncate("Short enough.", limit=700) == "Short enough."
+
+
+def test_dbgap_resolver_reports_a_study_with_no_phs_identifier(monkeypatch):
+    """The identity guard was skipped entirely when the FHIR resource carried no
+    phs identifier, so an unconfirmable response fell through to OK. "We could
+    not confirm this is the study you asked for" is a different answer from
+    "it is"."""
+    import verify_dataset_accessions as vda
+
+    monkeypatch.setattr(
+        vda,
+        "http_json",
+        lambda url, **kw: {"entry": [{"resource": {"title": "Some Study", "identifier": []}}]},
+    )
+    status, title, note, extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
+    assert status == vda.ERROR
+    assert "no phs identifier" in note
+
+
+def test_dbgap_resolver_reports_the_canonical_versioned_accession(monkeypatch):
+    import verify_dataset_accessions as vda
+
+    monkeypatch.setattr(
+        vda,
+        "http_json",
+        lambda url, **kw: {
+            "entry": [
+                {
+                    "resource": {
+                        "title": "Asthma Study",
+                        "identifier": [{"value": "phs001289.v2.p1"}],
+                        "condition": [{"text": "Asthma"}],
+                    }
+                }
+            ]
+        },
+    )
+    status, title, _, extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
+    assert status == vda.OK
+    assert extra["canonical_accession"] == "phs001289.v2.p1"
+    assert "dbGaP current is phs001289.v2.p1" in extra["version_note"]
+
+
+def test_immport_resolver_reports_organism_as_a_scalar(monkeypatch):
+    """`extra["organism"]` is a scalar in every other resolver; ImmPort returns
+    a list, and letting one key change shape by prefix is a trap downstream."""
+    import verify_dataset_accessions as vda
+
+    monkeypatch.setattr(
+        vda,
+        "http_json",
+        lambda url, **kw: {
+            "hits": {
+                "hits": [
+                    {
+                        "_source": {
+                            "study_accession": "SDY1679",
+                            "brief_title": "A study",
+                            "species": ["Homo sapiens"],
+                        }
+                    }
+                ]
+            }
+        },
+    )
+    status, title, _, extra = vda.resolve_immport("SDY1679", None, None)
+    assert status == vda.OK
+    assert extra["organism"] == "Homo sapiens"

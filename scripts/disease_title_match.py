@@ -11,7 +11,7 @@ because that is where sibling diseases, model systems and "we also profiled X"
 studies get in. Causal genes are never searched -- in GEO that produced
 Alzheimer and medulloblastoma data for neuroferritinopathy.
 
-Four guards, each traceable to a real failure:
+Six guards, each traceable to a real failure:
 
 ``GENERIC_PHRASES``
     ``Dorsalgia`` is bound to ``MONDO:0000001``, labelled simply "disease",
@@ -26,13 +26,20 @@ word-boundary matching
     "H Syndrome" matched "Denys-Drash Syndrome" and "MRKH syndrome".
 CamelCase compound boundary
     dbGaP names a trial network "AsthmaNet", so a strict trailing boundary
-    scored an asthma trial as though asthma were absent from the title. Only
-    an *uppercase* next character relaxes the boundary, which is why this does
-    not also let "Lymphoma" match "Lymphomatoid papulosis" -- a different
-    disease. Inflected lowercase forms ("Asthmatic Patients") are deliberately
-    still misses here; they are recovered from the study's data dictionary
-    instead, which states the affection status outright rather than guessing at
-    morphology.
+    scored an asthma trial as though asthma were absent from the title. The
+    boundary is relaxed only at a *true* CamelCase seam -- a lowercase letter
+    followed by an uppercase one -- which is why this does not also let
+    "Lymphoma" match "Lymphomatoid papulosis", a different disease. Accepting
+    any uppercase letter is not enough: repository titles are full of ALL-CAPS
+    fragments, where it would admit "Adenoma" into "FAMILIAL ADENOMATOUS
+    POLYPOSIS".
+``ADJECTIVAL_FORMS``
+    Inflected lowercase forms ("Sputum RNA-Seq from Asthmatic Patients") are
+    recovered by expanding the phrase list from a hand-verified table, *not* by
+    loosening the boundary. Only the pairs in that table are matched; nothing
+    is derived by rule. Where the table has no entry the study's own data
+    dictionary is still the fallback, since it states affection status outright
+    rather than guessing at morphology.
 diacritic folding
     dbGaP titles spell it "Sjögren's Syndrome" while the KB entry is
     ``Sjogrens_Syndrome``, so two on-target studies were scored as though the
@@ -162,9 +169,27 @@ def inflected_variants(phrase: str) -> list[str]:
     if not words:
         return []
     head = words[-1]
-    forms = ADJECTIVAL_FORMS.get(head.lower().strip("\u0027s"), [])
+    forms = ADJECTIVAL_FORMS.get(re.sub(r"['\u2019]s$", "", head.lower()), [])
     cased = str.capitalize if head[:1].isupper() else str.lower
     return [" ".join(words[:-1] + [cased(form)]) for form in forms]
+
+
+# The adjectival forms, inverted. A phrase ending in one of these was produced
+# by `inflected_variants`, not taken from the entry.
+_INFLECTED_HEADS = {form for forms in ADJECTIVAL_FORMS.values() for form in forms}
+
+
+def query_phrases(phrases: list[str]) -> list[str]:
+    """The subset of ``entry_phrases`` worth sending to a repository as a query.
+
+    ``entry_phrases`` returns everything a *title* may be matched against, which
+    includes the inflected variants above. Those are useless as queries: dbGaP's
+    ``condition:text=`` searches MeSH entry terms and ImmPort's
+    ``conditionOrDisease=`` searches a curated disease field, and neither
+    contains "Asthmatic". Issuing them is a wasted request per variant per
+    entry, so callers that use one list for both jobs should filter with this.
+    """
+    return [p for p in phrases if (p.split() or [""])[-1].lower() not in _INFLECTED_HEADS]
 
 
 def fold_diacritics(text: str) -> str:
@@ -187,17 +212,20 @@ def compile_phrases(phrases: list[str]) -> list[tuple[str, re.Pattern]]:
 
     The *leading* boundary stays strict -- that is the guard keeping "Pick
     disease" out of "Niemann-Pick disease". The *trailing* boundary also admits
-    a following uppercase letter, so a CamelCase compound ("AsthmaNet") counts
-    as naming the disease. The phrase is matched case-insensitively via an
+    a true CamelCase seam, a lowercase letter followed by an uppercase one, so a
+    compound like "AsthmaNet" counts as naming the disease. The lookbehind is
+    what makes that safe: admitting *any* following uppercase letter matched
+    "Adenoma" inside "FAMILIAL ADENOMATOUS POLYPOSIS", since repository titles
+    are routinely ALL-CAPS. The phrase is matched case-insensitively via an
     inline ``(?i:...)`` group rather than a whole-pattern flag, so the
-    uppercase lookahead keeps its meaning.
+    case-sensitive boundary lookarounds keep their meaning.
     """
     return [
         (
             p,
             re.compile(
                 rf"(?<![\w-])(?i:{re.escape(fold_diacritics(p))})"
-                rf"(?:(?![\w-])|(?=[A-Z]))"
+                rf"(?:(?![\w-])|(?<=[a-z])(?=[A-Z]))"
             ),
         )
         for p in phrases

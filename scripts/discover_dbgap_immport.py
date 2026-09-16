@@ -4,11 +4,13 @@
 Why these two repositories
 --------------------------
 They are the only two in the NIH Dataset Catalog that hold primary biomedical
-data, and dismech has almost no coverage of either (3 dbGaP accessions, 0
-ImmPort). Neither is reachable by any other dismech discovery script, and
-neither overlaps GEO/ArrayExpress/EGA/OmicsDI -- so unlike ArrayExpress
-(73.6% GEO re-imports) or OmicsDI (89% duplicates), nothing found here can
-duplicate an accession already in the KB under another prefix.
+data, and neither is reachable by any other dismech discovery script. dbGaP
+coverage is thin and hand-placed (71 unique ``dbgap:`` accessions across 65 KB
+files, measured 2026-09-15 with ``grep -rhoi 'dbgap:[A-Za-z0-9.]*' kb/ | sort
+-uf | wc -l``); ImmPort coverage is zero. Neither overlaps
+GEO/ArrayExpress/EGA/OmicsDI -- so unlike ArrayExpress (73.6% GEO re-imports)
+or OmicsDI (89% duplicates), nothing found here can duplicate an accession
+already in the KB under another prefix.
 
 Why the native APIs rather than the catalog
 -------------------------------------------
@@ -106,6 +108,7 @@ from disease_title_match import (
     entry_phrases,
     fold_diacritics,
     match_title,
+    query_phrases,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -116,6 +119,10 @@ IMMPORT_SEARCH = "https://www.immport.org/shared/data/query/api/search/study"
 USER_AGENT = "dismech-dataset-discovery (https://github.com/monarch-initiative/dismech)"
 
 PAGE = 50
+# Pages of PAGE studies each, so 20 pages is 1,000 studies for one query --
+# comfortably above the largest MeSH descriptor and still a bounded walk over a
+# public endpoint. Reported when it bites (never silent).
+MAX_FHIR_PAGES = 20
 REQUEST_GAP = 0.34  # be a polite guest on both public endpoints
 
 # dbGaP publishes each study's phenotype data dictionary openly, even when the
@@ -138,9 +145,14 @@ BLOCKED_TITLE_RE = re.compile(r"\bFHIR Test Study\b", re.IGNORECASE)
 #   Affection_Status / "Childhood asthma case or control"  -> the study outcome
 #   MHASTHMA         / "Asthma (General Medical History)"  -> a history checkbox
 # The second is GTEx, which is coded for asthma and is not an asthma study.
+# `\bdiagnosis of\b` was an OUTCOME cue and is deliberately not one any more.
+# A self-reported-diagnosis checkbox is exactly what a mega-cohort records, so
+# the cue promoted "Age at diagnosis of asthma" -- a GTEx-class incidental
+# mention -- into an auto-approved proposal. The surviving cues all name the
+# variable's *role* in the study design rather than the fact of a diagnosis.
 OUTCOME_CUES = re.compile(
     r"affection[\s_-]*status|case[\s_-]*(?:or|/|vs\.?|and)[\s_-]*control"
-    r"|case[\s_-]*control|\bcases and controls\b|\bdiagnosis of\b|\bproband\b",
+    r"|case[\s_-]*control|\bcases and controls\b|\bproband\b",
     re.IGNORECASE,
 )
 INCIDENTAL_CUES = re.compile(
@@ -259,10 +271,43 @@ def mesh_descriptors(mondo_id: str) -> tuple[list[str], list[str]]:
 
 
 def _fhir_studies(query: str) -> list[dict]:
-    data = http_json(f"{DBGAP_FHIR}?{query}&_count={PAGE}&_format=json")
-    if not data or data.get("resourceType") == "OperationOutcome":
-        return []
-    return [e.get("resource") or {} for e in (data.get("entry") or [])]
+    """Every page of a FHIR search, following ``Bundle.link[relation=next]``.
+
+    A common MeSH descriptor (asthma, diabetes) returns far more than one page,
+    and reading only the first silently truncated the coded pass -- which is the
+    pass the whole "same coverage as the catalog" argument rests on. The page
+    cap below is reported when it bites, never silent, as ``MAX_DICT_TABLES``
+    already is.
+    """
+    url = f"{DBGAP_FHIR}?{query}&_count={PAGE}&_format=json"
+    studies: list[dict] = []
+    seen_urls: set[str] = set()
+    for page in range(1, MAX_FHIR_PAGES + 1):
+        if url in seen_urls:  # a server that keeps handing back the same link
+            break
+        seen_urls.add(url)
+        data = http_json(url)
+        if not data or data.get("resourceType") == "OperationOutcome":
+            break
+        studies.extend(e.get("resource") or {} for e in (data.get("entry") or []))
+        nxt = next(
+            (
+                str(link.get("url") or "")
+                for link in data.get("link") or []
+                if str(link.get("relation") or "").lower() == "next"
+            ),
+            "",
+        )
+        if not nxt:
+            return studies
+        url = nxt
+        if page == MAX_FHIR_PAGES:
+            print(
+                f"  NOTE  dbGaP {query}: stopped at the {MAX_FHIR_PAGES}-page cap "
+                f"({len(studies)} studies); more pages were available",
+                file=sys.stderr,
+            )
+    return studies
 
 
 def query_dbgap(mesh_codes: list[str], phrases: list[str]) -> dict[str, dict]:
@@ -308,17 +353,43 @@ def query_dbgap(mesh_codes: list[str], phrases: list[str]) -> dict[str, dict]:
     return found
 
 
+def _immport_total(data) -> int | None:
+    """ImmPort's ``hits.total``, which is an int on some responses and an
+    Elasticsearch-style ``{"value": n}`` on others. ``None`` when absent."""
+    total = ((data or {}).get("hits") or {}).get("total")
+    if isinstance(total, dict):
+        total = total.get("value")
+    return total if isinstance(total, int) else None
+
+
+def _report_immport_truncation(phrase: str, data, returned: int) -> None:
+    total = _immport_total(data)
+    if total is not None and total > returned:
+        print(
+            f'  NOTE  ImmPort conditionOrDisease="{phrase}": {returned} of {total} '
+            f"studies returned (endpoint page size); results are truncated",
+            file=sys.stderr,
+        )
+
+
 def query_immport(phrases: list[str]) -> dict[str, dict]:
     """ImmPort's disease field, not its free-text index.
 
     ``conditionOrDisease=`` restricts the match to the study's disease field;
     the free ``term=`` matches anywhere in the record and roughly doubles the
     hit count with material that is not about the disease (asthma: 56 -> 29).
+
+    The endpoint applies its own default page size and exposes no documented
+    paging parameter, so rather than guess one this reports when the response
+    says it held more than it returned. A truncated pass is then visible in the
+    log instead of looking like a complete one.
     """
     found: dict[str, dict] = {}
     for phrase in phrases:
         data = http_json(f"{IMMPORT_SEARCH}?conditionOrDisease={urllib.parse.quote(phrase)}")
-        for hit in ((data or {}).get("hits") or {}).get("hits") or []:
+        hits = ((data or {}).get("hits") or {}).get("hits") or []
+        _report_immport_truncation(phrase, data, len(hits))
+        for hit in hits:
             src = hit.get("_source") or {}
             acc = str(src.get("study_accession") or "")
             if not acc or acc in found:
@@ -405,17 +476,34 @@ def affection_signal(variables, patterns) -> tuple[str, str]:
     variable naming the disease also reads as an affection status or
     case/control assignment, i.e. the study is *about* the disease even though
     its title does not say so.
+
+    **Within one variable an incidental cue vetoes the outcome reading.** The
+    two cue sets are not mutually exclusive -- "Self-reported physician
+    diagnosis of asthma (medical history)" carries both -- and reading such a
+    variable as an outcome promotes the study to ``VARIABLE_MATCH``, which
+    ``main()`` auto-approves. That is the GTEx class of hit this tier exists to
+    reject, so the ambiguous variable is counted as incidental and the study is
+    left in ``SUBJECT_ONLY`` for a curator to triage.
+
+    *Across* variables the outcome reading still wins: a study carrying both a
+    medical-history checkbox and a separate affection-status variable is an
+    OUTCOME study, and that precedence is unchanged.
     """
     incidental = ""
+    outcome = ""
     for name, description in variables:
         blob = f"{name} {description}"
         if not any(rx.search(fold_diacritics(blob)) for _, rx in patterns):
             continue
         quoted = f"{name}: {description}"[:160]
-        if OUTCOME_CUES.search(blob):
-            return "OUTCOME", quoted
-        if INCIDENTAL_CUES.search(blob) and not incidental:
-            incidental = quoted
+        if INCIDENTAL_CUES.search(blob):
+            if not incidental:
+                incidental = quoted
+            continue  # vetoes this variable's outcome cue, if it has one
+        if OUTCOME_CUES.search(blob) and not outcome:
+            outcome = quoted
+    if outcome:
+        return "OUTCOME", outcome
     return ("INCIDENTAL", incidental) if incidental else ("", "")
 
 
@@ -437,14 +525,31 @@ def infer_data_type(hit: dict) -> str:
     return ""
 
 
+def _truncate(desc: str, limit: int = 700) -> str:
+    """Clip a repository description to a whole sentence, or a whole word.
+
+    ``desc[:limit].rsplit(". ", 1)[0] + "."`` alone appends a full stop to the
+    raw slice whenever the first ``limit`` characters contain no sentence break
+    -- so a description with long clauses is cut mid-word and then punctuated as
+    though it ended there. Fall back to a word boundary and an ellipsis, which
+    reads as truncated rather than as a complete sentence.
+    """
+    if len(desc) <= limit:
+        return desc
+    head = desc[:limit]
+    sentence, sep, _ = head.rpartition(". ")
+    if sep:
+        return sentence + "."
+    word, sep, _ = head.rpartition(" ")
+    return (word if sep else head).rstrip(",;: ") + "..."
+
+
 def to_record(hit: dict, tier_name: str, matched: str, retrieved: str) -> dict:
     rec: dict = {"accession": hit["accession"], "title": hit["title"]}
 
     desc = re.sub(r"\s+", " ", hit.get("description") or "").strip()
     if desc:
-        rec["description"] = (
-            desc[:700].rsplit(". ", 1)[0] + "." if len(desc) > 700 else desc
-        )
+        rec["description"] = _truncate(desc)
 
     org = ORGANISM_TERMS.get(str(hit.get("organism") or "").strip().lower())
     if org:
@@ -502,11 +607,15 @@ def discover(slug: str, use_data_dict: bool = True) -> tuple[list[dict], str]:
     if not phrases:
         return [], f"{slug}: no usable disease phrase"
     patterns = compile_phrases(phrases)
+    # `phrases` is the match list and carries inflected variants ("Asthmatic");
+    # neither repository's disease field contains those, so the query list is
+    # the narrower one. See `query_phrases`.
+    queries = query_phrases(phrases)
 
     mondo = (((entry.get("disease_term") or {}).get("term") or {}).get("id")) or ""
     descriptors, scrs = mesh_descriptors(mondo)
 
-    hits = {**query_dbgap(descriptors, phrases), **query_immport(phrases)}
+    hits = {**query_dbgap(descriptors, queries), **query_immport(queries)}
 
     tiered = []
     for hit in hits.values():
