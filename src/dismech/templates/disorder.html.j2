@@ -702,6 +702,21 @@
             border: 1px solid #cbd5e1;
         }
 
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
+
         .evidence-source {
             font-size: 0.7rem;
             padding: 2px 8px;
@@ -3523,6 +3538,9 @@
                     {% if ev.directness %}
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">{{ ev.directness }}</span>
                     {% endif %}
+                    {% if ev.quote_role %}
+                    <span class="evidence-quote-role" title="{{ quote_role_tooltip(ev.quote_role) }}">{{ ev.quote_role | replace('_', ' ') }}</span>
+                    {% endif %}
                     {% if ev.evidence_source %}
                     <span class="evidence-source source-{{ ev.evidence_source }}">{{ ev.evidence_source | replace('_', ' ') | title }}</span>
                     {% endif %}
@@ -3886,6 +3904,66 @@
     {%- set qualifier = PREVALENCE_CLASS_QUALIFIERS.get(measure_type) if measure_type and value in NUMERIC_PREVALENCE_CLASSES else none -%}
     <span class="tag">{{ label }}{% if qualifier %} {{ qualifier }}{% endif %}</span>
     {%- endif -%}
+    {% endmacro %}
+
+
+    {# Treatment platform rows: therapeutic modality, and for a treatment that acts
+       by base-pairing with a target RNA, the oligonucleotide_details block.
+       delivery_platform and conjugation are shown as separate chips on purpose --
+       they are orthogonal, and collapsing them would hide the distinction that
+       matters most here (patisiran is Unconjugated AND Lipid nanoparticle, while
+       vutrisiran is GalNAc AND Ligand conjugate). aso_details / aso_mechanism /
+       aso_chemistry are the deprecated spellings and are read as fallbacks so
+       entries authored before the slot was generalized still render. #}
+    {% macro render_treatment_platform(tx) %}
+    {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
+    {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or (oligo and (oligo.delivery_platform or oligo.conjugation)) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        {% if tx.therapeutic_modality %}
+        <span class="tag tag-treatment">{{ treatment_platform_label(tx.therapeutic_modality) }}</span>
+        {% endif %}
+        {% if oligo_mechanism %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
+        {% endif %}
+        {% if oligo and oligo.delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(oligo.delivery_platform) }}</span>
+        {% endif %}
+        {% if oligo and oligo.conjugation %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: {{ treatment_platform_label(oligo.conjugation) }}</span>
+        {% endif %}
+        {% if oligo_chemistry %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+        {% if oligo.target_gene %}
+        {{ render_descriptor_tag(oligo.target_gene, "tag-gene", false, "treatment.target_gene") }}
+        {% endif %}
+        {% if oligo.target_transcript %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_transcript }}</span>
+        {% endif %}
+        {% if oligo.target_exon %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_exon }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if tx.dosing_interval or tx.dosing_interval_days %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Dosing:</strong>
+        {% if tx.dosing_interval %}
+        <span class="tag tag-treatment">{{ tx.dosing_interval }}</span>
+        {% endif %}
+        {% if tx.dosing_interval_days %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">every {{ tx.dosing_interval_days | round(1) | int if tx.dosing_interval_days == tx.dosing_interval_days | round(0) else tx.dosing_interval_days }} days</span>
+        {% endif %}
+    </div>
+    {% endif %}
     {% endmacro %}
 
     {% macro render_entity_refs(title, refs) %}
@@ -6056,6 +6134,7 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                {{ render_treatment_platform(tx) }}
                 {% if tx.treatment_term and tx.treatment_term.dietary_modifications %}
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Diet:</strong>

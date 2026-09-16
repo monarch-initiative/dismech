@@ -93,7 +93,7 @@ schema.
 **Subtypes vs. separate entries.** Closely related variants of one diagnosis are modeled
 as `has_subtypes` within a single file, using the subtype `name` as a foreign key that
 other sections (`phenotypes`, `genetic_basis`, etc.) reference via their `subtype` slot
-(enforced by `test_subtype_foreign_keys`). Create a **separate disorder file** only when
+(enforced by `check_subtype_foreign_keys`). Create a **separate disorder file** only when
 the condition has a distinct MONDO identity and a substantially independent mechanism;
 otherwise prefer a subtype. See the subtype naming conventions in
 [`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md).
@@ -201,7 +201,7 @@ comparison is cheap (`just model-scale-audit`).
 not be collapsed into a single "mismatch" boolean:
 
 - **Model below target** — upward extrapolation. The model cannot observe the outcome it
-  is cited for. This is the reviewable state, and `test_upward_extrapolating_links_are_caveated`
+  is cited for. This is the reviewable state, and `check_upward_extrapolating_links_are_caveated`
   requires `limitations` on it, mirroring the existing
   `FAILS_TO_RECAPITULATE`-must-be-substantiated rule.
 - **Model above target** — the model contains the target's scale and is normally
@@ -254,7 +254,7 @@ nearly absent. Full survey:
 **Relation to §3b.** `model_scale` gives one machine-derivable divergence
 (`SCALE_EXTRAPOLATION`); the taxonomy gives the ones that cannot be derived. The two
 cross-check: a `SCALE_EXTRAPOLATION` divergence contradicted by the scale slots fails both
-`test_scale_extrapolation_divergence_agrees_with_scales` and
+`check_scale_extrapolation_divergence_agrees_with_scales` and
 `just model-scale-audit --strict`. The most important thing the taxonomy adds is
 `PROXY_QUANTITY` — a model reporting a *different quantity* at the *same* scale, which no
 scale comparison can see. The Fanconi anemia FA/BRCA link is the worked case: aligned on
@@ -303,6 +303,79 @@ with no device framing at all: rule 1 "define context clearly" is the link, rule
 `divergences` — typed rather than prose being the only change. All four references are
 carried in the schema itself as `see_also` on `ModelMechanismLink`, `ModelDivergence`,
 `ModelDivergenceTypeEnum` and `ModelDivergenceMaterialityEnum`.
+
+### 3d. Cell of origin is derived from the pathograph, not stored in a slot (2026-09-02)
+
+**Decision.** A neoplasm entry's **cell of origin is derived**, by finding the
+pathophysiology node where the transforming lesion occurred and reading that node's
+`cell_types`. dismech adds **no `cell_of_origin:` slot**, on `Disease` or on `Subtype`.
+
+The origin node is identified by two rules, **both reading a structured claim** rather
+than a naming convention, with the rule that fired reported alongside the answer:
+
+| Rule | Marker |
+|---|---|
+| `SOMATIC_LESION` | `pathophysiology[].genetic_context.variant_origin: SOMATIC` (or `GERMLINE_AND_SOMATIC`) — the transforming lesion. Not restricted to root nodes: a second-hit or transformation lesion is still a somatic event. `allelic_hit_role: FIRST_HIT` narrows it further |
+| `ENVIRONMENTAL_TRIGGER` | an `environmental[].influences_mechanisms` link marking the node `environmental_effect: TRIGGERS` — non-mutational initiation (HPV, H. pylori, asbestos, UV), where there is no host lesion to mark. The same value the KGX exporter and compliance scoring already treat as causal |
+
+The exposure rule applies **only when no lesion is recorded**, which is a statement about
+meaning and not confidence: the cell of origin is the cell the transforming event occurred
+in, so once the entry records that event the exposure is upstream context.
+
+**Rejected: fallback rules for unmarked entries.** The first implementation also read an
+initiating-sounding free-text `role` on a root node, and chained fallbacks so a stronger
+rule could not discard a weaker rule's answer. Both existed to cover entries that had not
+recorded their origin, and both mis-fired — the role rule derived macrophage and pancreatic
+stellate cell as the cell of origin of pancreatic ductal adenocarcinoma, from a
+chronic-inflammation node. A `CONTEXT_NODE_MARKED` finding was added to catch that, and
+then false-positived on cancers that really are inflammation-initiated. The correct fix was
+to mark the records (`scripts/backfill_cancer_origin.py`, 105 entries) and delete the
+heuristics; an entry that does not say where it starts is now reported as not saying it
+(@cmungall, 2026-09-02).
+
+**Rationale.** A dedicated slot would restate what the pathograph already says, and the
+two would drift. It would also sit at the disease level, unable to distinguish a
+subtype's origin from its parent's, and it would invite filling in from the disease name
+rather than from the mechanism. Deriving it keeps the claim attached to the node holding
+its evidence, and makes an unmarked entry visible *as unmarked* rather than as an empty
+field. This was raised as a possible `cell_of_origin:` slot and rejected in favour of the
+marker on the node (@cmungall, 2026-09-02 session).
+
+**Consequence — the multi-origin finding is the lump/split signal.** Deriving more than
+one cell of origin is reported and **never gated**, because it means one of three
+different things and only a curator can say which: (a) a pool wearing a Disease entry's
+clothes (`Non-Small_Cell_Lung_Cancer` derives alveolar type 2 *and* bronchial epithelial
+cell, which is exactly what NSCLC is) — remedy a `Grouping` or a split per §3a; (b) one
+disease with genuine cell-of-origin **subtypes** (B-lymphoblastic leukemia across its 19
+subtypes; `GPR101-related_pituitary_adenoma_2`'s somatotroph and mammotroph) — remedy
+`has_subtypes`; (c) an origin the literature has not settled
+(`Melanoma_in_Congenital_Melanocytic_Nevus` names melanocyte and neural crest cell) —
+remedy a note. Seven entries currently report it, which is short enough to work through.
+A **viral** mechanism is never marked under rule 1 — HPV E6/E7 and HTLV-1 Tax leave no
+host variant for `variant_origin` to describe — and a spurious mark there is doubly
+harmful, since a recorded lesion suppresses the exposure rule that should answer for it
+(caught in review of PR #10629).
+
+**NCIT is a cross-check, not a binding target.** NCIT asserts cell of origin per disease
+inside its `owl:equivalentClass` definitions — `NCIT:R104` Disease_Has_Normal_Cell_Origin,
+`NCIT:R112` (weak form), and `NCIT:R105` Disease_Has_Abnormal_Cell into the Abnormal Cell
+branch (`NCIT:C12913`); DLBCL is *Mature B-Lymphocyte* → *Neoplastic Large B-Lymphocyte*.
+All three are ingested by the manifest-driven `OntologyEdgeSource` as quotable
+`references_cache/NCIT_*.md` rows. `CellTypeTerm` stays `reachable_from: CL:0000000`
+alone, so `cell_types` remains CL-only and an NCIT code there fails term validation. There
+is no NCIT-to-CL mapping in the repo, so agreement between our derived CL term and NCIT's
+class is a curator's judgement, not a computed match.
+
+**Enacted.** `scripts/check_cancer_origin.py` (`just check-cancer-origin`, advisory,
+inside `just qc`), `scripts/backfill_cancer_origin.py`, `tests/test_cancer_origin.py`, and
+105 entries marked. 124 of 252 assessed neoplasm entries now derive a cell of origin, and
+`ORIGIN_WITHOUT_CELL` is at zero — every entry that marks an origin binds a cell there,
+which makes that class ready to become a hard gate. **Still open:** the remaining 128
+unmarked entries, whose pathographs name no genetic lesion, or name one with no cell type
+anywhere in the entry — both need a curator rather than a script; and whether CL should
+gain lineage-specific transformed-cell terms, or `CellTypeTerm` gain `NCIT:C12913` as a
+second source node, so an entry needing "H3 K27M-mutant glioma cell" stops binding the
+generic `CL:0001063`. See [cancer-cell-of-origin.md](../cancer-cell-of-origin.md).
 
 ## 4. Ontology constraints
 
@@ -621,6 +694,63 @@ generation; the §6 exact-quote rule is unchanged.
 new code. Budget each migration as a backfill *plus* whatever the newly-enabled title and
 snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
 blob once open PRs have drained.
+
+
+### `quote_role`: provenance of the finding, separate from provenance of the sentence
+
+**Decision.** `EvidenceItem` carries an optional `quote_role`
+(`PRIMARY_RESULT` / `BACKGROUND` / `REVIEW_SYNTHESIS`) recording **where in the cited
+publication's own argument the quoted sentence sits**. Absent means unassessed and stays
+legal; nothing gates on it.
+
+**Why a fourth axis.** `reference` records which paper a quote came from. It does not
+record whether that paper *produced* the finding or was repeating somebody else's, and
+until this slot the model represented the two identically. The case that forced it
+([#10262](https://github.com/monarch-initiative/dismech/issues/10262)) is a chick-embryo
+study whose introduction states the human clinical picture, quoted for that human fact:
+
+- `MODEL_ORGANISM` asserts a chick measured human perinatal mortality. False.
+- `HUMAN_CLINICAL` asserts a study type the paper never ran. Also false.
+- `OTHER`, which review pressure settles on, says nothing at all, and collapses this case
+  together with the unrelated "quoted from a review" case.
+
+`HUMAN_CLINICAL` + `BACKGROUND` is true, and queryable. The distinction is orthogonal to
+all three existing axes and composes with each: `supports` is direction, `directness` is
+inferential distance, `evidence_source` is study type.
+
+**Why this passes the "derived, not authored" test** that
+[the evidence model](evidence-model.md) sets for new appraisal slots. It is not an
+appraisal: it is a fact about the cited document, and a partly *derivable* one. For a
+reference whose cached body carries NLM structured-abstract section labels, the zone a
+snippet sits in is a string containment; `just list-background-citations` reports that
+derivation as a worklist. Derivable is not autofilled: the derivation covers a minority of
+the corpus and a structured `BACKGROUND:` paragraph routinely closes with the authors' own
+framing, so the report proposes and a curator decides, the same line `dismech-terms` draws
+for ontology-term suggestions.
+
+**Three values, not four, and no `UNKNOWN`.** `REVIEW_SYNTHESIS` is load-bearing rather
+than decorative: it is what separates the two unrelated reasons an item ends up `OTHER`.
+`UNKNOWN` is omitted because absent already means "nobody has assessed this";
+`DirectnessEnum` carries both spellings and CLAUDE.md then has to instruct curators not to
+use one of them.
+
+**Mapped out, not modelled on.** Values carry CiTO mappings (`cito:citesAsEvidence`,
+`cito:obtainsBackgroundFrom`, `cito:citesAsAuthority`), following the §4 static-enum ruling.
+All three are `close_mappings`, not `exact_mappings`, because the two vocabularies describe
+different ends of the same citation: a CiTO property types the *citing* entity's use of a
+reference, while `quote_role` records where the sentence sits inside the *cited* document.
+They correlate and they come apart. An item quoting an introduction sentence as support for
+a KB claim is `citesAsEvidence` from the citing side while its `quote_role` is `BACKGROUND`,
+which is the case the slot exists for, so an exact mapping would assert an equivalence that
+fails precisely where it matters.
+
+**Not decided here.** A quoted *aim* statement ("the aim of the present study was to…")
+has no value in this enum; it is neither the paper's finding nor somebody else's fact.
+`just list-background-citations` reports those separately rather than the enum growing a
+value for them; see [#10262](https://github.com/monarch-initiative/dismech/issues/10262).
+Whether `quote_role` should ever be gated, and whether the same treatment should reach a
+full text's own section headings
+([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
 
 
 ## 7. Curation process & governance
@@ -1081,9 +1211,10 @@ This section details decisions we have **not yet made or formalized**.
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
-| `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `test_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |
+| Measurement context on `ExperimentalReadout` (spatial position, sampling rate, named comparator) | **Open; narrower than first recorded.** `model_scale` and `divergences` now cover the *scale* and *shortfall* axes on `ModelMechanismLink`, and a NAM curation pass populated both across eight links. What they do not cover is positive metadata about how a measurement was made: an **internal spatial comparator** (organoid interior vs. edge in the same construct — `STRUCTURAL_IDEALIZATION` is the wrong shape, since the spatial structure is the model's strength), a **sampling rate** (20 ms light-sheet calcium imaging, currently in free-text `culture_system`; `TEMPORAL_SCOPE` types a mismatch, not a rate), and the **comparator arm** that `ModelReadoutDirectionEnum` is explicitly defined against but which no slot names — a readout reading `DECREASED` against epicardium-free tissue rather than untreated tissue is nearly meaningless without its prose. The comparator is the narrowest and most tractable piece and every readout in the KB inherits it. Weigh against sparse population of the slots that already exist. `assays` is populated on several hundred readouts but is **never ontology-bound**: every entry carries a bare `preferred_term` and not one carries a `term:`, because `OBI` is absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so a curator who tried could not validate it. Scale is near-universally `UNDETERMINED`. Both counts move with every curation pass and are deliberately not pinned in this register — read them from `just model-scale-audit` and from a `term:`-under-`assays:` scan of `kb/`. (An earlier revision of this row said `assays` was used on 0 of 289 readouts; the slot is used, it is the ontology binding that is at zero.) | [Spatially resolved in vitro models](../reports/spatially-resolved-in-vitro-models-2026-09-02.md) |
+| `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `check_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |
 | Hypothesis-exploration report assessments and reconciliation | **ENACTED (assessment: PR #7017; reconciliation: 2026-08-29; data/analysis provenance: 2026-08-29).** A focused hypothesis report is a research lead, not disease-level curated evidence. One standalone LinkML-validated YAML sidecar is stored for each `<provider>-assessment-by-<assessor>` pair under `kb/hypotheses/<Disease>/<hypothesis_id>/assessments/`; optional Markdown/PDF files with the same stem are human-readable renderings. Each sidecar captures an overall qualitative verdict plus claim-level `RETAINED` / `QUALIFIED` / `REJECTED` / `NEEDS_VERIFICATION` dispositions, each optionally anchored to the raw report. It also inventories material `data_sources` and provider `analyses`: data access distinguishes accessed, negative-search, cited-only, and unverifiable sources; execution status distinguishes succeeded, partial, failed, skipped, and reported-only work; and claims link to the analyses to which the provider attributes them. Status and auditability determine whether execution actually supports the claim. `SUCCEEDED` is intentionally limited to artifact-backed, reproducible execution with recorded inputs, method, versioned software, code, environment, and outputs. Failed-tool and lower-fidelity fallback lineage is explicit, so prose or model knowledge cannot silently replace computation. Manifests, code, environment records, and small derived outputs are committed; large recoverable raw data, provider lakes, controlled data, and secrets remain external with stable identifiers and checksums. When comparison is useful, one authoritative `reconciliation.yaml` at the hypothesis root reconciles at least two separately assessed reports; it never replaces the source assessments (which may share an assessor, but must review each report on its own). Each provider input links both its report and selected assessment, and every reconciled claim records all providers' stances; every non-silent position also records source assessment claim IDs, a verbatim report quote, and claim lineage. Lineage distinguishes new-source discovery, new extraction from a seed-cited source, provider analysis, provider inference, seed-derived repetition, and prior-provider-derived repetition. A provider-reported but unauditable analysis remains visible as `REPORTED_ONLY`, but is not verified execution or independent computational support. Inherited claims, shared code, shared derived results, and shared upstream outputs are not independent convergence; use of the same public accession requires comparison of cohort, method, parameters, and outputs before calling analyses independent. The reconciliation assigns its own evidence-based claim dispositions and overall verdict; provider majority and citation count do not determine truth. Validation enforces layout, source and artifact containment, metadata and foreign-key consistency, data/analysis/claim links, the execution-auditability matrix, fallback and claim lineage, all-provider claim coverage, and report-quote anchoring. Literature identifiers and provider-derived datasets in either artifact remain review context, not disease-YAML evidence; promotion still requires normal reference-cache, dataset, and evidence validation. This hypothesis-local artifact is distinct from the broad disorder-level `research/<Disease>-research-synthesis.yaml`. | `src/dismech/schema/hypothesis_assessment.yaml`; `src/dismech/schema/hypothesis_reconciliation.yaml`; `docs/hypothesis-report-assessments.md` |
-| Hypothesis-based phenotype algorithms | **ENACTED (2026-07-12, `@cmungall`-approved).** `definition_type: PHENOTYPE_ALGORITHM` previously assumed established/validated grounding. `Definition` now carries an orthogonal `derivation_basis` (`ESTABLISHED_CRITERIA` / `MECHANISTIC_HYPOTHESIS` / `MODEL_SYSTEM_EXTRAPOLATION`); **reuses the existing `attaches_to` slot** to link the pathograph node(s)/edge(s) it is predicated on (so the hypothesis basis is *inferred* from those edges' `hypothesis_groups` → `mechanistic_hypotheses[].status`, not stored as a drift-prone duplicate ID); and a **structured `validation_status` object** (`AlgorithmValidationStatus`: `status` enum `PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD` + free-text `rationale` + optional `evidence`). Net effect: a mechanism-predicated EHR case-finding query (e.g. fever-triggered arrhythmia surfacing latent CACNA1C carriers) is not conflated with a consensus/OHDSI-validated phenotype. Gated by `test_hypothesis_based_definition_attaches_to_foreign_keys` (a `MECHANISTIC_HYPOTHESIS` definition must have resolving `attaches_to` refs). Worked examples spanning the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`; `MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish), `Brugada_Syndrome` (fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`), `Long_QT_Syndrome` (QT-prolonging-*drug* unmasking of latent congenital LQTS; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — a pharmacological rather than physiological trigger), and `Malignant_Hyperthermia_of_Anesthesia` (*anesthetic* trigger, skeletal-muscle RYR1/CACNA1S; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — the first non-cardiac example, whose definition `attaches_to` the entry's existing trigger node). See [hypothesis-based-phenotype-algorithms.md](../hypothesis-based-phenotype-algorithms.md) and the candidate register in [reports/hypothesis-driven-ehr-case-finding](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md). **Remaining follow-ups:** advisory declared-vs-inferred consistency lint; renderer badge; KGX/BioLink export treatment (suppress or specially mark). | [#6245](https://github.com/monarch-initiative/dismech/issues/6245) |
+| Hypothesis-based phenotype algorithms | **ENACTED (2026-07-12, `@cmungall`-approved).** `definition_type: PHENOTYPE_ALGORITHM` previously assumed established/validated grounding. `Definition` now carries an orthogonal `derivation_basis` (`ESTABLISHED_CRITERIA` / `MECHANISTIC_HYPOTHESIS` / `MODEL_SYSTEM_EXTRAPOLATION`); **reuses the existing `attaches_to` slot** to link the pathograph node(s)/edge(s) it is predicated on (so the hypothesis basis is *inferred* from those edges' `hypothesis_groups` → `mechanistic_hypotheses[].status`, not stored as a drift-prone duplicate ID); and a **structured `validation_status` object** (`AlgorithmValidationStatus`: `status` enum `PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD` + free-text `rationale` + optional `evidence`). Net effect: a mechanism-predicated EHR case-finding query (e.g. fever-triggered arrhythmia surfacing latent CACNA1C carriers) is not conflated with a consensus/OHDSI-validated phenotype. Gated by `check_hypothesis_based_definition_attaches_to_foreign_keys` (a `MECHANISTIC_HYPOTHESIS` definition must have resolving `attaches_to` refs). Worked examples spanning the spectrum: `Timothy_Syndrome` (`fever_exacerbated_cav1.2`; `MECHANISTIC_HYPOTHESIS`/`PROPOSED`, zebrafish), `Brugada_Syndrome` (fever-unmasking of the type-1 ECG; `ESTABLISHED_CRITERIA`/`UNVALIDATED`), `Long_QT_Syndrome` (QT-prolonging-*drug* unmasking of latent congenital LQTS; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — a pharmacological rather than physiological trigger), and `Malignant_Hyperthermia_of_Anesthesia` (*anesthetic* trigger, skeletal-muscle RYR1/CACNA1S; `ESTABLISHED_CRITERIA`/`UNVALIDATED` — the first non-cardiac example, whose definition `attaches_to` the entry's existing trigger node). See [hypothesis-based-phenotype-algorithms.md](../hypothesis-based-phenotype-algorithms.md) and the candidate register in [reports/hypothesis-driven-ehr-case-finding](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md). **Remaining follow-ups:** advisory declared-vs-inferred consistency lint; renderer badge; KGX/BioLink export treatment (suppress or specially mark). | [#6245](https://github.com/monarch-initiative/dismech/issues/6245) |
 | `updated_date` field | Deprecated in favor of git history; legacy entries may retain it pending bulk cleanup | — |
 | Deprecated `prevalence.percentage` cleanup | `percentage` superseded by structured prevalence slots (§8) and deprecated. The bare-number unit-ambiguity backlog is effectively resolved: of 199 records, **166 are converted** via `scripts/resolve_bare_prevalence.py` plus reviewed batches — 91 low-value rare-disease prevalences, 47 high-percent population/cohort prevalences (conditional ones qualified by their `population` field), 9 hand-fixed `DISAGREE`, and 19 final records (12 uncorroborated-but-legit + 7 filter false-positives) using the rule **decimal = percent, scientific-notation = proportion** (e.g. CHIME `1e-06` = 1/million; Cockayne `4e-06` = 1/250,000; carrier/birth measures set where stated). All additive; `percentage` preserved. The **33 not converted are not a unit problem**: 32 are records that are *not population prevalence at all* (`MISPLACED_STAT` in `research/prevalence_bare_number_report.md` — metastatic-cancer 5-year survival, staging fractions, complication rates, and fraction-of-category such as "X% of all lymphomas/leukemias/cancers"), which belong in a different slot and need **relocation, not unit-fixing** — a distinct data-quality task pending a schema home for survival/staging/subtype-share data; plus 1 genuinely-ambiguous record (Nephronophthisis `0.1-1.0`, neither a clean percent nor proportion with no corroborating evidence). Plus ~8 free-prose head-counts. `percentage` field removal is deferred until the misplaced-data relocation lands. **Post-migration correction (PR review):** a systematic scan found **19 records across 16 files** where a *fraction-of-category* or *penetrance* value (with the qualifier living in `notes`, so the percentage-only guard missed it) had been wrongly converted to a population `rate_per_100000` — e.g. Osteogenesis_Imperfecta_Type_II `50%` (half of prenatal-onset OI cases → 50,000/100k), HPAH/FXTAS carrier **penetrance** (~40% → 40,000/100k), Minimal_Change_Disease (70–90% of idiopathic NS), Cholesteatoma (419/1710 otitis-media patients). These had their `measure_type`/`prevalence_class`/`rate_*` slots stripped (bare `percentage` preserved). The migration guard was hardened accordingly: `FRACTION_OF_CATEGORY_RE` now also matches cohort head-counts (`N of M`) and `% of <solved/idiopathic/sporadic/typhoidal/…>` categories stated in the percentage, and a new `PENETRANCE_RE` (safe to run against `notes`) catches penetrance/lifetime-risk qualifiers. Bare-percentage cohort fractions whose qualifier is *only* in prose remain inherently ambiguous from the value alone and are corrected by hand rather than by an aggressive notes scan (which would false-positive on records like Lathyrism, whose notes cite a cohort count but whose `percentage` is a genuine population estimate). **Second correction batch (PR review):** a follow-up KB-wide scan surfaced a further class of measure-type/conditional errors on rate-bearing records — (a) **genotype-conditional cumulative incidence / penetrance** stated as "N% diagnosed by age X" (Hemochromatosis male C282Y homozygotes 56.4% by age 80) or "cumulative risk of new cases up to age N" (Oppositional_Defiant_Disorder), which were stripped like the penetrance records; (b) **wrong measure_type** where the type lived only in `notes`/snippet — lifetime prevalence tagged POINT (Anorexia_Nervosa, Migraine_with_Aura → LIFETIME_PREVALENCE) and 12-month prevalence tagged POINT (Obsessive-Compulsive_Disorder → PERIOD_PREVALENCE); (c) **cohort-conditional risk-factor rates** (Furunculosis S. aureus nasal-carriage 60%/36%, Acute_Hypotension 88% intraoperative-event rate in ASA 3–4 surgical patients), stripped; and (d) a **two-figure percentage** where the parser captured the incidence not the prevalence (Systemic_Lupus_Erythematosus North America "23.2/100k incidence; 241/100k prevalence"), split into separate POINT_PREVALENCE (241) and ANNUAL_INCIDENCE (23.2) records. `PENETRANCE_RE` was extended with `cumulative incidence/risk` and `diagnosed by age` (verified against the KB to add no false positives on legitimate rate-bearing records). **Third correction batch (PR review):** a further scan found cohort-conditional / diagnostic-procedure rates whose qualifier lives only in the **`population` label** (not `percentage`/`notes`), which the guards do not parse: e.g. FICUS_syndrome (PICS-F among ICU family members), Coronary_Vasospasm (spasm among ANOCA patients), Refeeding_Syndrome (event rate in hospitalized/PN patients), Aortitis (histology among aortic-surgery patients), Brucellosis (pooled prevalence among included study populations), Silent_Sinus_Syndrome (radiologic finding among head-CT patients), Laryngotracheoesophageal_Cleft (proportion among endoscopy referrals) — structured slots stripped. Plus three `measure_type` corrections to BIRTH_PREVALENCE (Klinefelter_Syndrome, Wolf-Hirschhorn_Syndrome, MECP2_Duplication_Syndrome) where the birth-prevalence language was in the snippet only. Population-label conditionality is deliberately **not** auto-guarded: the label alone cannot separate a selected referral cohort ("adults undergoing head CT") from a legitimate large-scale screening population that approximates the general rate ("Pregnant women undergoing genome-wide NIPS", 333,187 women → 6.9/100,000), so this class stays manual-review. | migration follow-up + schema follow-up (destination for survival/staging/subtype-share) |
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
@@ -1101,3 +1232,252 @@ This section details decisions we have **not yet made or formalized**.
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
 | Abstract (non-disease) comorbidity/trajectory poles | Undecided. `ComorbidityAssociation.disease_a/disease_b` are `ConditionDescriptor`s where `slug` is optional, so a pole need not resolve to a `Disease` entry — e.g. an exposure/state like "accelerated biological aging" expressed via `preferred_term` (optionally MONDO/HP-bound). Schema permits it; whether it is idiomatic (vs. requiring both poles to be bona fide conditions, and modeling the broad mechanism on a module instead) is not yet decided. Convention so far: keep the conserved mechanism on a `kb/modules/` module and reserve trajectory entries for concrete condition pairs, with the module referenced via `conforms_to` from the trajectory's hypothesis nodes. | schema/governance follow-up |
 | Structured effect-modifier / life-stage on associations | Deferred. `ComorbidityDirectionEnum` encodes only **temporal precedence** (A_BEFORE_B, BIDIRECTIONAL, …), not the **sign** of an effect, and `AssociationSignal.demographics.age_range` is free text. There is no first-class way to represent a context-dependent **sign reversal** (antagonistic pleiotropy) — e.g. accelerated aging being risk-increasing for early-onset cancer but tumor-suppressive in later life. Today this is recorded only via two stratified `association_signals` (opposite-sign metrics + `age_range` strings) plus prose `hypotheses`, which is legible to humans but not to tooling. Candidate enhancement: an enum-backed `life_stage`/`context` and/or an `effect_direction` (RISK_INCREASING / PROTECTIVE) distinct from temporal `directionality`. **Precedent for the modeling alternative:** for the senescence case the antagonistic pleiotropy was modeled instead as **two complementary precomposed modules** — `cellular_senescence` (deleterious arm) and `senescence_tumor_suppression` (protective arm) — rather than a single effect-reversing edge. This sidesteps the missing construct and is the preferred pattern when the opposing effects are mechanistically separable; the structured effect-modifier remains a candidate only for genuinely single-edge sign reversals. | schema follow-up |
+| Xogenesis lesion anchoring (MPATH retirement) | **PROPOSED, not enacted** — see [§13](#13-xogenesis-lesion-anchoring-retire-mpath-in-favour-of-a-clinical-vocabulary) for the full rationale. MPATH is the *Mouse* pathology ontology, is absent from `conf/oak_config.yaml` (so its ids have never been validated — an instance of the *unlisted ontology prefixes* row above), and lacks continuant classes for thrombus / atheroma / amyloid, which three of the five Xogenesis modules already flag as gaps. Proposal: drop MPATH entirely and re-ground the lesion-identity slot on NCIt via a bound `XogenesisAnchor` slot (`output_kind` + OGMS genus + UBERON site), with ICD-O-3 as a neoplasm-only mapping. Open: whether to reuse `HistopathologyFindingTerm` or mint a narrower enum, and how far the allow-list stretches for lesion terms NCIt files under *Disease or Disorder*. | [#7356](https://github.com/monarch-initiative/dismech/issues/7356) |
+
+## 13. Xogenesis lesion anchoring: retire MPATH in favour of a clinical vocabulary
+
+> **Status: PROPOSED, not enacted.** No module file, schema file, or skill has been
+> changed. This section records the rationale and the open questions so they can be
+> signed off before any migration. Numbered 13 rather than inserted before *Gaps* so the
+> existing `#12-gaps` anchor keeps resolving.
+
+**Decision (proposed).** **MPATH is dropped from DisMech entirely.** The lesion-identity
+slot in the Xogenesis anchor convention is re-grounded on the **NCI Thesaurus**, with
+**ICD-O-3** available as a mapping for the neoplasm case only. The anchor moves out of
+free-text `notes:` into a **bound schema slot** so it is covered by term validation.
+
+**What MPATH is doing today.** Modules whose terminal output is the formation of a
+pathological material entity ("Xogenesis" modules) carry a four-part anchor stanza in
+`notes:` — process genus (`OGMS:0000061` and its `OGMS:0000080` / `OGMS:0000081`
+sub-types), output continuant (`OGMS:0000078` / `OGMS:0000079`), **lesion identity
+(MPATH)**, and site (`UBERON`). The convention lives in
+`.claude/skills/create-module/SKILL.md`; five modules carry it — `granuloma_formation`
+(`MPATH:847`), `renal_cystogenesis` (`MPATH:62`), `thrombogenesis` (`MPATH:125`),
+`atherogenesis` (`MPATH:28`), `amyloidogenesis` (none).
+
+**Rationale for dropping MPATH.**
+
+1. **Mouse vocabulary, human KB.** MPATH is the *Mouse pathology ontology* — per OBO
+   Foundry, "a structured controlled vocabulary of mutant and transgenic mouse pathology
+   phenotypes", built for Pathbase mouse histopathology annotation. It is not a clinical
+   terminology and has no clinical deployment. DisMech is a human-disease KB that is
+   careful enough to segregate `MODEL_ORGANISM` evidence (§6); anchoring *human* lesion
+   identity in a mouse-phenotype vocabulary contradicts that discipline.
+2. **Process/continuant conflation, running in both directions.** The Xogenesis slot needs
+   a *continuant* — the lesion itself — and MPATH's labels do not reliably tell you which
+   branch a term is on. Ancestor checks against `sqlite:obo:mpath` for the ids the
+   convention actually uses:
+
+   | id | label | MPATH branch |
+   |---|---|---|
+   | `MPATH:62` | cyst | `MPATH:603` pathological anatomical entity ✅ |
+   | `MPATH:125` | thrombosis | `MPATH:603` pathological anatomical entity |
+   | `MPATH:847` | granuloma | **`MPATH:596` pathological process** ❌ |
+   | `MPATH:28` | atherosclerosis | **`MPATH:596` pathological process** ❌ |
+   | `MPATH:181` | fibrosis | **`MPATH:596` pathological process** ❌ |
+
+   `MPATH:125` carries a *process* word (thrombosis) but is filed under the **continuant**
+   branch; `MPATH:847` carries a *continuant* word (granuloma) and is filed under
+   **process**. Label and BFO placement disagree in both directions, which is a worse
+   defect than a missing term — a curator reading the label cannot tell what they are
+   binding. Consequently **four of five** Xogenesis modules do not have a correctly-placed
+   continuant: `renal_cystogenesis` (`MPATH:62`) is the only one that does.
+   `granuloma_formation` is presented throughout the repo as the clean exemplar
+   (`CLAUDE.md`, `kb/modules/granuloma_formation.yaml`, and `SKILL.md`'s claim that the
+   anchors are `MPATH:603` *subtree* terms) and is not one.
+3. **Unvalidated — and adding a config line is not the fix.** `MPATH:` is not in
+   `conf/oak_config.yaml`, so it falls squarely into the *unlisted ontology prefixes* gap
+   recorded in §12 — silently skipped, warning only. The anchors are additionally *prose*,
+   and term validation inspects bound `term:` objects in data, not CURIEs in free text. So
+   MPATH ids in DisMech have never been checked by anything except a curator running
+   `runoak` by hand. The cheap remedy is real and should be named rather than left hanging:
+   `sqlite:obo:mpath` exists, is ~689 KB, and works offline, so adding
+   `MPATH: sqlite:obo:mpath` would close this validation gap in one line. It is rejected
+   because it closes *only* this gap — the vocabulary would still be a mouse ontology
+   (#1) and its terms would still be on the wrong branches (#2), and binding a slot to it
+   would tie human lesion identity to that vocabulary harder than prose does. Note also
+   that **moving the anchor out of `notes:` into a bound slot is separable from which
+   vocabulary is bound**: the two halves of this proposal can be argued independently, and
+   rationale #3 supports only the first.
+
+**Why NCIt, and why not ICD-11 or SNOMED CT.**
+
+- **NCIt** is already a bound, OLS-served vocabulary in DisMech (§4), already carries the
+  imaging and histopathology finding axes (§9), is openly licensed, is clinically
+  deployed (CDISC/caDSR, cancer registries, regulatory submission vocabularies), and is
+  UMLS-mapped to SNOMED CT — so it doubles as a SNOMED bridge without SNOMED's licensing
+  constraints.
+- **ICD-11 Foundation is not a lesion vocabulary.** Verified against
+  `sqlite:obo:icd11f`: searches for the eight lesion types enumerated in the skill's
+  MPATH id list (`SKILL.md:89-91`) return *diseases*,
+  not morphologic entities — granuloma → "Granulomatosis with polyangiitis"; thrombus →
+  "Cerebral ischaemic stroke due to thrombus of extracranial large artery"; "amyloid
+  deposition" exists only as a synonym on `icd11f:2078467774` **Amyloidosis**, the
+  disease. ICD-11 remains what §4 already says it is: a disease-mapping axis for
+  `*_mappings` blocks. It is **not** a fallback for this slot.
+- **ICD-O-3** applies only to `neoplasm`, and DisMech already has the idiomatic pattern
+  for it: `src/dismech/schema/classifications/icdo_morphology.yaml` binds `meaning: NCIT:…` and
+  carries `ICDO:8010/3`-style codes in `exact_mappings`. Same shape applies here — NCIt
+  binds, ICD-O rides along.
+- **SNOMED CT** is the terminology that actually has a coherent *morphologically abnormal
+  structure* axis (`49755003`), and the create-module skill already names it as an
+  external census/gap guide that is **never bound**. That stays true, on the grounds §4
+  and the skill actually rest on: SNOMED is neither OBO nor OLS-served, and its affiliate
+  licensing is incompatible with redistributing a validation artifact. Note this is *not*
+  an offline-validatability argument — §4 gives "offline SQLite adapters via OAK" as
+  rationale, not as a constraint, and `conf/oak_config.yaml` deliberately departs from it
+  for five prefixes including `NCIT: ols:ncit` (resolved over the network, per #5160). An
+  offline-validatability criterion, applied literally, would argue for *keeping* MPATH —
+  a small offline SQLite — over the NCIt that replaces it.
+
+**Binding is RECOMMENDED, not REQUIRED** — following the `ImagingFindingTerm` precedent in
+§9. A lesion with no defensible NCIt term is carried on `preferred_term` alone with an
+explicit gap note, exactly as "gadolinium-enhancing lesion" is in `Multiple_Sclerosis`.
+Two lesions are known to need this treatment already: **thrombus** (NCIt's nearest is
+`NCIT:C27083` *Blood Clot*, which is arguably a different concept from an in-situ
+thrombus) and **concretion/calculus** (no clean morphologic term surfaced).
+
+**NCIt has no single coherent lesion axis — but that is a routine situation here, not a
+blocker.** Ancestor checks against OLS4 place the ten candidate lesion concepts in four
+unrelated NCIt branches. All eleven CURIEs below are OAK-verified against `ols:ncit`
+(labels match exactly):
+
+| Lesion | NCIt term | NCIt branch |
+|---|---|---|
+| granuloma | `NCIT:C3064` | Lesion (`NCIT:C3824`) → Finding |
+| cyst | `NCIT:C2978` | Lesion (`NCIT:C3824`) → Finding |
+| fibrosis | `NCIT:C3044` | **Morphologic Finding** (`NCIT:C35867`) → Histopathology Result |
+| amyloid deposition | `NCIT:C54018` | Deposit → **Morphologic Finding** (`NCIT:C35867`) |
+| aneurysm | `NCIT:C26693` | Cardiovascular System Finding → Finding by Site or System |
+| abscess | `NCIT:C26686` | **Disease or Disorder** (Infectious / Inflammatory Disorder) |
+| neoplasm | `NCIT:C3262` | **Disease or Disorder** |
+| atherosclerotic plaque | `NCIT:C78739` | **Biospecimen / Specimen / Material** — semantically wrong |
+| thrombus | — | no exact term (nearest `NCIT:C27083` *Blood Clot*) |
+| concretion | — | unresolved |
+
+This scatter is the coherence SNOMED's `49755003` axis provides and NCIt does not.
+Separately, on coverage: **eight of these ten** lesions carry an NCIt term, and
+`NCIT:C3824` Lesion plus `NCIT:C35867` Morphologic Finding between them cover only four of
+those eight.
+
+**A multi-root `reachable_from` is, however, already idiomatic in DisMech** — this exact
+problem has been solved twice before, both times because NCIt lacked a single root:
+
+- the **`HistopathologyFindingTerm`** enum in `src/dismech/schema/dismech.yaml` — **13**
+  source nodes spanning two ontologies, including `NCIT:C35867` Morphologic Finding and
+  the cross-ontology `HP:0025461`.
+- the **`ImagingFindingTerm`** enum in the same file — 3 source nodes including
+  `HP:0000118`.
+
+(Both are cited by enum name rather than line number on purpose: these line numbers have
+already gone stale twice as `main` moved beneath the branch.)
+
+So the open decision is **not** "multi-root or not" — that is settled convention — but
+*which* roots, plus how far the allow-list stretches for the strays (abscess, aneurysm,
+neoplasm sit under *Disease or Disorder*, whose root cannot be used wholesale without
+admitting every disease in NCIt).
+
+**Reuse before minting.** `HistopathologyFindingTerm` already contains two of the eight
+lesion terms in its permissible set (`NCIT:C3044` Fibrosis, `NCIT:C54018` Amyloid
+Deposition) and is rooted on the same `NCIT:C35867` branch this decision wants — and a
+Xogenesis lesion arguably *is* a morphologic finding. Reusing it, rather than minting a
+new enum, is therefore the **leading option** and the enacting PR must either adopt it or
+state explicitly why a separate binding is needed (§3 is reuse-first in the same spirit —
+prefer a subtype over a new entry, share one schema across disorders and modules).
+The likely argument for a separate binding is scope: `HistopathologyFindingTerm`
+deliberately spans grading, immunophenotype, ultrastructure, and staining intensity, none
+of which can be a Xogenesis *output*, so reuse would bind a far looser range than the slot
+means. That trade-off is a decision for the enacting PR, not a settled matter here.
+
+**Proposed shape.** A `XogenesisAnchor` class carrying `output_kind` (NCIt-bound,
+RECOMMENDED), `process_genus` + `derivation_type` (OGMS), and `site` (UBERON), replacing
+the prose stanza. `OGMS: sqlite:obo:ogms` would be added to `conf/oak_config.yaml`
+(verified available: `OGMS:0000078` resolves). NCIt and UBERON are already configured.
+Note that §4's ontology table currently lists `NCIT:` only under *Treatments / medical
+actions*, though §9 already uses it for imaging and histopathology findings; the enacting
+PR should widen that row rather than leave it three-times understated.
+
+**Terminology note.** The convention currently calls the lesion slot **"species"**, in the
+genus–differentia sense (the *kind* of lesion under the `OGMS:0000078` genus). This reads
+as *biological species* and has already caused a real misunderstanding — NCBITaxon was
+proposed for it. Rename to **`output_kind`**. NCBITaxon's role in DisMech is unchanged and
+correct: pathogen, vector, reservoir, host, and model-system organisms (§4), matching
+Mondo's own use of NCBITaxon in its `infectious_disease_by_agent`, `vectorBorneDisease`,
+and `nonhuman_disease_taxon` patterns.
+
+**Migration surface.** Larger than a `CLAUDE.md`-driven grep suggests, so the enacting PR
+should work from this list:
+
+- The five module `notes:` stanzas, but note that `renal_cystogenesis` carries `MPATH:62`
+  in the module file while its `CLAUDE.md` registry line never mentions MPATH — only four
+  registry lines name it.
+- `.claude/skills/create-module/SKILL.md:88-91` states the anchors are `MPATH:603`
+  (pathological anatomical entity) **subtree** terms. Per rationale #2 that premise is
+  false for three of the eight ids it lists (granuloma, fibrosis, and — in the registry —
+  atherosclerosis are under `MPATH:596` pathological process), so the claim must be
+  corrected or removed, not merely re-pointed at NCIt. The same false premise is repeated
+  in `kb/modules/granuloma_formation.yaml` and the `CLAUDE.md` registry line for it.
+- `.claude/skills/create-module/SKILL.md:110-113`, which
+  declares **eight** worked Xogenesis modules while only five carry a stanza —
+  `nephrolithiasis_crystal_nucleation`, `cholelithiasis_biliary_supersaturation`, and
+  `fibrotic_response` have none. Those three are exactly where the unresolved *concretion*
+  and *fibrosis* rows land, so the migration must decide whether to backfill them.
+- `docs/reports/mondo-anchoring-audit-2026-07-30.md:191,193` mentions MPATH. It is a dated
+  snapshot report, so the default is to **leave it unedited** rather than rewrite history.
+
+**Open questions (need sign-off before enacting).**
+
+1. Does `output_kind` **reuse `HistopathologyFindingTerm`** (whose range is looser than the
+   slot's meaning) or mint a narrower enum? If minted: which roots beyond `NCIT:C3824` +
+   `NCIT:C35867`, and how far does the allow-list stretch for the *Disease or Disorder*
+   strays (abscess, aneurysm, neoplasm) before they are better left `preferred_term`-only
+   with gap notes? (Multi-root binding itself is settled convention — see above.)
+2. Is `NCIT:C78739` Atherosclerotic Plaque acceptable despite sitting under *Biospecimen*,
+   or is atheroma a gap plus an upstream NCIt term request?
+3. Should the retired SNOMED "census guide only" line stay in the skill, given NCIt is
+   UMLS-mapped to SNOMED and partly supersedes it?
+4. Where the disposition is "leave unanchored + flag the gap" (thrombus, concretion, and
+   possibly atheroma), should the module's gap note carry a **tracked upstream NCIt/OGMS
+   term-request id** rather than free prose? Otherwise the migration converts a silent
+   MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
+   alongside Q2.
+
+## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+
+**Decision.** The pathograph node-class tree
+(`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
+**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
+schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
+`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
+§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
+terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
+slots a node already binds, checked against those ontologies.
+
+**Why `kb/` and not `docs/`.** The tree began life as a design artifact under
+`docs/superpowers/`, and the argument for moving it is that its leaves are real
+`(node, disease)` pairs verified against the KB on every run: it drifts when curation
+renames a node, exactly as a pathograph target does, and the fix is a curation edit, not
+a documentation edit. Content that rots with the KB and is repaired by curating belongs
+with the KB. Nothing in `kb/` depends on it yet, which is the difference between "curated
+content" and "a slot": the vocabulary is being stabilised against worked examples
+(seven random draws so far; new leaves per draw have run 9, 4, 0, 2, 5, 0, 1) before
+anything is asked to conform to it.
+
+**How it relates to "not a new ontology" (§1).** The classes are *kinds of causal claim*
+ordered as a cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue, systemic, outcome) plus a few cross-cutting judgement classes
+(disposition, compensation, intervention point). MPATH and NCIt were checked as prior art
+and neither carries that axis: MPATH classifies lesions as a pathologist sees them and
+stops at the cell, NCIt's *Pathologic Process* is a flat list. So the axis is DisMech's
+own, but the *leaves* are anchored to existing ontologies wherever a term exists, and
+the classes without a definition are the ones no ontology term can decide (a standing
+disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
+
+**What would change this.** Two things are deliberately deferred. (1) A `node_class`
+slot on `Pathophysiology`, which would also settle whether it supersedes
+`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
+thing would be worse than either). (2) Deriving the seed table from the definitions and
+retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
+record is
+[`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
+the tree's own build notes record what each draw forced.

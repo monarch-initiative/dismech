@@ -1005,10 +1005,13 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
             position: sticky;
             top: 0;
         }
-        tbody tr {
+        /* Scoped to rows the click handler actually accepts (it selects
+           `tr[data-mondo-id]`). An unscoped `tbody tr` rule also styled the
+           per-category summary rows, promising a click nothing handles. */
+        tbody tr[data-mondo-id] {
             cursor: pointer;
         }
-        tbody tr:hover {
+        tbody tr[data-mondo-id]:hover {
             background: #fafbfd;
         }
         .selected-row {

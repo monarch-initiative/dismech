@@ -9,7 +9,7 @@ KNOWLEDGE_GAP hangs off a node that no longer exists.
 
 Why this needs its own ungated, whole-KB pass
 ---------------------------------------------
-The rules are already checked by ``test_entity_ref_foreign_keys`` in
+The rules are already checked by ``check_entity_ref_foreign_keys`` in
 ``tests/test_data.py`` -- but that test never runs on the PRs that can break
 them. ``.github/workflows/main.yaml`` selects pytest by changed path:
 
@@ -84,6 +84,11 @@ EXCLUDED_ROOTS = {
     # Surrogate-endpoint records, likewise a separate schema with no
     # reference-bearing slots.
     "kb/surrogate_endpoints": "separate schema; no entity-ref slots",
+    # Curated pathograph node-class tree plus its GO seed table: plain text
+    # and TSV, not YAML, so there are no entity-ref slots to sweep. The tree's
+    # own `[Disease_Entry] Node name` examples are checked instead by
+    # `just node-classes --verify-kb`, which runs ungated in main.yaml.
+    "kb/node_classes": "plain-text class tree + TSV seed; no YAML",
 }
 
 

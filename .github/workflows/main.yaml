@@ -111,6 +111,8 @@ jobs:
               - 'scripts/auto_merge_ready_prs.py'
               - 'scripts/pr_shepherd_policy.py'
               - 'scripts/verify_merge_integrity.py'
+              # Guarded by tests/test_term_validator_wrapper.py (#11004).
+              - 'scripts/run_term_validator.sh'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -403,6 +405,16 @@ jobs:
       - name: Check for Not4Curation ontology bindings
         run: uv run python scripts/not4curation_audit.py
 
+      # Ungated and whole-tree on purpose, for the same reason as the step
+      # below. A skill file with no SKILL.md, or with one miscased as skill.md,
+      # is silently not loaded -- Claude Code reports nothing and the skill just
+      # never triggers. `microbiome-curation` was in that state for close to a
+      # month (issue #11758). It arrived in #8651, a curation PR adding CMT
+      # disorder entries, so a changed-path filter would have skipped the very
+      # change that broke it. Offline, well under a second.
+      - name: Check Claude Code skill files
+        run: uv run python scripts/check_skill_files.py
+
       # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
       # MERGE, not by authoring: two concurrent curation PRs adding the same
       # block at different points in one file merge without a git conflict, so
@@ -432,7 +444,7 @@ jobs:
 
       # Ungated and whole-KB on purpose, and for a sharper reason than the
       # checks around it: the entity-ref rules ARE covered by pytest
-      # (`test_entity_ref_foreign_keys`), but that test is selected by the
+      # (`check_entity_ref_foreign_keys`), but that test is selected by the
       # `python`/`schema` path filters and so never runs on a curation PR --
       # which touches only `kb/`, and is the only kind of PR that can break a
       # reference. Two entries reached `main` that way (#9473), and the
@@ -464,6 +476,38 @@ jobs:
       # gates new breakage only.
       - name: Check pathograph targets resolve
         run: uv run python scripts/check_causal_targets.py
+
+      # The pathograph node-class tree (kb/node_classes/) cites ~2,200 real
+      # `[Disease] Node name` pairs by bare name, the same reference form as
+      # the pathograph targets above and with the same failure mode: renaming
+      # a node in a curation PR silently strands every example that named it,
+      # and a tree whose leaves have drifted from the KB is worse than no tree
+      # because it still looks grounded. The pytest that checks this
+      # (test_committed_tree_examples_resolve_in_kb) sits in the `python`
+      # lane, which a kb/-only PR never enters, so until this step existed the
+      # only catch was the nightly sweep, a day late, on main.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours.
+      - name: Check node-class tree examples resolve
+        run: uv run python -m dismech.node_classes --verify-kb
+
+      # The third target grammar, and the one nothing else sees. A
+      # `proposed_experiments[].{perturbations,readouts}[].target` uses the
+      # `<kind>#<name>` entity-reference form, but a bare name there is skipped
+      # by the entity-ref sweep above (`target` carries bare names in its
+      # pathograph homes, so a value without a `#` is not treated as a
+      # reference) and excluded outright by the pathograph sweep
+      # (`test_experiment_readout_targets_are_not_checked_here`). So the
+      # reference resolves to nothing, in silence: the entry validates, the
+      # terms check passes, and the page renders. 13 such targets across 6
+      # entries were found by the audit this step comes from.
+      #
+      # Ungated and whole-KB like its neighbours, and for the same reason: these
+      # targets are written by curation PRs, which match neither pytest path
+      # filter. Gates only the two states that are breakage rather than backlog;
+      # the rest of the census is advisory (`just knowledge-gap-audit`).
+      - name: Check knowledge-gap experiment targets resolve
+        run: uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet
 
       # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
       # stack. `linkml-term-validator` validates slots whose range is bound to an
