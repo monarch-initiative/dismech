@@ -103,12 +103,44 @@ just compliance-connectivity --list-unconnected
 just compliance-connectivity --fail-under 30
 ```
 
-A phenotype counts as connected when at least one *causal* edge (`causes` /
-`leads_to` predicate) targets it. To fix a floating phenotype, add the
-phenotype's `name` as a `downstream: [{target: <phenotype name>}]` on the
-upstream pathophysiology node. The `QCMetricPlugin` protocol in
-`src/dismech/qc_plugins.py` is the generic seam for further graph-derived
-metrics (orphan-target rate, gene-to-mechanism wiring, dead-end nodes).
+A phenotype counts as connected when at least one *causal* edge (`causes`,
+`leads_to`, `triggers`, `exacerbates` — see `qc_plugins.CAUSAL_PREDICATES`)
+targets it. To fix a floating phenotype, add the phenotype's `name` as a
+`downstream: [{target: <phenotype name>}]` on the upstream pathophysiology node.
+The `QCMetricPlugin` protocol in `src/dismech/qc_plugins.py` is the generic seam
+for further graph-derived metrics (orphan-target rate, gene-to-mechanism wiring,
+dead-end nodes).
+
+#### Triage view: `just list-disconnected-phenotypes`
+
+The recipe above is the *compliance* view of the metric — both halves,
+aggregate percentages, `--fail-under`. For **per-entry triage** of the phenotype
+half, use the report added for issue #11935, which calls the same
+`causal_inlink_coverage` function and so cannot disagree with it:
+
+```bash
+just list-disconnected-phenotypes                        # census + ranked worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only 0-connected entries
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml
+```
+
+It adds three things `compliance-connectivity` does not have:
+
+- **A ranked zero-connectivity worklist.** Entries where *no* phenotype is
+  connected, ordered by how many are stranded. 0 of 12 is one sitting's work;
+  11 of 12 is not the same signal.
+- **An attachment class per stranded phenotype** — `ISOLATED`, `TREATED`,
+  `READOUT`, `NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — distinguishing "nothing in
+  the graph knows this node exists" from "a treatment or an observational
+  readout points at it, but no mechanism does". Neither counts as connected;
+  they are different curation jobs.
+- **`--format tsv` / `--format json`** for a census.
+
+Report-only by design (exit 0), with `--strict` / `--fail-under` opt-in. Do not
+treat the percentage as a target: the edge asserts which mechanism produces
+which clinical feature, and some phenotypes legitimately have no upstream node
+in the entry. An edge added to clear a report is worse than no edge.
 
 ## Understanding Compliance Scores
 

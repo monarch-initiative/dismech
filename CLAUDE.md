@@ -76,6 +76,11 @@ just validate-terms-schema
 # Check that no bound term is flagged Not4Curation by its own ontology
 just check-not4curation
 
+# Report phenotypes that no causal edge explains — the complement of
+# `just check-causal-targets`, report-only (see "Phenotypes Nothing Points At")
+just list-disconnected-phenotypes
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml --format tsv
+
 # Run pytest tests
 just pytest-all
 
@@ -886,6 +891,68 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `environmental[].influences_mechanisms`); those are not covered by the
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
+
+### Phenotypes Nothing Points At (dismech#11935)
+
+`check-causal-targets` asks which declared edges name a target that resolves to
+nothing. The **complementary** question — which phenotypes no edge names — was
+invisible to every check in the stack, and it is the more common state: 53.8% of
+the 35,255 phenotype nodes in `kb/disorders/` are causally connected, and on 987
+entries (a third of those carrying phenotypes) **not one** phenotype is. There
+the pathograph stops at the pathophysiology layer and the phenotypes render as a
+disconnected island beside it. Every edge in such an entry can resolve perfectly
+— the motivating instance, `SLC35A1-Congenital_Disorder_of_Glycosylation`, has 8
+pathophysiology nodes, 12 phenotype nodes and 7 clean edges, none of which
+reaches a phenotype.
+
+```bash
+just list-disconnected-phenotypes                        # census + triage worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only the 0-connected entries
+just list-disconnected-phenotypes kb/disorders/MyDisease.yaml
+```
+
+**It reuses the metric rather than recomputing it, and it is the second door
+onto it.** The computation already existed as
+`dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+`phenotypes[].causal_inlink` compliance score (`conf/qc_config.yaml`, weight
+1.5, `min_compliance: null`), already exposed as `just compliance-connectivity`.
+That recipe is not superseded and is still the one to run for the *compliance*
+view: it reports the phenotype-inlink and gene-outlink coverage together, with
+`--fail-under` on each. What it does not give is the per-entry triage — no
+ranking, no `--format tsv`, no attachment classes — and its name is filed under
+compliance rather than next to `just list-causal-targets` and
+`just list-cancer-origin`, which is plausibly why neither #11935 nor the #11934
+review round found it. Both recipes call the same function, so they cannot
+disagree on a number.
+
+**Report-only, and deliberately not a number to drive up.** It exits 0; a gate
+at this scale would be a baseline file the size of the problem. Connecting a
+phenotype is real curation — the edge asserts which mechanism produces which
+clinical feature, which is often exactly what the literature does not settle —
+and some phenotypes legitimately have no upstream node in the entry (a
+laboratory readout, a feature whose mechanism is genuinely unknown). An edge
+added to clear a report is worse than no edge, for the same reason the stub
+queue refuses to score itself. `--strict` and `--fail-under` exist for whoever
+decides to gate a subset later.
+
+So read the per-entry triage, not the corpus percentage: the summary ranks the
+entries where *nothing* is connected by how many phenotypes are stranded,
+because 0 of 12 is one sitting's work and a different signal from 11 of 12.
+
+**Three kinds of edge touch a phenotype without explaining it, and none of them
+counts as connected** — that is the strict reading the issue left open, resolved
+by the predicate rather than by a special case. A `treats`/`targets` edge from a
+treatment says the phenotype is *addressed*, not what produces it; a
+`phenotypes[].reports_on` link carries the `readout` predicate and is
+observational; a `PREDISPOSES`/`MODULATES` environmental link is non-committal
+by construction (only `TRIGGERS` and `EXACERBATES` are in
+`qc_plugins.CAUSAL_PREDICATES`). `subtype` scoping connects nothing either.
+Rather than argue those out of the denominator, each disconnected phenotype
+carries an **attachment** class — `ISOLATED`, `TREATED`, `READOUT`,
+`NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — so "nothing in the graph knows this node
+exists" (15,248 KB-wide) reads differently from "something points at it, but not
+a mechanism" (~1,000). Both are unexplained; they are not the same curation job.
 
 ### Pathograph Node Classes (`kb/node_classes/`)
 
