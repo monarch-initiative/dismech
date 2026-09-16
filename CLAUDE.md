@@ -1968,11 +1968,17 @@ the curation queue.
 
 ### Coarse Phenotype Bindings Must Say Why
 
-A phenotype bound to a **top-level HPO organ-system term** — `HP:0000478`
-*Abnormality of the eye*, `HP:0002664` *Neoplasm*, the 23 direct children of
-`HP:0000118` — passes every other gate while saying almost nothing.
-`Schaaf-Yang_Syndrome` named strabismus, esotropia and myopia in its
-`description` and then discarded all three in the binding.
+A phenotype bound to a **coarse HPO term** — `HP:0000478` *Abnormality of the
+eye*, `HP:0002664` *Neoplasm*, `HP:0000077` *Abnormality of the kidney* —
+passes every other gate while saying almost nothing. `Schaaf-Yang_Syndrome`
+named strabismus, esotropia and myopia in its `description` and then discarded
+all three in the binding.
+
+The coarse set is 56 terms across two hand-reviewed schema enums:
+`PhenotypeCategoryEnum` (the 23 organ-system roots, which are also the browser's
+facet vocabulary) and `CoarsePhenotypeTermEnum` (33 curated terms below those
+roots that still name a system, organ or region). Both are `meaning:`-bound, so
+`just validate-terms-schema` checks every label.
 
 Such a binding is not forbidden. It must **say why**, via
 `coarse_binding_basis` on the descriptor:
@@ -1996,10 +2002,14 @@ source does not support is a worse defect than a coarse binding, and the
 deliberately no depth or information-content metric: `HP:0004322` *Short
 stature* is the most-used HP term in the KB and `HP:0001627` *Abnormal heart
 morphology* carries "Congenital heart defect" as an EXACT synonym, so any such
-metric would flag the two terms that are most often exactly right. The coarse
-set is the `PhenotypeCategoryEnum` meanings — the same list that drives the
-browser's *Phenotype Systems* facet — and widening it is a schema PR with an
-argument, not a threshold.
+metric would flag the two terms that are most often exactly right. Tier 1 was
+curated in one pass over all 360 distinct `Abnormal*` terms bound in the KB, and
+lands `HP:0000077` *Abnormality of the kidney* in the list while leaving
+`HP:0001627` and `HP:0001999` out — two decisions one step below the same roots
+that no rule over depth or label shape can separate. Widening the set is a
+schema PR with an argument, not a threshold; the enum's description records why
+each near-miss (`HP:0012443`, `HP:0012332`, `HP:0000164`, `HP:0000504`,
+`HP:0000925`, `HP:0002926`, `HP:0002270`) was left out.
 
 **If you can list the findings, it is not a spectrum — they are phenotypes.**
 `VARIABLE_SPECTRUM` is for the case where involvement is real but its form varies
@@ -2022,8 +2032,9 @@ development" node — that belongs in `pathophysiology`, binds GO, and asserts a
 a hub binds HP and asserts a system-level outcome; the two may sit in sequence.
 A coarse node carrying a `frequency` is a `VARIABLE_SPECTRUM`, not a hub.
 
-The 164 bindings predating the slot are grandfathered in
-`tests/coarse_phenotype_baseline.txt`, which may only shrink. Worked examples,
+The 341 bindings predating the slot are grandfathered in
+`tests/coarse_phenotype_baseline.txt`, which may only shrink — except when the
+coarse set itself is deliberately widened, as adding tier 1 did. Worked examples,
 one per value: `Schaaf-Yang_Syndrome`, `PAICS_Deficiency`,
 `Li-Fraumeni_Syndrome`, `Rubinstein-Taybi_Syndrome`. See
 [`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
