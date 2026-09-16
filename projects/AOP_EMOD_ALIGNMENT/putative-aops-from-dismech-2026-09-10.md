@@ -228,12 +228,12 @@ it is not the one this document originally claimed:
 
 | Longest chain | Every node measured | Every edge cited | Both |
 |---|---|---|---|
-| ≥3 nodes | 97 | 1,041 | 38 |
-| ≥4 nodes | 21 | 725 | 6 |
-| ≥5 nodes | 5 | 434 | 1 |
+| ≥3 nodes | 97 | 1,047 | 38 |
+| ≥4 nodes | 21 | 729 | 6 |
+| ≥5 nodes | 5 | 435 | 1 |
 
-Counted with `just aop-chain-census` on 2026-09-15; the figures move with every curation PR.
-36,793 causal edges KB-wide, 15,722 carrying evidence (43%). Fully-cited chains reach **12
+Counted with `just aop-chain-census` on 2026-09-16; the figures move with every curation PR.
+36,938 causal edges KB-wide, 15,768 carrying evidence (43%). Fully-cited chains reach **12
 nodes** (`Familial_Hypercholesterolemia`, `Lupus_Nephritis`,
 `Autosomal_Dominant_Hypercholesterolemia_3`); fully-measured ones stop at 5. **Edge evidence
 is about thirty-five times more available than node measurability**, so the scarce input to
@@ -250,7 +250,7 @@ The five verdicts drawn from LVNC8 alone, retested against fluorosis.
 | Verdict from A | Holds? | What B showed |
 |---|---|---|
 | The Event layer transfers almost for free | **yes** | LoBO from `biological_scale`, measurement from `readouts`, terms from the CL/GO/UBERON bindings, in both entries |
-| The relationship layer transfers with its evidence attached | **yes, and it is the abundant half** | A: 14/14 edges evidenced. B: 2/20 before PR #11617, 16/20 after, with 7 of 8 direct quotes coming from papers already in `references_cache/` and merely attached to the wrong object. KB-wide, 725 entries carry a 4-node fully-cited chain against 21 with a fully-measured one. The transfer is real; what is scarce is the readouts, not the citations |
+| The relationship layer transfers with its evidence attached | **yes, and it is the abundant half** | A: 14/14 edges evidenced. B: 2/20 before PR #11617, 16/20 after, with 7 of 8 direct quotes coming from papers already in `references_cache/` and merely attached to the wrong object. KB-wide, 729 entries carry a 4-node fully-cited chain against 21 with a fully-measured one. The transfer is real; what is scarce is the readouts, not the citations |
 | The initiating end does not transfer | **entry-dependent** | A has no MIE and can have none. B has two MIE candidates. What both share is that the exposure edges land on toxicokinetic nodes, so the MIE is never where an AOP would look for it |
 | Model disagreement is an asset | **yes, differently** | A: three systems disagreeing on TGF-beta direction. B: a `FAILS_TO_RECAPITULATE` split between an `UNCHANGED` density readout and a `DECREASED` quality readout, which is the mixed-lesion claim in measurement form |
 | Nothing needed a schema change | **yes** | Still true. `Pathophysiology.assays` remains the one slot that would most improve the output and remains unused in both |

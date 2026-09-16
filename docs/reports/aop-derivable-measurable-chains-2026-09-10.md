@@ -42,7 +42,7 @@ requiring them on *consecutive* nodes returns a small, directly usable one.
 
 ## KB totals
 
-Every count below is from `just aop-chain-census`, run against `main` on 2026-09-15.
+Every count below is from `just aop-chain-census`, run against `main` on 2026-09-16.
 Regenerate it rather than trusting these figures: they move with every curation PR.
 
 A *model block* is one entry in an `experimental_models:` / `animal_models:` /
@@ -51,15 +51,15 @@ different units and both are given:
 
 | Model section | Model blocks | Blocks with `modeled_mechanisms` | Entries with one | Entries with a linked one |
 |---|---|---|---|---|
-| `experimental_models` (NAM) | 647 | 588 | 401 | 368 |
-| `animal_models` | 1,678 | 1,250 | 910 | 691 |
+| `experimental_models` (NAM) | 648 | 589 | 402 | 369 |
+| `animal_models` | 1,682 | 1,254 | 913 | 694 |
 | `computational_models` | 99 | 79 | 39 | 35 |
 
 Entry-level filters, for the record:
 
 - **161** entries carry ≥2 `experimental_models` blocks.
-- **521** entries carry ≥2 pathograph-linked models of any kind.
-- **878** entries carry at least one pathograph-linked model.
+- **523** entries carry ≥2 pathograph-linked models of any kind.
+- **881** entries carry at least one pathograph-linked model.
 
 ## The chain screen
 
@@ -292,18 +292,18 @@ selects AOP-derivable chains.
 
 | Longest chain | Every node measured | Every edge cited | **Both** |
 |---|---|---|---|
-| ≥2 nodes | 280 | 1,337 | 123 |
-| ≥3 nodes | 97 | 1,041 | **38** |
-| ≥4 nodes | 21 | 725 | **6** |
-| ≥5 nodes | 5 | 434 | **1** |
+| ≥2 nodes | 281 | 1,346 | 123 |
+| ≥3 nodes | 97 | 1,047 | **38** |
+| ≥4 nodes | 21 | 729 | **6** |
+| ≥5 nodes | 5 | 435 | **1** |
 
-36,793 `pathophysiology[].downstream[]` edges KB-wide, 15,722 carrying evidence (43%).
+36,938 `pathophysiology[].downstream[]` edges KB-wide, 15,768 carrying evidence (43%).
 Restricted to the node-to-node subset these chains are built from — edges whose target
 resolves to another `pathophysiology` node, excluding those terminating on a phenotype —
-17,932 edges, 7,332 cited (41%). Fully-cited chains reach
+18,018 edges, 7,371 cited (41%). Fully-cited chains reach
 **12 nodes**, where fully-measured ones stop at 5.
 
-**Edge evidence is about thirty-five times more available than node measurability** — 725
+**Edge evidence is about thirty-five times more available than node measurability** — 729
 entries carry a four-node chain cited at every step, against 21 measured at every node. So
 the binding constraint on deriving an AOP from any one dismech entry is `modeled_mechanisms`
 coverage, not literature. The 38 entries clearing the joint screen at three nodes are the
