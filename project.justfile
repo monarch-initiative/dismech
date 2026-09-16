@@ -1300,9 +1300,9 @@ update-causal-target-baseline:
 # (phenotype inlink + gene outlink, enforcing the corpus `min_compliance` floor)
 # and has no per-entry ranking, tsv output, or attachment classes. The floor is
 # corpus-level so no single entry trips it; this is the per-entry worklist, which
-# is why it stays report-only and exit 0: connecting a phenotype is real
-# curation (which mechanism produces which feature), so an
-# edge added to clear a report is worse than no edge. The useful output is the
+# is why it stays report-only and exit 0: connecting a phenotype is real curation
+# (which mechanism produces which feature), so an edge added to clear a report is
+# worse than no edge. The useful output is the
 # per-entry triage --
 # entries where NOTHING is connected, ranked by phenotypes stranded -- not the
 # corpus percentage. --format tsv/json, --zero-only, --strict, --fail-under.

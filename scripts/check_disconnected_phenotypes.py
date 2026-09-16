@@ -486,7 +486,12 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
-        "files", nargs="*", help="KB YAML files (default: kb/disorders)"
+        "files",
+        nargs="*",
+        help=(
+            "KB YAML files, or directories to expand into the entries inside "
+            "them (default: kb/disorders)"
+        ),
     )
     parser.add_argument(
         "--format",

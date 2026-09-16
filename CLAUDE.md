@@ -919,7 +919,7 @@ onto it.** The computation is
 `phenotypes[].causal_inlink` compliance score, already exposed as
 `just compliance-connectivity` — which is now a **gate**, enforcing the
 `min_compliance` floor in `conf/qc_config.yaml` over the KB-wide aggregate (see
-*A resolving target is not a connected phenotype* above, which owns the floor
+*A resolving target is not a connected phenotype* below, which owns the floor
 and the corpus figure; do not restate either here, or the two drift apart).
 
 That recipe is not superseded. It stays the one to run for the *compliance*
