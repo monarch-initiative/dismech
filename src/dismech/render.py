@@ -2347,6 +2347,59 @@ def collect_literature_summaries(
     return results
 
 
+def collect_research_reviews(
+    disorder: dict,
+    slugs: list[str],
+    research_root: Path,
+    history_root: Path,
+) -> list[dict]:
+    """Expose existing research commentary without assigning a review verdict.
+
+    Free-text notes have no structured report link, so include only notes that
+    explicitly mention deep research or a report filename. Separate syntheses
+    have a stable filename convention and already have their own HTML pages.
+    """
+    research_mention = re.compile(r"(?i:deep[-\s]+research)|\bDR\b")
+    reviews = []
+    for field, title in (
+        ("review_notes", "Record review notes"),
+        ("notes", "Record notes"),
+    ):
+        text = disorder.get(field)
+        if text and research_mention.search(text):
+            reviews.append({"title": title, "text": text})
+    for slug in dict.fromkeys(slugs):
+        for suffix in ("yaml", "md"):
+            path = research_root / f"{slug}-research-synthesis.{suffix}"
+            if path.is_file():
+                reviews.append(
+                    {
+                        "title": "Cross-provider assessment",
+                        "href": (
+                            f"../research/{_synthesis_output_name(slug)}"
+                            if suffix == "yaml"
+                            else _github_blob_url(Path("research") / path.name)
+                        ),
+                    }
+                )
+        for path in sorted((history_root / slug).glob("*.yaml")):
+            data = safe_load_path(path) or {}
+            for event in data.get("events") or []:
+                details = event.get("details") or ""
+                if research_mention.search(details):
+                    reviews.append(
+                        {
+                            "title": event.get("summary") or "Curation history notes",
+                            "text": details,
+                            "date": (data.get("session") or {}).get("timestamp"),
+                            "href": _github_blob_url(
+                                Path("history") / history_root.name / slug / path.name
+                            ),
+                        }
+                    )
+    return reviews
+
+
 def _github_blob_url(relative_path: Path) -> str:
     """Return the post-merge GitHub page for a repository-relative file."""
     return (
@@ -2594,6 +2647,16 @@ def render_disorder(
             phenotype_groups=phenotype_groups,
             report_sections=report_sections,
             literature_sections=literature_sections,
+            research_reviews=collect_research_reviews(
+                disorder,
+                [file_stem, disorder_slug],
+                research_root,
+                _resolve_nearby_dir(
+                    yaml_path.parent, f"history/{yaml_path.parent.name}"
+                ),
+            )
+            if literature_sections
+            else [],
             hypothesis_research_links=hypothesis_research_links,
             hypothesis_research_count=hypothesis_research_count,
             research_root_rel=research_root_rel,
@@ -5805,12 +5868,9 @@ _QUOTE_ROLE_PREAMBLE = "Where this quote sits in the cited paper's argument. "
 @cache
 def _quote_role_descriptions() -> dict[str, str]:
     """QuoteRoleEnum value -> its schema `description`, for badge hover text."""
-    values = (
-        ((_load_schema().get("enums") or {}).get("QuoteRoleEnum") or {}).get(
-            "permissible_values"
-        )
-        or {}
-    )
+    values = ((_load_schema().get("enums") or {}).get("QuoteRoleEnum") or {}).get(
+        "permissible_values"
+    ) or {}
     return {
         key: " ".join(str((meta or {}).get("description") or "").split())
         for key, meta in values.items()

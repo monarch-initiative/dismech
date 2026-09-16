@@ -105,6 +105,7 @@ citation_count: 7
     assert "codex-local-synthesis" in html
     assert "Calcium signaling" in html
     assert "Codex secondary synthesis." not in html
+    assert 'class="research-reviews"' not in html
 
 
 def test_render_disorder_places_references_and_deep_research_last(
@@ -345,3 +346,95 @@ Report body.
     assert links[0]["reports"][0]["citations_href"].endswith(
         "kb/hypotheses/Test_Disorder/canonical_model/falcon.md.citations.md"
     )
+
+
+def test_research_notice_and_reviews_render_with_escaped_record_notes(tmp_path):
+    disorder_dir = tmp_path / "kb" / "disorders"
+    disorder_dir.mkdir(parents=True)
+    disorder_path = disorder_dir / "Test_Disorder.yaml"
+    research_dir = tmp_path / "research"
+    research_dir.mkdir()
+    (research_dir / "Test_Disorder-deep-research-falcon.md").write_text(
+        "## Output\n\nReport body."
+    )
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "Different Display Name",
+            "review_notes": "Deep research misattributes a citation. <script>bad</script>",
+        },
+    )
+    history_dir = tmp_path / "history" / "disorders" / "Test_Disorder"
+    history_dir.mkdir(parents=True)
+    _write_disorder(
+        history_dir / "audit.yaml",
+        {
+            "events": [
+                {
+                    "summary": "Citation audit",
+                    "details": "Deep research audit found five incorrect citations.",
+                }
+            ],
+        },
+    )
+    output = tmp_path / "pages" / "disorders" / "test.html"
+    render_disorder(disorder_path, output_path=output)
+    html = output.read_text()
+    assert "may contain errors" in html
+    assert "deep-research-reference-validation/#how-we-use-deep-research" in html
+    assert '<details class="research-reviews">' in html
+    assert "Record review notes" in html
+    assert "Deep research audit found five incorrect citations." in html
+    assert "&lt;script&gt;bad&lt;/script&gt;" in html
+    assert "<script>bad</script>" not in html
+
+
+def test_collect_research_reviews_includes_history_and_separate_assessments(tmp_path):
+    from dismech.render import collect_research_reviews
+
+    research = tmp_path / "research"
+    history = tmp_path / "history" / "disorders"
+    research.mkdir()
+    (history / "Test_Disorder").mkdir(parents=True)
+    (research / "Test_Disorder-research-synthesis.yaml").write_text(
+        "disease: Test_Disorder\n"
+    )
+    (research / "Legacy-research-synthesis.md").write_text("# Assessment\n")
+    _write_disorder(
+        history / "Test_Disorder" / "session.yaml",
+        {
+            "session": {"timestamp": "2026-09-10T11:12:33Z"},
+            "events": [
+                {
+                    "summary": "Research audit",
+                    "details": "Deep research contains five confabulated citations.",
+                },
+                {"summary": "Other edit", "details": "Fixed phenotype spelling."},
+            ],
+        },
+    )
+    reviews = collect_research_reviews(
+        {
+            "notes": "DR citations were checked.",
+            "review_notes": "Unrelated review by Dr. Smith.",
+        },
+        ["Test_Disorder", "Legacy", "Test_Disorder"],
+        research,
+        history,
+    )
+    assert len(reviews) == 4
+    assert reviews[0]["text"] == "DR citations were checked."
+    assert reviews[1]["href"] == "../research/Test_Disorder-synthesis.html"
+    assert reviews[2]["text"] == "Deep research contains five confabulated citations."
+    assert reviews[2]["href"].endswith("history/disorders/Test_Disorder/session.yaml")
+    assert reviews[3]["href"].endswith("research/Legacy-research-synthesis.md")
+
+
+def test_no_research_notice_or_review_heading_without_reports(tmp_path):
+    path = tmp_path / "Test.yaml"
+    _write_disorder(path, {"name": "Test", "notes": "Deep research was reviewed."})
+    output = tmp_path / "test.html"
+    render_disorder(path, output_path=output)
+    html = output.read_text()
+    assert 'class="research-notice"' not in html
+    assert 'class="research-reviews"' not in html
