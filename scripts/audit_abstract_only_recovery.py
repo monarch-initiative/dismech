@@ -474,6 +474,7 @@ def phase_summarize(out_dir: str) -> None:
     total_tables = 0
     attempted_recoverable = 0
     never_attempted_recoverable = 0
+    via_html_fallback = 0
     recov_errors = 0
     reasons: dict[str, int] = {}
     with open(recov_path, newline="") as f:
@@ -492,6 +493,8 @@ def phase_summarize(out_dir: str) -> None:
                     attempted_recoverable += 1
                 else:
                     never_attempted_recoverable += 1
+                if row.get("used_html_fallback") == "True":
+                    via_html_fallback += 1
             else:
                 reasons[row["reason"] or "(unknown)"] = reasons.get(row["reason"] or "(unknown)", 0) + 1
 
@@ -506,6 +509,8 @@ def phase_summarize(out_dir: str) -> None:
     print(f"    previously attempted (full_text_attempted: true), stuck anyway: {attempted_recoverable}")
     print(f"    never attempted for full text at all:                          {never_attempted_recoverable}")
     print(f"    of those, carrying >=1 table:         {with_tables}  (tables found: {total_tables})")
+    print(f"    recovered via HTML fallback (will cache full_text_html, no tables): {via_html_fallback}")
+    print(f"    recovered via XML (will cache full_text_xml): {recoverable - via_html_fallback}")
     print("  non-recovery reasons among the rest:")
     for reason, count in sorted(reasons.items(), key=lambda x: -x[1]):
         print(f"    {reason}: {count}")
