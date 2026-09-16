@@ -204,10 +204,10 @@ def phase_idconv(out_dir: str, batch_size: int, sleep_seconds: float) -> None:
 
 def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
     sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
-    import dismech.patch_reference_validator as patch  # noqa: PLC0415
-    from bs4 import BeautifulSoup  # noqa: PLC0415
-    from linkml_reference_validator.etl.extract.xml import XMLExtractor  # noqa: PLC0415
+    from bs4 import BeautifulSoup
+    from linkml_reference_validator.etl.extract.xml import XMLExtractor
 
+    import dismech.patch_reference_validator as patch
     idconv_path = os.path.join(out_dir, "idconv_results.csv")
     results_path = os.path.join(out_dir, "recoverability_results.csv")
     if not os.path.exists(idconv_path):
@@ -239,7 +239,7 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
 
         try:
             soup = BeautifulSoup(text_data, "xml")
-        except Exception:  # noqa: BLE001
+        except Exception:
             return has_body, 0, "" if has_body else "soup_parse_error"
 
         tables_text = patch._jats_tables_as_text(soup)
@@ -265,7 +265,7 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
             try:
                 data = _http_get(url)
                 has_body, num_tables, reason = classify(data)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 writer.writerow([pmid, pmcid, "error", 0, str(exc)[:200]])
                 f.flush()
                 time.sleep(sleep_seconds)
