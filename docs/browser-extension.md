@@ -8,6 +8,23 @@ you are looking at into a dismech curation **GitHub issue** — one click, like 
 [Installation steps](#install-unpacked) ·
 [Source code](https://github.com/monarch-initiative/dismech/tree/main/extension)
 
+## Watch the demo
+
+This subtitled walkthrough shows how to turn a journal article into a dismech
+curation issue, from the toolbar preview through submission on GitHub.
+
+<iframe
+  class="dismech-video"
+  src="https://www.youtube-nocookie.com/embed/68Alm_QmgF0"
+  title="DisMech curator browser extension demo with subtitles"
+  loading="lazy"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  allowfullscreen>
+</iframe>
+
+[Watch the demo on YouTube](https://youtu.be/68Alm_QmgF0).
+
 ## What it does
 
 When you are on a recognized page and click the toolbar button, the extension
