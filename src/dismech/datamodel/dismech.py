@@ -85,6 +85,7 @@ OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
 PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
@@ -1189,7 +1190,9 @@ class GeneticContext(YAMLRoot):
     A structured description of a genetic context that modifies phenotype frequency, severity, or presentation.
     Flexible enough to capture single genes, multiple genes, mutation types, zygosity, complementation groups, and
     complex genotypes. The description slot accommodates contexts that don't fit neatly into the structured fields
-    (e.g., structural variants, complex rearrangements).
+    (e.g., structural variants, complex rearrangements). Physical variant class and sequence overlap use the same
+    controlled fields as Variant. Separate alternative initiating alterations into distinct pathophysiology nodes when
+    their classes or overlaps differ.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -1201,6 +1204,8 @@ class GeneticContext(YAMLRoot):
     gene: Optional[Union[dict, GeneDescriptor]] = None
     genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
     allele_type: Optional[str] = None
+    variant_type: Optional[Union[str, "VariantTypeEnum"]] = None
+    genomic_contexts: Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]] = empty_list()
     variant_origin: Optional[Union[str, "VariantOriginEnum"]] = None
     allelic_hit_role: Optional[Union[str, "AllelicHitRoleEnum"]] = None
     allelic_events: Optional[Union[Union[str, "AllelicEventEnum"], list[Union[str, "AllelicEventEnum"]]]] = empty_list()
@@ -1219,6 +1224,13 @@ class GeneticContext(YAMLRoot):
 
         if self.allele_type is not None and not isinstance(self.allele_type, str):
             self.allele_type = str(self.allele_type)
+
+        if self.variant_type is not None and not isinstance(self.variant_type, VariantTypeEnum):
+            self.variant_type = VariantTypeEnum(self.variant_type)
+
+        if not isinstance(self.genomic_contexts, list):
+            self.genomic_contexts = [self.genomic_contexts] if self.genomic_contexts is not None else []
+        self.genomic_contexts = [v if isinstance(v, GenomicContextEnum) else GenomicContextEnum(v) for v in self.genomic_contexts]
 
         if self.variant_origin is not None and not isinstance(self.variant_origin, VariantOriginEnum):
             self.variant_origin = VariantOriginEnum(self.variant_origin)
@@ -3328,6 +3340,7 @@ class Pathophysiology(YAMLRoot):
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
     mechanism_confidence: Optional[Union[str, "MechanismConfidenceEnum"]] = None
     biological_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
+    regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -3413,6 +3426,9 @@ class Pathophysiology(YAMLRoot):
 
         if self.biological_scale is not None and not isinstance(self.biological_scale, BiologicalScaleEnum):
             self.biological_scale = BiologicalScaleEnum(self.biological_scale)
+
+        if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
+            self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
 
         super().__post_init__(**kwargs)
 
@@ -4622,6 +4638,7 @@ class Variant(YAMLRoot):
     name: Union[str, VariantName] = None
     description: Optional[str] = None
     gene: Optional[Union[dict, GeneDescriptor]] = None
+    regulatory_target_gene: Optional[Union[dict, GeneDescriptor]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     functional_effects: Optional[Union[Union[dict, "FunctionalEffect"], list[Union[dict, "FunctionalEffect"]]]] = empty_list()
     synonyms: Optional[Union[str, list[str]]] = empty_list()
@@ -4630,6 +4647,8 @@ class Variant(YAMLRoot):
     sequence_length: Optional[int] = None
     clinical_significance: Optional[Union[str, "ClinicalSignificanceEnum"]] = None
     type: Optional[str] = None
+    variant_type: Optional[Union[str, "VariantTypeEnum"]] = None
+    genomic_contexts: Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]] = empty_list()
     regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -4643,6 +4662,9 @@ class Variant(YAMLRoot):
 
         if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
             self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        if self.regulatory_target_gene is not None and not isinstance(self.regulatory_target_gene, GeneDescriptor):
+            self.regulatory_target_gene = GeneDescriptor(**as_dict(self.regulatory_target_gene))
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -4670,6 +4692,13 @@ class Variant(YAMLRoot):
 
         if self.type is not None and not isinstance(self.type, str):
             self.type = str(self.type)
+
+        if self.variant_type is not None and not isinstance(self.variant_type, VariantTypeEnum):
+            self.variant_type = VariantTypeEnum(self.variant_type)
+
+        if not isinstance(self.genomic_contexts, list):
+            self.genomic_contexts = [self.genomic_contexts] if self.genomic_contexts is not None else []
+        self.genomic_contexts = [v if isinstance(v, GenomicContextEnum) else GenomicContextEnum(v) for v in self.genomic_contexts]
 
         if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
             self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
@@ -7116,6 +7145,100 @@ class ClinicalSignificanceEnum(EnumDefinitionImpl):
         name="ClinicalSignificanceEnum",
         description="The clinical significance of a variant for a condition (ACMG guidelines)",
     )
+
+class VariantTypeEnum(EnumDefinitionImpl):
+    """
+    Physical sequence alteration, independently of genomic location or functional consequence. Human-readable values
+    map to Sequence Ontology. This is an optional classification alongside the legacy free-text type; it is not an
+    exhaustive vocabulary for complex rearrangements.
+    """
+    deletion = PermissibleValue(
+        text="deletion",
+        description="deletion",
+        meaning=SO["0000159"])
+    insertion = PermissibleValue(
+        text="insertion",
+        description="insertion",
+        meaning=SO["0000667"])
+    duplication = PermissibleValue(
+        text="duplication",
+        description="duplication",
+        meaning=SO["1000035"])
+    inversion = PermissibleValue(
+        text="inversion",
+        description="inversion",
+        meaning=SO["1000036"])
+    translocation = PermissibleValue(
+        text="translocation",
+        description="translocation",
+        meaning=SO["0000199"])
+
+    _defn = EnumDefinition(
+        name="VariantTypeEnum",
+        description="""Physical sequence alteration, independently of genomic location or functional consequence. Human-readable values map to Sequence Ontology. This is an optional classification alongside the legacy free-text type; it is not an exhaustive vocabulary for complex rearrangements.""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "single nucleotide variant",
+            PermissibleValue(
+                text="single nucleotide variant",
+                description="SNV",
+                meaning=SO["0001483"]))
+        setattr(cls, "copy number variation",
+            PermissibleValue(
+                text="copy number variation",
+                description="copy_number_variation",
+                meaning=SO["0001019"]))
+        setattr(cls, "short tandem repeat expansion",
+            PermissibleValue(
+                text="short tandem repeat expansion",
+                description="short_tandem_repeat_expansion",
+                meaning=SO["0002162"]))
+
+class GenomicContextEnum(EnumDefinitionImpl):
+    """
+    Genomic features overlapped by a variant, independently of its functional effect. Values describe sequence
+    features, not variant consequences. Contexts may overlap and are relative to the relevant gene or transcript;
+    record those details in the variant description.
+    """
+    intron = PermissibleValue(
+        text="intron",
+        description="intron",
+        meaning=SO["0000188"])
+
+    _defn = EnumDefinition(
+        name="GenomicContextEnum",
+        description="""Genomic features overlapped by a variant, independently of its functional effect. Values describe sequence features, not variant consequences. Contexts may overlap and are relative to the relevant gene or transcript; record those details in the variant description.""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "coding sequence",
+            PermissibleValue(
+                text="coding sequence",
+                description="CDS",
+                meaning=SO["0000316"]))
+        setattr(cls, "5' UTR",
+            PermissibleValue(
+                text="5' UTR",
+                description="five_prime_UTR",
+                meaning=SO["0000204"]))
+        setattr(cls, "3' UTR",
+            PermissibleValue(
+                text="3' UTR",
+                description="three_prime_UTR",
+                meaning=SO["0000205"]))
+        setattr(cls, "noncoding exon",
+            PermissibleValue(
+                text="noncoding exon",
+                description="noncoding_exon",
+                meaning=SO["0000198"]))
+        setattr(cls, "intergenic region",
+            PermissibleValue(
+                text="intergenic region",
+                description="intergenic_region",
+                meaning=SO["0000605"]))
 
 class RegulatoryVariantCategoryEnum(EnumDefinitionImpl):
     """
@@ -12979,6 +13102,12 @@ slots.genotype = Slot(uri=DISMECH.genotype, name="genotype", curie=DISMECH.curie
 slots.type = Slot(uri=DISMECH.type, name="type", curie=DISMECH.curie('type'),
                    model_uri=DISMECH.type, domain=None, range=Optional[str])
 
+slots.variant_type = Slot(uri=DISMECH.variant_type, name="variant_type", curie=DISMECH.curie('variant_type'),
+                   model_uri=DISMECH.variant_type, domain=None, range=Optional[Union[str, "VariantTypeEnum"]])
+
+slots.genomic_contexts = Slot(uri=DISMECH.genomic_contexts, name="genomic_contexts", curie=DISMECH.curie('genomic_contexts'),
+                   model_uri=DISMECH.genomic_contexts, domain=None, range=Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]])
+
 slots.clinical_significance = Slot(uri=DISMECH.clinical_significance, name="clinical_significance", curie=DISMECH.curie('clinical_significance'),
                    model_uri=DISMECH.clinical_significance, domain=None, range=Optional[Union[str, "ClinicalSignificanceEnum"]])
 
@@ -14342,3 +14471,9 @@ slots.ModuleCollection_module_members = Slot(uri=DISMECH.module_members, name="M
 
 slots.ModuleCollectionMember_module = Slot(uri=DISMECH.module, name="ModuleCollectionMember_module", curie=DISMECH.curie('module'),
                    model_uri=DISMECH.ModuleCollectionMember_module, domain=ModuleCollectionMember, range=str)
+
+slots.regulatory_target_gene = Slot(uri=DISMECH.regulatory_target_gene, name="regulatory_target_gene", curie=DISMECH.curie('regulatory_target_gene'),
+                   model_uri=DISMECH.regulatory_target_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
+
+slots.Pathophysiology_regulatory_category = Slot(uri=DISMECH.regulatory_category, name="Pathophysiology_regulatory_category", curie=DISMECH.curie('regulatory_category'),
+                   model_uri=DISMECH.Pathophysiology_regulatory_category, domain=Pathophysiology, range=Optional[Union[str, "RegulatoryVariantCategoryEnum"]])
