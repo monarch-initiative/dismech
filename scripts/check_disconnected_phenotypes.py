@@ -60,7 +60,8 @@ unexplained, but they are not the same curation job.
 
 Report-only, and not a number to drive up
 -----------------------------------------
-Exit 0 always, unless you ask otherwise with ``--strict`` or ``--fail-under``.
+Exit 0 on any number of findings, unless you ask otherwise with ``--strict`` or
+``--fail-under`` (a named path that does not exist is a usage error and exits 2).
 Connecting a phenotype is real curation: the edge asserts which mechanism
 produces which clinical feature, which is often exactly what the literature
 does not settle. Some phenotypes legitimately have no upstream node in the
@@ -93,8 +94,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from dismech import kb_cache
 from dismech.graph import build_causal_graph
+from dismech.kb_cache import load_document
 from dismech.qc_plugins import CAUSAL_PREDICATES, causal_inlink_coverage
-from dismech.yaml_io import safe_load_path
 
 DEFAULT_KB_DIRS = ("kb/disorders",)
 
@@ -192,12 +193,22 @@ def _display_path(path: Path) -> str:
 
 
 def assess(path: Path) -> EntryReport | None:
-    """Assess one entry, or return None when it carries no phenotype nodes."""
-    try:
-        data = safe_load_path(path)
-    except FileNotFoundError:
-        print(f"warning: {_display_path(path)} does not exist", file=sys.stderr)
-        return None
+    """Assess one entry, or return None when it carries no phenotype nodes.
+
+    Raises ``FileNotFoundError`` for a path that does not exist, rather than
+    warning and reporting nothing: an unreadable path must not read as a clean
+    result, or a mistyped argument would pass ``--strict``/``--fail-under``.
+    ``main`` collects those and exits 2.
+
+    The document is read through :func:`dismech.kb_cache.load_document`, which
+    is the route a corpus walk takes here (#11003). ``main`` calls
+    ``kb_cache.default_off()`` because this CLI walks ``kb/disorders`` exactly
+    once, so there are no hits to collect and the cache would be pure cost --
+    but pytest imports this module beside other scanners in one process, where
+    the cache does pay, and an explicit ``DISMECH_KB_CACHE`` still wins. The
+    returned document is shared and read-only; nothing below mutates it.
+    """
+    data = load_document(path)
     if not isinstance(data, dict):
         return None
 
@@ -224,6 +235,12 @@ def assess(path: Path) -> EntryReport | None:
                 "category": item.get("category"),
             }
 
+    # Second graph build of this entry: `causal_inlink_coverage` built one for
+    # the verdict and does not return it. Threading it out would mean changing
+    # that shared `qc_plugins` signature, and reusing the metric function
+    # untouched is the whole point of this script -- so the redundant build is
+    # deliberate. It costs ~2,100 extra builds on a whole-KB run, which is
+    # seconds against the YAML parse that dominates.
     attachment = _classify_attachment(build_causal_graph(data), set(unconnected))
     for name in unconnected:
         info = meta.get(name, {})
@@ -260,7 +277,7 @@ def _aggregate(reports: list[EntryReport]) -> tuple[int, int]:
     )
 
 
-def render_summary(reports: list[EntryReport], *, limit: int, verbose: bool) -> None:
+def render_summary(reports: list[EntryReport], *, limit: int) -> None:
     connected, total = _aggregate(reports)
     zero = sorted(
         (r for r in reports if FINDING_ZERO in r.findings),
@@ -290,14 +307,11 @@ def render_summary(reports: list[EntryReport], *, limit: int, verbose: bool) -> 
             "   the class a curator can act on in one sitting, not a number to drive\n"
             "   up -- an edge added to clear a report is worse than no edge.\n"
         )
-        shown = zero if verbose else zero[:limit]
+        shown = zero[:limit]
         for report in shown:
             isolated = report.isolated_count
-            touch = (
-                f", {report.total - isolated} touched by a non-causal edge"
-                if isolated < report.total
-                else ""
-            )
+            touched = len(report.disconnected) - isolated
+            touch = f", {touched} touched by a non-causal edge" if touched else ""
             print(f"  {report.path}: 0/{report.total} connected{touch}")
         if len(shown) < len(zero):
             print(
@@ -312,7 +326,7 @@ def render_summary(reports: list[EntryReport], *, limit: int, verbose: bool) -> 
             f"-- {len(partial)} entry(ies) partially connected; "
             f"{len(worst)} below 50% --"
         )
-        shown = partial if verbose else worst[:limit]
+        shown = worst[:limit]
         for report in shown:
             print(
                 f"  {report.path}: {report.connected}/{report.total} connected "
@@ -466,7 +480,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    reports = [r for r in (assess(p) for p in iter_paths(args.files)) if r is not None]
+    reports: list[EntryReport] = []
+    missing: list[str] = []
+    for path in iter_paths(args.files):
+        try:
+            report = assess(path)
+        except FileNotFoundError:
+            missing.append(_display_path(path))
+            continue
+        if report is not None:
+            reports.append(report)
+
     if args.min_phenotypes:
         reports = [r for r in reports if r.total >= args.min_phenotypes]
     if args.zero_only:
@@ -478,10 +502,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.format == "json":
         render_json(reports)
     elif args.format == "list":
-        render_summary(reports, limit=limit, verbose=False)
+        render_summary(reports, limit=limit)
         render_list(reports)
     else:
-        render_summary(reports, limit=limit, verbose=False)
+        render_summary(reports, limit=limit)
 
     connected, total = _aggregate(reports)
     failed = False
@@ -502,6 +526,14 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             failed = True
+
+    # A named path that does not exist exits 2 whatever the gates say. Reporting
+    # nothing and exiting 0 would make a mistyped argument read as a passing
+    # --strict/--fail-under run; 2 keeps it distinct from the gate's own 1.
+    if missing:
+        for name in missing:
+            print(f"ERROR: {name} does not exist", file=sys.stderr)
+        return 2
     return 1 if failed else 0
 
 

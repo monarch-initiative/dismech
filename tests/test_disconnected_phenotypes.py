@@ -23,6 +23,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 # Inline the path rather than assigning ROOT first: ruff's E402 allows an
 # import preceded by a `sys.path` preamble, but an intervening assignment
 # breaks that allowance (see tests/test_causal_targets.py).
@@ -285,11 +287,25 @@ def test_report_only_by_default_and_gating_is_opt_in(tmp_path):
     assert main([str(path), "--fail-under", "60"]) == 1
 
 
+def test_a_path_that_does_not_exist_never_reads_as_a_passing_gate(tmp_path, capsys):
+    """Exit 2, not 0 -- otherwise a typo would look like a clean --strict run."""
+    missing = tmp_path / "Nope.yaml"
+    assert main([str(missing)]) == 2
+    assert main([str(missing), "--strict"]) == 2
+    assert main([str(missing), "--fail-under", "90"]) == 2
+    assert "does not exist" in capsys.readouterr().err
+
+    # A real file beside a missing one is still reported, and still exits 2.
+    real = _write(tmp_path, "Test.yaml", CONNECTED_AND_FLOATING)
+    assert main([str(real), str(missing), "--format", "tsv"]) == 2
+    assert "Floating Phenotype" in capsys.readouterr().out
+
+
 def test_the_script_runs_over_the_real_kb_entry_that_prompted_the_issue():
     """End-to-end through the CLI, on the instance named in issue #11935."""
     entry = ROOT / "kb/disorders/SLC35A1-Congenital_Disorder_of_Glycosylation.yaml"
     if not entry.exists():  # pragma: no cover - entry renamed or retargeted
-        return
+        pytest.skip(f"{entry.name} is no longer in kb/disorders")
     result = subprocess.run(
         [sys.executable, str(SCRIPT), str(entry), "--format", "json"],
         capture_output=True,
