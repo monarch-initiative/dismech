@@ -93,8 +93,12 @@ against AOP-Wiki and PubMed. The provider bundle also contained iteration
 transcripts, container logs and a PDF rendering of the same report; those are
 recoverable from the job and are not committed.
 
-**AOP-Wiki snapshot.** All AOP-Wiki figures below are from the `09-03-2026`
-export, read through
+**AOP-Wiki snapshot.** AOP-Wiki figures below are from the `09-03-2026` export
+unless a figure names another snapshot: the F010 ratings check and the
+infection-outcome census were both run against `09-15-2026`. Export counts move
+between dates — 1,602 events in `09-15-2026` against 1,598 in `08-06-2026` — so
+which snapshot produced a figure is load-bearing for anyone re-running it. Both
+were read through
 [`aop-wiki-cli`](https://github.com/gingin77/aop_wiki_cli). AOP-Wiki is not a
 citable reference in dismech's validation stack — there is no `AOP:` prefix and
 no fetcher — so anything curated from it must cite the primary literature
@@ -151,6 +155,11 @@ appears anywhere in the record:
 | KER2928 | 277 | Suppression of T-cell activation → Impaired TDAR | 1,506 chars | 207 chars | none |
 | KER2027 | 315 | IL-4 suppression → Impaired TDAR | 260 chars | 292 chars | none |
 
+Character counts are measured **after** HTML stripping; AOP-Wiki free-text fields
+hold raw HTML, and a direct cache read has to strip it. The three KER records were
+read from `all_kers_09-15-2026.json`, materialized by the command in
+*Reproducing it* above and keyed by the AOP-Wiki KER IDs shown.
+
 Nor are the ratings on the parent AOP records, whose `woe_evidence` is narrative
 prose rather than a ratings table. AOP 277 and AOP 315 contain no rating token at
 all; AOP 154 contains only **Moderate**, never High.
@@ -206,7 +215,6 @@ it is the paper's clearest support for a graded relationship. What it does not
 supply is the part the pathway needs: it names neither TDAR nor any single immune
 test as the measure of "degrees of immunosuppression", which is what conclusion
 (2) explicitly declines to do.
-
 
 ### The 1992 companion paper does not say TDAR is best, or that it predicts infection
 
@@ -438,6 +446,10 @@ not as toxicity entries. Any such module would begin with no conformers.
   against their abstracts.
 - The report's own five limitations and six proposed follow-up experiments have
   not been assessed at all.
+- Whether the F010 High/High ratings exist anywhere outside the XML export — in a
+  structured field the export does not carry, or on the rendered AOP-Wiki KER
+  pages. The check above establishes only that they are not extractable from the
+  export by the method the report states.
 - Only the abstract of the 1992 companion paper
   ([PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/)) was consulted, not
   its full text.
