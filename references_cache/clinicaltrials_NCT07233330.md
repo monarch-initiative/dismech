@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07233330"
+reference_id: clinicaltrials:NCT07233330
 title: "Obinutuzumab Treatment in Frequently Relapsing and Rituximab-Dependent Idiopathic Nephrotic Syndrome in Adults: a Fully Academic, Single-arm, Open, Prospective, Intervention Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Obinutuzumab Treatment in Frequently Relapsing and Rituximab-Dependent Idiopathic Nephrotic Syndrome in Adults: a Fully Academic, Single-arm, Open, Prospective, Intervention Trial

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03734263"
+reference_id: clinicaltrials:NCT03734263
 title: Pilot Clinical Trial to Investigate the Safety and Efficacy of Phenylbutyrate Therapy for Patients With Pyruvate Dehydrogenase Complex Deficiency.
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pilot Clinical Trial to Investigate the Safety and Efficacy of Phenylbutyrate Therapy for Patients With Pyruvate Dehydrogenase Complex Deficiency.

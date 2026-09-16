@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03496207"
+reference_id: clinicaltrials:NCT03496207
 title: "A Phase 2, Double-Blind, Placebo-Controlled, Randomized Study to Compare the Efficacy and Safety of Sotatercept (ACE-011) Versus Placebo When Added to Standard of Care for the Treatment of Pulmonary Arterial Hypertension (PAH)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2, Double-Blind, Placebo-Controlled, Randomized Study to Compare the Efficacy and Safety of Sotatercept (ACE-011) Versus Placebo When Added to Standard of Care for the Treatment of Pulmonary Arterial Hypertension (PAH)

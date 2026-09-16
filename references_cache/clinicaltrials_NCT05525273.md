@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05525273"
+reference_id: clinicaltrials:NCT05525273
 title: Neoadjuvant and Postoperative Treatment With Dabrafenib and Trametinib in BRAF Mutated Papillary Craniopharyngioma
 content_type: summary
+full_text_attempted: true
 ---
 
 # Neoadjuvant and Postoperative Treatment With Dabrafenib and Trametinib in BRAF Mutated Papillary Craniopharyngioma

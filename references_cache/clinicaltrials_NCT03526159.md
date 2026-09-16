@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03526159"
+reference_id: clinicaltrials:NCT03526159
 title: A Pilot Study of the Restoration of Functional Laminin 332 in JEB Patients With Nonsense Mutations After Topical and Intravenous Gentamicin Treatment
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Pilot Study of the Restoration of Functional Laminin 332 in JEB Patients With Nonsense Mutations After Topical and Intravenous Gentamicin Treatment

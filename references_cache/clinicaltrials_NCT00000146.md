@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00000146"
+reference_id: clinicaltrials:NCT00000146
 title: Optic Neuritis Treatment Trial (ONTT)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Optic Neuritis Treatment Trial (ONTT)

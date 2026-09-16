@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04833361"
+reference_id: clinicaltrials:NCT04833361
 title: Pilot Evaluation of Potential Environmental Causes of Uveal Coloboma
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pilot Evaluation of Potential Environmental Causes of Uveal Coloboma

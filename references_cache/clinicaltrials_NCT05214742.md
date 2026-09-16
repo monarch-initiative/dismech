@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05214742"
+reference_id: clinicaltrials:NCT05214742
 title: Developing Derived Induced Pluripotent Stem Cells From Blood as a Model for the Study to Understand Imprinted Disorders
 content_type: summary
+full_text_attempted: true
 ---
 
 # Developing Derived Induced Pluripotent Stem Cells From Blood as a Model for the Study to Understand Imprinted Disorders

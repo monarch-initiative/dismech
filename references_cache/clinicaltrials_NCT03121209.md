@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03121209"
+reference_id: clinicaltrials:NCT03121209
 title: Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial - Hemodynamics
 content_type: summary
+full_text_attempted: true
 ---
 
 # Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial - Hemodynamics

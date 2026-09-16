@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02398994"
+reference_id: clinicaltrials:NCT02398994
 title: A Multicentre randomiSed Controlled TRial of IntraVEnous Immunoglobulin (IVIg) Versus Standard Therapy for the Treatment of Transverse Myelitis in Adults and Children
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicentre randomiSed Controlled TRial of IntraVEnous Immunoglobulin (IVIg) Versus Standard Therapy for the Treatment of Transverse Myelitis in Adults and Children

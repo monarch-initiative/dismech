@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06286709"
+reference_id: clinicaltrials:NCT06286709
 title: "FARGO: A Randomised, Phase IIa, Multi-centre, Placebo-controlled Trial of FAecal Microbiota Transplantation in primaRy sclerosinG chOlangitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # FARGO: A Randomised, Phase IIa, Multi-centre, Placebo-controlled Trial of FAecal Microbiota Transplantation in primaRy sclerosinG chOlangitis

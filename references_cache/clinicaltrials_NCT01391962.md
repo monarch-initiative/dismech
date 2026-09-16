@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01391962"
+reference_id: clinicaltrials:NCT01391962
 title: "A Phase II Trial In Which Patients With Metastatic Alveolar Soft Part Sarcoma Are Randomized to Either Sunitinib or Cediranib Monotherapy, With Cross-Over at Disease Progression"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II Trial In Which Patients With Metastatic Alveolar Soft Part Sarcoma Are Randomized to Either Sunitinib or Cediranib Monotherapy, With Cross-Over at Disease Progression

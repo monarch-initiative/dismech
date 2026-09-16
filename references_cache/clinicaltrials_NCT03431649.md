@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03431649"
+reference_id: clinicaltrials:NCT03431649
 title: Efficacy of Beraprost in Lowering Pulmonary Arterial Pressure in Pulmonary Arterial Hypertension Children Associated With Left to Right Shunt Congenital Heart Defect
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy of Beraprost in Lowering Pulmonary Arterial Pressure in Pulmonary Arterial Hypertension Children Associated With Left to Right Shunt Congenital Heart Defect

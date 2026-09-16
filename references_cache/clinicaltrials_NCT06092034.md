@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06092034"
+reference_id: clinicaltrials:NCT06092034
 title: "Gene Therapy for Danon Disease: A Phase 2 Study Evaluating the Efficacy and Safety of Intravenously Administered Adeno-Associated Virus Serotype 9 (rAAV9) Vector Containing the Human LAMP2 Isoform B Transgene (RP-A501; AAV9.LAMP2B) in Male Patients With Danon Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Gene Therapy for Danon Disease: A Phase 2 Study Evaluating the Efficacy and Safety of Intravenously Administered Adeno-Associated Virus Serotype 9 (rAAV9) Vector Containing the Human LAMP2 Isoform B Transgene (RP-A501; AAV9.LAMP2B) in Male Patients With Danon Disease

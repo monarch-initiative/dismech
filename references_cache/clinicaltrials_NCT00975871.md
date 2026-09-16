@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00975871"
+reference_id: clinicaltrials:NCT00975871
 title: Correlation of Genetic Polymorphism and Livedo Vasculitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Correlation of Genetic Polymorphism and Livedo Vasculitis

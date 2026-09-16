@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05765981"
+reference_id: clinicaltrials:NCT05765981
 title: "An Open, Dose-escalating Early Clinical Trial to Evaluate the Tolerability, Safety, and Efficacy of VGN-R09b by Intra Striatum Injection in Patients With Aromatic L-amino Acid Decarboxylase (AADC) Deficiency."
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open, Dose-escalating Early Clinical Trial to Evaluate the Tolerability, Safety, and Efficacy of VGN-R09b by Intra Striatum Injection in Patients With Aromatic L-amino Acid Decarboxylase (AADC) Deficiency.

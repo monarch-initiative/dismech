@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03140969"
+reference_id: clinicaltrials:NCT03140969
 title: "An Open-label, Multiple Dose, Dose Escalation Study to Evaluate the Safety and Tolerability of QR-110 in Subjects With Leber's Congenital Amaurosis (LCA) Due to c.2991+1655A>G Mutation (p.Cys998X) in the CEP290 Gene"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-label, Multiple Dose, Dose Escalation Study to Evaluate the Safety and Tolerability of QR-110 in Subjects With Leber's Congenital Amaurosis (LCA) Due to c.2991+1655A>G Mutation (p.Cys998X) in the CEP290 Gene

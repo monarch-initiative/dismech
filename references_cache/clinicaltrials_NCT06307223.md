@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06307223"
+reference_id: clinicaltrials:NCT06307223
 title: "Efficacy and Safety of 30% Supramolecular Salicylic Acid Combined With Supramolecular Active Zinc in the Treatment of Malassezia Folliculitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of 30% Supramolecular Salicylic Acid Combined With Supramolecular Active Zinc in the Treatment of Malassezia Folliculitis

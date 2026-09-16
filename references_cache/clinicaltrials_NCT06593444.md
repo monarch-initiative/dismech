@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06593444"
+reference_id: clinicaltrials:NCT06593444
 title: "The Efficacy and Safety of Thalamic Ventral Intermediate Electrical Stimulation for Refractory Familial Cortical Myoclonus with Epilepsy: a Prospective, Pilot Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Efficacy and Safety of Thalamic Ventral Intermediate Electrical Stimulation for Refractory Familial Cortical Myoclonus with Epilepsy: a Prospective, Pilot Trial

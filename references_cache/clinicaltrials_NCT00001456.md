@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00001456"
+reference_id: clinicaltrials:NCT00001456
 title: Clinical and Basic Investigations Into Hermansky-Pudlak Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Clinical and Basic Investigations Into Hermansky-Pudlak Syndrome

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02640443"
+reference_id: clinicaltrials:NCT02640443
 title: "Sulfamethoxazole for the Treatment of Primary PREPL Deficiency (In Dutch: Sulfamethoxazole Ter Behandeling Van Primaire PREPL deficiëntie)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Sulfamethoxazole for the Treatment of Primary PREPL Deficiency (In Dutch: Sulfamethoxazole Ter Behandeling Van Primaire PREPL deficiëntie)

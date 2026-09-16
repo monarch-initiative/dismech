@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03281174"
+reference_id: clinicaltrials:NCT03281174
 title: "Phase IV, Open-labelled, Five-year Immune Persistence Study of Inactivated Enterovirus Type 71 (EV71) Vaccine"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase IV, Open-labelled, Five-year Immune Persistence Study of Inactivated Enterovirus Type 71 (EV71) Vaccine

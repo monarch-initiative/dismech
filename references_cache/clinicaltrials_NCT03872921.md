@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03872921"
+reference_id: clinicaltrials:NCT03872921
 title: "Double-blind, Randomized, Placebo-controlled, Phase III Study Comparing norUrsodeoxycholic Acid Capsules With Placebo in the Treatment of Primary Sclerosing Cholangitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Double-blind, Randomized, Placebo-controlled, Phase III Study Comparing norUrsodeoxycholic Acid Capsules With Placebo in the Treatment of Primary Sclerosing Cholangitis

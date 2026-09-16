@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02961374"
+reference_id: clinicaltrials:NCT02961374
 title: Phase II Trial of Weekly Erlotinib Dosing to Reduce Duodenal Polyp Burden Associated With Familial Adenomatous Polyposis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase II Trial of Weekly Erlotinib Dosing to Reduce Duodenal Polyp Burden Associated With Familial Adenomatous Polyposis

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03719105"
+reference_id: clinicaltrials:NCT03719105
 title: "Pilot Study Using Induction Chemo-immunotherapy Followed by Consolidation With Reduced Toxicity Conditioning and Allogenic Stem Cell Transplant in Advanced Stage Mature Non-anaplastic T-Cell or NK Lymphoma/Leukemia in Children, Adolescents and Young Adults; A NK/T-Cell Lymphoma/Leukemia Consortium Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pilot Study Using Induction Chemo-immunotherapy Followed by Consolidation With Reduced Toxicity Conditioning and Allogenic Stem Cell Transplant in Advanced Stage Mature Non-anaplastic T-Cell or NK Lymphoma/Leukemia in Children, Adolescents and Young Adults; A NK/T-Cell Lymphoma/Leukemia Consortium Study

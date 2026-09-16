@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02231008"
+reference_id: clinicaltrials:NCT02231008
 title: "A Double-blind, Randomized, Two-period Crossover Study Evaluating the Effects of Tasimelteon vs. Placebo on Sleep Disturbances of Individuals With Smith-Magenis Syndrome (SMS)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Double-blind, Randomized, Two-period Crossover Study Evaluating the Effects of Tasimelteon vs. Placebo on Sleep Disturbances of Individuals With Smith-Magenis Syndrome (SMS)

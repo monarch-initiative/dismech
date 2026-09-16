@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02674321"
+reference_id: clinicaltrials:NCT02674321
 title: A Pilot Study Of SD-809 (Deutetrabenazine) In Moderate To Severe Tourette Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Pilot Study Of SD-809 (Deutetrabenazine) In Moderate To Severe Tourette Syndrome

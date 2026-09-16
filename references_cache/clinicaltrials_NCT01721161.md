@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01721161"
+reference_id: clinicaltrials:NCT01721161
 title: "A Randomized, Double-Blind, Parallel-Group, Placebo Controlled Study to Assess the Efficacy, Safety, Tolerability, and Pharmacokinetics of BIIB033 in Subjects With First Episode of Acute Optic Neuritis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind, Parallel-Group, Placebo Controlled Study to Assess the Efficacy, Safety, Tolerability, and Pharmacokinetics of BIIB033 in Subjects With First Episode of Acute Optic Neuritis

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01387828"
+reference_id: clinicaltrials:NCT01387828
 title: Prospective Randomized Comparison of Open Versus Laparoscopic Management of Splenic Artery Aneurysms. A Ten-Year Study
 content_type: summary
+full_text_attempted: true
 ---
 
 # Prospective Randomized Comparison of Open Versus Laparoscopic Management of Splenic Artery Aneurysms. A Ten-Year Study

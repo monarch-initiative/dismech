@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05111600"
+reference_id: clinicaltrials:NCT05111600
 title: "Multicentre, Open-label, Uncontrolled, Pivotal Clinical Trial to Confirm the Efficacy and Safety of Autologous Fibrin-cultured Epidermal Grafts Containing Epidermal Stem Cells Genetically Modified for Restoration of Epidermis in Patients With Junctional Epidermolysis Bullosa"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multicentre, Open-label, Uncontrolled, Pivotal Clinical Trial to Confirm the Efficacy and Safety of Autologous Fibrin-cultured Epidermal Grafts Containing Epidermal Stem Cells Genetically Modified for Restoration of Epidermis in Patients With Junctional Epidermolysis Bullosa

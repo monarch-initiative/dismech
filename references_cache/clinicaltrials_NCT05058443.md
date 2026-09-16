@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05058443"
+reference_id: clinicaltrials:NCT05058443
 title: "Denosumab Protects Bone Loss and Function in Patients With Osteoporotic Vertebral Compression Fracture After Percutaneous Vertebroplasty: a Randomized Placebo-controlled Clinical Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Denosumab Protects Bone Loss and Function in Patients With Osteoporotic Vertebral Compression Fracture After Percutaneous Vertebroplasty: a Randomized Placebo-controlled Clinical Trial

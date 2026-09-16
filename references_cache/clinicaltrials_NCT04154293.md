@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04154293"
+reference_id: clinicaltrials:NCT04154293
 title: "A Randomized, Parallel, Double-Blind, Vehicle Controlled Study to Evaluate the Safety and Efficacy of Two Concentrations of Topical TMB-001 for the Treatment of Congenital Ichthyosis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Parallel, Double-Blind, Vehicle Controlled Study to Evaluate the Safety and Efficacy of Two Concentrations of Topical TMB-001 for the Treatment of Congenital Ichthyosis

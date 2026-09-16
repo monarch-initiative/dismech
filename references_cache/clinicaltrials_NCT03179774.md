@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03179774"
+reference_id: clinicaltrials:NCT03179774
 title: "Endovascular Revascularization for Chronic Carotid Artery Occlusion Trial (ERCAO Trial) Part 1: Prospective Clinical Registry Study Part 2: Prospective Randomized Control Trial Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Endovascular Revascularization for Chronic Carotid Artery Occlusion Trial (ERCAO Trial) Part 1: Prospective Clinical Registry Study Part 2: Prospective Randomized Control Trial Study

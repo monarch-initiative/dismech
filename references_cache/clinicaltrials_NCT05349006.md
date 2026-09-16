@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05349006"
+reference_id: clinicaltrials:NCT05349006
 title: "A Randomized, Placebo-controlled Phase 3 Trial of Azathioprine for the Prevention of Relapse in Myelin-oligodendrocyte-glycoprotein (MOG)-Antibody Associated Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Placebo-controlled Phase 3 Trial of Azathioprine for the Prevention of Relapse in Myelin-oligodendrocyte-glycoprotein (MOG)-Antibody Associated Disease

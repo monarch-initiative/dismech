@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05517304"
+reference_id: clinicaltrials:NCT05517304
 title: Transcutaneous Vagal Nerve Stimulation in Veterans With Posttraumatic Stress Disorder
 content_type: summary
+full_text_attempted: true
 ---
 
 # Transcutaneous Vagal Nerve Stimulation in Veterans With Posttraumatic Stress Disorder

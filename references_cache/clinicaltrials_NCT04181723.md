@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04181723"
+reference_id: clinicaltrials:NCT04181723
 title: "A Randomized, Double-Blind, Placebo-Controlled, Parallel-Group Study of Trofinetide for the Treatment of Girls and Women With Rett Syndrome"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind, Placebo-Controlled, Parallel-Group Study of Trofinetide for the Treatment of Girls and Women With Rett Syndrome

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04007991"
+reference_id: clinicaltrials:NCT04007991
 title: "Multicenter, Placebo-Controlled, Double-Blind, Randomized, Parallel-Group, Phase 2b Study to Evaluate the Efficacy and Safety of Ecopipam in Children and Adolescents With Tourette's Syndrome"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multicenter, Placebo-Controlled, Double-Blind, Randomized, Parallel-Group, Phase 2b Study to Evaluate the Efficacy and Safety of Ecopipam in Children and Adolescents With Tourette's Syndrome

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01619644"
+reference_id: clinicaltrials:NCT01619644
 title: "Rubinstein-Taybi Syndrome: Functional Imaging and Therapeutic Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Rubinstein-Taybi Syndrome: Functional Imaging and Therapeutic Trial

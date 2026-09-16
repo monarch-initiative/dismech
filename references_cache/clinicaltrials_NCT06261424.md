@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06261424"
+reference_id: clinicaltrials:NCT06261424
 title: "IMPACT, a Supervised Rehabilitation Program for Spastic Ataxias: A Rater-blinded, Randomized Controlled Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # IMPACT, a Supervised Rehabilitation Program for Spastic Ataxias: A Rater-blinded, Randomized Controlled Trial

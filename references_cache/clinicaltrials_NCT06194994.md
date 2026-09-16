@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06194994"
+reference_id: clinicaltrials:NCT06194994
 title: "Emotion Regulation as a Moderator of Two Different Treatments for Children With Oppositional Defiant Disorder: A Randomized Clinical Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Emotion Regulation as a Moderator of Two Different Treatments for Children With Oppositional Defiant Disorder: A Randomized Clinical Trial

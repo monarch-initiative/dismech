@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01763580"
+reference_id: clinicaltrials:NCT01763580
 title: "Open-Label, Randomized, Comparative, Multi-Center Clinical Trial on the Therapeutic Effect of Tacrolimus (Prograf Cap.®) in Combination With Low-Dose Corticosteroid Compared With High-Dose Corticosteroid Alone in Patients With Minimal-Change Nephrotic Syndrome (MCNS)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Open-Label, Randomized, Comparative, Multi-Center Clinical Trial on the Therapeutic Effect of Tacrolimus (Prograf Cap.®) in Combination With Low-Dose Corticosteroid Compared With High-Dose Corticosteroid Alone in Patients With Minimal-Change Nephrotic Syndrome (MCNS)

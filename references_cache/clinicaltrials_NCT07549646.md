@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07549646"
+reference_id: clinicaltrials:NCT07549646
 title: "VATCH (Vascular Anomaly Analysis for Therapy Choice): A Phase II Study of Trametinib Treatment in Subjects With Ras/MAPK Pathway Driven Vascular Anomalies"
 content_type: summary
+full_text_attempted: true
 ---
 
 # VATCH (Vascular Anomaly Analysis for Therapy Choice): A Phase II Study of Trametinib Treatment in Subjects With Ras/MAPK Pathway Driven Vascular Anomalies

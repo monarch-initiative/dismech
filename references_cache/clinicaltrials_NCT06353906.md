@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06353906"
+reference_id: clinicaltrials:NCT06353906
 title: "A Phase 2 Clinical Study to Assess Efficacy of Induction Carboplatin/Paclitaxel + Pembrolizumab for Locoregionally Advanced Penile Cancer: PRIAM"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Clinical Study to Assess Efficacy of Induction Carboplatin/Paclitaxel + Pembrolizumab for Locoregionally Advanced Penile Cancer: PRIAM

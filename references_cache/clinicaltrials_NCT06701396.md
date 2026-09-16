@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06701396"
+reference_id: clinicaltrials:NCT06701396
 title: "A Double-Blind, Randomized, Two-Period Crossover Study to Evaluate the Effects of Tasimelteon Vs. Placebo in Subjects with Delayed Sleep-Wake Phase Disorder (DSWPD) and the CRY1Δ11 Variant"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Double-Blind, Randomized, Two-Period Crossover Study to Evaluate the Effects of Tasimelteon Vs. Placebo in Subjects with Delayed Sleep-Wake Phase Disorder (DSWPD) and the CRY1Δ11 Variant

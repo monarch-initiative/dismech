@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02014376"
+reference_id: clinicaltrials:NCT02014376
 title: "A Phase 2b, Multi-Center, Randomized, Double-Blind, Vehicle-Controlled Study of the Effectiveness and Safety of SD-101 Cream in Subjects With Epidermolysis Bullosa"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2b, Multi-Center, Randomized, Double-Blind, Vehicle-Controlled Study of the Effectiveness and Safety of SD-101 Cream in Subjects With Epidermolysis Bullosa

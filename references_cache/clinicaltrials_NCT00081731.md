@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00081731"
+reference_id: clinicaltrials:NCT00081731
 title: Cardiovascular Outcomes in Renal Atherosclerotic Lesions (CORAL)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Cardiovascular Outcomes in Renal Atherosclerotic Lesions (CORAL)

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01273792"
+reference_id: clinicaltrials:NCT01273792
 title: Investigation of Relevant Biomarkers in Patients With Susac Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Investigation of Relevant Biomarkers in Patients With Susac Syndrome

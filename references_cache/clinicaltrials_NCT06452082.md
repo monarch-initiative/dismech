@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06452082"
+reference_id: clinicaltrials:NCT06452082
 title: Retrospective Observational Study on the Risk Developing Long-COVID Syndrome After Acute COVID-19 Disease and in Contracting SARS-CoV-2 Infection After COVID-19 Vaccination in Relation to Vitamin D3 Suppl in Outpatients of Endocr Dept
 content_type: summary
+full_text_attempted: true
 ---
 
 # Retrospective Observational Study on the Risk Developing Long-COVID Syndrome After Acute COVID-19 Disease and in Contracting SARS-CoV-2 Infection After COVID-19 Vaccination in Relation to Vitamin D3 Suppl in Outpatients of Endocr Dept

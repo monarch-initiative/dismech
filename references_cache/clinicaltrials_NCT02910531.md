@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02910531"
+reference_id: clinicaltrials:NCT02910531
 title: The Effect of Lipoic Acid Natural Supplement on Cystine Stone Formation
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Effect of Lipoic Acid Natural Supplement on Cystine Stone Formation

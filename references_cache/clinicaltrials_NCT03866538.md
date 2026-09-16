@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03866538"
+reference_id: clinicaltrials:NCT03866538
 title: Open-label Withdrawal Trial of Budesonide in Patients With Immune Mediated Enteropathies
 content_type: summary
+full_text_attempted: true
 ---
 
 # Open-label Withdrawal Trial of Budesonide in Patients With Immune Mediated Enteropathies

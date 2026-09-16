@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00873678"
+reference_id: clinicaltrials:NCT00873678
 title: "Assessment of the Prevalence and Mutational Spectrum of Genes AHI1, NPHP1 and CEP290 in Joubert Syndrome and Cerebello-oculo-renal Syndromes"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Assessment of the Prevalence and Mutational Spectrum of Genes AHI1, NPHP1 and CEP290 in Joubert Syndrome and Cerebello-oculo-renal Syndromes

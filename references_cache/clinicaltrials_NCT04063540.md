@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04063540"
+reference_id: clinicaltrials:NCT04063540
 title: Acid-Sensing Ion Channel and Migraine Disease Proof of Concept Study on the Efficacy of Amiloride in the Prophylaxis of Migraine Aura
 content_type: summary
+full_text_attempted: true
 ---
 
 # Acid-Sensing Ion Channel and Migraine Disease Proof of Concept Study on the Efficacy of Amiloride in the Prophylaxis of Migraine Aura

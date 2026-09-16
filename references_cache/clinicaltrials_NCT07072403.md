@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07072403"
+reference_id: clinicaltrials:NCT07072403
 title: "Safety and Efficacy of Trametinib for Complicated Vascular Anomalies: A Multicenter Prospective Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Safety and Efficacy of Trametinib for Complicated Vascular Anomalies: A Multicenter Prospective Study

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00195598"
+reference_id: clinicaltrials:NCT00195598
 title: Pilot Study of Venlafaxine Extended Release (XR) in the Treatment of Panic Disorder (PD) in Comparison to Paroxetine.
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pilot Study of Venlafaxine Extended Release (XR) in the Treatment of Panic Disorder (PD) in Comparison to Paroxetine.

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00659776"
+reference_id: clinicaltrials:NCT00659776
 title: "Multi-Disciplinary Study: Magnetic Resonance, Histologic And Electron Microscopy Imaging Of Intravenous Superparamagnetic Crystalline Particles (Ferumoxytol) In CNS Inflammation"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multi-Disciplinary Study: Magnetic Resonance, Histologic And Electron Microscopy Imaging Of Intravenous Superparamagnetic Crystalline Particles (Ferumoxytol) In CNS Inflammation

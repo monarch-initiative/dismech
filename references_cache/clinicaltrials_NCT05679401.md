@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05679401"
+reference_id: clinicaltrials:NCT05679401
 title: "A Phase 3 Open-label, Controlled, Randomised, Multi-centre Trial Comparing Imlifidase and Standard-of-care With Standard-of-care Alone in the Treatment of Severe Anti-GBM Antibody Disease (Goodpasture Disease)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Open-label, Controlled, Randomised, Multi-centre Trial Comparing Imlifidase and Standard-of-care With Standard-of-care Alone in the Treatment of Severe Anti-GBM Antibody Disease (Goodpasture Disease)

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02488109"
+reference_id: clinicaltrials:NCT02488109
 title: Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa
 content_type: summary
+full_text_attempted: true
 ---
 
 # Multi-center Randomized Controlled Trial of Refeeding in Anorexia Nervosa

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06073132"
+reference_id: clinicaltrials:NCT06073132
 title: "An International, Multicenter, Randomized, Double-Blind, Parallel Group, Vehicle-Controlled, Phase 2/3 Study With Open-Label Extension Evaluating the Efficacy and Safety of Diacerein 1% Ointment for the Treatment of Generalized Epidermolysis Bullosa Simplex (EBS) [EBShield Study]"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An International, Multicenter, Randomized, Double-Blind, Parallel Group, Vehicle-Controlled, Phase 2/3 Study With Open-Label Extension Evaluating the Efficacy and Safety of Diacerein 1% Ointment for the Treatment of Generalized Epidermolysis Bullosa Simplex (EBS) [EBShield Study]

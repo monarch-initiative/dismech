@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02939573"
+reference_id: clinicaltrials:NCT02939573
 title: A Randomized Multicenter Study for Isolated Skin Vasculitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized Multicenter Study for Isolated Skin Vasculitis

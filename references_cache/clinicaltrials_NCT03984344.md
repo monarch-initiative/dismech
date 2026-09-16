@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03984344"
+reference_id: clinicaltrials:NCT03984344
 title: A Feasibility Trial of Theta Burst Stimulation in Anorexia Nervosa (AN)
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Feasibility Trial of Theta Burst Stimulation in Anorexia Nervosa (AN)

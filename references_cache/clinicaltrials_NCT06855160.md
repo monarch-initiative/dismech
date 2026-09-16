@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06855160"
+reference_id: clinicaltrials:NCT06855160
 title: "A Phase 3a, Open-Label, Randomized, Controlled Study to Evaluate the Immunogenicity and Safety of Intramuscular Administration of an Investigational Varicella Vaccine and Priorix Compared With Subcutaneous Administration of Varivax and Priorix, When Given as a First Dose to Healthy Children 12 to 15 Months of Age"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3a, Open-Label, Randomized, Controlled Study to Evaluate the Immunogenicity and Safety of Intramuscular Administration of an Investigational Varicella Vaccine and Priorix Compared With Subcutaneous Administration of Varivax and Priorix, When Given as a First Dose to Healthy Children 12 to 15 Months of Age

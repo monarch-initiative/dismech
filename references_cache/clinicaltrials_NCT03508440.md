@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03508440"
+reference_id: clinicaltrials:NCT03508440
 title: Intratympanic Steroid Injection for Treatment of Idiopathic Facial Nerve Paralysis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Intratympanic Steroid Injection for Treatment of Idiopathic Facial Nerve Paralysis

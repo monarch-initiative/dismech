@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03439514"
+reference_id: clinicaltrials:NCT03439514
 title: "A Phase 3, Multinational, Randomized, Placebo-controlled Study of ARRY-371797 (PF-07265803) in Patients With Symptomatic Dilated Cardiomyopathy Due to a Lamin A/C Gene Mutation (REALM-DCM)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3, Multinational, Randomized, Placebo-controlled Study of ARRY-371797 (PF-07265803) in Patients With Symptomatic Dilated Cardiomyopathy Due to a Lamin A/C Gene Mutation (REALM-DCM)

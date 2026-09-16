@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04163419"
+reference_id: clinicaltrials:NCT04163419
 title: "A Phase 2 Randomized, Double-blind, Placebo-Controlled Study of the Analgesic Efficacy and Safety of the Subcutaneous Administration of the Anti-NGF Antibody Tanezumab in Subjects With Moderate to Severe Pain Due to Schwannomatosis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Randomized, Double-blind, Placebo-Controlled Study of the Analgesic Efficacy and Safety of the Subcutaneous Administration of the Anti-NGF Antibody Tanezumab in Subjects With Moderate to Severe Pain Due to Schwannomatosis

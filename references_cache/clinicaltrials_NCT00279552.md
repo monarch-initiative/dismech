@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00279552"
+reference_id: clinicaltrials:NCT00279552
 title: "Can Recombinant Human Intrinsic Factor Be Used for Evaluation of the Vitamin B12 Absorption?"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Can Recombinant Human Intrinsic Factor Be Used for Evaluation of the Vitamin B12 Absorption?

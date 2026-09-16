@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00947960"
+reference_id: clinicaltrials:NCT00947960
 title: A Treatment Trial of Triheptanoin in Patients With Adult Polyglucosan Body Disease - A Randomized Controlled Study
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Treatment Trial of Triheptanoin in Patients With Adult Polyglucosan Body Disease - A Randomized Controlled Study

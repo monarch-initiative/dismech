@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05232630"
+reference_id: clinicaltrials:NCT05232630
 title: "Fenfluramine for the Treatment of Different Types of Developmental and Epileptic Encephalopathies: a Pilot Trial Exploring Epileptic and Non-epileptic Outcomes"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Fenfluramine for the Treatment of Different Types of Developmental and Epileptic Encephalopathies: a Pilot Trial Exploring Epileptic and Non-epileptic Outcomes

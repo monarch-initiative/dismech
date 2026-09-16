@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03154333"
+reference_id: clinicaltrials:NCT03154333
 title: "An International, Multicenter, Randomized, Double-Blind, Parallel-Group Phase 2 Study Evaluating the Safety and Efficacy of Diacerein 1% Ointment Topical Formulation in Subjects With Epidermolysis Bullosa Simplex"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An International, Multicenter, Randomized, Double-Blind, Parallel-Group Phase 2 Study Evaluating the Safety and Efficacy of Diacerein 1% Ointment Topical Formulation in Subjects With Epidermolysis Bullosa Simplex

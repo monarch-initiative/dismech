@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02034110"
+reference_id: clinicaltrials:NCT02034110
 title: "A Phase II, Open-label, Study in Subjects With BRAF V600E-Mutated Rare Cancers With Several Histologies to Investigate the Clinical Efficacy and Safety of the Combination Therapy of Dabrafenib and Trametinib"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase II, Open-label, Study in Subjects With BRAF V600E-Mutated Rare Cancers With Several Histologies to Investigate the Clinical Efficacy and Safety of the Combination Therapy of Dabrafenib and Trametinib

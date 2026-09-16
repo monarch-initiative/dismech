@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04833907"
+reference_id: clinicaltrials:NCT04833907
 title: "Phase 1/2, Open Label, Sequential Cohort Study of a Single Intracranial Dose of AVASPA Gene Therapy for Treatment of Children With Typical Canavan Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 1/2, Open Label, Sequential Cohort Study of a Single Intracranial Dose of AVASPA Gene Therapy for Treatment of Children With Typical Canavan Disease

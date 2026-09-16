@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01668186"
+reference_id: clinicaltrials:NCT01668186
 title: Longitudinal Natural History Study of Patients With Peroxisome Biogenesis Disorders (PBD)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Longitudinal Natural History Study of Patients With Peroxisome Biogenesis Disorders (PBD)

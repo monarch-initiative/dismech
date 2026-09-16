@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04653909"
+reference_id: clinicaltrials:NCT04653909
 title: The Effectiveness of Rehabilitation Program in an Ultra-rare Calfan Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Effectiveness of Rehabilitation Program in an Ultra-rare Calfan Syndrome

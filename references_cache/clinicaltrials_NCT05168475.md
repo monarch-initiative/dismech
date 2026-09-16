@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05168475"
+reference_id: clinicaltrials:NCT05168475
 title: "Biologics in Refractory Vasculitis (BIOVAS): A Pragmatic, Randomised, Double-blind, Placebo-controlled, Modified-crossover Trial of Biologic Therapy for Refractory Primary Non-ANCA Associated Vasculitis in Adults and Children"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Biologics in Refractory Vasculitis (BIOVAS): A Pragmatic, Randomised, Double-blind, Placebo-controlled, Modified-crossover Trial of Biologic Therapy for Refractory Primary Non-ANCA Associated Vasculitis in Adults and Children

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01276522"
+reference_id: clinicaltrials:NCT01276522
 title: Efficacy and Safety of Canakinumab in Schnitzler Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Canakinumab in Schnitzler Syndrome

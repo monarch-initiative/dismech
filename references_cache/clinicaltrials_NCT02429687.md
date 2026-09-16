@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02429687"
+reference_id: clinicaltrials:NCT02429687
 title: "A Multicenter, Prospective, Randomized Trial Comparing Paclitaxel and Carboplatin or Bleomycin, Etoposide and Cisplatin in the Treatment of Malignant Ovarian Germ Cell Tumors"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Multicenter, Prospective, Randomized Trial Comparing Paclitaxel and Carboplatin or Bleomycin, Etoposide and Cisplatin in the Treatment of Malignant Ovarian Germ Cell Tumors

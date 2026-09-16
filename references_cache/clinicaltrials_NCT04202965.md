@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04202965"
+reference_id: clinicaltrials:NCT04202965
 title: Open-label Study of PTG-300 in Subjects With Hereditary Hemochromatosis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Open-label Study of PTG-300 in Subjects With Hereditary Hemochromatosis

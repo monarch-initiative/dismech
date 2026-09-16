@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07228299"
+reference_id: clinicaltrials:NCT07228299
 title: "Supporting Families in the ICU: The Chaplain Family Project Multicenter RCT"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Supporting Families in the ICU: The Chaplain Family Project Multicenter RCT

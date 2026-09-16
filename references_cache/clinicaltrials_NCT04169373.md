@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04169373"
+reference_id: clinicaltrials:NCT04169373
 title: "A Phase 3 Randomized, Placebo-Controlled, Double-Blind Program to Evaluate Efficacy and Safety of Upadacitinib in Adult Subjects With Axial Spondyloarthritis Followed by a Remission-Withdrawal Period"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Randomized, Placebo-Controlled, Double-Blind Program to Evaluate Efficacy and Safety of Upadacitinib in Adult Subjects With Axial Spondyloarthritis Followed by a Remission-Withdrawal Period

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06873100"
+reference_id: clinicaltrials:NCT06873100
 title: "Efficacy, Safety and Immunological Evaluation of Upadacitinib for Relapsing Polychondritis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Efficacy, Safety and Immunological Evaluation of Upadacitinib for Relapsing Polychondritis

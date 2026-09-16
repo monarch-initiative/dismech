@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03399175"
+reference_id: clinicaltrials:NCT03399175
 title: "Influência de imunomodulação Precoce Influence of Early Immunosuppressive Therapy on the Course of Vogt-Koyanagi-Harada Disease: a Prospective Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Influência de imunomodulação Precoce Influence of Early Immunosuppressive Therapy on the Course of Vogt-Koyanagi-Harada Disease: a Prospective Study

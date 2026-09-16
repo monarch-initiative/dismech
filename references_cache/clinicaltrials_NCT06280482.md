@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06280482"
+reference_id: clinicaltrials:NCT06280482
 title: Nicotinamide Riboside (NR) to Treat Moyamoya-like Cerebrovascular Disease in Smooth Muscle Dysfunction Syndrome (SMDS)
 content_type: summary
+full_text_attempted: true
 ---
 
 # Nicotinamide Riboside (NR) to Treat Moyamoya-like Cerebrovascular Disease in Smooth Muscle Dysfunction Syndrome (SMDS)

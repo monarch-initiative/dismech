@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04823143"
+reference_id: clinicaltrials:NCT04823143
 title: Natural History of Disease Progression in Individuals With a Confirmed Diagnosis of Disease Caused by Mutation of the Valosin Containing Protein (VCP) Gene
 content_type: summary
+full_text_attempted: true
 ---
 
 # Natural History of Disease Progression in Individuals With a Confirmed Diagnosis of Disease Caused by Mutation of the Valosin Containing Protein (VCP) Gene

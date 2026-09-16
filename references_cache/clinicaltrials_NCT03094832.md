@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03094832"
+reference_id: clinicaltrials:NCT03094832
 title: A Phase 1/2 Study of ARQ 092 (Miransertib) in Subjects With PIK3CA-related Overgrowth Spectrum and Proteus Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 1/2 Study of ARQ 092 (Miransertib) in Subjects With PIK3CA-related Overgrowth Spectrum and Proteus Syndrome

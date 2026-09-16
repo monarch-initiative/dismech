@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00007124"
+reference_id: clinicaltrials:NCT00007124
 title: A Trial of Ketogenic Diet in Lafora Disease
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Trial of Ketogenic Diet in Lafora Disease

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02280044"
+reference_id: clinicaltrials:NCT02280044
 title: "Double Blind, Placebo-Controlled Trial Assessing the Efficacy of Rifaximin in Preventing Campylobacteriosis in Subjects Challenged With Campylobacter Jejuni"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Double Blind, Placebo-Controlled Trial Assessing the Efficacy of Rifaximin in Preventing Campylobacteriosis in Subjects Challenged With Campylobacter Jejuni

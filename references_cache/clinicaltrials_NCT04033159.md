@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04033159"
+reference_id: clinicaltrials:NCT04033159
 title: "A Phase 1/2 Trial on the Safety, Tolerability, Pharmacokinetics, Pharmacodynamics and Exploratory Efficacy of DYN101 in Patients ≥ 16 Years of Age With Centronuclear Myopathies Caused by Mutations in DNM2 or MTM1."
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 1/2 Trial on the Safety, Tolerability, Pharmacokinetics, Pharmacodynamics and Exploratory Efficacy of DYN101 in Patients ≥ 16 Years of Age With Centronuclear Myopathies Caused by Mutations in DNM2 or MTM1.

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01030861"
+reference_id: clinicaltrials:NCT01030861
 title: AntiCD3 Mab (Teplizumab) For Prevention of Diabetes In Relatives At-Risk for Type 1 Diabetes Mellitus
 content_type: summary
+full_text_attempted: true
 ---
 
 # AntiCD3 Mab (Teplizumab) For Prevention of Diabetes In Relatives At-Risk for Type 1 Diabetes Mellitus

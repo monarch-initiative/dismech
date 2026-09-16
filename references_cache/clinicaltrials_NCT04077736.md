@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04077736"
+reference_id: clinicaltrials:NCT04077736
 title: A Pilot Study of Low Dose IL-2 in the Treatment of Relapsing Polychondritis
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Pilot Study of Low Dose IL-2 in the Treatment of Relapsing Polychondritis

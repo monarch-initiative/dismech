@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00749060"
+reference_id: clinicaltrials:NCT00749060
 title: "Prospective Randomized Comparative Study of Balloon Kyphoplasty,Vertebroplasty and Conservative Management in Acute Osteoporotic Vertebral Fractures of Less Than 6 Weeks"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Prospective Randomized Comparative Study of Balloon Kyphoplasty,Vertebroplasty and Conservative Management in Acute Osteoporotic Vertebral Fractures of Less Than 6 Weeks

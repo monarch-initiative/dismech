@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05271409"
+reference_id: clinicaltrials:NCT05271409
 title: "A Phase III, Randomized, Double-blind, Placebo-controlled, Multicenter Study to Evaluate the Efficacy, Safety, Pharmacokinetics, and Pharmacodynamics of Satralizumab as Monotherapy or in Addition to Baseline Therapy in Patients With Myelin Oligodendrocyte Glycoprotein Antibody-associated Disease (MOGAD)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase III, Randomized, Double-blind, Placebo-controlled, Multicenter Study to Evaluate the Efficacy, Safety, Pharmacokinetics, and Pharmacodynamics of Satralizumab as Monotherapy or in Addition to Baseline Therapy in Patients With Myelin Oligodendrocyte Glycoprotein Antibody-associated Disease (MOGAD)

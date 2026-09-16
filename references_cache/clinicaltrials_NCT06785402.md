@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06785402"
+reference_id: clinicaltrials:NCT06785402
 title: "Phase 1/2, Randomized, Double-Blind, Placebo-Controlled Trial of Pulse Dosed Ceftriaxone for Post-Treatment Lyme Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 1/2, Randomized, Double-Blind, Placebo-Controlled Trial of Pulse Dosed Ceftriaxone for Post-Treatment Lyme Disease

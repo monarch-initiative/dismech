@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06452537"
+reference_id: clinicaltrials:NCT06452537
 title: "A Randomized, Controlled, Multicenter Study To Evaluate the Safety and Efficacy of Tocilizumab In Patients With Myelin Oligodendrocyte Glycoprotein Antibody-Associated Disease (MOGAD)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Controlled, Multicenter Study To Evaluate the Safety and Efficacy of Tocilizumab In Patients With Myelin Oligodendrocyte Glycoprotein Antibody-Associated Disease (MOGAD)

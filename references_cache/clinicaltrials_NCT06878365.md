@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06878365"
+reference_id: clinicaltrials:NCT06878365
 title: "Single-arm Open-label Trial to Assess Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of BI 3000202 in Adult Patients With Selected Type 1 Interferonopathies"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Single-arm Open-label Trial to Assess Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of BI 3000202 in Adult Patients With Selected Type 1 Interferonopathies

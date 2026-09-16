@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02262806"
+reference_id: clinicaltrials:NCT02262806
 title: Compassionate Use of Metreleptin in Previously-Treated Patients With Partial Lipodystrophy
 content_type: summary
+full_text_attempted: true
 ---
 
 # Compassionate Use of Metreleptin in Previously-Treated Patients With Partial Lipodystrophy

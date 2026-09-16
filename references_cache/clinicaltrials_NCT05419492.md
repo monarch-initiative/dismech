@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05419492"
+reference_id: clinicaltrials:NCT05419492
 title: "ENDEAVOR: A Clinical Study to Evaluate the Safety and Efficacy of ETX101, an AAV9-Delivered Gene Therapy in Infants and Children With SCN1A-Positive Dravet Syndrome"
 content_type: summary
+full_text_attempted: true
 ---
 
 # ENDEAVOR: A Clinical Study to Evaluate the Safety and Efficacy of ETX101, an AAV9-Delivered Gene Therapy in Infants and Children With SCN1A-Positive Dravet Syndrome

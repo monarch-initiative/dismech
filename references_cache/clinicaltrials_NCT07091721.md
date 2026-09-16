@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07091721"
+reference_id: clinicaltrials:NCT07091721
 title: "The Mentalization Intervention for Children and Adolescents (MICA) Study: A Randomised Controlled Trial of Support for Aggressive and Violent Behaviour Via Forensic Child and Adolescent Mental Health Services (FCAMHS)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # The Mentalization Intervention for Children and Adolescents (MICA) Study: A Randomised Controlled Trial of Support for Aggressive and Violent Behaviour Via Forensic Child and Adolescent Mental Health Services (FCAMHS)

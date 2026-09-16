@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00685373"
+reference_id: clinicaltrials:NCT00685373
 title: "An Open-label, Long-term Safety and Efficacy Study of ACZ885 (Anti-interleukin-1β Monoclonal Antibody) Administered for at Least 6 Months in Patients With the Following Cryopyrin-associated Periodic Syndromes: Familial Cold Autoinflammatory Syndrome, Muckle-Wells Syndrome, or Neonatal Onset Multisystem Inflammatory Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-label, Long-term Safety and Efficacy Study of ACZ885 (Anti-interleukin-1β Monoclonal Antibody) Administered for at Least 6 Months in Patients With the Following Cryopyrin-associated Periodic Syndromes: Familial Cold Autoinflammatory Syndrome, Muckle-Wells Syndrome, or Neonatal Onset Multisystem Inflammatory Disease

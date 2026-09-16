@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03346239"
+reference_id: clinicaltrials:NCT03346239
 title: Effect of Attention Training or SSRIs on Symptoms and Neural Activation in Social Anxiety
 content_type: summary
+full_text_attempted: true
 ---
 
 # Effect of Attention Training or SSRIs on Symptoms and Neural Activation in Social Anxiety

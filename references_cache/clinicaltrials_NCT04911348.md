@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04911348"
+reference_id: clinicaltrials:NCT04911348
 title: "Neurosarcoidosis : Initial Presentation and Disease Course, a Multicenter Retrospective Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Neurosarcoidosis : Initial Presentation and Disease Course, a Multicenter Retrospective Study

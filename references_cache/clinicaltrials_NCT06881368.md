@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06881368"
+reference_id: clinicaltrials:NCT06881368
 title: Phenotypic and Etiological Characterization of Susac Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phenotypic and Etiological Characterization of Susac Syndrome

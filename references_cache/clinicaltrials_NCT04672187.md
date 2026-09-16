@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04672187"
+reference_id: clinicaltrials:NCT04672187
 title: "Middle Ear Status in Cholesteatoma: the Associations of Preoperative Computed Tomography Scans, Audiologic Assessment, and Intraoperative Endoscopic Findings"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Middle Ear Status in Cholesteatoma: the Associations of Preoperative Computed Tomography Scans, Audiologic Assessment, and Intraoperative Endoscopic Findings

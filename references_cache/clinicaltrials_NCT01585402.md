@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01585402"
+reference_id: clinicaltrials:NCT01585402
 title: "An Open-label, Non-Randomized, Single-Arm Pilot Study to Evaluate the Effectiveness of Etidronate Treatment for Arterial Calcifications Due to Deficiency in CD73 (ACDC)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-label, Non-Randomized, Single-Arm Pilot Study to Evaluate the Effectiveness of Etidronate Treatment for Arterial Calcifications Due to Deficiency in CD73 (ACDC)

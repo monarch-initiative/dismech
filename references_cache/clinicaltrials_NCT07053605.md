@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07053605"
+reference_id: clinicaltrials:NCT07053605
 title: Clinical Study on Laparoscopic Resection of Splenic Artery Aneurysm With Preservation of Spleen
 content_type: summary
+full_text_attempted: true
 ---
 
 # Clinical Study on Laparoscopic Resection of Splenic Artery Aneurysm With Preservation of Spleen

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04713475"
+reference_id: clinicaltrials:NCT04713475
 title: "Phase 1/2 Open-Label, Multicenter Study to Assess the Safety, Tolerability and Efficacy of a Single Dose of PBGM01 Delivered Into the Cisterna Magna of Pediatric Type 1 (Early Onset) and Type 2a (Late Onset) Infantile GM1 Gangliosidosis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 1/2 Open-Label, Multicenter Study to Assess the Safety, Tolerability and Efficacy of a Single Dose of PBGM01 Delivered Into the Cisterna Magna of Pediatric Type 1 (Early Onset) and Type 2a (Late Onset) Infantile GM1 Gangliosidosis

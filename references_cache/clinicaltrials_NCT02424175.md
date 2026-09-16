@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02424175"
+reference_id: clinicaltrials:NCT02424175
 title: Fecal Microbiota Transplantation for the Treatment of Primary Sclerosing Cholangitis.
 content_type: summary
+full_text_attempted: true
 ---
 
 # Fecal Microbiota Transplantation for the Treatment of Primary Sclerosing Cholangitis.

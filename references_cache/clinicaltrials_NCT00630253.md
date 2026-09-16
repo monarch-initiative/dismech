@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00630253"
+reference_id: clinicaltrials:NCT00630253
 title: "A Study of Cyclophosphamide, Fludarabine, and Antithymocyte Globulin Followed by Matched Sibling Donor Hematopoietic Cell Transplantation in Patients With Fanconi Anemia"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Study of Cyclophosphamide, Fludarabine, and Antithymocyte Globulin Followed by Matched Sibling Donor Hematopoietic Cell Transplantation in Patients With Fanconi Anemia

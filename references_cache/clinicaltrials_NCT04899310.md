@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04899310"
+reference_id: clinicaltrials:NCT04899310
 title: "A Global Phase 1/2 Study to Evaluate the Safety, Tolerability, Pharmacodynamics, and Pharmacokinetics of mRNA-3705 in Participants With Isolated Methylmalonic Acidemia Due to Methylmalonyl-CoA Mutase Deficiency"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Global Phase 1/2 Study to Evaluate the Safety, Tolerability, Pharmacodynamics, and Pharmacokinetics of mRNA-3705 in Participants With Isolated Methylmalonic Acidemia Due to Methylmalonyl-CoA Mutase Deficiency

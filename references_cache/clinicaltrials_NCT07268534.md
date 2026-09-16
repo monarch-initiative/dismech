@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07268534"
+reference_id: clinicaltrials:NCT07268534
 title: "Biologics in Folliculitis Decalvans : an Adaptative Trial Research"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Biologics in Folliculitis Decalvans : an Adaptative Trial Research
