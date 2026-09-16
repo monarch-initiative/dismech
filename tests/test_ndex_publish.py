@@ -540,7 +540,13 @@ def test_build_release_rejects_missing_previous_registry(tmp_path: Path) -> None
         )
 
 
-def test_publish_release_rechecks_defects_and_content_hash(tmp_path: Path) -> None:
+def test_publish_release_rechecks_defects_and_content_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def reject_client_creation(**kwargs):
+        pytest.fail("Invalid release content must be rejected before contacting NDEx")
+
+    monkeypatch.setattr(ndex_publish, "Ndex2", reject_client_creation)
     output_path = tmp_path / "Example_Disease.cx2.json"
     output_path.write_text('[{"CXVersion":"2.0"}]')
     manifest = {
