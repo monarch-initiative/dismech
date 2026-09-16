@@ -222,7 +222,15 @@ def _resume_terminal_rows(results_path: str, fieldnames: list[str], is_terminal)
     if not os.path.exists(results_path):
         return set()
     with open(results_path, newline="") as f:
-        rows = [row for row in csv.DictReader(f) if is_terminal(row)]
+        reader = csv.DictReader(f)
+        if reader.fieldnames is not None and list(reader.fieldnames) != fieldnames:
+            raise SystemExit(
+                f"{results_path} has columns {reader.fieldnames}, expected {fieldnames}. "
+                "This looks like output from an earlier version of this script; resuming onto "
+                "it would silently blank the new columns instead of actually reprocessing those "
+                "rows. Move or delete it and rerun from scratch."
+            )
+        rows = [row for row in reader if is_terminal(row)]
     with open(results_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -349,7 +357,11 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
         if not text_data.strip() or "<article" not in text_data:
             return None, 0, "no_article_element"
 
-        body_text = extractor.extract(data)
+        # content_type matches PMCFullTextProvider.locate's own call
+        # (pmc.py:61). XMLExtractor.extract ignores it either way, but
+        # passing it removes the one textual difference from the production
+        # call.
+        body_text = extractor.extract(data, content_type="application/xml")
 
         try:
             soup = BeautifulSoup(text_data, "xml")
@@ -398,6 +410,12 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
                         body_text = html_text
                         used_html_fallback = True
                         reason = ""
+                        # num_tables came from parsing the XML's <table-wrap>
+                        # elements; a real refetch that stores this HTML text
+                        # instead would carry no JATS tables at all, so a
+                        # stale XML-derived count here would overstate what
+                        # was actually cached.
+                        num_tables = 0
                     elif not body_text:
                         pass  # keep classify_xml's reason
                     else:
