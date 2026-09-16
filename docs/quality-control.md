@@ -318,10 +318,12 @@ just compliance-connectivity --fail-under 30
 
 ### Triage view: `just list-disconnected-phenotypes`
 
-The recipe above is the compliance view: both metric halves, aggregate
-percentages, a threshold. Issue #11935 asked for the **per-entry triage** of the
-phenotype half, filed next to `just list-causal-targets` and
-`just list-cancer-origin` rather than under compliance. It is a thin wrapper
+The recipe above is the compliance view, and a gate: both metric halves, the
+aggregate percentages, and the `min_compliance` floor it enforces over the
+corpus. Issue #11935 asked for the **per-entry triage** of the phenotype half,
+filed next to `just list-causal-targets` and `just list-cancer-origin` rather
+than under compliance. The two are complementary rather than redundant — a
+corpus ratchet no single entry can trip, and a worklist for wiring one disease. It is a thin wrapper
 around the same `causal_inlink_coverage` function, so the two can never
 disagree on a number:
 
@@ -333,9 +335,9 @@ just list-disconnected-phenotypes kb/disorders/Asthma.yaml
 ```
 
 It adds a ranked zero-connectivity worklist (entries where *no* phenotype is
-connected, ordered by how many are stranded — 0 of 12 is one sitting's work,
-11 of 12 is a different signal), `--format tsv`/`json`, and an **attachment
-class** per stranded phenotype:
+connected, ordered by how many are stranded — every phenotype stranded is one
+sitting's work, a single gap is a different signal), `--format tsv`/`json`, and
+an **attachment class** per stranded phenotype:
 
 | Class | Meaning |
 |---|---|
@@ -351,11 +353,12 @@ from the predicate rather than from a special case. They are reported so that
 points at it, but not a mechanism"; both are unexplained, and they are not the
 same curation job.
 
-It is report-only (exit 0), with `--strict` and `--fail-under` opt-in. At 46%
-disconnected a gate would be a baseline file the size of the problem, and
-connecting a phenotype is real curation: the edge asserts which mechanism
-produces which clinical feature, which is often exactly what the literature does
-not settle. Some phenotypes legitimately have no upstream node in the entry — a
+It is report-only (exit 0), with `--strict` and `--fail-under` opt-in. That is
+about *this view*, not about the metric: the aggregate is gated by
+`compliance-connectivity`, while a per-entry gate would need a baseline file the
+size of the problem. Connecting a phenotype is real curation: the edge asserts
+which mechanism produces which clinical feature, which is often exactly what the
+literature does not settle. Some phenotypes legitimately have no upstream node in the entry — a
 laboratory readout, a feature whose mechanism is genuinely unknown. An edge
 added to clear a report is worse than no edge.
 
@@ -371,8 +374,16 @@ none of which reaches a phenotype.
 paths:
   "phenotypes[].causal_inlink":
     weight: 1.5
-    min_compliance: null   # contributes to weighted score; does not gate CI yet
+    min_compliance: 50.0   # gates: `just compliance-connectivity` fails below it
 ```
+
+**That floor is live and applies to the KB-wide aggregate, not per file**, so no
+single entry can trip it and a red build means sustained drift across the
+corpus. `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
+lowering it, and `null` there silently disables the gate. The sibling
+`genetic[].mechanism_outlink` is deliberately still advisory. CLAUDE.md's
+*A resolving target is not a connected phenotype* carries the current figure and
+how to read a failure; this page deliberately does not restate it.
 
 ## Adding a new computed metric
 

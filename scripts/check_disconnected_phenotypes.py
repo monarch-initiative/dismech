@@ -14,19 +14,25 @@ opposite question: which declared edges name a target that resolves to nothing.
 An entry can pass that check perfectly -- every edge resolving cleanly -- while
 no edge lands on a phenotype at all. The motivating instance,
 ``SLC35A1-Congenital_Disorder_of_Glycosylation``, has 8 pathophysiology nodes,
-12 phenotype nodes and 7 causal edges, none of which reaches a phenotype.
+13 phenotype nodes and 7 causal edges, none of which reaches a phenotype --
+that count being live content which moved from 12 while this was in review.
 
 Reuses the metric rather than recomputing it
 --------------------------------------------
-The connectivity computation already existed as
+The connectivity computation is
 :func:`dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
-``phenotypes[].causal_inlink`` compliance score (``conf/qc_config.yaml``, weight
-1.5, ``min_compliance: null``), and was already exposed as
-``just compliance-connectivity``. This script calls the same function, so the
-two can never disagree on a number, and it does not supersede that recipe:
-``compliance-connectivity`` remains the compliance view, reporting phenotype
-inlink and gene-to-mechanism outlink coverage together with ``--fail-under`` on
-each.
+``phenotypes[].causal_inlink`` compliance score, already exposed as
+``just compliance-connectivity`` -- which **gates**, enforcing the
+``min_compliance`` floor in ``conf/qc_config.yaml`` over the KB-wide aggregate.
+This script calls the same function, so the two can never disagree on a number,
+and it does not supersede that recipe: ``compliance-connectivity`` remains the
+compliance view, reporting phenotype inlink and gene-to-mechanism outlink
+coverage together and carrying the corpus ratchet.
+
+The gate and this report are not in tension. The floor is corpus-level, so no
+single entry can trip it and a red build means sustained drift; this is the
+per-entry worklist for wiring one disease, which is why it stays report-only
+even though the metric it reads gates.
 
 What it adds is the per-entry triage the compliance view has no room for -- a
 ranked zero-connectivity worklist, ``--format tsv``/``json``, and an attachment
@@ -72,8 +78,8 @@ unknown. An edge added to clear a report is worse than no edge.
 
 So the useful output is not the corpus percentage but the per-entry triage: the
 default summary ranks the entries where **nothing** is connected by how many
-phenotypes are stranded, because an entry with 12 phenotypes and 0 connected is
-one sitting's work and a different signal from one with 12 and 11.
+phenotypes are stranded, because an entry with every phenotype stranded is one
+sitting's work and a different signal from one carrying a single gap.
 
     just list-disconnected-phenotypes                        # census + worklist
     just list-disconnected-phenotypes --format tsv           # one row per phenotype

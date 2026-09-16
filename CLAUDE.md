@@ -895,15 +895,16 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 ### Phenotypes Nothing Points At (dismech#11935)
 
 `check-causal-targets` asks which declared edges name a target that resolves to
-nothing. The **complementary** question — which phenotypes no edge names — was
-invisible to every check in the stack, and it is the more common state: 53.8% of
-the 35,255 phenotype nodes in `kb/disorders/` are causally connected, and on 987
+nothing. The **complementary** question — which phenotypes no edge names — had
+no per-entry front door, and it is the more common state: a little over half of
+the phenotype nodes in `kb/disorders/` are causally connected, and on some 985
 entries (a third of those carrying phenotypes) **not one** phenotype is. There
 the pathograph stops at the pathophysiology layer and the phenotypes render as a
 disconnected island beside it. Every edge in such an entry can resolve perfectly
 — the motivating instance, `SLC35A1-Congenital_Disorder_of_Glycosylation`, has 8
-pathophysiology nodes, 12 phenotype nodes and 7 clean edges, none of which
-reaches a phenotype.
+pathophysiology nodes, 13 phenotype nodes and 7 clean edges, none of which
+reaches a phenotype. (That count is live content and moves: it was 12 until
+#11934 added a phenotype, so read it as an illustration, not a fixture.)
 
 ```bash
 just list-disconnected-phenotypes                        # census + triage worklist
@@ -913,18 +914,27 @@ just list-disconnected-phenotypes kb/disorders/MyDisease.yaml
 ```
 
 **It reuses the metric rather than recomputing it, and it is the second door
-onto it.** The computation already existed as
+onto it.** The computation is
 `dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
-`phenotypes[].causal_inlink` compliance score (`conf/qc_config.yaml`, weight
-1.5, `min_compliance: null`), already exposed as `just compliance-connectivity`.
-That recipe is not superseded and is still the one to run for the *compliance*
-view: it reports the phenotype-inlink and gene-outlink coverage together, with
-`--fail-under` on each. What it does not give is the per-entry triage — no
-ranking, no `--format tsv`, no attachment classes — and its name is filed under
-compliance rather than next to `just list-causal-targets` and
-`just list-cancer-origin`, which is plausibly why neither #11935 nor the #11934
-review round found it. Both recipes call the same function, so they cannot
-disagree on a number.
+`phenotypes[].causal_inlink` compliance score, already exposed as
+`just compliance-connectivity` — which is now a **gate**, enforcing the
+`min_compliance` floor in `conf/qc_config.yaml` over the KB-wide aggregate (see
+*A resolving target is not a connected phenotype* above, which owns the floor
+and the corpus figure; do not restate either here, or the two drift apart).
+
+That recipe is not superseded. It stays the one to run for the *compliance*
+view — phenotype inlink and gene outlink together, and the aggregate ratchet.
+What it does not give is the per-entry triage: no ranking, no `--format tsv`, no
+attachment classes, and its name is filed under compliance rather than next to
+`just list-causal-targets` and `just list-cancer-origin`, which is plausibly why
+neither #11935 nor the #11934 review round found it. Both recipes call the same
+function, so they cannot disagree on a number.
+
+**The two are not in tension, and the distinction is the point.** The gate is a
+corpus-level ratchet against erosion: no single entry can trip it, and a red
+build means sustained drift. This recipe is the per-entry worklist you reach for
+*after* that, or when wiring a specific disease — which is why it stays
+report-only even though the metric it reads now gates.
 
 **Report-only, and deliberately not a number to drive up.** It exits 0; a gate
 at this scale would be a baseline file the size of the problem. Connecting a
@@ -938,7 +948,8 @@ decides to gate a subset later.
 
 So read the per-entry triage, not the corpus percentage: the summary ranks the
 entries where *nothing* is connected by how many phenotypes are stranded,
-because 0 of 12 is one sitting's work and a different signal from 11 of 12.
+because an entry with every phenotype stranded is one sitting's work, and a
+different signal from one carrying a single gap.
 
 **Three kinds of edge touch a phenotype without explaining it, and none of them
 counts as connected** — that is the strict reading the issue left open, resolved
@@ -951,8 +962,10 @@ by construction (only `TRIGGERS` and `EXACERBATES` are in
 Rather than argue those out of the denominator, each disconnected phenotype
 carries an **attachment** class — `ISOLATED`, `TREATED`, `READOUT`,
 `NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — so "nothing in the graph knows this node
-exists" (15,248 KB-wide) reads differently from "something points at it, but not
-a mechanism" (~1,000). Both are unexplained; they are not the same curation job.
+exists", which is the overwhelming majority, reads differently from "something
+points at it, but not a mechanism", which is about a thousand. Both are
+unexplained; they are not the same curation job. Run the recipe for current
+counts rather than trusting a number written here.
 
 ### Pathograph Node Classes (`kb/node_classes/`)
 
