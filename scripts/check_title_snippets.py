@@ -136,10 +136,10 @@ from dismech.yaml_io import safe_load
 from scripts.check_snippet_length import is_structured_row
 
 #: Reference prefixes whose records are dataset accessions rather than papers.
-#: Sourced from the reference validator's own `skip_prefixes`, minus DOI --
-#: `conf/reference_validator_config.yaml` skips DOI because it cannot *fetch*
-#: those, not because they are not literature, and a DOI record is a real paper
-#: whose title must stay checked. A dataset record's cached body is frequently
+#: Sourced from the reference validator's own `skip_prefixes`, with an explicit
+#: literature safeguard. DOI was incorrectly skipped until issue #7514; a DOI
+#: record is a real paper whose title must stay checked even if a caller passes
+#: an older config. A dataset record's cached body is frequently
 #: its title verbatim, so "quote the abstract sentence instead" is unsatisfiable
 #: in a way the editorial case is not: an editorial has an underlying study to
 #: cite in its place.
@@ -267,7 +267,7 @@ def scan_repo(
             # Gating on malformed YAML is `validate-all`'s job; skipping silently
             # would make the file invisible here rather than merely unchecked.
             print(
-                f"warning: skipping unparseable {path.relative_to(rel_to).as_posix()}: "
+                f"warning: skipping unparsable {path.relative_to(rel_to).as_posix()}: "
                 f"{exc.__class__.__name__}",
                 file=sys.stderr,
             )

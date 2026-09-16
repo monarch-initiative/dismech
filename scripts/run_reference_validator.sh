@@ -37,8 +37,8 @@ app()
     fi
 
     # linkml-reference-validator may exit nonzero when it emits warning
-    # results. Keep warning-only results advisory so transient/unfetchable
-    # references do not block validation.
+    # results. Keep genuine warning-only results advisory. Repository configs
+    # classify unfetchable references as ERROR so unverified evidence fails.
     if grep -Eq '^[[:space:]]*\[WARN(ING)?\]' <<<"$output" \
         && ! grep -Eq '^[[:space:]]*\[ERROR\]|Traceback|^Error:' <<<"$output"; then
         lrv_exit=0

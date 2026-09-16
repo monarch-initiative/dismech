@@ -1,0 +1,190 @@
+---
+reference_id: DOI:10.1080/09286586.2023.2249546
+title: "Tropical Data: Approach and Methodology as Applied to Trachoma Prevalence Surveys"
+authors:
+- Emma M Harding-Esch
+- Clara R Burgert-Brucker
+- Cristina Jimenez
+- Ana Bakhtiari
+- Rebecca Willis
+- Michael Dejene Bejiga
+- Caleb Mpyet
+- Jeremiah Ngondi
+- Sarah Boyd
+- Mariamo Abdala
+- Amza Abdou
+- Yilikal Adamu
+- Addisu Alemayehu
+- Wondu Alemayehu
+- Tawfik Al-Khatib
+- Sue-Chen Apadinuwe
+- Naomie Awaca
+- Marcel S Awoussi
+- Gilbert Baayendag
+- Mouctar Dieng Badiane
+- Robin L Bailey
+- Wilfrid Batcho
+- Zulficar Bay
+- Assumpta Bella
+- Nassirou Beido
+- Yak Yak Bol
+- Clarisse Bougouma
+- Christopher J Brady
+- Victor Bucumi
+- Robert Butcher
+- Risiate Cakacaka
+- Anaseini Cama
+- Mamoudou Camara
+- Eunice Cassama
+- Shorai Grace Chaora
+- Amel Chenaoui Chebbi
+- Alvin Blessings Chisambi
+- Brian Chu
+- Abdulai Conteh
+- Sidi Mohamed Coulibaly
+- Paul Courtright
+- Abdi Dalmar
+- Tran Minh Dat
+- Thully Davids
+- Mohamed El Amine Djaker
+- Maria de Fátima Costa Lopes
+- Djore Dézoumbé
+- Sarity Dodson
+- Philip Downs
+- Stephanie Eckman
+- Bilghis Elkhair Elshafie
+- Mourad Elmezoghi
+- Ange Aba Elvis
+- Paul Emerson
+- Emilienne EE Epée
+- Daniel Faktaufon
+- Mawo Fall
+- Aréty Fassinou
+- Fiona Fleming
+- Rebecca Flueckiger
+- Koizan Kadjo Gamael
+- Mackline Garae
+- Jambi Garap
+- Katie Gass
+- Genet Gebru
+- Michael M Gichangi
+- Emanuele Giorgi
+- André Goépogui
+- Daniela Vaz Ferreira Gómez
+- Diana Paola Gómez Forero
+- Emily W Gower
+- Anna Harte
+- Rob Henry
+- Harvy Alberto Honorio-Morales
+- Dunera R Ilako
+- Amadou Alfa Bio Issifou
+- Ellen Jones
+- George Kabona
+- Martin Kabore
+- Boubacar Kadri
+- Khumbo Kalua
+- Sarjo Kebba Kanyi
+- Shambel Kebede
+- Fikreab Kebede
+- Jeremy D Keenan
+- Amir B Kello
+- Asad Aslam Khan
+- Houria Khelifi
+- Janvier Kilangalanga
+- Sung Hye Kim
+- Robert Ko
+- Susan Lewallen
+- Thomas Lietman
+- Makoy Samuel Yibi Logora
+- Yuri A Lopez
+- Chad MacArthur
+- Colin Macleod
+- Felix Makangila
+- Brehima Mariko
+- Diana L Martin
+- Michael Masika
+- Patrick Massae
+- Marilia Massangaie
+- Hadley S Matendechero
+- Tsedeke Mathewos
+- Siobhain McCullagh
+- Aboulaye Meite
+- Elsa Palma Mendes
+- Hirpa M Abdi
+- Hollman Miller
+- Abdellahi Minnih
+- Sailesh Kumar Mishra
+- Tuduetso Molefi
+- Aryc Mosher
+- Nerkoua M’Po
+- Francis Mugume
+- Robson Mukwiza
+- Consity Mwale
+- Stephen Mwatha
+- Upendo Mwingira
+- Scott D Nash
+- Christophe Nassa
+- Nebiyu Negussu
+- Cece Nieba
+- Jean Claude Noah Noah
+- Christian O Nwosu
+- Nicholas Olobio
+- Rapheal Opon
+- Alexandre Pavluck
+- Isaac Phiri
+- Merelesita Rainima-Qaniuci
+- Kristen K Renneker
+- Martha Idalí Saboyá-Díaz
+- Fatoumata Sakho
+- Salimato Sanha
+- Virginia Sarah
+- Boubacar Sarr
+- Celia L Szwarcwald
+- Ahmad Shah Salam
+- Shekhar Sharma
+- Fikre Seife
+- Gloria Marina Serrano Chavez
+- Mactar Sissoko
+- Henis Mior Sitoe
+- Oliver Sokana
+- Fentahun Tadesse
+- Fasiah Taleo
+- Sandra Liliana Talero
+- Youcef Tarfani
+- Amsayaw Tefera
+- Rabebe Tekeraoi
+- Andeberhan Tesfazion
+- Abubaker Traina
+- Lamine Traoré
+- Julián Trujillo-Trujillo
+- Edridah M Tukahebwa
+- Praveen Vashist
+- Ernest B Wanyama
+- Supriya D.P. Warusavithana
+- Titus K Watitu
+- Sheila West
+- Ye Win
+- Geordie Woods
+- Aya Yajima
+- Georges Yaya
+- Alem Zecarias
+- Solomon Zewengiel
+- Akoi Zoumanigui
+- Pamela J Hooper
+- Tom Millar
+- Lisa Rotondo
+- Anthony W Solomon
+journal: Ophthalmic Epidemiology
+year: '2023'
+doi: 10.1080/09286586.2023.2249546
+content_type: unavailable
+is_preprint: false
+full_text_attempted: true
+---
+
+# Tropical Data: Approach and Methodology as Applied to Trachoma Prevalence Surveys
+**Authors:** Emma M Harding-Esch, Clara R Burgert-Brucker, Cristina Jimenez, Ana Bakhtiari, Rebecca Willis, Michael Dejene Bejiga, Caleb Mpyet, Jeremiah Ngondi, Sarah Boyd, Mariamo Abdala, Amza Abdou, Yilikal Adamu, Addisu Alemayehu, Wondu Alemayehu, Tawfik Al-Khatib, Sue-Chen Apadinuwe, Naomie Awaca, Marcel S Awoussi, Gilbert Baayendag, Mouctar Dieng Badiane, Robin L Bailey, Wilfrid Batcho, Zulficar Bay, Assumpta Bella, Nassirou Beido, Yak Yak Bol, Clarisse Bougouma, Christopher J Brady, Victor Bucumi, Robert Butcher, Risiate Cakacaka, Anaseini Cama, Mamoudou Camara, Eunice Cassama, Shorai Grace Chaora, Amel Chenaoui Chebbi, Alvin Blessings Chisambi, Brian Chu, Abdulai Conteh, Sidi Mohamed Coulibaly, Paul Courtright, Abdi Dalmar, Tran Minh Dat, Thully Davids, Mohamed El Amine Djaker, Maria de Fátima Costa Lopes, Djore Dézoumbé, Sarity Dodson, Philip Downs, Stephanie Eckman, Bilghis Elkhair Elshafie, Mourad Elmezoghi, Ange Aba Elvis, Paul Emerson, Emilienne EE Epée, Daniel Faktaufon, Mawo Fall, Aréty Fassinou, Fiona Fleming, Rebecca Flueckiger, Koizan Kadjo Gamael, Mackline Garae, Jambi Garap, Katie Gass, Genet Gebru, Michael M Gichangi, Emanuele Giorgi, André Goépogui, Daniela Vaz Ferreira Gómez, Diana Paola Gómez Forero, Emily W Gower, Anna Harte, Rob Henry, Harvy Alberto Honorio-Morales, Dunera R Ilako, Amadou Alfa Bio Issifou, Ellen Jones, George Kabona, Martin Kabore, Boubacar Kadri, Khumbo Kalua, Sarjo Kebba Kanyi, Shambel Kebede, Fikreab Kebede, Jeremy D Keenan, Amir B Kello, Asad Aslam Khan, Houria Khelifi, Janvier Kilangalanga, Sung Hye Kim, Robert Ko, Susan Lewallen, Thomas Lietman, Makoy Samuel Yibi Logora, Yuri A Lopez, Chad MacArthur, Colin Macleod, Felix Makangila, Brehima Mariko, Diana L Martin, Michael Masika, Patrick Massae, Marilia Massangaie, Hadley S Matendechero, Tsedeke Mathewos, Siobhain McCullagh, Aboulaye Meite, Elsa Palma Mendes, Hirpa M Abdi, Hollman Miller, Abdellahi Minnih, Sailesh Kumar Mishra, Tuduetso Molefi, Aryc Mosher, Nerkoua M’Po, Francis Mugume, Robson Mukwiza, Consity Mwale, Stephen Mwatha, Upendo Mwingira, Scott D Nash, Christophe Nassa, Nebiyu Negussu, Cece Nieba, Jean Claude Noah Noah, Christian O Nwosu, Nicholas Olobio, Rapheal Opon, Alexandre Pavluck, Isaac Phiri, Merelesita Rainima-Qaniuci, Kristen K Renneker, Martha Idalí Saboyá-Díaz, Fatoumata Sakho, Salimato Sanha, Virginia Sarah, Boubacar Sarr, Celia L Szwarcwald, Ahmad Shah Salam, Shekhar Sharma, Fikre Seife, Gloria Marina Serrano Chavez, Mactar Sissoko, Henis Mior Sitoe, Oliver Sokana, Fentahun Tadesse, Fasiah Taleo, Sandra Liliana Talero, Youcef Tarfani, Amsayaw Tefera, Rabebe Tekeraoi, Andeberhan Tesfazion, Abubaker Traina, Lamine Traoré, Julián Trujillo-Trujillo, Edridah M Tukahebwa, Praveen Vashist, Ernest B Wanyama, Supriya D.P. Warusavithana, Titus K Watitu, Sheila West, Ye Win, Geordie Woods, Aya Yajima, Georges Yaya, Alem Zecarias, Solomon Zewengiel, Akoi Zoumanigui, Pamela J Hooper, Tom Millar, Lisa Rotondo, Anthony W Solomon
+**Journal:** Ophthalmic Epidemiology (2023)
+**DOI:** [10.1080/09286586.2023.2249546](https://doi.org/10.1080/09286586.2023.2249546)
+
+## Content

@@ -15,6 +15,7 @@ Or via the wrapper script in scripts/run_reference_validator.sh.
 """
 
 import io
+import json
 import logging
 import re
 import time
@@ -122,6 +123,25 @@ def _wrap_save_to_disk(original):
     return wrapper
 
 
+def _wrap_quote_yaml_value(original):
+    """Escape metadata line breaks without changing the metadata itself.
+
+    Crossref titles can contain literal newlines. Upstream interpolates these
+    into a single YAML line, producing invalid frontmatter, or folds them into
+    spaces if another character caused the scalar to be quoted. JSON-style
+    escaped strings are valid YAML scalars and preserve these line breaks on
+    reload. Keep upstream's output for single-line values unchanged.
+    """
+
+    @wraps(original)
+    def wrapper(self, value, *args, **kwargs):
+        if "\n" in value or "\r" in value:
+            return json.dumps(value, ensure_ascii=False)
+        return original(self, value, *args, **kwargs)
+
+    return wrapper
+
+
 def _wrap_network_method(original, method_name):
     """Wrap a method to retry on network errors, then return None on failure."""
 
@@ -201,6 +221,36 @@ def _wrap_fulltext_method(original):
 _MAX_TABLE_ROWS = 200
 
 
+def _wrap_html_extractor(original):
+    """Keep the source's whitespace when flattening inline HTML markup.
+
+    Upstream calls ``p.get_text(strip=True)``, stripping *each text node*
+    before concatenating them. ``neurons <i>NMDA</i> receptors`` therefore
+    becomes ``neuronsNMDAreceptors`` in the cache, and a verbatim quote fails
+    exact matching (DOI:10.1038/s41591-026-04571-8, issue #7514).
+
+    Strip only the complete paragraph. Adding a separator between all nodes
+    would invent spaces in real within-word markup (``neuro<i>genesis</i>``)
+    and superscripts (``Ca<sup>2+</sup>``), so retain the original text-node
+    whitespace instead. Scope selection and script/style removal match
+    upstream; its non-paragraph fallback is unchanged.
+    """
+
+    @wraps(original)
+    def wrapper(self, data, *args, **kwargs):
+        soup = BeautifulSoup(data, "html.parser")
+        for tag in soup(["script", "style"]):
+            tag.decompose()
+        scope = soup.find("article") or soup.find("main") or soup
+        paragraphs = [paragraph.get_text().strip() for paragraph in scope.find_all("p")]
+        text = "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
+        if text:
+            return text
+        return original(self, data, *args, **kwargs)
+
+    return wrapper
+
+
 def _jats_tables_as_text(soup) -> str:
     """Render JATS ``<table-wrap>`` elements as pipe-delimited quotable rows.
 
@@ -228,7 +278,9 @@ def _jats_tables_as_text(soup) -> str:
 
         rows: list[str] = []
         for row in table.find_all("tr"):
-            cells = [cell.get_text(" ", strip=True) for cell in row.find_all(["td", "th"])]
+            cells = [
+                cell.get_text(" ", strip=True) for cell in row.find_all(["td", "th"])
+            ]
             if not any(cell for cell in cells):
                 continue
             rows.append("| " + " | ".join(cells) + " |")
@@ -240,9 +292,13 @@ def _jats_tables_as_text(soup) -> str:
         label = wrap.find("label")
         caption = wrap.find("caption")
         heading = " ".join(
-            part.get_text(" ", strip=True) for part in (label, caption) if part is not None
+            part.get_text(" ", strip=True)
+            for part in (label, caption)
+            if part is not None
         ).strip()
-        rendered.append(("## " + heading if heading else "## Table") + "\n\n" + "\n".join(rows))
+        rendered.append(
+            ("## " + heading if heading else "## Table") + "\n\n" + "\n".join(rows)
+        )
 
     return "\n\n".join(rendered)
 
@@ -437,6 +493,7 @@ def _wrap_load_markdown_format(original):
 def apply_patch():
     """Apply monkey-patches for network resilience and cache compatibility."""
     try:
+        from linkml_reference_validator.etl.extract.html import HTMLExtractor
         from linkml_reference_validator.etl.extract.xml import XMLExtractor
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
@@ -498,6 +555,11 @@ def apply_patch():
         XMLExtractor._restricted_by_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied restricted-by metadata patch to XMLExtractor")
 
+    if not getattr(HTMLExtractor, "_paragraph_whitespace_patch_applied", False):
+        HTMLExtractor.extract = _wrap_html_extractor(HTMLExtractor.extract)
+        HTMLExtractor._paragraph_whitespace_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied source-whitespace preservation patch to HTMLExtractor")
+
     if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
         original_get_cache_path = ReferenceFetcher.get_cache_path
 
@@ -531,6 +593,13 @@ def apply_patch():
         logger.debug(
             "Applied author-normalization patch to ReferenceFetcher._save_to_disk"
         )
+
+    if not getattr(ReferenceFetcher, "_multiline_metadata_patch_applied", False):
+        ReferenceFetcher._quote_yaml_value = _wrap_quote_yaml_value(
+            ReferenceFetcher._quote_yaml_value
+        )
+        ReferenceFetcher._multiline_metadata_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied multiline metadata quoting patch to ReferenceFetcher")
 
     if not getattr(ReferenceFetcher, "_frontmatter_split_patch_applied", False):
         ReferenceFetcher._load_markdown_format = _wrap_load_markdown_format(

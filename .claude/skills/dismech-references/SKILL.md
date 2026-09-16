@@ -167,22 +167,20 @@ quote to preserve an evidence block.
 it does not mean no evidence was examined. Use the wrapper's affirmative
 `Snippets checked: N/N verified` summary to describe cache-backed coverage.
 
-Reference prefixes in `skip_prefixes` within
-`conf/reference_validator_config.yaml`, including `DOI:`, are not
-snippet-checked by default, and the `(N skipped by prefix)` tail of the summary
-line says how many were passed over.
+`DOI:` and `PMID:` snippets are checked by the same authoritative validator.
+A missing source, missing body, or mismatched quote fails validation; a failed
+fetch is not evidence that the quote is valid. A cache containing only an
+abstract cannot verify text quoted from elsewhere in the paper.
 
-Skipped is not the same as uncheckable. Where the body is cached, as a `DOI:`
-reference's nearly always is, `--unskip-prefix` verifies it on demand:
+Some dataset-accession prefixes remain in `skip_prefixes` within
+`conf/reference_validator_config.yaml`. The `(N skipped by prefix)` summary
+reports those omissions; skipped never means verified. `--unskip-prefix` is a
+diagnostic for auditing an exempt prefix and is not required for DOI evidence.
 
-```bash
-just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
-```
-
-The flag is repeatable. Use it before committing a `DOI:`-keyed snippet, since
-the gating validator will not check that quote for you. Treat a reference as
-genuinely unverified only when it is skipped *and* nothing cached backs it —
-a dataset accession, for instance.
+Never add literature prefixes to `skip_prefixes`, downgrade an unverified
+reference to a warning, or relax quote matching to make CI pass. Changes that
+weaken an evidence constraint require explicit approval from `cmungall`
+(issue #11921).
 
 ## Titles and brackets
 
