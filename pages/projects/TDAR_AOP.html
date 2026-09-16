@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDAR AOP Network - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>TDAR AOP Network</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">FRAMEWORK_ALIGNMENT</span><span class="tag">EVIDENCE</span><span class="tag">EXTERNAL_COLLABORATION</span><span class="tag">IMMUNOLOGY</span><span class="tag">KNOWLEDGE_GAP</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>TDAR AOP Network</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (9)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Autosomal_Agammaglobulinemia.html">Autosomal Agammaglobulinemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Common_Variable_Immunodeficiency.html">Common Variable Immunodeficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Specific_Antibody_Deficiency.html">Specific Antibody Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/X-linked_Agammaglobulinemia.html">X-linked Agammaglobulinemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hyper-IgM_Syndrome_Type_2.html">Hyper-IgM Syndrome Type 2</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Selective_IgA_Deficiency.html">Selective IgA Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Activated_PI3K-delta_syndrome.html">Activated PI3K-delta Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Kabuki_Syndrome.html">Kabuki Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Follicular_Lymphoma.html">Follicular Lymphoma</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (8)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/germinal_center_reaction.html">germinal center reaction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/phagocyte_oxidative_burst_failure.html">phagocyte oxidative burst failure</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/complement_dysregulation.html">complement dysregulation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/innate_antiviral_interferon_response.html">innate antiviral interferon response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/molecular_mimicry_autoimmunity.html">molecular mimicry autoimmunity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/necrotizing_vasculitis.html">necrotizing vasculitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/il6_hypercytokinemia.html">il6 hypercytokinemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cgas_sting_pathway_activation.html">cgas sting pathway activation</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/TDAR_AOP.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="tdar-aop-network">TDAR AOP Network</h1>
+<h2 id="scope">Scope</h2>
+<p>The T-cell dependent antibody response (TDAR) is a functional immunotoxicology
+endpoint. Three AOP-Wiki pathways terminate at it — <strong>AOP 154</strong> (calcineurin
+inhibition), <strong>AOP 277</strong> (impaired IL-1R1 signaling) and <strong>AOP 315</strong> (JAK3
+inhibition) — and a fourth, <strong>AOP 14</strong> (glucocorticoid receptor activation),
+terminates at increased disease susceptibility while sharing intermediate Key
+Events with them.</p>
+<p>This project uses that cluster as a comparator against dismech's own modeling of
+humoral immunity. It is a two-way comparison, and the two directions are kept
+separate because they have different audiences and different standards of proof.</p>
+<p>This page records findings. It does not decide adoption: whether dismech gains a
+module, an edge, or a schema construct as a result belongs in its own issue, and
+whether the AOP-side observations are communicated to the AOP community is a
+separate call again.</p>
+<p><strong>Relationship to <a href="AOP_EMOD_ALIGNMENT.md"><code>AOP_EMOD_ALIGNMENT</code></a>.</strong> That project
+asks how dismech's constructs map onto the AOP/EMOD data model, grounded on
+<code>Lead_Poisoning</code>. This one asks what a specific, well-populated AOP cluster
+reveals when set against a specific, well-populated dismech module. The first is
+a schema comparison; this is a content comparison. They are expected to inform
+each other.</p>
+<h2 id="lines-of-questioning">Lines of questioning</h2>
+<h3 id="a-what-elements-of-dismech-are-exposed-through-comparison-of-tdar-aops">A. What elements of dismech are exposed through comparison of TDAR AOPs?</h3>
+<p>Open.</p>
+<h3 id="b-how-does-dismech-expose-knowledge-gaps-in-tdar-aops">B. How does dismech expose knowledge gaps in TDAR AOPs?</h3>
+<p>Open.</p>
+<p>Further questions under each line are expected to follow once the first are
+answered.</p>
+<h2 id="provenance">Provenance</h2>
+<p>The starting material is an OpenScientist autonomous deep-research run,
+commissioned to assemble a TDAR-centred AOP network with assay-anchored Key
+Events and to aggregate evidence for a causal linkage between TDAR and increased
+susceptibility to infection.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Provider</td>
+<td>OpenScientist (<code>openscientist-autonomous</code>)</td>
+</tr>
+<tr>
+<td>Job ID</td>
+<td><code>7e9ef238-7aae-4374-b936-1d312f62c1d5</code></td>
+</tr>
+<tr>
+<td>Status</td>
+<td>completed</td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-09-14T21:05:03Z</td>
+</tr>
+<tr>
+<td>Report</td>
+<td><a href="TDAR_AOP/openscientist-tdar-aop-network.md"><code>TDAR_AOP/openscientist-tdar-aop-network.md</code></a></td>
+</tr>
+<tr>
+<td>Artifacts</td>
+<td><code>TDAR_AOP/artifacts/</code> — two network JSONs and their rendered PNGs</td>
+</tr>
+</tbody>
+</table>
+<p>The report is a <strong>lead</strong>, not a source. Its citations have not been put through
+<code>just validate-research-references</code>, and the verification below was done by hand
+against AOP-Wiki and PubMed. The provider bundle also contained iteration
+transcripts, container logs and a PDF rendering of the same report; those are
+recoverable from the job and are not committed.</p>
+<p><strong>AOP-Wiki snapshot.</strong> All AOP-Wiki figures below are from the <code>09-03-2026</code>
+export, read through
+<a href="https://github.com/gingin77/aop_wiki_cli"><code>aop-wiki-cli</code></a>. AOP-Wiki is not a
+citable reference in dismech's validation stack — there is no <code>AOP:</code> prefix and
+no fetcher — so anything curated from it must cite the primary literature
+instead.</p>
+<h2 id="verification-record">Verification record</h2>
+<p>What follows was checked directly, and in several places it does not agree with
+the report.</p>
+<h3 id="the-tdar-infection-edge-is-not-curated-anywhere">The TDAR → infection edge is not curated anywhere</h3>
+<p>KE984 (<em>Impairment, T-cell dependent antibody response</em>, AOPs 154 and 277) and
+KE1719 (<em>Impairment of T-cell dependent antibody response</em>, AOP 315) are both
+terminal Adverse Outcomes with <strong>zero downstream Key Event Relationships</strong>. The
+link the report was commissioned to establish is not a KER, so it carries no
+weight-of-evidence or empirical-support table.</p>
+<p>This is a consequence of the OECD review of AOP 277. That AOP was originally
+titled <em>"Impaired IL-1R1 signaling leading to increased susceptibility to
+infection"</em>; reviewers found "susceptibility to infection" hard to define as a
+measurable Adverse Outcome, and it was replaced by the TDAR endpoint. Nothing
+re-attached the infection outcome downstream, so the claim was orphaned rather
+than strengthened.</p>
+<h3 id="what-survives-in-aop-wiki-is-one-field-and-it-is-about-a-different-assay">What survives in AOP-Wiki is one field, and it is about a different assay</h3>
+<p>The only quantitative bridge to infection in the cluster is the
+<code>quantitative_understanding</code> field of KER2928 (<em>Suppression of T cell activation
+→ Impairment, TDAR</em>), 207 characters:</p>
+<blockquote>
+<p>"Luster et al (1993) demonstrated that Concanavalin A response of splenocytes
+showed the linear dose-response relationship with the host resistnace to
+Listeria monocytogenes or Streptococcus pneumoniae."</p>
+</blockquote>
+<p>Concanavalin A splenocyte proliferation, not TDAR — one Key Event upstream. The
+report inherited that substitution rather than introducing it.</p>
+<h3 id="the-primary-source-does-not-support-the-reading-placed-on-it">The primary source does not support the reading placed on it</h3>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/8365588/">PMID:8365588</a> (Luster et al. 1993,
+<em>Risk assessment in immunotoxicology. II</em>) is the origin of the quantitative
+claim. Three statements in its own abstract qualify it:</p>
+<ul>
+<li><em>"No single immune test could be identified which was fully predictive for
+  altered host resistance, although most assays were relatively good indicators
+  (i.e., &gt; 70%)."</em></li>
+<li><em>"A good correlation exists between changes in the immune tests and altered
+  host resistance in that there were no instances where host resistance was
+  altered without affecting an immune test(s). However, in some instances immune
+  changes occurred without corresponding changes in host resistance."</em> — this
+  establishes the immune tests as sensitive detectors of immunotoxicity, not as
+  predictors that a suppressed response means more infection. The AOP needs the
+  converse direction.</li>
+<li>The linear model was confirmed for cyclophosphamide only: <em>"For most of the
+  relationships this could not be confirmed using a large chemical data set and,
+  thus, a more mechanistically based approach for modeling will need to be
+  developed."</em></li>
+</ul>
+<p>The frequently quoted <em>"enumeration of lymphocyte populations and quantitation of
+the T-dependent antibody response were particularly beneficial"</em> describes
+predicting <strong>immunotoxicants</strong>, and cites the 1992 companion paper rather than
+this one.</p>
+<p>One statement in the same abstract cuts the other way, toward the AOP's reading,
+and is recorded here so the page carries both sides — conclusion (3):</p>
+<blockquote>
+<p>"The ability to resist infectious agent challenge is dependent upon the degrees
+of immunosuppression and the quantity of infectious agent administered."</p>
+</blockquote>
+<p>That is a dose-dependence claim about immunosuppression and host resistance, and
+it is the paper's clearest support for a graded relationship. What it does not
+supply is the part the pathway needs: it names neither TDAR nor any single immune
+test as the measure of "degrees of immunosuppression", which is what conclusion
+(2) explicitly declines to do.</p>
+<h3 id="reframed-from-tdar-to-impaired-antibody-response-the-evidence-is-strong">Reframed from TDAR to impaired antibody response, the evidence is strong</h3>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/20675197/">PMID:20675197</a> (Orange et al. 2010),
+a meta-analysis of 17 studies, 676 patients and 2,127 patient-years in primary
+immunodeficiency with hypogammaglobulinemia:</p>
+<blockquote>
+<p>"Pneumonia incidence declined by 27% with each 100mg/dL increment in trough IgG
+(incidence rate ratio, 0.726; 95% confidence interval, 0.658-0.801). Pneumonia
+incidence with maintenance of 500 mg/dL IgG trough levels (0.113 cases per
+patient-year) was 5-fold that with 1000 mg/dL (0.023 cases per patient-year)."</p>
+</blockquote>
+<p>Human, quantitative, with confidence intervals, and interventional rather than
+correlational — immunoglobulin replacement moves the exposure, and restoring the
+antibody level restores resistance to infection in a graded way.</p>
+<p>Compare what the TDAR framing rests on: a single rodent database — assembled by
+the NTP tier-approach screening battery reported in 1988, and analysed for
+host-resistance relationships in 1993
+(<a href="https://pubmed.ncbi.nlm.nih.gov/8365588/">PMID:8365588</a>) — whose own abstract
+states that no single immune test was fully predictive of altered host
+resistance. The reframed claim is not a stronger version of the TDAR claim. It
+is a different claim — about a measured serum protein in patients rather than an
+assay endpoint in mice — and it is the one the evidence actually supports.</p>
+<h3 id="the-infection-outcome-is-barely-represented-as-nodes-or-as-edges">The infection outcome is barely represented, as nodes or as edges</h3>
+<p>This is a claim about the whole of AOP-Wiki, so it is stated with the query that
+produces it.</p>
+<h4 id="reproducing-it">Reproducing it</h4>
+<pre><code class="language-bash"># 1. Pin the CLI. c24ce8c is published on origin/main.
+#    Point the data directory anywhere that is NOT a dismech checkout.
+export AOP_WIKI_CLI_DATA_DIR=~/aop-wiki-data
+
+# 2. Materialize a dated snapshot. Any KER command parses the full XML and
+#    writes all_events_&lt;date&gt;.json and all_kers_&lt;date&gt;.json under
+#    $AOP_WIKI_CLI_DATA_DIR/outputs/cache/&lt;date&gt;/. This is the slow step.
+uvx --from git+https://github.com/gingin77/aop_wiki_cli@c24ce8c aop-wiki-cli \
+  find-kers-for-events --ke-terms &quot;antibody&quot; --date 09-15-2026
+</code></pre>
+<p><strong>3. The filter.</strong> Over <code>all_events_&lt;date&gt;.json</code>, select every event whose
+<code>title</code> matches, case-insensitively,
+<code>infect|host resist|susceptib|pathogen load|viral (load|titer)</code>. For each, record
+<code>level_of_biological_organization</code> and the character counts of <code>description</code> and
+<code>measurement_method</code> after HTML stripping. Then over <code>all_kers_&lt;date&gt;.json</code>,
+select every KER whose <code>downstream_ke.id</code> is one of those events, and record the
+character counts of the four evidence blocks.</p>
+<p>That last step is an ad-hoc read of the CLI's cache, which is what the
+<code>aop-wiki-cli</code> skill permits while working in that directory. It is deliberately
+<strong>not</strong> committed as a dismech script: the CLI owns the parsers and the entity
+model, and the durable home for this query is a command there rather than
+parsing code in this repository.</p>
+<h4 id="the-census">The census</h4>
+<p>Snapshot <code>09-15-2026</code>: <strong>1,602 events, 2,373 KERs.</strong></p>
+<p>Every Key Event in the entire wiki denoting an infection or host-resistance
+outcome:</p>
+<table>
+<thead>
+<tr>
+<th>KE</th>
+<th>Title</th>
+<th>AOPs</th>
+<th>Level</th>
+<th><code>description</code></th>
+<th><code>measurement_method</code></th>
+<th>KERs into it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>323</td>
+<td>Increased, Disease susceptibility</td>
+<td>14</td>
+<td>Individual</td>
+<td><strong>0 chars</strong></td>
+<td><strong>0 chars</strong></td>
+<td>none</td>
+</tr>
+<tr>
+<td>576</td>
+<td>Increased, Viral susceptibility</td>
+<td>84, 85</td>
+<td>Individual</td>
+<td><strong>0 chars</strong></td>
+<td><strong>0 chars</strong></td>
+<td>KER570</td>
+</tr>
+<tr>
+<td>1412</td>
+<td>Helicobacter pylori infection</td>
+<td>229</td>
+<td>Tissue</td>
+<td><strong>0 chars</strong></td>
+<td><strong>0 chars</strong></td>
+<td>none</td>
+</tr>
+<tr>
+<td>1939</td>
+<td>Viral infection and host-to-host transmission, proliferated</td>
+<td>430</td>
+<td>Individual</td>
+<td>7,037 chars</td>
+<td>1,204 chars</td>
+<td>KER2498</td>
+</tr>
+</tbody>
+</table>
+<p>Four events. Two incoming relationships. The evidence on those two:</p>
+<table>
+<thead>
+<tr>
+<th>KER</th>
+<th>Edge</th>
+<th>WoE / Empirical / Plausibility / Quantitative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KER570 (AOPs 84, 85)</td>
+<td>Suppression, Immune system → Increased, Viral susceptibility</td>
+<td>0 / 0 / 0 / 0</td>
+</tr>
+<tr>
+<td>KER2498 (AOP 430)</td>
+<td>Increased SARS-CoV-2 production → Viral infection and host-to-host transmission</td>
+<td>67 / 5,680 / 2,257 / 3,545</td>
+</tr>
+</tbody>
+</table>
+<p>Separately, KER3702 (AOP 618) is the only downstream edge from AOP-Wiki's one
+<em>Reduced antibody production</em> Key Event (KE2398). It runs to <em>Diminished vaccine
+response</em> rather than to infection, and its four evidence blocks are also empty.</p>
+<h4 id="what-it-means">What it means</h4>
+<p>Across the whole immunosuppression space the wiki carries no evidence-bearing
+edge into an infection outcome, and the outcome nodes themselves are mostly
+empty: three of the four carry no definition and no statement of how they would
+be measured. The framework names the outcome and then leaves it unspecified,
+which is consistent with what the AOP 277 reviewers said when they removed it —
+that susceptibility to infection was hard to define as a measurable Adverse
+Outcome. It also explains KE323 having no incoming relationship at all: an
+undefined node is hard to draw an evidenced edge into.</p>
+<p>The relationship is well established in medicine — it is why immunoglobulin
+replacement is standard care in primary antibody deficiency — and absent from the
+framework.</p>
+<p><strong>KER2498 is the one exception, and it is not a counterexample.</strong> It is the only
+evidence-bearing edge into any infection node in the wiki, and it is richly
+evidenced. But it runs from SARS-CoV-2 production to onward transmission: its
+description is about respiratory droplets, aerosols, fecal-oral spread, masks and
+surface disinfection, and its assay detects virus or antibody in a person. It
+measures a virus establishing itself and spreading between hosts, not a host
+losing the capacity to resist one. Note that
+<code>level_of_biological_organization</code> does <strong>not</strong> carry this distinction — KE576
+and KE1939 are both tagged <code>Individual</code> — so the difference has to be read from
+the records rather than inferred from that field.</p>
+<h2 id="module-classification">Module classification</h2>
+<p>The modules in <code>kb/modules/</code> that touch antibody response, with their terminal
+nodes and conformer counts. Tiering matters: a module in which antibodies appear
+as pathogenic effectors says nothing about whether a patient can mount a
+protective response, and must not be counted as coverage.</p>
+<h3 id="tier-1-models-the-antibody-response-itself">Tier 1 — models the antibody response itself</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Role</th>
+<th>Terminal node</th>
+<th>Conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>germinal_center_reaction</code></td>
+<td>The adaptive humoral arm end to end: antigen capture → Tfh help → GC reaction (AID-dependent SHM/CSR) → affinity-matured class-switched output → durable humoral immunity. Models the normal process; conformers set direction with modifiers.</td>
+<td><strong>Durable Protective Humoral Immunity</strong> (<code>downstream: []</code>)</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-2-sibling-arms-of-host-defense">Tier 2 — sibling arms of host defense</h3>
+<p>Each is declared complementary in <code>germinal_center_reaction</code>'s own description.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Role</th>
+<th>Terminal node</th>
+<th>Conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>phagocyte_oxidative_burst_failure</code></td>
+<td>NOX2 respiratory-burst failure; innate cellular arm</td>
+<td><strong>Recurrent Bacterial and Fungal Infection</strong></td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>complement_dysregulation</code></td>
+<td>Loss of control over the alternative pathway</td>
+<td>Complement-Mediated Tissue Injury Syndrome</td>
+<td>4</td>
+</tr>
+<tr>
+<td><code>innate_antiviral_interferon_response</code></td>
+<td>Sensing → interferon-induced antiviral state</td>
+<td>Restriction of Viral Replication</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-3-antibodies-as-pathogenic-effectors-not-as-response-capacity">Tier 3 — antibodies as pathogenic effectors, not as response capacity</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Role</th>
+<th>Conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>molecular_mimicry_autoimmunity</code></td>
+<td>Cross-reactive autoantibody generation</td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>necrotizing_vasculitis</code></td>
+<td>ANCA / immune-complex vessel-wall injury</td>
+<td>8</td>
+</tr>
+<tr>
+<td><code>cgas_sting_pathway_activation</code></td>
+<td>Antibodies incidental to the chain</td>
+<td>3</td>
+</tr>
+<tr>
+<td><code>il6_hypercytokinemia</code></td>
+<td>Antibodies incidental to the chain</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="conformance-state-of-the-antibody-deficiency-entries">Conformance state of the antibody-deficiency entries</h3>
+<p><code>germinal_center_reaction</code>'s description and notes name five entries as intended
+conformers. Three currently declare <code>conforms_to</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th><code>conforms_to</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Common_Variable_Immunodeficiency</code></td>
+<td><code>germinal_center_reaction#Germinal Center Reaction</code></td>
+</tr>
+<tr>
+<td><code>Specific_Antibody_Deficiency</code></td>
+<td><code>germinal_center_reaction#Affinity-Matured Class-Switched B Cell Output</code></td>
+</tr>
+<tr>
+<td><code>Autosomal_Agammaglobulinemia</code></td>
+<td><code>germinal_center_reaction#Durable Protective Humoral Immunity</code></td>
+</tr>
+<tr>
+<td><code>X-linked_Agammaglobulinemia</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>Hyper-IgM_Syndrome_Type_2</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>Selective_IgA_Deficiency</code></td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p>Also conforming: <code>Activated_PI3K-delta_Syndrome</code>, <code>Kabuki_Syndrome</code> (both in the
+decreased direction) and <code>Follicular_Lymphoma</code> (dysregulated direction).</p>
+<h3 id="the-structural-observation">The structural observation</h3>
+<p><code>phagocyte_oxidative_burst_failure</code> terminates at <strong>Recurrent Bacterial and
+Fungal Infection</strong>. <code>germinal_center_reaction</code> terminates one step earlier, at
+<strong>Durable Protective Humoral Immunity</strong>, with nothing downstream — the same place
+AOP-Wiki's KE984 stops.</p>
+<p>dismech already carries "increased susceptibility to infection" in its module
+vocabulary, on the innate arm. It is absent from the humoral one. Both frameworks
+stop at the same node, independently.</p>
+<h3 id="where-the-reports-chemical-branches-would-go">Where the report's chemical branches would go</h3>
+<p><code>germinal_center_reaction</code>'s notes list, as explicitly out of scope and "to be
+argued as its own module", <em>iatrogenic B-cell depletion (rituximab, transplant
+immunosuppression)</em>. The report's calcineurin, JAK3, AhR and glucocorticoid
+branches fall within that reservation. Note that dismech currently holds no
+drug- or chemical-induced immunosuppression disease entries: cyclosporine,
+tacrolimus and JAK inhibitors appear throughout <code>kb/disorders/</code> as treatments,
+not as toxicity entries. Any such module would begin with no conformers.</p>
+<h2 id="not-yet-explored">Not yet explored</h2>
+<ul>
+<li>The remainder of the OpenScientist report. The verification above covers its
+  central causal claim and the network structure; its assay mapping (F004), its
+  regulatory-framework section (F011), the AhR/PAC branch (F012, F014) and the
+  2026 B6C3F1/N in vivo dataset (F006) have not been checked.</li>
+<li>The Luster 1992 companion paper (<em>Fundam. Appl. Toxicol.</em> 18, 200-210), which
+  is where the "particularly beneficial" claim for TDAR originates.</li>
+<li>AOP 14's bridge, whose KER570 evidence blocks are empty.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>
