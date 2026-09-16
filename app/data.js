@@ -17923,6 +17923,8 @@ window.searchData = [
       "Neurotransmitter release",
       "Synaptic plasticity",
       "Immune activation",
+      "Microglial cell activation",
+      "Astrocyte activation",
       "Cytokine production",
       "Phagocytosis",
       "Free radical production",
@@ -143314,6 +143316,7 @@ window.searchData = [
       "Glutamate excitotoxicity",
       "Impaired BDNF trophic support",
       "Neuroinflammatory response",
+      "Microglial cell activation",
       "chemical synaptic transmission",
       "excitatory postsynaptic potential",
       "response to oxidative stress",
@@ -144076,6 +144079,8 @@ window.searchData = [
       "CL:0000236"
     ],
     "biological_processes": [
+      "Somatic Hypermutation of Immunoglobulin Genes",
+      "Class Switch Recombination",
       "Immunoglobulin isotype switching",
       "Somatic hypermutation of immunoglobulin genes",
       "Immunoglobulin production",
@@ -215751,7 +215756,11 @@ window.searchData = [
       "Adipose Tissue Dysfunction",
       "Chronic Low-Grade Inflammation",
       "Hypothalamic Dysregulation",
-      "Adipocyte Mitochondrial Dysfunction"
+      "Adipocyte Mitochondrial Dysfunction",
+      "Depletion of Mucosal Symbiont Akkermansia muciniphila",
+      "Intestinal Barrier Dysfunction and Metabolic Endotoxemia",
+      "Efficient Intestinal Energy Harvest",
+      "Post-Weight-Loss Weight Regain"
     ],
     "cell_types": [
       "Adipocyte",
@@ -215771,7 +215780,11 @@ window.searchData = [
       "Inflammatory Response",
       "Feeding Behavior",
       "Mitochondrial Fission",
-      "Fatty Acid Oxidation"
+      "Fatty Acid Oxidation",
+      "mucus-layer maintenance at the colonic epithelium",
+      "lipopolysaccharide-mediated signaling pathway",
+      "intestinal absorption",
+      "defense of pre-diet body mass"
     ],
     "phenotypes": [
       "Increased Body Mass Index",
@@ -215822,7 +215835,9 @@ window.searchData = [
       "GLP-1/GIP Dual Agonists",
       "Bariatric Surgery",
       "Behavioral Therapy",
-      "Orlistat"
+      "Orlistat",
+      "Naltrexone-Bupropion",
+      "Pasteurized Akkermansia muciniphila MucT Supplementation"
     ],
     "environmental": [
       "High-Calorie Diet",
@@ -215840,11 +215855,11 @@ window.searchData = [
     "source_file": "Obesity.yaml",
     "page_url": "../pages/disorders/Obesity.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 9,
     "num_genes": 5,
-    "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 8,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Obesity Due to MC4R Pathway Disruption",
@@ -221981,7 +221996,8 @@ window.searchData = [
       "Glucocorticoid exposure",
       "Heavy alcohol consumption",
       "Hypercholesterolemia and smoking",
-      "Femoral neck fracture / trauma"
+      "Femoral neck fracture / trauma",
+      "Gut dysbiosis"
     ],
     "biochemical": [
       "Bone mineral density (protective association)"
@@ -221992,7 +222008,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -258772,6 +258788,7 @@ window.searchData = [
       "Intellectual disability",
       "Hypotonia",
       "Microcephaly",
+      "Dysmorphic features",
       "Abnormal bleeding",
       "Type II transferrin isoform profile"
     ],
@@ -258779,6 +258796,7 @@ window.searchData = [
       "Hematologic",
       "Immunologic",
       "Neurologic",
+      "Craniofacial",
       "Laboratory"
     ],
     "phenotype_hpo_categories": [
@@ -258800,6 +258818,7 @@ window.searchData = [
       "HP:0001249",
       "HP:0001252",
       "HP:0000252",
+      "HP:0001999",
       "HP:0001892",
       "HP:0012301"
     ],
@@ -258820,7 +258839,7 @@ window.searchData = [
     ],
     "source_file": "SLC35A1-Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/SLC35A1-Congenital_Disorder_of_Glycosylation.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 13,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 2,
@@ -264470,13 +264489,15 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Schizophrenia is a severe chronic psychotic disorder characterized by positive symptoms (delusions, hallucinations, disorganized thought), negative symptoms (avolition, flat affect, social withdrawal), and cognitive impairment. Pathophysiology centers on dysregulated dopaminergic neurotransmission together with glutamatergic (NMDA receptor) and GABAergic abnormalities, complement-mediated excessive synaptic pruning, and oligodendrocyte/myelin dysfunction.",
+    "description": "Schizophrenia is a severe chronic psychotic disorder characterized by positive symptoms (delusions, hallucinations, disorganized thought), negative symptoms (avolition, flat affect, social withdrawal), and cognitive impairment. Pathophysiology centers on dysregulated dopaminergic neurotransmission together with glutamatergic (NMDA receptor) and GABAergic abnormalities, complement-mediated excessive synaptic pruning, and oligodendrocyte/myelin dysfunction. Deficient M1/M4 muscarinic cholinergic signalling is a further axis, established as a drug target by the 2024 approval of xanomeline-trospium and supported as a lesion by reduced muscarinic receptor availability in vivo and by cortical M1 receptor loss that is most marked in a postmortem-defined subgroup.",
     "pathophysiology": [
       "Reduced SETD1A H3K4 Methyltransferase Activity at Psychiatric Risk Gene Promoters",
       "DNA Damage Accumulation in Postmitotic Neurons",
       "Dysregulation of Dopamine Neurotransmission",
       "Abnormality of Glutamergic Signaling",
       "Abnormality of GABAergic Signaling",
+      "Cortical Muscarinic M1 Receptor Deficit",
+      "Loss of M4 Receptor Restraint of Striatal Dopamine Release",
       "Complement-Mediated Excessive Synaptic Pruning",
       "Oligodendrocyte and Myelin Dysfunction",
       "Mitochondrial Dysfunction and Oxidative Stress",
@@ -264485,6 +264506,8 @@ window.searchData = [
     "cell_types": [
       "cortical neuron",
       "parvalbumin-positive interneuron",
+      "striatal spiny projection neuron",
+      "cholinergic neuron",
       "microglial cell",
       "oligodendrocyte",
       "endothelial cell",
@@ -264493,6 +264516,8 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000540",
       "CL:0000099",
+      "CL:1001474",
+      "CL:0000108",
       "CL:0000129",
       "CL:0000128",
       "CL:0000115",
@@ -264503,6 +264528,8 @@ window.searchData = [
       "dopamine secretion",
       "synaptic transmission, glutamatergic",
       "synaptic transmission, GABAergic",
+      "muscarinic acetylcholine receptor signalling in prefrontal cortex",
+      "muscarinic restraint of striatal dopamine release",
       "complement activation",
       "synapse pruning",
       "myelination",
@@ -264572,11 +264599,11 @@ window.searchData = [
     "source_file": "Schizophrenia.yaml",
     "page_url": "../pages/disorders/Schizophrenia.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 11,
     "num_genes": 14,
     "num_treatments": 6,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Schneckenbecken Dysplasia",
@@ -304466,6 +304493,7 @@ window.searchData = [
       "B Cell Receptor Signaling",
       "B Cell Differentiation",
       "Immunoglobulin Production",
+      "Humoral Immune Response",
       "Immunoglobulin Mediated Immune Response"
     ],
     "phenotypes": [
@@ -308198,13 +308226,13 @@ window.searchMetrics = {
   "total_disorder_pages": 2965,
   "total_subtypes": 3743,
   "total_disorders_and_subtypes": 6708,
-  "total_unique_evidence_sources": 41663,
-  "total_unique_publications": 39288,
+  "total_unique_evidence_sources": 41702,
+  "total_unique_publications": 39326,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 2960,
-  "total_unique_pathological_events": 17930,
-  "total_modules": 174,
+  "total_unique_pathological_events": 17936,
+  "total_modules": 175,
   "total_research_reports": 3077,
   "total_classifications": 19,
   "total_comorbidities": 31,
