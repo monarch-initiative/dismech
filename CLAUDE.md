@@ -30,6 +30,28 @@ Claude Code skills are available in `.claude/skills/`:
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 
+**A skill file that is misnamed or missing its frontmatter is not an error — it
+is a skill that never loads.** Claude Code discovers a skill by looking for
+`SKILL.md` in each directory and says nothing when it does not find one, so the
+only symptom is a skill that never triggers, which looks exactly like a skill
+nobody needed. `microbiome-curation` sat with a lowercase `skill.md` for close
+to a month (#11758); it arrived in a curation PR adding CMT disorder entries,
+which is the shape of the problem — skill files enter through PRs about
+something else and get the attention that PR's subject gets.
+
+```bash
+just check-skill-files   # gate: SKILL.md present and cased, frontmatter valid,
+                         # name matches the directory, description non-empty,
+                         # and every .claude/skills/ path a justfile or script
+                         # runs still exists. Offline, in `just qc`, and ungated
+                         # and whole-tree in CI for the same reason
+                         # check-duplicate-keys is.
+just list-skill-files    # census, including description lengths; exit 0
+```
+
+Description *length* is reported and never gated — no ceiling is documented in
+this repo, so a threshold here would be invented rather than sourced.
+
 ## Key Commands
 
 ```bash
@@ -864,6 +886,38 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `environmental[].influences_mechanisms`); those are not covered by the
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
+
+### Pathograph Node Classes (`kb/node_classes/`)
+
+A curated vocabulary of *kinds of pathophysiology node*, ordered as a causal
+cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue/organ, systemic, outcome) plus cross-cutting classes
+(disposition, compensation, intervention point). It lives in
+`kb/node_classes/pathograph_node_classes.txt` as an indented plain-text tree.
+Each line's kind is decided by its first non-space character: `#` comment,
+`[Disease_Entry] Node name` a worked example (a real pathophysiology node),
+`:key value` an attribute, `= expression` the class's logical definition, and
+anything else a class with an optional ` -- gloss`. A definition is a
+sufficient condition over the node's ontology-bound slots
+(`biological_processes some GO:0008219 'cell death'`,
+`chemical_entities some CHEBI modifier INCREASED`; grammar in
+`src/dismech/node_class_definitions.py`); judgement classes (DISPOSITION,
+OUTCOME, STILL UNPLACED …) deliberately carry none. A companion
+`pathograph_node_class_go_seed.tsv` maps GO biological-process terms to
+classes. There is **no schema slot yet**: no disorder entry names a class, and
+the scanner applies the vocabulary read-only. Edit the tree by PR like any
+other `kb/` content.
+
+```bash
+just node-classes --verify-kb              # grammar + every cited leaf resolves in kb/
+just node-classes --check-definitions      # definition labels vs the term caches (--online: OLS)
+just node-classes --evaluate               # each definition vs its examples and the KB (needs GO sqlite)
+just node-class-scan                       # apply the seed table across kb/: coverage
+just node-class-scan --format debundle     # nodes whose own GO terms span two classes
+just node-role-audit                       # the free-text `role` slot against the edges
+```
+
+Design record: `docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`.
 
 ### Cancer Entry Granularity
 
@@ -2883,6 +2937,40 @@ The snippet counter is fast and advisory; `validate-disorders` is the gate.
 Never claim a check that did not finish. If evidence cannot be verified, use an
 exact quote from a better source, move the claim to notes where appropriate, or
 remove the evidence.
+
+### GeneReviews and StatPearls Baseline (`just check-genereviews`)
+
+A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry
+(review skill item 15). Whether one **exists** is now answered offline from a
+committed index of every PubMed-indexed chapter of both Bookshelf collections
+(`cache/bookshelf/`; PubMed's `genereviews[book]` / `statpearls[book]` fields
+select them exactly), so the automated reviewer -- whose sandbox blocks `curl`
+and every web tool -- can verify a "no GeneReviews chapter exists" note instead
+of recording it as unverifiable, which is what happened twice on #11592.
+
+```bash
+just check-genereviews kb/disorders/MyDisease.yaml   # per entry (offline)
+just check-genereviews --strict FILE                 # exit 1 on a GeneReviews gap
+just check-genereviews --online FILE                 # + live PubMed title search
+just check-genereviews --format tsv                  # whole-KB census
+just refresh-bookshelf-index                         # rebuild cache/bookshelf/
+```
+
+**Semi-deterministic, on purpose.** Identity findings are exact and gate under
+`--strict`: `MISTAGGED` (a `GeneReviews`-tagged reference that is not a
+chapter), `CITED_UNTAGGED` (a chapter PMID or NBK URL cited but not tagged in
+`references:`), `UNTAGGED_CHAPTER` (a chapter whose normalised title equals one
+of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
+listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
+X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
+no string rule settles that. Nothing gates on StatPearls: it is a point-of-care
+reference across all of medicine with a light editorial process, citable for
+orientation (and taggable as `StatPearls`) but never a baseline, and its absence
+is never a gap. `just tag-references` now decides chapter membership from the
+same index rather than by grepping the cached abstract for the word
+"GeneReviews", which a journal article citing one also contains. The index is a
+dated snapshot; staleness is printed, never gated. See
+[`docs/genereviews-baseline-check.md`](docs/genereviews-baseline-check.md).
 
 ## Ontology and Term Caches
 

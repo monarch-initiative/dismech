@@ -876,7 +876,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1169,22 +1169,55 @@ check-not4curation *args:
 # sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
 # in multiplies the mismatch rate several times over; pass --include-low to see
 # the rest, or `--format conformance-gates` for the current rate under each gate.
-# Design artifact -- nothing in kb/ or the schema depends on it.
+# Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
     uv run python -m dismech.node_class_scan {{args}}
 
+# Audit the free-text pathophysiology `role` slot against what the graph
+# already says (step 1 of the node-classification design's next-step list).
+# Each normalised value is mapped to the facet it answers -- causal POSITION
+# (checked against downstream in/out-degree), therapeutic/biomarker INTERFACE
+# (checked against the linking slots), or a kind-of-thing claim that no
+# computation recovers. `summary` sizes the curated residue; `casing` lists
+# spellings that collapse; `crosstab` is role x computed position; `residue`
+# is the per-node worklist; `tsv` is everything. Read-only -- writes nothing
+# to kb/.
+[group('QC')]
+node-role-audit *args:
+    uv run python -m dismech.node_role_audit {{args}}
+
 # Parse and check the compact pathograph node-class tree
-# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
-# -- nothing in kb/ or the schema depends on it -- but its leaves are real
-# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
-# worse than no tree because it still looks grounded. Bare invocation checks the
+# (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
+# with no schema slot yet; its leaves are real (node, disease) pairs, and a
+# tree whose leaves have drifted from the KB is worse than no tree because it
+# still looks grounded. Bare invocation checks the
 # grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
-# `text` being a stable round-trip of the compact form.
+# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
+# line's term labels against the caches (--online: against OLS); --evaluate
+# runs each logical definition over its own examples and the whole KB (needs
+# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
+# being a stable round-trip of the compact form.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
+# whose SKILL.md is missing or miscased is simply never loaded -- no error, and
+# the only symptom is a skill that never triggers, which is indistinguishable
+# from one nobody needed. `microbiome-curation` sat that way for close to a
+# month. Ungated and whole-tree for the same reason check-duplicate-keys is:
+# skill files ride into the repo on PRs about something else (this one arrived
+# in a curation PR adding CMT disorder entries), so a changed-path check is
+# skipped by exactly the changes that break it. Offline, well under a second.
+[group('QC')]
+check-skill-files:
+    uv run python scripts/check_skill_files.py
+
+# Census of every skill and its description length, exit 0.
+[group('QC')]
+list-skill-files:
+    uv run python scripts/check_skill_files.py --list
 
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
@@ -2698,15 +2731,41 @@ fetch-reference +identifiers:
     done
 
 # Tag top-level PublicationReference entries with authoritative-source labels
-# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
-# and writes `tags: [GeneReviews]` onto the matching reference entry.
-# Run after adding new GeneReviews citations or to refresh all tags.
+# (GeneReviews, StatPearls). Membership is decided from the committed Bookshelf
+# index (cache/bookshelf/), falling back to the citation form in the cached
+# record for a chapter newer than the snapshot, and writes `tags: [<Tag>]`
+# onto the matching reference entry.
+# Run after adding new GeneReviews / StatPearls citations or to refresh tags.
 #   just tag-references                   # tag all disorder files
 #   just tag-references --dry-run         # preview without writing
 #   just tag-references kb/disorders/Noonan_Syndrome.yaml
 [group('Curation')]
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
+
+# Semi-deterministic GeneReviews / StatPearls baseline check (offline). Reports,
+# per entry and per collection, whether a Bookshelf chapter names the disease
+# and whether it is tagged in `references:`. Exact-title and identity findings
+# are deterministic; partial title matches are listed as CANDIDATE_CHAPTER for a
+# reviewer to judge. Runs inside the automated PR reviewer, which cannot curl.
+#   just check-genereviews kb/disorders/Asthma.yaml   # one or more files
+#   just check-genereviews                             # whole KB, findings only
+#   just check-genereviews --strict FILE               # exit 1 on a GeneReviews gap
+#   just check-genereviews --online FILE               # also live PubMed (network)
+#   just check-genereviews --format tsv                # census
+[group('Curation')]
+check-genereviews *args="":
+    uv run python scripts/check_genereviews_baseline.py {{args}}
+
+# Rebuild cache/bookshelf/ (every PubMed-indexed GeneReviews and StatPearls
+# chapter: PMID, NBK accession, title, date) from PubMed's `<name>[book]`
+# field. ~30 throttled E-utilities requests; set NCBI_API_KEY for the faster
+# tier. Rows are sorted by PMID with no per-row timestamps, so the diff after a
+# refresh is exactly the chapters that appeared, retired, or were renamed.
+#   just refresh-bookshelf-index
+[group('Curation')]
+refresh-bookshelf-index *args="":
+    uv run python scripts/build_bookshelf_index.py {{args}}
 
 # Backfill missing publication titles on KB references and evidence items
 # (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).

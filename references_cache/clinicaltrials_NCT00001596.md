@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00001596"
+reference_id: clinicaltrials:NCT00001596
 title: Therapeutic Clinical Trial of Oral Pirfenidone for the Pulmonary Fibrosis of Hermansky-Pudlak Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Therapeutic Clinical Trial of Oral Pirfenidone for the Pulmonary Fibrosis of Hermansky-Pudlak Syndrome

@@ -9814,7 +9814,11 @@ class ReferenceTagEnum(EnumDefinitionImpl):
     GeneReviews = PermissibleValue(
         text="GeneReviews",
         title="GeneReviews",
-        description="""Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.""")
+        description="""Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management. A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry (`just check-genereviews` reports whether one exists).""")
+    StatPearls = PermissibleValue(
+        text="StatPearls",
+        title="StatPearls",
+        description="""Reference is a StatPearls chapter published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK430685/). StatPearls is a point-of-care clinical reference spanning all of medicine, written by volunteer clinicians under a lighter editorial process than GeneReviews and framed as a continuing-education activity. A chapter is citable for orientation and its PubMed abstract is quotable, but it is not an expert-curated baseline: a StatPearls chapter never substitutes for a GeneReviews chapter, and its absence is never a gap.""")
 
     _defn = EnumDefinition(
         name="ReferenceTagEnum",
