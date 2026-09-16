@@ -17,7 +17,8 @@ texts, plus the fact that tables were never extracted at all — left other
 for a census before deciding a refetch policy rather than a blanket rewrite.
 
 It found a lot more than the bug's own blast radius. Of the 31,757
-`references_cache/PMID_*.md` files currently cached `abstract_only`:
+`references_cache/PMID_*.md` files cached `abstract_only` as of this
+census's snapshot (see the note on drift in [Methodology](#methodology)):
 
 | | Count | % of all abstract_only |
 | --- | --- | --- |
@@ -71,35 +72,46 @@ cross-validated number here is the one to act on.
 
 ## Why "has a PMCID" overstates recoverability by 1.46x
 
-A PMCID only means PMC indexes the record, not that its body is servable —
-and, as this census's own numbers show, not that it is servable by a
-follow-up HTML fetch either (see below). `PMCFullTextProvider.locate` first
-calls `Entrez.efetch(db="pmc", id=pmcid, rettype="xml", retmode="xml")` —
-this census calls that identical endpoint with identical parameters, not a
-reimplementation — and if the resulting body is missing or falls at or under
-its `_MIN_PMC_FULLTEXT_CHARS` floor (1000 characters), it falls back to
-fetching the PMC article's HTML page instead. This census mirrors both steps
-(`_fetch_pmc_html` reproduces the exact URL, HTML container selectors, and
-paragraph-join logic). Most PMC records are not in the Open Access subset,
-and for those `efetch` returns front matter only: no `<body>` element, often
-with an explicit `<!--The publisher of this article does not allow
-downloading of the full text in XML form.-->` comment and
-`<meta-name>pmc-prop-open-access</meta-name><meta-value>no</meta-value>`.
+A PMCID only means PMC indexes the record, not that its body is servable.
+`PMCFullTextProvider.locate` first calls `Entrez.efetch(db="pmc", id=pmcid,
+rettype="xml", retmode="xml")` — this census calls that identical endpoint
+with identical parameters, not a reimplementation. Most PMC records are not
+in the Open Access subset, and for those `efetch` returns front matter only:
+no `<body>` element, often with an explicit `<!--The publisher of this
+article does not allow downloading of the full text in XML form.-->` comment
+and `<meta-name>pmc-prop-open-access</meta-name><meta-value>no</meta-value>`.
 3,842 of the 12,355 PMC-linked `abstract_only` files (31.1%) are exactly this
-case — old, PMC-indexed, not Open Access — **and the HTML fallback never
-rescues any of them**: the fallback triggers whenever the XML body is missing
-or at/under the floor, which is every one of the 3,873 records that end up
-not recoverable, and across the whole census 0 of those 3,873 HTML attempts
-recovered a usable body. PMC's non-OA gate applies
-to both the XML and HTML surfaces alike, so in practice the fallback this
-census (and the production fetcher) implements never changes the outcome for
-this corpus — it is a real code path with real requests behind it, but an
-empirically empty one here. This is why the recoverability phase fetches and
-classifies every PMC-linked candidate with the real, patched
-`XMLExtractor.extract()` rather than stopping at "has a PMCID": 12,355
-PMC-linked candidates against 8,482 truly recoverable is a **1.46x**
-overstatement (38.9% vs. 26.7% of all abstract_only, or equivalently 31.4% of
-PMC-linked records not recoverable).
+case — old, PMC-indexed, not Open Access. If the resulting XML body is
+missing or falls at or under its `_MIN_PMC_FULLTEXT_CHARS` floor (1000
+characters), production falls back to fetching the PMC article's HTML page
+instead. This census's `_fetch_pmc_html` copies that URL template and
+selector logic from upstream verbatim, but the HTML fallback recovered
+nothing in this run — **0 of the 3,873 not-recoverable records rescued a
+usable body that way** — and that result is not currently trustworthy as a
+finding about PMC's access policy. A PR review caught a bug: the PMCID this
+census gets from the bulk ID Converter API already carries a `PMC` prefix
+(e.g. `PMC5593426`), while `PMCFullTextProvider`'s own `Entrez.elink` path
+returns a bare numeric id, so the shared URL template — copied correctly for
+the numeric-id case — doubled the prefix here into
+`.../articles/PMCPMC5593426/`, a URL that 404s. That bug is now fixed
+(`pmcid.removeprefix("PMC")` before formatting), but a corrected-URL fetch of
+the known-good `PMC5593426` (Open Access) from this environment still
+extracted no body: the page returns HTTP 200, but its article text now sits
+inside `<section class="main-article-body">`, not the `<div class=
+"article-body">`/`<div class="tsec">` markup `_fetch_pmc_html` (and
+apparently the version of `PMCFullTextProvider` this was copied from) looks
+for. Whether that is a live PMC template change or something specific to
+scripted access from this environment is not established here. Given that,
+**this report draws no conclusion about whether the HTML fallback would ever
+recover a body** — the 0-of-3,873 figure reflects what this run's fallback
+path actually returned, not a verified statement about PMC's non-OA gate.
+This is why the recoverability phase fetches and classifies every PMC-linked
+candidate with the real, patched `XMLExtractor.extract()` rather than
+stopping at "has a PMCID": 12,355 PMC-linked candidates against 8,482 truly
+recoverable is a **1.46x** overstatement (38.9% vs. 26.7% of all
+abstract_only, or equivalently 31.4% of PMC-linked records not recoverable) —
+a figure the XML-path fetch alone already establishes and the fallback
+question does not affect.
 
 The false-positive skew is not uniform across the corpus either: the very
 lowest PMIDs (oldest papers) are overwhelmingly `not_open_access`, while
@@ -115,14 +127,15 @@ in ascending PMID order, showed under 1% recoverable; the full 12,355 showed
 5,809 of the 8,482 recoverable papers (68.5%) also carry at least one JATS
 `<table-wrap>` that `_jats_tables_as_text` would extract — 14,363 tables in
 total across the recoverable set. Every one of these 5,809 came back through
-the XML path (the HTML fallback never succeeds in this corpus, and even if
-it did, `_jats_tables_as_text` only ever parses JATS `<table-wrap>` markup, so
-an HTML-recovered body would carry text but never a table — see
-[Why "has a PMCID" overstates recoverability](#why-has-a-pmcid-overstates-recoverability-by-146x)).
-This is on top of the already-cached `full_text_xml` corpus: of 7,433 such
-files, only 313 currently carry a `## Table` section, leaving up to 7,120
-that predate table extraction and may be missing tables their cached body
-never captured (an upper bound — some genuinely have none; confirming which
+the XML path: no record in this run recovered a body via the HTML fallback
+(see [Why "has a PMCID" overstates recoverability](#why-has-a-pmcid-overstates-recoverability-by-146x)
+for why that 0 is not yet a settled finding), and in any case
+`_jats_tables_as_text` only ever parses JATS `<table-wrap>` markup, so an
+HTML-recovered body would carry text but never a table regardless. This is
+on top of the already-cached `full_text_xml` corpus: of 7,433 such files,
+only 313 currently carry a `## Table` section, leaving up to 7,120 that
+predate table extraction and may be missing tables their cached body never
+captured (an upper bound — some genuinely have none; confirming which
 requires refetching each, the same as the abstract_only case).
 
 ## Methodology
@@ -134,7 +147,17 @@ Three phases, offline where possible:
    using `dismech.frontmatter.split_frontmatter` (a naive `text.split("---",
    2)` truncates the frontmatter on some files — see
    [A frontmatter-parsing footnote](#a-frontmatter-parsing-footnote) below).
-   31,757 files are currently `abstract_only`, 7,433 `full_text_xml`.
+   The `full_text_xml`/table figures in this report (7,433 / 313 / 7,120) are
+   current as of this report's own commit, since that phase re-scans the
+   corpus fresh on every run. The `abstract_only` count that seeded the
+   `idconv`/`recoverability` candidate list below is **not**: it was captured
+   at 31,757 on 2026-09-16 ~14:25 UTC, before this branch merged in `main`'s
+   subsequent curation activity; `references_cache/` now holds 31,810
+   `abstract_only` files. Curation adds a few dozen `abstract_only` files a
+   day in the ordinary course of the KB growing, so this is expected drift,
+   not an error — but the summary table's recoverable/attempted/never-attempted
+   figures below are pinned to the 31,757 snapshot the `idconv` and
+   `recoverability` phases actually ran against, not to today's live count.
 2. **`idconv`**: bulk-resolve every `abstract_only` PMID against the PMC ID
    Converter API in batches of 180 (its cap is 200), ~180 requests total.
    Resumable — writes incrementally and skips PMIDs already resolved.
@@ -146,14 +169,19 @@ Three phases, offline where possible:
    XMLExtractor().extract()` directly (with the same `content_type=
    "application/xml"` keyword production passes), plus
    `dismech.patch_reference_validator._jats_tables_as_text()` for the table
-   count. If the extracted body is missing or at/under the production
-   `_MIN_PMC_FULLTEXT_CHARS` floor (1000 characters), it falls back to
-   fetching the PMC article's HTML page exactly as
-   `PMCFullTextProvider._fetch_pmc_html` does, before giving up. This is the
-   live production code and its full fallback chain, not a reimplementation,
-   so the census result is what a real refetch would produce today. Also
-   resumable. Took just under 4 hours for the full 12,355-candidate set at
-   the anonymous E-utilities rate limit (3 req/s).
+   count. This XML path is the live production code, unmodified, so the
+   8,482-recoverable headline is what a real refetch would produce today. If
+   the extracted body is missing or at/under the production
+   `_MIN_PMC_FULLTEXT_CHARS` floor (1000 characters), production additionally
+   falls back to fetching the PMC article's HTML page
+   (`PMCFullTextProvider._fetch_pmc_html`); this census's copy of that step
+   had a bug during this run (see
+   [Why "has a PMCID" overstates recoverability](#why-has-a-pmcid-overstates-recoverability-by-146x))
+   that is now fixed but not yet re-verified as recovering anything, so the
+   fallback's contribution to this report is 0 by observation, not by a
+   confirmed match to production behavior. Also resumable. Took just under 4
+   hours for the full 12,355-candidate set at the anonymous E-utilities rate
+   limit (3 req/s).
 
 Verified against ground truth throughout: the known BRIDA paper
 (PMID:28530713 / PMC5593426, the case that motivated #10876) is correctly

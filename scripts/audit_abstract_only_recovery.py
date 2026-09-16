@@ -300,7 +300,12 @@ def _fetch_pmc_html(pmcid: str) -> str | None:
     ``div.article-body`` / ``div.tsec`` selectors, same paragraph join."""
     from bs4 import BeautifulSoup
 
-    url = PMC_ARTICLE_URL.format(pmcid=pmcid)
+    # idconv returns pmcid already "PMC"-prefixed (e.g. "PMC5593426"), unlike
+    # production's Entrez.elink path, which returns a bare numeric id -- so
+    # the shared PMC_ARTICLE_URL template (itself a correct copy of upstream's
+    # "PMC{pmcid}" f-string) needs the prefix stripped first here, or the
+    # formatted URL doubles it into ".../PMCPMC5593426/" and every fetch 404s.
+    url = PMC_ARTICLE_URL.format(pmcid=pmcid.removeprefix("PMC"))
     try:
         html_bytes = _http_get(url)
     except RuntimeError:
