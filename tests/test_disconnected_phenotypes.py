@@ -326,6 +326,43 @@ phenotypes:
     assert not any("history" in row for row in rows)
 
 
+def test_a_directory_holding_no_entries_is_a_usage_error(tmp_path, capsys):
+    """`kb` holds only subdirectories, so a root typed one level too high.
+
+    This is the residual form of the mistyped-path footgun: no entries means a
+    zero total, and `--fail-under`'s guard skips a zero total, so it would read
+    as a passing gate.
+    """
+    (tmp_path / "disorders").mkdir()
+    _write(tmp_path / "disorders", "Test.yaml", CONNECTED_AND_FLOATING)
+
+    assert main([str(tmp_path), "--fail-under", "60"]) == 2
+    assert "no *.yaml entries" in capsys.readouterr().err
+    # The subdirectory that does hold entries is still accepted.
+    assert main([str(tmp_path / "disorders"), "--fail-under", "60"]) == 1
+
+
+def test_a_directory_of_phenotype_free_entries_is_a_legitimate_empty_result(
+    tmp_path, capsys
+):
+    """The discriminator is the glob, not the phenotype count.
+
+    `kb/groupings` holds 102 real entries, none of which carries a phenotype
+    node. That is nothing to report, not a mistyped argument.
+    """
+    _write(
+        tmp_path,
+        "Grouping.yaml",
+        """
+name: Some Grouping
+members:
+- name: A Disease
+""",
+    )
+    assert main([str(tmp_path), "--fail-under", "60"]) == 0
+    assert "ERROR" not in capsys.readouterr().err
+
+
 def test_an_unreadable_path_reports_rather_than_tracebacks(tmp_path, capsys):
     """Any OSError on a named path is a usage error -- reported, never swallowed.
 

@@ -61,8 +61,9 @@ unexplained, but they are not the same curation job.
 Report-only, and not a number to drive up
 -----------------------------------------
 Exit 0 on any number of findings, unless you ask otherwise with ``--strict`` or
-``--fail-under`` (a named path that cannot be read is a usage error and exits
-2; a directory argument is expanded into the entries inside it).
+``--fail-under``. A named path that cannot be read, or a named directory
+holding no entries, is a usage error and exits 2; a directory argument that does
+hold entries is expanded into them.
 Connecting a phenotype is real curation: the edge asserts which mechanism
 produces which clinical feature, which is often exactly what the literature
 does not settle. Some phenotypes legitimately have no upstream node in the
@@ -265,29 +266,50 @@ def _entries_in(directory: Path) -> Iterator[Path]:
     )
 
 
-def iter_paths(files: list[str]) -> Iterator[Path]:
-    """Resolve the CLI's path arguments, expanding a directory into its entries.
+def resolve_paths(files: list[str]) -> tuple[list[Path], list[str]]:
+    """Return ``(entries, usage_errors)`` for the CLI's path arguments.
 
     A directory argument is expanded rather than rejected, the way
     ``dismech.qc_plugins``' own CLI does it: ``kb/disorders`` is this recipe's
     default root, so it is the first thing a curator types, and the sibling
     ``just list-causal-targets`` takes it. A path that does not exist is left
-    alone for ``main`` to turn into a usage error.
+    alone, so reading it raises and ``main`` reports it.
+
+    **A named directory matching no ``*.yaml`` is a usage error**, because it is
+    the residual form of the mistyped-path footgun: ``kb`` holds only
+    subdirectories, so a root typed one level too high yields no entries, and
+    ``--fail-under`` skips a zero total. The discriminator is the glob, never
+    the phenotype count -- ``kb/groupings`` holds 102 real entries that carry no
+    phenotype nodes at all, and that is a legitimate empty result which must
+    keep exiting 0.
+
+    The no-argument default walk is deliberately not held to this: the operator
+    named no path, so there is no argument of theirs to be wrong.
     """
+    entries: list[Path] = []
+    usage_errors: list[str] = []
+
     if files:
         for raw in files:
             path = Path(raw)
             if not path.is_absolute():
                 path = ROOT / path
             if path.is_dir():
-                yield from _entries_in(path)
+                found = list(_entries_in(path))
+                if not found:
+                    usage_errors.append(
+                        f"{_display_path(path)}: directory contains no *.yaml entries"
+                    )
+                entries.extend(found)
             else:
-                yield path
-        return
+                entries.append(path)
+        return entries, usage_errors
+
     for directory in DEFAULT_KB_DIRS:
         base = ROOT / directory
         if base.is_dir():
-            yield from _entries_in(base)
+            entries.extend(_entries_in(base))
+    return entries, usage_errors
 
 
 # --- reporting ---------------------------------------------------------------
@@ -503,9 +525,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    entries, usage_errors = resolve_paths(args.files)
     reports: list[EntryReport] = []
-    unreadable: list[str] = []
-    for path in iter_paths(args.files):
+    for path in entries:
         try:
             report = assess(path)
         except OSError as exc:
@@ -513,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
             # than tracebacks -- but never swallowed: every case here exits 2,
             # which is the distinction from `check_causal_targets.py`, where a
             # swallowed OSError leaves a mistyped path exiting 0.
-            unreadable.append(f"{_display_path(path)}: {exc.strerror or exc}")
+            usage_errors.append(f"{_display_path(path)}: {exc.strerror or exc}")
             continue
         if report is not None:
             reports.append(report)
@@ -554,11 +576,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             failed = True
 
-    # A named path that cannot be read exits 2 whatever the gates say. Reporting
-    # nothing and exiting 0 would make a mistyped argument read as a passing
-    # --strict/--fail-under run; 2 keeps it distinct from the gate's own 1.
-    if unreadable:
-        for message in unreadable:
+    # A named path that cannot be read, or a named directory holding no entries,
+    # exits 2 whatever the gates say. Reporting nothing and exiting 0 would make
+    # a mistyped argument read as a passing --strict/--fail-under run; 2 keeps it
+    # distinct from the gate's own 1.
+    if usage_errors:
+        for message in usage_errors:
             print(f"ERROR: {message}", file=sys.stderr)
         return 2
     return 1 if failed else 0
