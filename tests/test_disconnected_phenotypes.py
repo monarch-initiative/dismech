@@ -19,6 +19,7 @@ The connectivity verdict itself is not reimplemented here: it comes from
 the guarantee that the two cannot disagree.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +48,33 @@ from check_disconnected_phenotypes import (
 
 ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "check_disconnected_phenotypes.py"
+
+
+@pytest.fixture(autouse=True)
+def _restore_kb_cache_env():
+    """Keep ``main()``'s ``kb_cache.default_off()`` inside this test.
+
+    ``default_off()`` belongs in ``main()`` (CLAUDE.md), but it sets a
+    process-wide environment variable, and most tests here call ``main()``.
+    Without this, the parsed-KB cache stays disabled for every test that runs
+    after this module in the same pytest process -- which fails five cache-state
+    assertions in ``tests/test_kb_cache.py``, alphabetically just after this
+    file. CI caught exactly that; it had never run the suite past the lint step
+    before.
+
+    Copied from ``tests/test_audit_variant_mechanism.py``, whose own docstring
+    records the same failure. Any new test file that calls a scanner's
+    ``main()`` needs this fixture.
+    """
+    sentinel = object()
+    before = os.environ.get("DISMECH_KB_CACHE", sentinel)
+    try:
+        yield
+    finally:
+        if before is sentinel:
+            os.environ.pop("DISMECH_KB_CACHE", None)
+        else:
+            os.environ["DISMECH_KB_CACHE"] = before
 
 
 def _write(tmp_path, name, body):
