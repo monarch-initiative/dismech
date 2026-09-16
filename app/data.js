@@ -18027,7 +18027,7 @@ window.searchData = [
     "num_pathophysiology": 23,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "55",
+    "causal_graph_edges": "57",
     "causal_graph_longest_path": "9"
   },
   {
@@ -68545,6 +68545,78 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Chromosome 16p12.2-p11.2 Deletion Syndrome",
+    "disease_id": "MONDO:0013320",
+    "category": "Mendelian",
+    "parents": [
+      "Contiguous Gene Deletion Syndrome",
+      "Chromosomal Deletion Syndrome"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A recurrent 7.1-8.7 Mb interstitial deletion of the pericentromeric short arm of chromosome 16, arising by non-allelic homologous recombination between the complex segmental duplications that flank the interval. Affected individuals have minor facial anomalies, feeding difficulties, marked delay in speech development, and recurrent ear infections; developmental delay ranges from mild to severe.\nThe interval is gene-dense, and the deletion removes one copy of dozens of genes at once, so the pathograph is short by necessity rather than by omission. What is established is the rearrangement mechanism, the constitutional heterozygous loss, and the clinical consequence. Which of the deleted genes produce which feature is not established - the candidates usually named for this interval (SH2B1, KCTD13, TBX6) come from studies of the much smaller 16p11.2 recurrent CNVs nested inside it, and carrying those attributions across is an inference about dosage, not a finding about this syndrome. The entry records that gap rather than filling it.\nThe entity most often confused with this one is the ~500-600 kb recurrent 16p11.2 deletion, which shares part of the interval and almost all of the naming. They are different diseases: the small deletion is associated with autism and is not associated with the facial manifestations, feeding difficulties or developmental delay that define this syndrome. The published literature makes that distinction explicitly, and it needs holding onto, because the synonym sets nearly collide.",
+    "pathophysiology": [
+      "Non-Allelic Homologous Recombination Between 16p Segmental Duplications",
+      "Constitutional Heterozygous Loss of the 16p12.2-p11.2 Interval",
+      "Haploinsufficiency Across a Gene-Dense Interval"
+    ],
+    "cell_types": [
+      "Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "nervous system development"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Delayed Speech Development",
+      "Abnormal Facial Shape",
+      "Feeding Difficulties",
+      "Recurrent Otitis Media"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001999",
+      "HP:0011968",
+      "HP:0000403"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "16p12.2-p11.2 interval"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chromosome_16p12.2-p11.2_Deletion_Syndrome.yaml",
+    "page_url": "../pages/disorders/Chromosome_16p12.2-p11.2_Deletion_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Chromosome 17q12 Deletion Syndrome",
@@ -133499,6 +133571,95 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Hearing Loss Autosomal Dominant 34 With or Without Inflammation",
+    "disease_id": "MONDO:0033261",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Nonsyndromic Hearing Loss",
+      "Autoinflammatory Syndrome"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Nonsyndromic",
+      "Syndromic"
+    ],
+    "description": "DFNA34 is autosomal dominant, postlingual, slowly progressive bilateral sensorineural hearing loss caused by gain-of-function variants in NLRP3, the sensor of the NLRP3 inflammasome. It is the entity that established the cochlea as a site where innate immunity alone can cause deafness: the p.Arg918Gln variant was found in two unrelated families, one in which hearing loss came with autoinflammatory signs and one in which it segregated with no other target-organ manifestation at all, and the same work showed the NLRP3 inflammasome can be activated in resident macrophage/monocyte-like cells of the mouse cochlea with secretion of IL-1 beta.\nThe mechanism is therefore local rather than systemic. Mutant NLRP3 lowers the assembly threshold of the inflammasome in cochlea-resident macrophages; caspase-1 matures pro-IL-1 beta; local IL-1 beta disrupts the blood-labyrinth barrier and recruits further macrophages; and sustained cochlear autoinflammation injures the sensory epithelium. The intermediate steps are visible clinically as pathologic cochlear enhancement on post-contrast MRI-FLAIR, and experimentally as blood-labyrinth barrier disruption and macrophage infiltration in NLRP3-mutant mice.\nTwo things make the entry worth curating separately from the CAPS entries driven by the same gene. First, the hearing loss can be the whole disease: family LMG113 had no systemic phenotype. Second, it is treatable - IL-1 blockade improved or reversed hearing loss in affected individuals, which is rare for a genetic sensorineural hearing loss, and the mouse work shows the same effect for both an IL-1 receptor antagonist and the NLRP3-specific inhibitor MCC950. The therapeutic window is narrow: response tracks with younger age and better baseline thresholds.",
+    "pathophysiology": [
+      "NLRP3 Gain-of-Function Variant",
+      "Constitutive Inflammasome Assembly in Cochlear Macrophages",
+      "Local Cochlear IL-1 beta Secretion",
+      "Blood-Labyrinth Barrier Disruption and Macrophage Infiltration",
+      "Systemic Autoinflammatory Activation",
+      "Progressive Cochlear Sensory Injury"
+    ],
+    "cell_types": [
+      "cochlea-resident macrophage",
+      "Monocyte",
+      "infiltrating macrophage",
+      "Auditory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576",
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "positive regulation of interleukin-1 beta production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Progressive Sensorineural Hearing Loss",
+      "High-Frequency Hearing Impairment",
+      "Bilateral Symmetric Hearing Loss",
+      "Recurrent Fever",
+      "Urticaria",
+      "Arthralgia"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Constitutional",
+      "Dermatologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000408",
+      "HP:0005101",
+      "HP:0008619",
+      "HP:0001954",
+      "HP:0001025",
+      "HP:0002829"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NLRP3"
+    ],
+    "treatments": [
+      "Anakinra",
+      "Cochlear Implantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hearing_Loss_Autosomal_Dominant_34_With_Or_Without_Inflammation.yaml",
+    "page_url": "../pages/disorders/Hearing_Loss_Autosomal_Dominant_34_With_or_Without_Inflammation.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hearing Loss Autosomal Dominant 72",
     "disease_id": "MONDO:0033259",
     "category": "Mendelian",
@@ -139352,6 +139513,77 @@ window.searchData = [
     "num_genes": 5,
     "num_treatments": 5,
     "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Hereditary Sensory and Autonomic Neuropathy Type 1C",
+    "disease_id": "MONDO:0013337",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Sensory and Autonomic Neuropathy"
+    ],
+    "creation_date": "2026-09-15T13:18:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HSAN1C is the SPTLC2 form of hereditary sensory and autonomic neuropathy type 1: an autosomal dominant, slowly progressive, length-dependent axonal sensory neuropathy with distal sensory loss, acral ulceration and often lancinating pain. Heterozygous missense variants in SPTLC2, the second subunit of serine palmitoyltransferase, shift the enzyme's substrate preference from L-serine towards L-alanine, so the first and rate-limiting step of de novo sphingolipid synthesis produces 1-deoxysphingolipids. These lack the C1 hydroxyl of a normal sphingoid base, so they can neither be converted into complex sphingolipids nor degraded by the canonical route, and they accumulate to neurotoxic levels in plasma and in sensory neurons.\nThe mechanism is a change in what the enzyme makes rather than a simple loss of what it normally makes, and the literature corrected itself on this point: the founding SPTLC2 report described partial to complete loss of SPT activity, while a later uniform re-assay of six SPTLC2 and eleven SPTLC1 mutants found canonical serine activity was not reduced in any of them. This entry curates the variants as NEOMORPHIC on the later evidence and records the disagreement rather than dropping the earlier claim.",
+    "pathophysiology": [
+      "SPTLC2 Missense Variant Alters Serine Palmitoyltransferase Substrate Preference",
+      "1-Deoxysphingolipid Accumulation",
+      "Sensory Neuron Toxicity and Axonal Degeneration"
+    ],
+    "cell_types": [
+      "sensory neuron of dorsal root ganglion"
+    ],
+    "cell_type_ids": [
+      "CL:1001451"
+    ],
+    "biological_processes": [
+      "sphingolipid biosynthetic process"
+    ],
+    "phenotypes": [
+      "Distal Sensory Impairment",
+      "Acral Ulceration",
+      "Neuropathic Pain",
+      "Demyelinating Features",
+      "Distal Muscle Weakness",
+      "Loss of Intraepidermal Nerve Fibers"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Dermatological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002936",
+      "HP:0006121",
+      "HP:0012531",
+      "HP:0007108",
+      "HP:0002460",
+      "HP:0034997"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SPTLC2"
+    ],
+    "treatments": [
+      "Oral L-Serine Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma 1-deoxysphingolipids"
+    ],
+    "source_file": "Hereditary_Sensory_and_Autonomic_Neuropathy_Type_1C.yaml",
+    "page_url": "../pages/disorders/Hereditary_Sensory_and_Autonomic_Neuropathy_Type_1C.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -154130,6 +154362,106 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Immunodeficiency 28",
+    "disease_id": "MONDO:0013953",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Susceptibility to Mycobacterial Disease",
+      "Inborn Error of Immunity"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "AR complete",
+      "AR partial",
+      "AD haploinsufficiency"
+    ],
+    "description": "Immunodeficiency 28 is Mendelian susceptibility to mycobacterial disease (MSMD) caused by germline variants in IFNGR2, the second chain of the interferon-gamma receptor. Affected individuals are selectively vulnerable to weakly virulent mycobacteria - BCG vaccine strains and environmental mycobacteria - and about half are also susceptible to non-typhoidal Salmonella, while resistance to most other pathogens is preserved. That selectivity is the diagnostic signature of the disease and the reason routine immunological screening comes back normal.\nThe mechanism is a single broken step in a well-mapped circuit. IFN-gamma engages two IFNGR1 chains to form a 2:2 intermediate, which then recruits two IFNGR2 chains into a hexameric signalling complex; only then are the receptor-associated Janus kinases brought close enough to trans-phosphorylate and activate STAT1. IFNGR2 variants block that recruitment, and the crystal structure of the complete complex shows exactly how for the MSMD-associated T168N substitution, which places a new N-linked glycan at the interface where IFNGR2 has to dock. Downstream, macrophages fail to receive the activating signal, cannot kill ingested mycobacteria, and cannot organise effective granulomas.\nThe allelic series matters clinically because residual IFN-gamma signalling predicts outcome. Autosomal recessive complete deficiency is one of only a few MSMD etiologies that is fully penetrant and lethal before the third decade without transplantation; partial recessive forms are less severe but still fully penetrant; and a heterozygous frameshift causing haploinsufficiency gives an autosomal dominant form with incomplete penetrance. Recombinant IFN-gamma, the mainstay for other MSMD genotypes, has no target in complete deficiency, which leaves haematopoietic stem cell transplantation as the only curative option.",
+    "pathophysiology": [
+      "IFNGR2 Loss-of-Function Variant",
+      "Failure of Hexameric IFN-gamma Receptor Assembly",
+      "Loss of STAT1 Signal Transduction",
+      "Defective Macrophage Activation",
+      "Uncontrolled Mycobacterial Replication and Failed Granuloma Containment",
+      "Sustained IFN-gamma Production Without Receptor Response"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Monocyte",
+      "Fibroblast",
+      "T-helper 1 cell",
+      "Natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576",
+      "CL:0000057",
+      "CL:0000545",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "type II interferon-mediated signaling pathway",
+      "macrophage activation",
+      "defense response to bacterium"
+    ],
+    "phenotypes": [
+      "Disseminated Mycobacterial Disease",
+      "Recurrent Salmonella Infection",
+      "Lymphadenopathy",
+      "Hepatosplenomegaly",
+      "Osteomyelitis",
+      "BCG Vaccine Disease",
+      "Pulmonary Parenchymal Consolidation",
+      "Elevated Plasma Interferon-Gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Hematologic",
+      "Musculoskeletal",
+      "Respiratory",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011274",
+      "HP:5210095",
+      "HP:0002716",
+      "HP:0001433",
+      "HP:0002754",
+      "HP:5210408",
+      "HP:0002113",
+      "HP:0030356"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "IFNGR2"
+    ],
+    "treatments": [
+      "Haematopoietic Stem Cell Transplantation",
+      "Recombinant Interferon-Gamma",
+      "Prolonged Antimycobacterial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_28.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_28.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Immunodeficiency 32B",
     "disease_id": "MONDO:0009194",
     "category": "Mendelian",
@@ -161796,7 +162128,10 @@ window.searchData = [
       "Cerebral arterial occlusion",
       "Ischemic penumbra and energy failure",
       "Excitotoxic and oxidative neuronal injury",
-      "Neurovascular inflammation and barrier disruption"
+      "Neurovascular inflammation and barrier disruption",
+      "Post-Ischemic Autophagic-Lysosomal Dysfunction",
+      "Astrocyte and Cerebral Endothelial Cell Senescence",
+      "Microglial NLRP3 Inflammasome Activation in the Ischemic Penumbra"
     ],
     "cell_types": [
       "endothelial cell",
@@ -161818,7 +162153,10 @@ window.searchData = [
       "response to oxidative stress",
       "apoptotic process",
       "inflammatory response",
-      "cell-cell signaling"
+      "cell-cell signaling",
+      "Macroautophagy",
+      "Cellular senescence",
+      "NLRP3 inflammasome complex assembly"
     ],
     "phenotypes": [
       "Symptomatic central nervous system infarction",
@@ -161858,11 +162196,11 @@ window.searchData = [
     "source_file": "Ischemic_Stroke.yaml",
     "page_url": "../pages/disorders/Ischemic_Stroke.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Isobutyryl-CoA Dehydrogenase Deficiency",
@@ -201200,7 +201538,10 @@ window.searchData = [
       "Axonal Damage",
       "Th1/Th17-Mediated Neuroinflammation",
       "Inflammatory Lesions",
-      "Compartmentalized CNS Inflammation"
+      "Compartmentalized CNS Inflammation",
+      "Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation",
+      "Chronic Inflammation-Induced Oligodendroglial and Glial Senescence",
+      "Microglial NLRP3 Inflammasome Activation"
     ],
     "cell_types": [
       "Oligodendrocyte",
@@ -201211,7 +201552,8 @@ window.searchData = [
       "CD4-positive, alpha-beta T cell",
       "T-helper 17 cell",
       "T-helper 1 cell",
-      "Macrophage"
+      "Macrophage",
+      "Oligodendrocyte precursor cell"
     ],
     "cell_type_ids": [
       "CL:0000128",
@@ -201222,7 +201564,8 @@ window.searchData = [
       "CL:0000624",
       "CL:0000899",
       "CL:0000545",
-      "CL:0000235"
+      "CL:0000235",
+      "CL:0002453"
     ],
     "biological_processes": [
       "Antigen processing and presentation of peptide antigen via MHC class II",
@@ -201231,7 +201574,11 @@ window.searchData = [
       "Complement activation",
       "Myelination",
       "T-helper 17 type immune response",
-      "Inflammatory response"
+      "Inflammatory response",
+      "Macroautophagy",
+      "Mitophagy",
+      "Cellular senescence",
+      "NLRP3 inflammasome complex assembly"
     ],
     "phenotypes": [
       "Muscle Weakness",
@@ -201338,11 +201685,11 @@ window.searchData = [
     "source_file": "Multiple_Sclerosis.yaml",
     "page_url": "../pages/disorders/Multiple_Sclerosis.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 8,
     "num_genes": 18,
     "num_treatments": 5,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Multiple Sulfatase Deficiency",
@@ -295417,6 +295764,107 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Undifferentiated Connective Tissue Syndrome",
+    "disease_id": "MONDO:0019527",
+    "category": "Complex",
+    "parents": [
+      "Systemic Autoimmune Disease",
+      "Connective Tissue Disease"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Stable",
+      "Evolving"
+    ],
+    "description": "Undifferentiated connective tissue disease is systemic autoimmunity with clinical features and autoantibodies but without enough of either to classify as any defined connective tissue disease. It is the only entry in this knowledge base defined by what a patient does not meet, which makes the first question whether it is a disease at all rather than a waiting room for one.\nThe natural-history data answer that, and they are the reason the entry exists. Across published cohorts the majority never differentiate: 65% of 665 Hungarian patients remained undifferentiated at five years, a systematic review of six cohorts put the evolving fraction at 28%, and a 504-patient cohort followed at least five years found 20%. A stable inception cohort followed for a decade accrued measurable organ damage - 27% had at least one SLICC damage item - so remaining undifferentiated is not the same as remaining well. Persisting is the common outcome and it has consequences, which is what a disease looks like.\nMechanistically the entry is honest about being thin. What is documented in UCTD patients specifically is autoantibody-driven systemic autoimmunity with a type I interferon signature in about half, and endothelial activation and damage that progresses over follow-up even while the patient stays undifferentiated. What is not documented is a target-organ mechanism, because by construction there is no single target organ. The pathograph therefore runs from autoimmunity through interferon activation to endothelial injury and stops, with the branch to differentiation recorded separately.\nPrognostic serology is where the clinically useful signal sits: anti-Ro/SSA, anti-dsDNA and hypocomplementemia predict progression, and they predict it to specific destinations - anti-Ro/SSA to Sjogren disease, anti-dsDNA and hypocomplementemia to SLE.",
+    "pathophysiology": [
+      "Non-Organ-Specific Autoantibody Production",
+      "Type I Interferon Pathway Activation",
+      "Endothelial Activation and Microvascular Damage",
+      "Differentiation to a Defined Connective Tissue Disease",
+      "Organ Damage Accrual"
+    ],
+    "cell_types": [
+      "B cell",
+      "Plasmacytoid dendritic cell",
+      "Endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000784",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "autoantibody-mediated adaptive immune response",
+      "type I interferon-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Raynaud Phenomenon",
+      "Arthralgia",
+      "Haematologic Abnormality",
+      "Serositis",
+      "Sicca Symptoms",
+      "Cutaneous Photosensitivity",
+      "Oral Aphthae",
+      "Antinuclear Antibody Positivity",
+      "Interstitial Lung Disease",
+      "Nailfold Capillary Abnormality"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Musculoskeletal",
+      "Hematologic",
+      "Cardiovascular",
+      "Mucocutaneous",
+      "Laboratory",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030880",
+      "HP:0002829",
+      "HP:0001871",
+      "HP:0045073",
+      "HP:0001097",
+      "HP:0000992",
+      "HP:0011107",
+      "HP:0003493",
+      "HP:0006530"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Hydroxychloroquine",
+      "Low-Dose Glucocorticoid",
+      "Immunosuppressive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Undifferentiated_Connective_Tissue_Syndrome.yaml",
+    "page_url": "../pages/disorders/Undifferentiated_Connective_Tissue_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Uner Tan Syndrome",
     "disease_id": "MONDO:0100144",
     "category": "Mendelian",
@@ -307747,17 +308195,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2960,
-  "total_subtypes": 3736,
-  "total_disorders_and_subtypes": 6696,
-  "total_unique_evidence_sources": 41615,
-  "total_unique_publications": 39240,
+  "total_disorder_pages": 2965,
+  "total_subtypes": 3743,
+  "total_disorders_and_subtypes": 6708,
+  "total_unique_evidence_sources": 41663,
+  "total_unique_publications": 39288,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2955,
-  "total_unique_pathological_events": 17902,
+  "total_pathographs": 2960,
+  "total_unique_pathological_events": 17930,
   "total_modules": 174,
-  "total_research_reports": 3072,
+  "total_research_reports": 3077,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
