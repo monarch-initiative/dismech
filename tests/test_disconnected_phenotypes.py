@@ -27,10 +27,12 @@ import pytest
 
 # Inline the path rather than assigning ROOT first: ruff's E402 allows an
 # import preceded by a `sys.path` preamble, but an intervening assignment
-# breaks that allowance (see tests/test_causal_targets.py).
+# breaks that allowance (see tests/test_causal_targets.py). That allowance is
+# also why the import below carries no E402 suppression: ruff reports an unused
+# directive (RUF100) for one, as CI caught. Do not add it back.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_disconnected_phenotypes import (  # noqa: E402
+from check_disconnected_phenotypes import (
     ATTACH_NONCAUSAL,
     ATTACH_READOUT,
     ATTACH_SEQUELA_SOURCE,
