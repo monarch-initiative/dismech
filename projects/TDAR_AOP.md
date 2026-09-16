@@ -44,9 +44,12 @@ humoral immunity. It is a two-way comparison, and the two directions are kept
 separate because they have different audiences and different standards of proof.
 
 This page records findings. It does not decide adoption: whether dismech gains a
-module, an edge, or a schema construct as a result belongs in its own issue, and
-whether the AOP-side observations are communicated to the AOP community is a
-separate call again.
+module, an edge, or a schema construct as a result belongs in its own issue.
+
+The AOP-side observations are **not** being tracked as dismech work. They are
+findings about the framework rather than about this repository, and no issue,
+worklist, or follow-up here depends on them. They are recorded on this page
+because the comparison produced them, and that is all.
 
 **Relationship to [`AOP_EMOD_ALIGNMENT`](AOP_EMOD_ALIGNMENT.md).** That project
 asks how dismech's constructs map onto the AOP/EMOD data model, grounded on
@@ -90,8 +93,12 @@ against AOP-Wiki and PubMed. The provider bundle also contained iteration
 transcripts, container logs and a PDF rendering of the same report; those are
 recoverable from the job and are not committed.
 
-**AOP-Wiki snapshot.** All AOP-Wiki figures below are from the `09-03-2026`
-export, read through
+**AOP-Wiki snapshot.** AOP-Wiki figures below are from the `09-03-2026` export
+unless a figure names another snapshot: the F010 ratings check and the
+infection-outcome census were both run against `09-15-2026`. Export counts move
+between dates — 1,602 events in `09-15-2026` against 1,598 in `08-06-2026` — so
+which snapshot produced a figure is load-bearing for anyone re-running it. Both
+were read through
 [`aop-wiki-cli`](https://github.com/gingin77/aop_wiki_cli). AOP-Wiki is not a
 citable reference in dismech's validation stack — there is no `AOP:` prefix and
 no fetcher — so anything curated from it must cite the primary literature
@@ -130,6 +137,45 @@ The only quantitative bridge to infection in the cluster is the
 Concanavalin A splenocyte proliferation, not TDAR — one Key Event upstream. The
 report inherited that substitution rather than introducing it.
 
+### The High/High weight-of-evidence ratings are not in the export
+
+The report's F010 presents a table of terminal-KER ratings — Evidence **High**,
+Quantitative Understanding **High** for all three AOPs — introduced as
+"Extraction of the AOP-Wiki Key Event Relationship (KER) weight-of-evidence
+tables". No such tables are present.
+
+In the `09-15-2026` export, each KER's four evidence blocks carry `free_text`,
+`tables` and `headers`. For all three terminal KERs, `tables` is empty, `headers`
+is empty, `has_any_tables` is `false`, and no `High` / `Moderate` / `Low` token
+appears anywhere in the record:
+
+| KER | AOP | Edge | `weight_of_evidence` | `quantitative_understanding` | Rating tokens |
+|---|---|---|---|---|---|
+| KER1510 | 154 | IL-2 & IL-4 suppression → Impaired TDAR | **0 chars** | **0 chars** | none |
+| KER2928 | 277 | Suppression of T-cell activation → Impaired TDAR | 1,506 chars | 207 chars | none |
+| KER2027 | 315 | IL-4 suppression → Impaired TDAR | 260 chars | 292 chars | none |
+
+Character counts are measured **after** HTML stripping; AOP-Wiki free-text fields
+hold raw HTML, and a direct cache read has to strip it. The three KER records were
+read from `all_kers_09-15-2026.json`, materialized by the command in
+*Reproducing it* above and keyed by the AOP-Wiki KER IDs shown.
+
+Nor are the ratings on the parent AOP records, whose `woe_evidence` is narrative
+prose rather than a ratings table. AOP 277 and AOP 315 contain no rating token at
+all; AOP 154 contains only **Moderate**, never High.
+
+So the claim that the terminal KER is rated High/High in all three pathways, and
+the "exceptional confidence" the report draws from it, cannot be confirmed from
+the export, and the one rating word that does appear anywhere in the three AOP
+records is weaker than the claim. KER1510 is the sharpest case: AOP 154 is the
+OECD-endorsed pathway of the three, and its terminal KER carries no evidence text
+whatsoever. AOP 315, by contrast, is still `Under Development`.
+
+This does not prove the ratings do not exist — they may be held in a structured
+field the XML export does not carry, or be visible on the rendered wiki page. It
+does mean the report's stated method, extraction from KER weight-of-evidence
+tables, cannot have produced them from this data.
+
 ### The primary source does not support the reading placed on it
 
 [PMID:8365588](https://pubmed.ncbi.nlm.nih.gov/8365588/) (Luster et al. 1993,
@@ -154,10 +200,12 @@ claim. Three statements in its own abstract qualify it:
 The frequently quoted *"enumeration of lymphocyte populations and quantitation of
 the T-dependent antibody response were particularly beneficial"* describes
 predicting **immunotoxicants**, and cites the 1992 companion paper rather than
-this one.
+this one. The 1993 abstract names it outright — *"(Luster et al., Fundam. Appl.
+Toxicol., 18, 200-210, 1992)"* — immediately before that sentence, so the
+identification rests on the paper's own citation and not on inference.
 
-One statement in the same abstract cuts the other way, toward the AOP's reading,
-and is recorded here so the page carries both sides — conclusion (3):
+One statement in the **1993** abstract cuts the other way, toward the AOP's
+reading, and is recorded here so the page carries both sides — conclusion (3):
 
 > "The ability to resist infectious agent challenge is dependent upon the degrees
 > of immunosuppression and the quantity of infectious agent administered."
@@ -167,6 +215,42 @@ it is the paper's clearest support for a graded relationship. What it does not
 supply is the part the pathway needs: it names neither TDAR nor any single immune
 test as the measure of "degrees of immunosuppression", which is what conclusion
 (2) explicitly declines to do.
+
+### The 1992 companion paper does not say TDAR is best, or that it predicts infection
+
+Following that citation to its source —
+[PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/) (Luster et al. 1992,
+*Risk assessment in immunotoxicology. I. Sensitivity and predictability of immune
+tests*) — settles two things the "particularly beneficial" phrase is routinely
+used to imply.
+
+**TDAR ranked second, not first.** The abstract reports:
+
+> "The tests that showed the highest association with immunotoxicity were the
+> splenic antibody plaque forming cell response (78%) and cell surface marker
+> analysis (83%)."
+
+The splenic antibody plaque-forming cell response *is* the TDAR assay. At 78% it
+is outscored by cell surface marker analysis at 83%. "Among the most predictive"
+is fair; anything stronger is not.
+
+**And the 78% measures a different endpoint.** It is the association with
+*immunotoxicity* — the ability to detect an immunotoxic compound — not with
+susceptibility to infection. The same abstract says the host-resistance question
+was still open at the time:
+
+> "Efforts are currently underway using this database to determine the
+> relationships between these immune tests and susceptibility to challenge with
+> infectious agents or transplantable tumor cells."
+
+That work became the 1993 paper above, whose conclusion (2) is that no single
+immune test was fully predictive of altered host resistance.
+
+So the chain of attribution closes without ever establishing the claim it is
+cited for. The phrase is real and sits in the 1993 abstract; it points to 1992;
+and 1992 measures compound detection, ranks TDAR second, and explicitly defers
+the infection question to the paper that then declines to answer it in TDAR's
+favour.
 
 ### Reframed from TDAR to impaired antibody response, the evidence is strong
 
@@ -349,9 +433,27 @@ not as toxicity entries. Any such module would begin with no conformers.
 ## Not yet explored
 
 - The remainder of the OpenScientist report. The verification above covers its
-  central causal claim and the network structure; its assay mapping (F004), its
-  regulatory-framework section (F011), the AhR/PAC branch (F012, F014) and the
-  2026 B6C3F1/N in vivo dataset (F006) have not been checked.
-- The Luster 1992 companion paper (*Fundam. Appl. Toxicol.* 18, 200-210), which
-  is where the "particularly beneficial" claim for TDAR originates.
-- AOP 14's bridge, whose KER570 evidence blocks are empty.
+  central causal claim and the network structure. Six of its twelve finding
+  sections have not been checked: the assay mapping (F004), the 2026 B6C3F1/N in
+  vivo dataset (F006, F013), the convergent-literature section citing Burleson,
+  Descotes and White (F007), the 2024 *Front. Toxicol.* mapping said to confirm
+  the four-AOP network independently (F008), the regulatory-framework and NAM 3R
+  section (F011), and the AhR/PAC branch (F012, F014).
+- One checked section was only partly checked. F009's sources
+  ([PMID:30068597](https://pubmed.ncbi.nlm.nih.gov/30068597/), Bohrer 2018;
+  [PMID:26430088](https://pubmed.ncbi.nlm.nih.gov/26430088/), Cippà 2015) were
+  assessed for what they bear on — both skip the TDAR node — but not verified
+  against their abstracts.
+- The report's own five limitations and six proposed follow-up experiments have
+  not been assessed at all.
+- Whether the F010 High/High ratings exist anywhere outside the XML export — in a
+  structured field the export does not carry, or on the rendered AOP-Wiki KER
+  pages. The check above establishes only that they are not extractable from the
+  export by the method the report states.
+- Only the abstract of the 1992 companion paper
+  ([PMID:1534777](https://pubmed.ncbi.nlm.nih.gov/1534777/)) was consulted, not
+  its full text.
+- AOP 14's bridge into *Increased, Disease susceptibility* (KE323). Note this is
+  not the same gap as KER570, whose empty evidence blocks are recorded above:
+  KE323 has **no incoming relationship at all**, so there is no KER there to
+  evidence.
