@@ -123260,7 +123260,6 @@ window.searchData = [
       "Na+,K+-ATPase Beta1 Gene Therapy"
     ],
     "environmental": [
-      "Obesity",
       "Hiatal Hernia",
       "Smoking",
       "Alcohol Consumption",
@@ -145938,7 +145937,7 @@ window.searchData = [
       "JPH2"
     ],
     "treatments": [
-      "Genetic Testing and Cascade Family Screening",
+      "Cascade Screening and Cardiac Surveillance of At-Risk Relatives",
       "Genetic Counseling"
     ],
     "environmental": [],
@@ -215792,7 +215791,6 @@ window.searchData = [
       "Hypoglossal Nerve Stimulation"
     ],
     "environmental": [
-      "Obesity",
       "Alcohol Consumption",
       "Sedatives",
       "Supine Sleep Position",
@@ -231889,9 +231887,6 @@ window.searchData = [
     ],
     "environmental": [
       "Smoking",
-      "Diabetes",
-      "Hypertension",
-      "Dyslipidemia",
       "Sedentary Lifestyle"
     ],
     "biochemical": [
@@ -277306,6 +277301,84 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spondyloepimetaphyseal Dysplasia Krakow Type",
+    "disease_id": "MONDO:0032571",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-15T13:18:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spondyloepimetaphyseal dysplasia Krakow type is a skeletal dysplasia caused by a homozygous mutation in the catalytic domain of SIK3, the salt-inducible kinase that sits between PTH/PTHrP signalling and the growth plate. The reported substitution, R129C, impairs SIK3 serine/threonine kinase activity; DEPTOR, a negative regulator of both mTOR complexes, is then no longer degraded and accumulates, and mTORC1 and mTORC2 activity fall.\nTwo SIK3-dependent routes converge on the same growth-plate failure. SIK3 normally phosphorylates HDAC4 to hold it in the cytoplasm, which frees MEF2 and RUNX2 to drive chondrocyte hypertrophy; loss of SIK3 activity leaves HDAC4 nuclear and blocks hypertrophy. Independently, loss of mTOR signalling through DEPTOR accumulation perturbs chondrocyte proliferation and differentiation. The result is a growth plate whose chondrocytes fail to progress to hypertrophy, and a spondyloepimetaphyseal phenotype.\nThe disease sits in an instructive relationship with Jansen metaphyseal chondrodysplasia. JMC is caused by constitutive activation of PTH1R, the receptor upstream of SIK3, and JMC chondrocytes show reduced SIK3 activity with the same DEPTOR elevation \u2014 so an activating receptor mutation and an inactivating kinase mutation converge on one mechanism from opposite directions.\nThe eponym is the surname of an author on the defining report, not the city.",
+    "pathophysiology": [
+      "SIK3 R129C Impairs Kinase Activity",
+      "DEPTOR Accumulation and mTOR Downregulation",
+      "Nuclear Retention of HDAC4 and Blocked Chondrocyte Hypertrophy",
+      "Growth Plate Chondrocyte Maturation Failure"
+    ],
+    "cell_types": [
+      "hypertrophic chondrocyte",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000743",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "TOR signaling",
+      "chondrocyte hypertrophy",
+      "endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Disproportionate Short Stature",
+      "Abnormal Vertebral Body Form",
+      "Metaphyseal Dysplasia",
+      "Epiphyseal Abnormality",
+      "Severe Immunodeficiency",
+      "Developmental Delay",
+      "Brain Imaging Abnormality",
+      "Hypercalcaemia with Normal PTH"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Immunological",
+      "Neurological",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003498",
+      "HP:0003312",
+      "HP:0100255",
+      "HP:0005930",
+      "HP:0002721",
+      "HP:0001263",
+      "HP:0012443",
+      "HP:0003072"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SIK3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondyloepimetaphyseal_Dysplasia_Krakow_Type.yaml",
+    "page_url": "../pages/disorders/Spondyloepimetaphyseal_Dysplasia_Krakow_Type.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Spondyloepimetaphyseal Dysplasia Maroteaux Type",
     "disease_id": "MONDO:0008473",
     "category": "Mendelian",
@@ -307674,19 +307747,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2959,
+  "total_disorder_pages": 2960,
   "total_subtypes": 3736,
-  "total_disorders_and_subtypes": 6695,
-  "total_unique_evidence_sources": 41616,
-  "total_unique_publications": 39241,
+  "total_disorders_and_subtypes": 6696,
+  "total_unique_evidence_sources": 41615,
+  "total_unique_publications": 39240,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2954,
-  "total_unique_pathological_events": 17898,
+  "total_pathographs": 2955,
+  "total_unique_pathological_events": 17902,
   "total_modules": 174,
-  "total_research_reports": 3071,
+  "total_research_reports": 3072,
   "total_classifications": 19,
-  "total_comorbidities": 26,
+  "total_comorbidities": 31,
   "total_groupings": 102
 };
 window.dispatchEvent(new Event('searchDataReady'));
