@@ -234,7 +234,7 @@ path, and a curation PR touches only `kb/`, matching neither the `python` nor th
 `schema` filter. The checks written to protect knowledge-base content are exactly
 the ones a content-only PR skips.
 
-The 341 bindings that predate the slot are grandfathered in
+The 331 bindings that predate the slot are grandfathered in
 `tests/coarse_phenotype_baseline.txt`. **That file may only shrink**, with one
 exception: deliberately widening the coarse set itself grows it once, as adding
 tier 1 took it from 164 to 341 in a reviewed pass. Clearing a
@@ -250,7 +250,7 @@ unchecked.
 
 ## Burning down the backlog
 
-341 bindings across 243 files, of which 180 files carry exactly one. The census
+331 bindings across 235 files, of which 174 files carry exactly one. The census
 sorts them by term:
 
 ```bash

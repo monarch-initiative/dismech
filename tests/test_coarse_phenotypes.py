@@ -356,7 +356,7 @@ def test_baseline_only_shrinks():
         for line in BASELINE.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(rows) <= 341, (
+    assert len(rows) <= 331, (
         f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink, "
         "except when the coarse set itself is deliberately widened (tier 1 took it "
         "from 164 to 341 in one reviewed pass). "
