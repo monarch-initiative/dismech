@@ -1296,10 +1296,12 @@ update-causal-target-baseline:
 # `dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
 # `phenotypes[].causal_inlink` compliance score, so the recipe and the score
 # cannot disagree. This is the triage view of that metric, not a replacement for
-# `just compliance-connectivity`, which stays the compliance view (phenotype
-# inlink AND gene outlink, --fail-under on each) and has no per-entry ranking,
-# tsv output, or attachment classes. Report-only and exit 0: connecting a
-# phenotype is real curation (which mechanism produces which feature), so an
+# `just compliance-connectivity`, which stays the compliance view AND the gate
+# (phenotype inlink + gene outlink, enforcing the corpus `min_compliance` floor)
+# and has no per-entry ranking, tsv output, or attachment classes. The floor is
+# corpus-level so no single entry trips it; this is the per-entry worklist, which
+# is why it stays report-only and exit 0: connecting a phenotype is real
+# curation (which mechanism produces which feature), so an
 # edge added to clear a report is worse than no edge. The useful output is the
 # per-entry triage --
 # entries where NOTHING is connected, ranked by phenotypes stranded -- not the
