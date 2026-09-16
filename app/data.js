@@ -29690,6 +29690,87 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autosomal dominant Charcot-Marie-Tooth disease type 2K",
+    "disease_id": "MONDO:0020558",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Charcot-Marie-Tooth disease type 2K (CMT2K) is an axonal peripheral neuropathy caused by heterozygous missense variants in GDAP1, a glutathione S-transferase-like protein tail-anchored in the outer mitochondrial membrane. The gene also causes a recessive neuropathy (CMT4A / AR-CMT2K), and the two are not simply mild and severe versions of one lesion: recessive alleles reduce GDAP1 fission activity, whereas the dominant alleles curated here interfere with mitochondrial fusion and raise reactive oxygen species production, so the same clinical syndrome is reached by two different routes through mitochondrial dynamics. Dominant alleles are structurally subtle \u2014 they leave the fold close to intact and destabilise it thermally rather than abolishing it \u2014 which fits the later onset and milder course usually reported for AD-CMT2K. That severity claim is genuinely contested rather than settled, and both the cohorts supporting it and the cohort finding no AD/AR difference are curated here.",
+    "pathophysiology": [
+      "GDAP1 Protein Destabilization by Heterozygous Missense Variant",
+      "Impaired Mitochondrial Fusion and Network Dynamics",
+      "Oxidative Stress and Bioenergetic Failure",
+      "Length-Dependent Distal Axonal Degeneration",
+      "Distal Motor and Sensory Deficit"
+    ],
+    "cell_types": [
+      "peripheral sensory neuron",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000101",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "mitochondrial fusion",
+      "response to oxidative stress",
+      "apoptotic process",
+      "axonal transport",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Peripheral Axonal Neuropathy",
+      "Distal Muscle Weakness and Wasting",
+      "Distal Sensory Impairment",
+      "Foot Deformity",
+      "Muscle Cramps",
+      "Vocal Cord Paresis",
+      "Mild Predominantly Sensory Presentation"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0003477",
+      "HP:0002460",
+      "HP:0002936",
+      "HP:0001760",
+      "HP:0003394",
+      "HP:0001604"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GDAP1",
+      "Reduced penetrance and variable expressivity"
+    ],
+    "treatments": [
+      "Multidisciplinary Supportive and Rehabilitative Care",
+      "Avoidance of Neurotoxic Agents and Obesity",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Charcot-Marie-Tooth_Disease_Type_2K.yaml",
+    "page_url": "../pages/disorders/Autosomal_dominant_Charcot-Marie-Tooth_disease_type_2K.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Autosomal dominant Charcot-Marie-Tooth disease type 2W",
     "disease_id": "MONDO:0014711",
     "category": "Mendelian",
@@ -36781,6 +36862,121 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "30",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "BBOX1-Related Carnitine Biosynthesis Deficiency",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BBOX1-related L-carnitine biosynthesis deficiency is a very recently delineated autosomal recessive inborn error of the endogenous carnitine synthesis pathway. BBOX1 encodes gamma-butyrobetaine hydroxylase, the cytosolic dioxygenase that catalyses the fourth and final step of L-carnitine biosynthesis, converting gamma-butyrobetaine into L-carnitine. Biallelic BBOX1 variants block that final step, producing the characteristic biochemical pair of low plasma free and total L-carnitine together with markedly elevated plasma and urinary gamma-butyrobetaine, in the presence of a normal renal fractional excretion of carnitine - the feature that separates this disorder from SLC22A5-related systemic primary carnitine deficiency, where carnitine is lost through the kidney. Because carnitine is required for the carnitine shuttle that carries long-chain fatty acids into the mitochondrion, the resulting phenotype in the three reported patients is dominated by myopathic features (muscle weakness, exercise intolerance, fatigability), with neurodevelopmental (motor and speech delay, learning difficulty, autism) and late-onset psychiatric (psychosis, anxiety) manifestations also reported. Oral L-carnitine normalises circulating carnitine and improved muscle weakness and fatigability in the one patient in whom the response was documented, but does not lower gamma-butyrobetaine.\nTwo caveats are curated explicitly rather than smoothed over. First, the genotype-phenotype relationship is not settled: an earlier patient homozygous for a 221 kb 11p14.2 deletion removing BBOX1 entirely had only a borderline-low free carnitine and none of the classic carnitine-deficiency manifestations, and homozygous predicted-truncating BBOX1 alleles are present in gnomAD. Second, the causal support for the disease mechanism rests substantially on a C. elegans gbh-1 model, in which the worm allele modelling one of the two patient variants (p.Asp59Gly) behaved like wild type.",
+    "pathophysiology": [
+      "BBOX1 Loss of Function",
+      "Blocked Final Step of Endogenous L-Carnitine Biosynthesis",
+      "Gamma-Butyrobetaine Accumulation",
+      "Carnitine Transport Inhibition by Gamma-Butyrobetaine",
+      "Systemic L-Carnitine Deficiency",
+      "Reduced Carnitine Shuttle Flux and Impaired Fatty Acid Beta-Oxidation",
+      "Impaired Hepatic Ketogenesis During Fasting",
+      "Skeletal Muscle Energy Deficit"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "carnitine biosynthetic process",
+      "carnitine transmembrane transport",
+      "carnitine metabolic process",
+      "carnitine shuttle",
+      "fatty acid beta-oxidation",
+      "hepatic ketone body biosynthesis"
+    ],
+    "phenotypes": [
+      "Cardiomyopathy",
+      "Fasting Intolerance",
+      "Episodic Infantile Lethargy and Irritability",
+      "Muscle Weakness",
+      "Exercise Intolerance",
+      "Fatigability",
+      "Muscle Soreness",
+      "Bilateral Ptosis",
+      "Swallowing Difficulty",
+      "Motor Delay",
+      "Speech and Language Delay",
+      "Autism Spectrum Disorder",
+      "Psychosis",
+      "Anxiety",
+      "Migraine"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Metabolic",
+      "Neurologic",
+      "Musculoskeletal",
+      "Constitutional",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Neurodevelopmental",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001638",
+      "HP:0000737",
+      "HP:0001324",
+      "HP:0003546",
+      "HP:0012378",
+      "HP:0003326",
+      "HP:0000508",
+      "HP:0002015",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0000717",
+      "HP:0000709",
+      "HP:0000739",
+      "HP:0002076"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "BBOX1"
+    ],
+    "treatments": [
+      "Oral L-carnitine supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma free and total L-carnitine",
+      "Plasma and urinary gamma-butyrobetaine",
+      "Renal fractional excretion of carnitine"
+    ],
+    "source_file": "BBOX1-Related_Carnitine_Biosynthesis_Deficiency.yaml",
+    "page_url": "../pages/disorders/BBOX1-Related_Carnitine_Biosynthesis_Deficiency.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "BBSome-related retinitis pigmentosa",
@@ -98779,7 +98975,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -111486,12 +111682,32 @@ window.searchData = [
       "Muscle weakness",
       "Myalgia",
       "Sensorineural hearing impairment",
+      "Fatigue",
+      "Abdominal wall muscle weakness",
+      "Foot dorsiflexor weakness",
+      "Falls",
+      "Lagophthalmos",
+      "Lumbar hyperlordosis",
+      "Scoliosis",
+      "Pectus excavatum",
+      "Restrictive ventilatory defect",
+      "Atrial fibrillation",
+      "Atrial flutter",
+      "Complete right bundle branch block",
+      "Retinal telangiectasia",
+      "Obstructive sleep apnea",
+      "Nocturnal hypoventilation",
+      "Headache",
       "Retinal vasculopathy"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
       "Otolaryngologic",
-      "Ophthalmologic"
+      "Constitutional",
+      "Ophthalmologic",
+      "Respiratory",
+      "Cardiovascular",
+      "Neurologic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -111499,8 +111715,11 @@ window.searchData = [
       "Ear",
       "Eye",
       "Head and Neck",
+      "Integument",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0030319",
@@ -111508,12 +111727,29 @@ window.searchData = [
       "HP:0001324",
       "HP:0003326",
       "HP:0000407",
+      "HP:0012378",
+      "HP:0009023",
+      "HP:0009027",
+      "HP:0002527",
+      "HP:0030001",
+      "HP:0002938",
+      "HP:0002650",
+      "HP:0000767",
+      "HP:0002091",
+      "HP:0005110",
+      "HP:0004749",
+      "HP:0011712",
+      "HP:0007763",
+      "HP:0002870",
+      "HP:0002877",
+      "HP:0002315",
       "HP:0008046"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "D4Z4 repeat contraction on permissive 4qA haplotype",
@@ -111522,7 +111758,14 @@ window.searchData = [
     "treatments": [
       "Aerobic Exercise Training",
       "Scapulopexy",
-      "Pain Management and Supportive Care"
+      "Genetic Counseling and Reproductive Options",
+      "Pain Management and Supportive Care",
+      "Cognitive Behavioral Therapy for Chronic Fatigue",
+      "Ankle-Foot Orthoses",
+      "Ocular Surface Protection",
+      "Occupational and Speech Therapy in Infantile-Onset Disease",
+      "Management of Sensorineural Hearing Loss",
+      "Ventilatory Support"
     ],
     "environmental": [],
     "biochemical": [
@@ -111530,10 +111773,10 @@ window.searchData = [
     ],
     "source_file": "Facioscapulohumeral_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Facioscapulohumeral_Muscular_Dystrophy.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 22,
     "num_pathophysiology": 3,
     "num_genes": 2,
-    "num_treatments": 3,
+    "num_treatments": 10,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
   },
@@ -117092,6 +117335,78 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 6,
     "causal_graph_edges": "48",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Ficolin 3 Deficiency",
+    "disease_id": "MONDO:0013467",
+    "category": "Mendelian",
+    "parents": [
+      "Complement Disorder"
+    ],
+    "creation_date": "2026-09-15T13:18:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ficolin-3 deficiency is an inherited defect of the lectin pathway of complement caused by homozygosity for the FCN3 frameshift variant +1637delC (rs28357092). Ficolin-3, also called H-ficolin or Hakata antigen, is made in liver and lung and is the most potent activator of the lectin pathway in vitro; the frameshift distorts the C-terminal end of the molecule, so homozygotes have undetectable serum ficolin-3 and no ficolin-3-dependent complement activation. Heterozygosity is common in white populations (allele frequency about 0.01) and is not a disease state.\nWhat the loss does clinically is genuinely unsettled, and this entry curates that uncertainty rather than resolving it. The index case was reported as an immunodeficiency with recurrent infection; later cases add meningitis, pyelonephritis and refractory seizures. A subsequent series of deficient individuals questioned whether susceptibility to infection is the right reading at all, and a systematic review found that a third of deficient patients carried a diagnosis of systemic lupus erythematosus, pointing at defective clearance of apoptotic material rather than at failed opsonisation. Fewer than a dozen homozygotes have been described clinically, so every published frequency drawn from case series is a proportion of single figures. Genotyped homozygotes may be a much larger population, but the one screen that looked cannot settle it: a Siberian study reports the null genotype at 1.6% overall, and at 3.3% in its Krasnoyarsk city comparison group, while finding a single heterozygote in 926 newborns - a distribution no allele frequency produces. It also measured no phenotypes.",
+    "pathophysiology": [
+      "FCN3 Frameshift and Absent Ficolin-3 Protein",
+      "Failure of Ficolin-3-Dependent Lectin Pathway Activation",
+      "Impaired Opsonophagocytic Clearance of Bacteria",
+      "Defective Clearance of Apoptotic Cells and Immune Complexes"
+    ],
+    "cell_types": [
+      "Neutrophil",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "complement activation, lectin pathway",
+      "phagocytosis"
+    ],
+    "phenotypes": [
+      "Recurrent Bacterial Infection",
+      "Meningitis",
+      "Seizure",
+      "Pyelonephritis",
+      "Systemic Lupus Erythematosus"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Neurological",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002718",
+      "HP:0001287",
+      "HP:0001250",
+      "HP:0012330",
+      "HP:0002725"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FCN3"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Serum ficolin-3",
+      "Ficolin-3-dependent complement activation"
+    ],
+    "source_file": "Ficolin_3_Deficiency.yaml",
+    "page_url": "../pages/disorders/Ficolin_3_Deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -176250,6 +176565,105 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Leukoencephalopathy Progressive Infantile-onset With Or Without Deafness",
+    "disease_id": "MONDO:0030893",
+    "category": "Mendelian",
+    "parents": [
+      "Aminoacyl-tRNA Synthetase Disorder",
+      "Leukodystrophy"
+    ],
+    "creation_date": "2026-09-15T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "LEPID is an autosomal recessive leukodystrophy caused by biallelic variants in KARS1, which encodes lysyl-tRNA synthetase. Children present in infancy with severe developmental delay or arrest, deafness, hypotonia and absent speech, then develop intractable epilepsy and nystagmus, on a background of white matter signal abnormality with intracranial calcification and raised lactate.\nKARS1 is the interesting part. One gene encodes both the cytosolic and the mitochondrial isoform of the enzyme, so a single pair of alleles can impair cytosolic translation, mitochondrial translation, or both - and which one is impaired appears to decide which disease the patient gets. In the most fully dissected case, patient fibroblasts showed a multiple oxidative phosphorylation deficiency from impaired mitochondrial translation with no evidence of any cytosolic translation defect, and re-introducing the mitochondrial isoform rescued it while the cytosolic isoform did not. That experiment is what makes the mitochondrial arm a demonstrated mechanism here rather than an inference from the gene's dual localisation.\nKARS1 has a wide allelic series - Charcot-Marie-Tooth disease, nonsyndromic hearing impairment, congenital visual impairment with microcephaly, and congenital deafness with adult-onset leukoencephalopathy are all separate KARS1 phenotypes. This entry is the infantile leukoencephalopathy end, and the boundary is drawn at onset and course rather than at the variant, because the same residue can appear in more than one phenotype.",
+    "pathophysiology": [
+      "Biallelic KARS1 Loss-of-Function Variants",
+      "Reduced Lysyl-tRNA Synthetase Aminoacylation Activity",
+      "Impaired Mitochondrial Translation",
+      "Oxidative Phosphorylation Deficiency",
+      "White Matter Injury and Intracranial Calcification"
+    ],
+    "cell_types": [
+      "Fibroblast",
+      "Oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "tRNA aminoacylation for protein translation",
+      "mitochondrial translation",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay and Regression",
+      "Sensorineural Hearing Impairment",
+      "Intractable Epilepsy",
+      "Hypotonia",
+      "Absent Speech",
+      "Nystagmus",
+      "Leukoencephalopathy",
+      "Intracranial Calcification",
+      "Failure to Thrive",
+      "Microcephaly",
+      "Visual Impairment",
+      "Hepatic Abnormality",
+      "Lactic Acidosis"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Auditory",
+      "Ophthalmologic",
+      "Neuroradiologic",
+      "Growth",
+      "Gastrointestinal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000407",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001344",
+      "HP:0000639",
+      "HP:0002352",
+      "HP:0430048",
+      "HP:0001508",
+      "HP:0000252",
+      "HP:0000505",
+      "HP:0001392",
+      "HP:0003128"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "KARS1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Leukoencephalopathy_Progressive_Infantile-onset_With_Or_Without_Deafness.yaml",
+    "page_url": "../pages/disorders/Leukoencephalopathy_Progressive_Infantile-onset_With_Or_Without_Deafness.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Leukoencephalopathy With Vanishing White Matter",
     "disease_id": "MONDO:0800448",
     "category": "Genetic",
@@ -229651,6 +230065,9 @@ window.searchData = [
       "Intestinal Inflammation and Barrier Dysfunction",
       "Enteric Alpha-Synuclein Seeding",
       "Vagal-Brainstem Alpha-Synuclein Propagation",
+      "Pontine Tegmental Alpha-Synuclein Pathology",
+      "Loss of Descending Drive to Inhibitory Premotor Neurons",
+      "REM Sleep Muscle Atonia Loss",
       "Central Alpha-Synuclein Initiation",
       "Oxidative Stress",
       "Calcium Dysregulation",
@@ -229671,6 +230088,7 @@ window.searchData = [
       "Neuron",
       "Enteroendocrine Cell",
       "Enteric Neuron",
+      "glutamatergic REM-on neuron of the sublaterodorsal nucleus",
       "Brain Endothelial Cell",
       "Pericyte"
     ],
@@ -229709,6 +230127,10 @@ window.searchData = [
       "Intracellular protein localization",
       "Vesicle-mediated transport",
       "Inflammatory Response",
+      "glutamatergic synaptic transmission",
+      "inhibitory regulation of skeletal motor neuron output",
+      "REM sleep",
+      "skeletal muscle contraction during REM sleep",
       "Response to Oxidative Stress",
       "ROS Metabolic Process",
       "Calcium Ion Homeostasis",
@@ -229800,10 +230222,10 @@ window.searchData = [
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 24,
+    "num_pathophysiology": 27,
     "num_genes": 7,
     "num_treatments": 8,
-    "causal_graph_edges": "64",
+    "causal_graph_edges": "68",
     "causal_graph_longest_path": "9"
   },
   {
@@ -240972,6 +241394,8 @@ window.searchData = [
       "Ursodeoxycholic Acid (UDCA)",
       "Obeticholic Acid",
       "Fibrates",
+      "Elafibranor",
+      "Seladelpar",
       "Liver Transplantation"
     ],
     "environmental": [],
@@ -240987,8 +241411,8 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 5,
     "num_genes": 5,
-    "num_treatments": 4,
-    "causal_graph_edges": "7",
+    "num_treatments": 6,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "2"
   },
   {
@@ -266603,6 +267027,72 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Selective IgM Deficiency",
+    "disease_id": "MONDO:0018039",
+    "category": "Acquired",
+    "parents": [],
+    "creation_date": "2026-09-15T13:18:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Selective IgM deficiency is an inborn error of immunity defined by persistently absent or reduced serum IgM with preserved IgG and IgA, and with secondary causes such as protein-losing enteropathy, nephrotic syndrome and malignancy excluded. The IUIS has classified it among the predominantly antibody-affecting deficiencies since 2017. Recurrent respiratory infection is the commonest presentation, followed by allergic and autoimmune disease.\nThis entry is unusual for dismech in that it has almost no pathograph, and the absence is the finding rather than a curation shortfall. The entity is defined by a laboratory value, not by a mechanism: no genetic or molecular basis has been established as a cause, the diagnostic criteria in use disagree with each other, and in one pediatric cohort of isolated IgM deficiency 26% of patients turned out on molecular testing to have a different, nameable inborn error of immunity. Its own literature calls for the definition to be redrawn.\nWhat is curated here is therefore the definitional state of the concept \u2014 two competing criteria sets recorded as `definitions`, the phenotype associations that are reproducible across cohorts, and the gaps stated as discussions rather than papered over with a plausible mechanism. Whether this should remain a Disease entry or become a laboratory finding is a live question, and the entry says so.",
+    "pathophysiology": [
+      "Persistently Reduced Serum IgM"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Recurrent Respiratory Infection",
+      "Allergic Rhinitis",
+      "Asthma",
+      "Neoplasia",
+      "Autoimmunity"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Immune",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002205",
+      "HP:0003193",
+      "HP:0002099",
+      "HP:0002664",
+      "HP:0002960"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Prophylactic Antibiotics",
+      "Prompt Treatment of Febrile Illness",
+      "Immunoglobulin Replacement (Restricted Indication)",
+      "Vaccination",
+      "Management of Atopic Disease"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum IgM",
+      "Serum IgG and IgA",
+      "Isohemagglutinin titers",
+      "Marginal zone B cells",
+      "Transitional and CD21low B cells",
+      "Serum IgE"
+    ],
+    "source_file": "Selective_IgM_Deficiency.yaml",
+    "page_url": "../pages/disorders/Selective_IgM_Deficiency.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 1,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Self-Limited Epilepsy with Autonomic Seizures",
     "disease_id": "MONDO:0020307",
     "category": "Complex",
@@ -289297,6 +289787,124 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Thrombocytopenia 11 with Multiple Congenital Anomalies and Dysmorphic Facies",
+    "disease_id": "MONDO:0958000",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-15T13:18:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "THC11 is an ultrarare syndromic thrombocytopenia caused by monoallelic de novo gain-of-function variants in RAP1B, the small GTPase that acts as the final common switch for integrin inside-out activation. The recurrent variants sit at two hotspots \u2014 G12 in the P-loop and G60 \u2014 that disrupt the GTPase cycle and hold RAP1B in its GTP-bound state. Affected individuals have thrombocytopenia together with neurodevelopmental delay, growth delay, facial dysmorphism and congenital malformations of heart, kidney, brain and skeleton; mild lymphopenia and neutropenia are usual, and one patient had frank combined immunodeficiency.\nThe mechanism has a genuine paradox in it, and this entry keeps the paradox visible rather than smoothing it. The variants increase RAP1B activation, talin recruitment and integrin activation, yet the platelet phenotype is a deficit. The resolution the literature offers is that RAP1 signalling is required for megakaryocyte proplatelet formation as well as for platelet integrin activation, so a constitutively active switch disturbs production rather than merely amplifying function. That second half rests on a mouse megakaryocyte double knockout for the proplatelet step itself. Human marrow from a variant carrier does show an abnormal megakaryocyte compartment - maturation defects, granular hypoplasia and rare hypolobed forms - so the human arm is not unobserved; what has never been measured in a human megakaryocyte carrying a hotspot variant is proplatelet formation. Those are maturation findings, which if anything point upstream of the step this resolution names.\nRAP1B carries a second, separate disease association: a 2015 report described a germline RAP1B variant in a Kabuki-like presentation and concluded loss of function. That is a different phenotype reached by the opposite mechanism, and the two should not be merged.",
+    "pathophysiology": [
+      "RAP1B Hotspot Variant Disrupts the GTPase Cycle",
+      "Constitutive Integrin Inside-Out Activation",
+      "Disrupted Megakaryocyte Proplatelet Formation"
+    ],
+    "cell_types": [
+      "platelet",
+      "T cell",
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000084",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "integrin activation",
+      "platelet formation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Combined Immunodeficiency",
+      "Neurodevelopmental Delay",
+      "Facial Dysmorphism",
+      "Microcephaly",
+      "Growth Delay",
+      "Bicuspid Aortic Valve with Aortic Dilation",
+      "Lymphopenia",
+      "Leucopenia",
+      "Anemia",
+      "Recurrent Infections",
+      "Abnormal Brain Imaging",
+      "Hypotonia",
+      "Congenital Heart Defect",
+      "Renal Hypoplasia or Agenesis",
+      "Short Stature",
+      "Dental Abnormality",
+      "Brachydactyly",
+      "Feeding Difficulties",
+      "Disproportionate Bleeding Tendency"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Immunological",
+      "Neurological",
+      "Craniofacial",
+      "Growth",
+      "Cardiovascular",
+      "Renal",
+      "Musculoskeletal",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0005387",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0000252",
+      "HP:0001510",
+      "HP:0001647",
+      "HP:0001888",
+      "HP:0001882",
+      "HP:0001903",
+      "HP:0002719",
+      "HP:0410263",
+      "HP:0001252",
+      "HP:0001627",
+      "HP:0000089",
+      "HP:0004322",
+      "HP:0000164",
+      "HP:0001156",
+      "HP:0011968",
+      "HP:0001892"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RAP1B"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Romiplostim",
+      "Platelet Transfusion"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Platelet RAP1B protein level",
+      "Platelet ultrastructure"
+    ],
+    "source_file": "Thrombocytopenia_11_with_Multiple_Congenital_Anomalies_and_Dysmorphic_Facies.yaml",
+    "page_url": "../pages/disorders/Thrombocytopenia_11_with_Multiple_Congenital_Anomalies_and_Dysmorphic_Facies.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Thrombophilia",
     "disease_id": "MONDO:0002305",
     "category": "Complex",
@@ -299679,7 +300287,10 @@ window.searchData = [
       "Oxidative Stress",
       "IFN-gamma-CXCL9/CXCL10 Chemokine Axis",
       "IL-15 and Tissue-Resident Memory T Cells",
-      "Innate Immune Activation"
+      "Innate Immune Activation",
+      "CTSS Upregulation via IFN-gamma/STAT1 Signaling",
+      "CTSS-Driven Melanocyte MHC Class II Acquisition",
+      "CTSS-Mediated Melanocyte Apoptosis and Proliferation Suppression"
     ],
     "cell_types": [
       "Melanocyte",
@@ -299699,7 +300310,12 @@ window.searchData = [
     ],
     "biological_processes": [
       "response to type II interferon",
-      "leukocyte chemotaxis"
+      "leukocyte chemotaxis",
+      "type II interferon-mediated signaling pathway",
+      "oxidative phosphorylation",
+      "MHC class II biosynthetic process",
+      "apoptotic process",
+      "cell population proliferation"
     ],
     "phenotypes": [
       "Depigmented Patches",
@@ -299756,7 +300372,8 @@ window.searchData = [
       "IFIH1",
       "BACH2",
       "IRF4",
-      "FOXP3"
+      "FOXP3",
+      "CTSS"
     ],
     "treatments": [
       "Topical Corticosteroid",
@@ -299773,16 +300390,17 @@ window.searchData = [
     ],
     "biochemical": [
       "Autoantibodies to Melanocytes",
-      "Inflammatory Cytokines"
+      "Inflammatory Cytokines",
+      "Serum CTSS"
     ],
     "source_file": "Vitiligo.yaml",
     "page_url": "../pages/disorders/Vitiligo.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 7,
-    "num_genes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 11,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Vogt-Koyanagi-Harada Disease",
@@ -308223,17 +308841,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2965,
+  "total_disorder_pages": 2971,
   "total_subtypes": 3743,
-  "total_disorders_and_subtypes": 6708,
-  "total_unique_evidence_sources": 41702,
-  "total_unique_publications": 39326,
+  "total_disorders_and_subtypes": 6714,
+  "total_unique_evidence_sources": 41777,
+  "total_unique_publications": 39396,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2960,
-  "total_unique_pathological_events": 17936,
+  "total_pathographs": 2966,
+  "total_unique_pathological_events": 17964,
   "total_modules": 175,
-  "total_research_reports": 3077,
+  "total_research_reports": 3084,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
