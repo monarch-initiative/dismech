@@ -295,12 +295,57 @@ def test_a_path_that_does_not_exist_never_reads_as_a_passing_gate(tmp_path, caps
     assert main([str(missing)]) == 2
     assert main([str(missing), "--strict"]) == 2
     assert main([str(missing), "--fail-under", "90"]) == 2
-    assert "does not exist" in capsys.readouterr().err
+    assert "Nope.yaml" in capsys.readouterr().err
 
     # A real file beside a missing one is still reported, and still exits 2.
     real = _write(tmp_path, "Test.yaml", CONNECTED_AND_FLOATING)
     assert main([str(real), str(missing), "--format", "tsv"]) == 2
     assert "Floating Phenotype" in capsys.readouterr().out
+
+
+def test_a_directory_argument_is_expanded_into_its_entries(tmp_path, capsys):
+    """`kb/disorders` is this recipe's own default root, so it is typed first."""
+    _write(tmp_path, "Test.yaml", CONNECTED_AND_FLOATING)
+    _write(
+        tmp_path,
+        "Second.yaml",
+        """
+name: Second
+pathophysiology:
+- name: Mechanism A
+phenotypes:
+- name: Stranded
+""",
+    )
+    # A history record beside the entries is not an entry.
+    _write(tmp_path, "Test.history.yaml", "name: not an entry\n")
+
+    assert main([str(tmp_path), "--format", "tsv"]) == 0
+    rows = capsys.readouterr().out.strip().splitlines()[1:]
+    assert {row.split("\t")[2] for row in rows} == {"Floating Phenotype", "Stranded"}
+    assert not any("history" in row for row in rows)
+
+
+def test_an_unreadable_path_reports_rather_than_tracebacks(tmp_path, capsys):
+    """Any OSError on a named path is a usage error -- reported, never swallowed.
+
+    Exercised with a *directory* named ``*.yaml``, which the directory expansion
+    above hands on as an entry and which then fails to read. That is the one
+    place ``IsADirectoryError`` still arises once a directory argument is
+    expanded, and unlike a permission bit it reproduces for any user, including
+    root in CI.
+    """
+    (tmp_path / "NotAFile.yaml").mkdir()
+    _write(tmp_path, "Test.yaml", CONNECTED_AND_FLOATING)
+
+    assert main([str(tmp_path)]) == 2
+    captured = capsys.readouterr()
+    assert "Is a directory" in captured.err
+    assert "NotAFile.yaml" in captured.err
+    # The readable entry beside it is still assessed and reported before the
+    # exit, rather than the whole run being abandoned.
+    assert "Entries with phenotype nodes:        1" in captured.out
+    assert "causally connected:                1 (50.0%)" in captured.out
 
 
 def test_the_script_runs_over_the_real_kb_entry_that_prompted_the_issue():

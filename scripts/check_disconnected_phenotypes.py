@@ -61,7 +61,8 @@ unexplained, but they are not the same curation job.
 Report-only, and not a number to drive up
 -----------------------------------------
 Exit 0 on any number of findings, unless you ask otherwise with ``--strict`` or
-``--fail-under`` (a named path that does not exist is a usage error and exits 2).
+``--fail-under`` (a named path that cannot be read is a usage error and exits
+2; a directory argument is expanded into the entries inside it).
 Connecting a phenotype is real curation: the edge asserts which mechanism
 produces which clinical feature, which is often exactly what the literature
 does not settle. Some phenotypes legitimately have no upstream node in the
@@ -195,10 +196,10 @@ def _display_path(path: Path) -> str:
 def assess(path: Path) -> EntryReport | None:
     """Assess one entry, or return None when it carries no phenotype nodes.
 
-    Raises ``FileNotFoundError`` for a path that does not exist, rather than
-    warning and reporting nothing: an unreadable path must not read as a clean
-    result, or a mistyped argument would pass ``--strict``/``--fail-under``.
-    ``main`` collects those and exits 2.
+    Lets the ``OSError`` from an unreadable path propagate, rather than warning
+    and reporting nothing: an unreadable path must not read as a clean result,
+    or a mistyped argument would pass ``--strict``/``--fail-under``. ``main``
+    collects those and exits 2.
 
     The document is read through :func:`dismech.kb_cache.load_document`, which
     is the route a corpus walk takes here (#11003). ``main`` calls
@@ -255,16 +256,38 @@ def assess(path: Path) -> EntryReport | None:
     return report
 
 
+def _entries_in(directory: Path) -> Iterator[Path]:
+    """Every KB entry directly in ``directory``, history records excluded."""
+    yield from (
+        path
+        for path in sorted(directory.glob("*.yaml"))
+        if not path.name.endswith(".history.yaml")
+    )
+
+
 def iter_paths(files: list[str]) -> Iterator[Path]:
+    """Resolve the CLI's path arguments, expanding a directory into its entries.
+
+    A directory argument is expanded rather than rejected, the way
+    ``dismech.qc_plugins``' own CLI does it: ``kb/disorders`` is this recipe's
+    default root, so it is the first thing a curator types, and the sibling
+    ``just list-causal-targets`` takes it. A path that does not exist is left
+    alone for ``main`` to turn into a usage error.
+    """
     if files:
         for raw in files:
             path = Path(raw)
-            yield path if path.is_absolute() else (ROOT / path)
+            if not path.is_absolute():
+                path = ROOT / path
+            if path.is_dir():
+                yield from _entries_in(path)
+            else:
+                yield path
         return
     for directory in DEFAULT_KB_DIRS:
         base = ROOT / directory
         if base.is_dir():
-            yield from sorted(base.glob("*.yaml"))
+            yield from _entries_in(base)
 
 
 # --- reporting ---------------------------------------------------------------
@@ -481,12 +504,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     reports: list[EntryReport] = []
-    missing: list[str] = []
+    unreadable: list[str] = []
     for path in iter_paths(args.files):
         try:
             report = assess(path)
-        except FileNotFoundError:
-            missing.append(_display_path(path))
+        except OSError as exc:
+            # Wider than FileNotFoundError so an unreadable path reports rather
+            # than tracebacks -- but never swallowed: every case here exits 2,
+            # which is the distinction from `check_causal_targets.py`, where a
+            # swallowed OSError leaves a mistyped path exiting 0.
+            unreadable.append(f"{_display_path(path)}: {exc.strerror or exc}")
             continue
         if report is not None:
             reports.append(report)
@@ -527,12 +554,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             failed = True
 
-    # A named path that does not exist exits 2 whatever the gates say. Reporting
+    # A named path that cannot be read exits 2 whatever the gates say. Reporting
     # nothing and exiting 0 would make a mistyped argument read as a passing
     # --strict/--fail-under run; 2 keeps it distinct from the gate's own 1.
-    if missing:
-        for name in missing:
-            print(f"ERROR: {name} does not exist", file=sys.stderr)
+    if unreadable:
+        for message in unreadable:
+            print(f"ERROR: {message}", file=sys.stderr)
         return 2
     return 1 if failed else 0
 
