@@ -2359,7 +2359,13 @@ def collect_research_reviews(
     explicitly mention deep research or a report filename. Separate syntheses
     have a stable filename convention and already have their own HTML pages.
     """
-    research_mention = re.compile(r"(?i:deep[-\s]+research)|\bDR\b")
+    research_mention = re.compile(
+        r"(?i:deep[-\s]+research)"
+        # Keep DR uppercase (not Dr. Smith) and require research context:
+        # a bare word boundary also matches HLA-DR and 'DQ rather than DR'.
+        r"|(?<![\w-])DR[-\s]+(?:report|provider|tool|run|artifact|section|content"
+        r"|prose|citation|provenance|suggested|proposed|sourced)s?\b"
+    )
     reviews = []
     for field, title in (
         ("review_notes", "Record review notes"),
@@ -2382,7 +2388,8 @@ def collect_research_reviews(
                         ),
                     }
                 )
-        for path in sorted((history_root / slug).glob("*.yaml")):
+                break  # Prefer the structured synthesis when both formats exist.
+        for path in sorted((history_root / slug).glob("*.yaml"), reverse=True):
             data = safe_load_path(path) or {}
             for event in data.get("events") or []:
                 details = event.get("details") or ""

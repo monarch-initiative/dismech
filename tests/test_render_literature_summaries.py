@@ -438,3 +438,59 @@ def test_no_research_notice_or_review_heading_without_reports(tmp_path):
     html = output.read_text()
     assert 'class="research-notice"' not in html
     assert 'class="research-reviews"' not in html
+
+
+def test_research_reviews_require_context_for_dr_abbreviation(tmp_path):
+    from dismech.render import collect_research_reviews
+
+    history = tmp_path / "history"
+    (history / "Test").mkdir(parents=True)
+    unrelated = [
+        "HLA-DR expression was evaluated.",
+        "A primary DQ rather than DR effect.",
+        "HLA-DR reports were compared.",
+        "Reviewed by Dr. Smith.",
+    ]
+    research_notes = [
+        "DR citations were checked.",
+        "DR-provider outputs differ.",
+        "DR-suggested mechanisms need verification.",
+        "Deep Research audit.",
+        "Test-deep-research-falcon.md was assessed.",
+    ]
+    _write_disorder(
+        history / "Test" / "audit.yaml",
+        {
+            "events": [{"details": text} for text in unrelated + research_notes],
+        },
+    )
+    reviews = collect_research_reviews(
+        {"notes": unrelated[0], "review_notes": unrelated[1]},
+        ["Test"],
+        tmp_path / "research",
+        history,
+    )
+    assert [review["text"] for review in reviews] == research_notes
+
+
+def test_research_reviews_prefer_structured_synthesis_and_newest_history(tmp_path):
+    from dismech.render import collect_research_reviews
+
+    research = tmp_path / "research"
+    research.mkdir()
+    for suffix in ("yaml", "md"):
+        (research / f"Test-research-synthesis.{suffix}").write_text("synthesis")
+    history = tmp_path / "history"
+    (history / "Test").mkdir(parents=True)
+    for date in ("2026-09-10", "2026-09-16"):
+        _write_disorder(
+            history / "Test" / f"{date}-audit.yaml",
+            {
+                "events": [{"details": f"Deep research audit on {date}."}],
+            },
+        )
+    reviews = collect_research_reviews({}, ["Test"], research, history)
+    assert len(reviews) == 3
+    assert reviews[0]["href"] == "../research/Test-synthesis.html"
+    assert "2026-09-16" in reviews[1]["text"]
+    assert "2026-09-10" in reviews[2]["text"]
