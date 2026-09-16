@@ -423,12 +423,23 @@ known, are ordinary phenotype entries beside it. A hub is also distinct from a
 pathophysiology node such as "disrupted eye development", which binds GO and asserts a
 process: no HP slot is being added to `Pathophysiology`.
 
-**Scope.** HP only. The same design would extend to GO and `biological_processes` (whose
-`goslim_*` subsets are the natural starting list) and to HPO's organisational second tier
-(`HP:0000924`, the morphology/physiology split terms), but neither is enacted — the second
-tier is not uniform and would need enumerating by hand. Companion rules are nonetheless
-checked wherever a basis is declared, including outside the coarse subset, so a curator
-may adopt the second tier early without the declaration going unchecked.
+**The coarse set is two enums and was curated by hand.** Tier 0 is
+`PhenotypeCategoryEnum`'s meanings. Tier 1 is `CoarsePhenotypeTermEnum`, 33 terms below
+those roots naming a body system, whole organ or gross body region, curated in one pass
+over all 360 distinct `Abnormal*` HP terms bound in the KB. That pass is the argument for
+the list-not-rule design rather than an illustration of it: it admits `HP:0000077`
+*Abnormality of the kidney* and `HP:0000924` *Abnormality of the skeletal system* while
+excluding `HP:0001627` *Abnormal heart morphology* (149 uses, EXACT synonym "Congenital
+heart defect") and `HP:0001999` *Abnormal facial shape* (177 uses, dysmorphic facies) —
+decisions one step below the same roots that no depth, subsumption or naming-pattern rule
+separates. Four terms were left out as undecided rather than judged; the enum's
+description records them, the excluded findings, and the inclusion rule, so the reasoning
+is inherited rather than redone. Widening the set is a schema pull request.
+
+**Scope.** HP only. The same design would extend to GO and `biological_processes`, whose
+`goslim_*` subsets are the natural starting list, but that is not enacted. Companion rules
+are checked wherever a basis is declared, including on terms outside both tiers, so a
+curator may annotate a term they judge coarse before anyone agrees to add it.
 
 **Reference.** [`docs/coarse-phenotype-bindings.md`](../coarse-phenotype-bindings.md);
 brainstorm in

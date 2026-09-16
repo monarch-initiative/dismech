@@ -59,17 +59,39 @@ def _kinds(data):
     return [(f.kind, f.detail) for f in find_in(data, "x.yaml", COARSE)]
 
 
-def test_the_coarse_set_is_the_facet_vocabulary():
-    """One source of truth: the enum that also drives the UI facets.
+def test_the_coarse_set_contains_the_facet_vocabulary():
+    """Tier 0 is the enum that also drives the UI facets.
 
-    If these drift apart, the guard starts flagging terms the browser does not
+    If these drift apart the guard starts flagging terms the browser does not
     treat as organ systems, and the "it is just the facet list" justification
-    for the whole design stops being true.
+    for tier 0 stops being true. Tier 1 is curated separately, so the facet set
+    is a subset now rather than the whole thing.
     """
     from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 
-    assert set(COARSE) == set(HPO_TOP_LEVEL_CATEGORIES)
+    assert set(HPO_TOP_LEVEL_CATEGORIES) <= set(COARSE)
     assert "HP:0000478" in COARSE
+
+
+def test_tier_one_is_curated_and_disjoint_from_tier_zero():
+    """A term in both lists would double-count in the census and means one
+    drifted: tier 1 is defined as what sits BELOW the organ-system roots."""
+    import sys as _sys
+
+    from check_coarse_phenotypes import (
+        CATEGORY_ENUM_PATH,
+        COARSE_TERM_ENUM_PATH,
+        _meanings,
+    )
+
+    assert _sys  # keep the import block readable for ruff
+    tier0 = _meanings(CATEGORY_ENUM_PATH, "PhenotypeCategoryEnum")
+    tier1 = _meanings(COARSE_TERM_ENUM_PATH, "CoarsePhenotypeTermEnum")
+    assert not (tier0.keys() & tier1.keys())
+    assert set(COARSE) == tier0.keys() | tier1.keys()
+    # The kidney case the maintainer named, and the skeletal bucket beside it.
+    assert "HP:0000077" in tier1
+    assert "HP:0000924" in tier1
 
 
 def test_shallow_but_clinically_real_terms_are_not_coarse():
@@ -80,10 +102,21 @@ def test_shallow_but_clinically_real_terms_are_not_coarse():
     EXACT synonym. `HP:0004322` Short stature is the most-used HP term in the
     KB. Any depth or information-content rule would flag both, and pressure
     curators into asserting a lesion their source never named.
+
+    The tier-1 pass is what makes this concrete rather than theoretical: it put
+    `HP:0000077` Abnormality of the kidney in the coarse list while leaving
+    `HP:0001627` and `HP:0001999` out, and both decisions sit one step below the
+    same roots. No rule over depth or over the term's name separates them.
     """
-    assert "HP:0001627" not in COARSE
-    assert "HP:0004322" not in COARSE
-    assert _kinds(_pheno("HP:0001627", "Abnormal heart morphology")) == []
+    for curie, label in [
+        ("HP:0001627", "Abnormal heart morphology"),
+        ("HP:0004322", "Short stature"),
+        ("HP:0001999", "Abnormal facial shape"),
+        ("HP:0012443", "Abnormal brain morphology"),
+        ("HP:0012332", "Abnormal autonomic nervous system physiology"),
+    ]:
+        assert curie not in COARSE, f"{curie} {label} is a finding, not a bucket"
+        assert _kinds(_pheno(curie, label)) == []
 
 
 def test_unexplained_coarse_binding_is_reported():
@@ -323,8 +356,10 @@ def test_baseline_only_shrinks():
         for line in BASELINE.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(rows) <= 164, (
-        f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink. "
+    assert len(rows) <= 341, (
+        f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink, "
+        "except when the coarse set itself is deliberately widened (tier 1 took it "
+        "from 164 to 341 in one reviewed pass). "
         "If a new coarse binding is genuinely right, give it a coarse_binding_basis "
         "rather than adding a row here."
     )
