@@ -112,3 +112,9 @@ for. Nothing in this paper warrants new disorder entries or new evidence items.
 and digenic-inheritance curation areas; take no schema or KB action now. If a
 curator hits the "compensates-for" expressivity wall in a real entry, that is the
 trigger to open the design-register question in item 2.
+
+**Follow-up (2026-09-16):** item 3's "premature until needed" call was tested by
+actually running a BPM-style search on the Billmann 2026 HAP1 map — see
+`experiments/human_gi_bpm/` for the pilot, which found 105 module pairs, 39 of
+them touching dismech-curated disease genes on both sides (OXPHOS ×
+GATOR1/TSC mTORopathy machinery being the standout lead).
