@@ -20254,8 +20254,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "45",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Anencephaly",
@@ -32430,7 +32430,7 @@ window.searchData = [
     "creation_date": "2026-08-26T21:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A skeletal dysplasia caused by heterozygous missense variants in WNT5A, the prototypic ligand of non-canonical Wnt signalling. What is curated here is deliberately narrower than \"Robinow syndrome\": the autosomal dominant form has three genes, and this entry is the WNT5A one.\nThat distinction is mechanistic, not bookkeeping. WNT5A variants act on the **ligand**, reducing its activity - the founding variants substitute highly conserved cysteines and measurably decrease WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act through truncated intracellular adaptors downstream of the same pathway with an apparent gain of function, and they carry phenotypic differences to match (osteosclerosis and preserved stature with DVL1). Same pathway, opposite direction of effect, different clinical picture - so they are curated as differential diagnoses rather than merged in.\nThe pathway is the non-canonical, beta-catenin-independent branch: WNT5A signals through ROR2 and Disheveled to Rho-family GTPases and JNK, governing planar cell polarity rather than proliferation or fate. The disease is therefore a disorder of polarised cell behaviour. In growth-plate cartilage the readout is direct - chondrocytes that should form ordered columns are randomly oriented - and mesomelic limb shortening is what that disorganisation produces at the level of a limb.\nThe pathology is developmental rather than degenerative. It is established prenatally and is largely static afterwards, which is why management is corrective and supportive rather than disease-modifying.",
+    "description": "A skeletal dysplasia caused by heterozygous missense variants in WNT5A, the prototypic ligand of non-canonical Wnt signalling. What is curated here is deliberately narrower than \"Robinow syndrome\": the autosomal dominant form has three genes, and this entry is the WNT5A one.\nThat distinction is mechanistic, not bookkeeping. WNT5A variants act on the **ligand**, reducing its activity - the founding variants substitute highly conserved cysteines and measurably decrease WNT5A function in developmental assays. The other two dominant genes, DVL1 and DVL3, act on the intracellular adaptor rather than the ligand: a frameshift replaces the DVL1 C terminus with a novel, highly basic sequence, the mutant transcript is present in patient fibroblasts and the protein is stable, and the novel C-terminus interferes with the protein made from the normal allele rather than simply removing one copy. What that does to each branch is not settled. In facial mesenchyme luciferase assays both the frameshift and a stop-codon construct signal significantly below wild type on the canonical *and* the JNK-PCP branch; earlier work from the same group, expressing the same variants in chick limb and *Drosophila* wing, reports the opposite on the non-canonical branch - loss of canonical signalling with a *gain* of JNK/PCP. The disagreement is between two readouts of one experimental programme, not between species or between independent groups. Against that, co-expressing mutant and wild-type DVL1 raises canonical activity two-fold over wild type alone, and it is that allele interaction the primary report ties to the osteosclerosis. Same pathway, contested direction of effect, different clinical picture - so they are curated as differential diagnoses rather than merged in.\nThe pathway is the non-canonical, beta-catenin-independent branch: WNT5A signals through ROR2 and Disheveled to Rho-family GTPases and JNK, governing planar cell polarity rather than proliferation or fate. The disease is therefore a disorder of polarised cell behaviour. In growth-plate cartilage the readout is direct - chondrocytes that should form ordered columns are randomly oriented - and mesomelic limb shortening is what that disorganisation produces at the level of a limb.\nThe pathology is developmental rather than degenerative. It is established prenatally and is largely static afterwards, which is why management is corrective and supportive rather than disease-modifying.",
     "pathophysiology": [
       "Heterozygous WNT5A Missense Variant",
       "Reduced Non-Canonical WNT5A Signalling Through ROR2",
@@ -33794,8 +33794,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Recessive Multiple Pterygium Syndrome",
@@ -36580,8 +36580,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Axial Spondylometaphyseal Dysplasia",
@@ -49780,8 +49780,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "CACNA1F-Related Retinopathy",
@@ -62989,7 +62989,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "1"
   },
   {
@@ -69224,7 +69224,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
   },
   {
@@ -70256,7 +70256,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "39",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "5"
   },
   {
@@ -77835,8 +77835,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 8,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Complex Regional Pain Syndrome Type 1",
@@ -78461,8 +78461,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Bile Acid Synthesis Defect 5",
@@ -79262,8 +79262,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Epulis",
@@ -79703,7 +79703,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 8,
     "num_treatments": 5,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "7"
   },
   {
@@ -82111,8 +82111,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Stationary Night Blindness",
@@ -82573,8 +82573,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Vertebral-Cardiac-Renal Anomalies Syndrome",
@@ -83171,8 +83171,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Contact Dermatitis",
@@ -100763,8 +100763,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 4,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Down_syndrome",
@@ -106259,7 +106259,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 9,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -113888,7 +113888,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "5"
   },
   {
@@ -114236,7 +114236,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "55",
     "causal_graph_longest_path": "6"
   },
   {
@@ -115869,7 +115869,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "6"
   },
   {
@@ -116707,7 +116707,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -120873,8 +120873,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Frontotemporal Dementia And/Or Amyotrophic Lateral Sclerosis 2",
@@ -123424,6 +123424,99 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "GUCA1A-Related Retinopathy",
+    "disease_id": "MONDO:0700376",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Retinal Dystrophy",
+      "Cone-Rod Dystrophy"
+    ],
+    "creation_date": "2026-08-25T10:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "GUCA1A-related retinopathy is an autosomal dominant inherited retinal disease caused by heterozygous missense variants in GUCA1A, encoding guanylate cyclase-activating protein 1 (GCAP1), the principal calcium sensor that regulates retinal guanylate cyclase (RetGC1/RetGC2) activity during phototransduction recovery. Under normal dark-adapted conditions, high intracellular Ca2+ loads the EF-hand domains of GCAP1, switching it into a conformation that inhibits RetGC; as light exposure lowers Ca2+, GCAP1 switches to an activating conformation that accelerates cGMP resynthesis. Pathogenic GUCA1A variants cluster in the EF-hand calcium-binding loops and lock GCAP1 into a constitutively activating conformation regardless of ambient Ca2+, producing chronically elevated cGMP, sustained opening of cyclic nucleotide-gated (CNG) channels, and toxic Ca2+ accumulation in photoreceptor outer segments. The founding and most recurrent variant is p.Tyr99Cys (Y99C), first described in 1998; the disease is genetically and clinically continuous with a spectrum from isolated cone dystrophy (COD3) to cone-rod dystrophy (CORD14), with cone photoreceptors affected earliest and most severely because GCAP1/RetGC-mediated recovery kinetics are more critical to cone light-response timing than to rods.",
+    "pathophysiology": [
+      "GCAP1 Loss of Calcium-Dependent Inhibitory Control",
+      "RetGC Constitutive Hyperactivity",
+      "Sustained CNG Channel Opening and Outer-Segment Calcium Overload",
+      "Impaired Cone Light-Response Generation and Delayed Recovery",
+      "Abnormal Photoreceptor-to-ON-Bipolar Synaptic Transmission",
+      "Cone Photoreceptor Degeneration",
+      "Variable Rod Photoreceptor Involvement"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell",
+      "retinal bipolar neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604",
+      "CL:0000748"
+    ],
+    "biological_processes": [
+      "detection of calcium ion",
+      "cGMP biosynthetic process",
+      "calcium ion transmembrane import into cytosol",
+      "regulation of opsin-mediated signaling pathway",
+      "synaptic transmission, glutamatergic",
+      "apoptotic process",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Progressive visual loss",
+      "Reduced visual acuity",
+      "Color vision defect",
+      "Photophobia",
+      "Abnormal electroretinogram",
+      "Macular atrophy",
+      "Central scotoma",
+      "Peripheral pigmentary retinopathy",
+      "Nyctalopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Electrophysiological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000529",
+      "HP:0007663",
+      "HP:0000551",
+      "HP:0000613",
+      "HP:0000512",
+      "HP:0007401",
+      "HP:0000603",
+      "HP:0007737",
+      "HP:0000662"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GUCA1A pathogenic variants"
+    ],
+    "treatments": [
+      "Supportive care and low vision rehabilitation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GUCA1A-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/GUCA1A-Related_Retinopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "GUCY2D-Related Retinopathy",
     "disease_id": "MONDO:0100453",
     "category": "Mendelian",
@@ -125446,8 +125539,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Generalized Resistance to Thyroid Hormone",
@@ -125526,8 +125619,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Genetic Developmental and Epileptic Encephalopathy",
@@ -126986,7 +127079,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -131270,7 +131363,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 3,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
   },
   {
@@ -137024,7 +137117,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -139460,7 +139553,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -141471,7 +141564,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
   },
   {
@@ -143406,8 +143499,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Holocarboxylase Synthetase Deficiency",
@@ -145009,7 +145102,7 @@ window.searchData = [
     "num_pathophysiology": 20,
     "num_genes": 15,
     "num_treatments": 14,
-    "causal_graph_edges": "100",
+    "causal_graph_edges": "101",
     "causal_graph_longest_path": "8"
   },
   {
@@ -163441,8 +163534,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Intermediate Charcot-Marie-Tooth Disease",
@@ -164552,8 +164645,8 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 4,
     "num_treatments": 2,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Isolated Growth Hormone Deficiency Type IA",
@@ -169552,7 +169645,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "3"
   },
   {
@@ -177890,7 +177983,7 @@ window.searchData = [
     "num_pathophysiology": 17,
     "num_genes": 12,
     "num_treatments": 7,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "61",
     "causal_graph_longest_path": "6"
   },
   {
@@ -179929,7 +180022,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "2"
   },
   {
@@ -180427,7 +180520,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "45",
     "causal_graph_longest_path": "3"
   },
   {
@@ -187133,8 +187226,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Machado-Joseph Disease",
@@ -202390,8 +202483,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Multiple Endocrine Neoplasia Type 1",
@@ -205030,7 +205123,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
   },
   {
@@ -216163,7 +216256,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -217301,8 +217394,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Normal Pressure Hydrocephalus",
@@ -221338,8 +221431,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 10,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Orofaciodigital Syndrome 17",
@@ -227606,8 +227699,8 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "POT1 Tumor Predisposition Syndrome",
@@ -232227,8 +232320,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Paroxysmal Nocturnal Hemoglobinuria",
@@ -232866,8 +232959,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 7,
     "num_treatments": 5,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Pelger-Huet-like Anomaly and Episodic Fever with Abdominal Pain",
@@ -237302,7 +237395,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 12,
     "num_treatments": 11,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "7"
   },
   {
@@ -244148,8 +244241,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Primary Erythermalgia",
@@ -244851,8 +244944,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Primary Polyarteritis Nodosa",
@@ -245695,8 +245788,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Progressive Familial Intrahepatic Cholestasis",
@@ -246497,8 +246590,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Proliferative Vitreoretinopathy",
@@ -257228,8 +257321,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Ritscher-Schinzel Syndrome 1",
@@ -265124,8 +265217,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Sarcoidosis",
@@ -269705,7 +269798,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "30",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "4"
   },
   {
@@ -274405,7 +274498,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 8,
     "num_treatments": 5,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -279040,8 +279133,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Spondylo-megaepiphyseal-metaphyseal Dysplasia",
@@ -279471,8 +279564,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 3,
     "num_treatments": 1,
-    "causal_graph_edges": "31",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spondyloenchondrodysplasia",
@@ -282904,8 +282997,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Stromme Syndrome",
@@ -287098,8 +287191,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "TRMU-Related Acute Infantile Liver Failure",
@@ -291967,7 +292060,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "4"
   },
   {
@@ -292847,8 +292940,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 7,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Tooth and Nail Syndrome",
@@ -294438,8 +294531,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Trichothiodystrophy",
@@ -303512,8 +303605,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Warburg-Cinotti Syndrome",
@@ -310820,17 +310913,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2987,
+  "total_disorder_pages": 2988,
   "total_subtypes": 3751,
-  "total_disorders_and_subtypes": 6738,
-  "total_unique_evidence_sources": 42439,
-  "total_unique_publications": 40047,
+  "total_disorders_and_subtypes": 6739,
+  "total_unique_evidence_sources": 42450,
+  "total_unique_publications": 40058,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2982,
-  "total_unique_pathological_events": 18106,
+  "total_pathographs": 2983,
+  "total_unique_pathological_events": 18112,
   "total_modules": 176,
-  "total_research_reports": 3103,
+  "total_research_reports": 3104,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
