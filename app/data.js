@@ -269671,6 +269671,121 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Sepsis",
+    "disease_id": "MONDO:1040015",
+    "category": "Complex",
+    "parents": [
+      "infectious disease"
+    ],
+    "creation_date": "2026-08-17T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Septic shock",
+      "Neonatal sepsis"
+    ],
+    "description": "Sepsis is life-threatening organ dysfunction caused by a dysregulated host response to infection. It is a syndrome rather than a single etiology: many different pathogens and infection sites converge on a common host program in which innate immune activation, endothelial injury, and coagulation activation become mutually amplifying. The resulting microcirculatory failure and cellular bioenergetic failure produce dysfunction across multiple organ systems. A concurrent, and often protracted, immunosuppressive arm leaves survivors of the initial insult unable to clear the primary infection and vulnerable to secondary infection. Septic shock is the subset with profound circulatory, cellular, and metabolic abnormalities and substantially higher mortality.",
+    "pathophysiology": [
+      "Invasive Infection and Pattern Recognition",
+      "Dysregulated Innate Immune Activation",
+      "Endothelial Activation and Glycocalyx Degradation",
+      "Thromboinflammation and Sepsis-Induced Coagulopathy",
+      "Microcirculatory Dysfunction and Tissue Hypoperfusion",
+      "Mitochondrial Dysfunction and Bioenergetic Failure",
+      "Sepsis-Associated Acute Kidney Injury",
+      "Sepsis-Induced Immunosuppression",
+      "Multiple Organ Dysfunction"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Neutrophil",
+      "Endothelial cell",
+      "Platelet",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000115",
+      "CL:0000233",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "Toll-like receptor signaling pathway",
+      "Positive regulation of inflammatory response",
+      "Reactive oxygen species metabolic process",
+      "Neutrophil extracellular trap formation",
+      "Response to cytokine",
+      "Blood coagulation",
+      "Fibrin clot formation",
+      "Oxidative phosphorylation",
+      "Apoptotic process"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Hypotension",
+      "Shock",
+      "Tachycardia",
+      "Tachypnea",
+      "Sepsis-Induced Hypoxemic Respiratory Failure",
+      "Encephalopathy",
+      "Acute kidney injury",
+      "Oliguria",
+      "Thrombocytopenia",
+      "Disseminated intravascular coagulation"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Cardiovascular",
+      "Respiratory",
+      "Neurological",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002615",
+      "HP:0031273",
+      "HP:0001649",
+      "HP:0002789",
+      "HP:0002878",
+      "HP:0001298",
+      "HP:0001919",
+      "HP:0100520",
+      "HP:0001873",
+      "HP:0005521"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Immediate Antimicrobial Therapy",
+      "Source Control of the Infectious Focus",
+      "Crystalloid Fluid Resuscitation",
+      "Norepinephrine Vasopressor Support",
+      "Vasopressin as Second-Line Vasopressor",
+      "Low-Dose IV Hydrocortisone"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum lactate"
+    ],
+    "source_file": "Sepsis.yaml",
+    "page_url": "../pages/disorders/Sepsis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Severe Combined Immunodeficiency",
     "disease_id": "MONDO:0015974",
     "category": "Mendelian",
@@ -310934,17 +311049,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2988,
-  "total_subtypes": 3751,
-  "total_disorders_and_subtypes": 6739,
-  "total_unique_evidence_sources": 42451,
-  "total_unique_publications": 40059,
+  "total_disorder_pages": 2989,
+  "total_subtypes": 3753,
+  "total_disorders_and_subtypes": 6742,
+  "total_unique_evidence_sources": 42463,
+  "total_unique_publications": 40071,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2983,
-  "total_unique_pathological_events": 18117,
+  "total_pathographs": 2984,
+  "total_unique_pathological_events": 18126,
   "total_modules": 177,
-  "total_research_reports": 3104,
+  "total_research_reports": 3105,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
