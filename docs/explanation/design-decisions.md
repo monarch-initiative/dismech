@@ -696,6 +696,63 @@ snippet checks surface — it is a curation pass, not a config edit. (2) Delete 
 blob once open PRs have drained.
 
 
+### `quote_role`: provenance of the finding, separate from provenance of the sentence
+
+**Decision.** `EvidenceItem` carries an optional `quote_role`
+(`PRIMARY_RESULT` / `BACKGROUND` / `REVIEW_SYNTHESIS`) recording **where in the cited
+publication's own argument the quoted sentence sits**. Absent means unassessed and stays
+legal; nothing gates on it.
+
+**Why a fourth axis.** `reference` records which paper a quote came from. It does not
+record whether that paper *produced* the finding or was repeating somebody else's, and
+until this slot the model represented the two identically. The case that forced it
+([#10262](https://github.com/monarch-initiative/dismech/issues/10262)) is a chick-embryo
+study whose introduction states the human clinical picture, quoted for that human fact:
+
+- `MODEL_ORGANISM` asserts a chick measured human perinatal mortality. False.
+- `HUMAN_CLINICAL` asserts a study type the paper never ran. Also false.
+- `OTHER`, which review pressure settles on, says nothing at all, and collapses this case
+  together with the unrelated "quoted from a review" case.
+
+`HUMAN_CLINICAL` + `BACKGROUND` is true, and queryable. The distinction is orthogonal to
+all three existing axes and composes with each: `supports` is direction, `directness` is
+inferential distance, `evidence_source` is study type.
+
+**Why this passes the "derived, not authored" test** that
+[the evidence model](evidence-model.md) sets for new appraisal slots. It is not an
+appraisal: it is a fact about the cited document, and a partly *derivable* one. For a
+reference whose cached body carries NLM structured-abstract section labels, the zone a
+snippet sits in is a string containment; `just list-background-citations` reports that
+derivation as a worklist. Derivable is not autofilled: the derivation covers a minority of
+the corpus and a structured `BACKGROUND:` paragraph routinely closes with the authors' own
+framing, so the report proposes and a curator decides, the same line `dismech-terms` draws
+for ontology-term suggestions.
+
+**Three values, not four, and no `UNKNOWN`.** `REVIEW_SYNTHESIS` is load-bearing rather
+than decorative: it is what separates the two unrelated reasons an item ends up `OTHER`.
+`UNKNOWN` is omitted because absent already means "nobody has assessed this";
+`DirectnessEnum` carries both spellings and CLAUDE.md then has to instruct curators not to
+use one of them.
+
+**Mapped out, not modelled on.** Values carry CiTO mappings (`cito:citesAsEvidence`,
+`cito:obtainsBackgroundFrom`, `cito:citesAsAuthority`), following the §4 static-enum ruling.
+All three are `close_mappings`, not `exact_mappings`, because the two vocabularies describe
+different ends of the same citation: a CiTO property types the *citing* entity's use of a
+reference, while `quote_role` records where the sentence sits inside the *cited* document.
+They correlate and they come apart. An item quoting an introduction sentence as support for
+a KB claim is `citesAsEvidence` from the citing side while its `quote_role` is `BACKGROUND`,
+which is the case the slot exists for, so an exact mapping would assert an equivalence that
+fails precisely where it matters.
+
+**Not decided here.** A quoted *aim* statement ("the aim of the present study was to…")
+has no value in this enum; it is neither the paper's finding nor somebody else's fact.
+`just list-background-citations` reports those separately rather than the enum growing a
+value for them; see [#10262](https://github.com/monarch-initiative/dismech/issues/10262).
+Whether `quote_role` should ever be gated, and whether the same treatment should reach a
+full text's own section headings
+([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
+
+
 ## 7. Curation process & governance
 
 **Decision.** DisMech is **agent-forward**: most curation is performed by AI agents,
@@ -1384,3 +1441,43 @@ should work from this list:
    term-request id** rather than free prose? Otherwise the migration converts a silent
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
+
+## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+
+**Decision.** The pathograph node-class tree
+(`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
+**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
+schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
+`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
+§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
+terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
+slots a node already binds, checked against those ontologies.
+
+**Why `kb/` and not `docs/`.** The tree began life as a design artifact under
+`docs/superpowers/`, and the argument for moving it is that its leaves are real
+`(node, disease)` pairs verified against the KB on every run: it drifts when curation
+renames a node, exactly as a pathograph target does, and the fix is a curation edit, not
+a documentation edit. Content that rots with the KB and is repaired by curating belongs
+with the KB. Nothing in `kb/` depends on it yet, which is the difference between "curated
+content" and "a slot": the vocabulary is being stabilised against worked examples
+(seven random draws so far; new leaves per draw have run 9, 4, 0, 2, 5, 0, 1) before
+anything is asked to conform to it.
+
+**How it relates to "not a new ontology" (§1).** The classes are *kinds of causal claim*
+ordered as a cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue, systemic, outcome) plus a few cross-cutting judgement classes
+(disposition, compensation, intervention point). MPATH and NCIt were checked as prior art
+and neither carries that axis: MPATH classifies lesions as a pathologist sees them and
+stops at the cell, NCIt's *Pathologic Process* is a flat list. So the axis is DisMech's
+own, but the *leaves* are anchored to existing ontologies wherever a term exists, and
+the classes without a definition are the ones no ontology term can decide (a standing
+disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
+
+**What would change this.** Two things are deliberately deferred. (1) A `node_class`
+slot on `Pathophysiology`, which would also settle whether it supersedes
+`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
+thing would be worse than either). (2) Deriving the seed table from the definitions and
+retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
+record is
+[`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
+the tree's own build notes record what each draw forced.
