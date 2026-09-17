@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFAP Syndrome 1 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>IFAP Syndrome 1</span>
+            </div>
+
+            <header class="report-header">
+                <h1>IFAP Syndrome 1</h1>
+                
+                <p class="report-subtitle">IFAP Syndrome 1 (MONDO:0100213): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100213" target="_blank" rel="noopener noreferrer">MONDO:0100213</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">24 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>IFAP Syndrome 1 (<a href="http://purl.obolibrary.org/obo/MONDO_0100213" target="_blank" rel="noopener noreferrer">MONDO:0100213</a>): Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>IFAP Syndrome 1</strong> (Ichthyosis Follicularis, Atrichia, and Photophobia syndrome; OMIM #308205; <a href="http://purl.obolibrary.org/obo/MONDO_0100213" target="_blank" rel="noopener noreferrer">MONDO:0100213</a>; Orphanet <a href="https://bioregistry.io/ORPHA:2273" target="_blank" rel="noopener noreferrer">ORPHA:2273</a>) is an ultra-rare X-linked recessive genodermatosis defined by a congenital clinical triad of <strong>ichthyosis follicularis</strong> (generalized spiny, keratotic follicular papules), <strong>atrichia/alopecia</strong> (near-total loss of scalp hair, eyebrows, and eyelashes), and <strong>photophobia</strong> arising from a progressive, vascularizing keratopathy. The disorder is caused by <strong>hypomorphic (partial loss-of-function) missense and splice-site variants in <em>MBTPS2</em></strong> (membrane-bound transcription factor peptidase, site 2; Xp22.12), which encodes an intramembrane zinc metalloprotease known as <strong>site-2 protease (S2P)</strong>. Because <em>MBTPS2</em> is on the X chromosome, affected individuals are predominantly male; female carriers may show mosaic, Blaschko-linear cutaneous lesions due to lyonization.</p>
+<p>Mechanistically, S2P performs <strong>regulated intramembrane proteolysis (RIP)</strong> — it makes the second, membrane-embedded cleavage that liberates the active transcription-factor domains of <strong>SREBP</strong> (sterol regulatory element-binding protein, master regulator of cholesterol and fatty-acid synthesis) and <strong>ATF6</strong> (the ER-stress/unfolded-protein-response arm). Partial loss of S2P activity therefore simultaneously <strong>impairs epidermal barrier lipid synthesis</strong> and <strong>cripples the ER-stress response</strong>, disrupting terminal differentiation of epidermis, hair follicles, and the corneal/limbal epithelium. A key genotype–phenotype principle emerges: the amount of <strong>residual protease activity</strong> correlates inversely with clinical severity, generating a continuum that extends from isolated IFAP to the lethal multisystem <strong>BRESHECK syndrome</strong>. <em>MBTPS2</em> is allelic with several other Mendelian disorders (KFSD, X-linked Olmsted syndrome, and X-linked osteogenesis imperfecta type XIX), and phenocopies of the ichthyosis-follicularis phenotype are produced by variants in <em>SREBF1</em> (autosomal-dominant IFAP/hereditary mucoepithelial dysplasia) and <em>GJB2</em>.</p>
+<p>There is <strong>no curative therapy</strong>. Management is symptomatic and multidisciplinary: emollients/keratolytics (urea) for skin, aggressive ocular-surface protection (lubrication, prophylactic antibiotics, punctal occlusion, tarsorrhaphy, amniotic membrane transplantation), and, in several reports, <strong>systemic acitretin (~1 mg/kg)</strong>, which yields partial improvement of cutaneous and corneal features but does not reverse alopecia or photophobia. Genetic counseling is essential given X-linked inheritance. This report compiles nine confirmed findings across 28 reviewed papers into a structured knowledge-base entry.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — <em>MBTPS2</em> hypomorphic variants cause IFAP Syndrome 1</h3>
+<p>IFAP Syndrome 1 is caused by <strong>hypomorphic missense variants in <em>MBTPS2</em></strong>, an X-linked gene encoding site-2 protease. The seminal mapping and gene-identification study by <strong>Oeffner et al. (2009)</strong> localized the IFAP locus to <strong>Xp22.11–p22.13</strong> (a 5.4-Mb interval between markers DXS989 and DXS8019) and identified missense mutations that exchange highly conserved amino-acid residues. Critically, the authors demonstrated a <strong>quantitative genotype–phenotype relationship</strong>: using functional complementation in Chinese hamster <strong>M19 cells</strong> (which lack endogenous S2P), they showed that five patient mutations impaired SRE-regulated reporter induction and growth in cholesterol/lipid-free medium, and that the <strong>degree of diminished protease activity correlated with clinical severity</strong> in male patients.</p>
+<blockquote>
+<p><em>"missense mutations exchanging highly conserved amino acids of membrane-bound transcription factor protease, site 2 (MBTPS2) are associated with this phenotype"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a></p>
+<p><em>"The degree of diminished activity correlated with clinical severity as noted in male patients"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a></p>
+</blockquote>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100213" target="_blank" rel="noopener noreferrer">MONDO:0100213</a> · OMIM #308205 (disease) · <em>MBTPS2</em> OMIM <em>300294 · <a href="https://bioregistry.io/HGNC:7375" target="_blank" rel="noopener noreferrer">HGNC:7375</a> · cytogenetic locus </em><em>Xp22.12</em>*.</p>
+<h3>Finding 2 — Dual mechanism: RIP of SREBP (cholesterol homeostasis) and ATF6 (ER stress)</h3>
+<p>MBTPS2/S2P is a membrane-embedded <strong>zinc metalloprotease</strong> that activates signaling substrates by cleaving them <em>within</em> the lipid bilayer (regulated intramembrane proteolysis). Its two best-characterized substrates are <strong>SREBP</strong> (SREBF; controls lipid biosynthesis) and <strong>ATF6</strong> (the ER-stress/UPR transcription factor). The pathogenicity of <em>MBTPS2</em> variants was directly demonstrated by <strong>Strong et al. (2022)</strong>, who studied a BRESHECK-associated variant, <strong>c.766G&gt;A (p.Val256Leu)</strong>, and found it impaired growth in cholesterol-depleted medium, attenuated SREBP-pathway activation, and <strong>abolished the ER-stress (UPR) response</strong> in vitro — establishing that both arms of S2P signaling are compromised.</p>
+<blockquote>
+<p><em>"impaired cell growth in cholesterol-depleted media, attenuated activation of the sterol regulatory element-binding protein pathway, and failure to activate the endoplasmic reticulum stress response pathway"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a></p>
+<p><em>"cleaves and activates several signaling and regulatory proteins from the membrane"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33743732/">PMID: 33743732</a></p>
+</blockquote>
+<h3>Finding 3 — Clinical triad, X-linked inheritance, and the allelic disorder spectrum</h3>
+<p>IFAP is defined by the triad of <strong>ichthyosis follicularis</strong> (follicular keratotic/spiny papules), <strong>atrichia/alopecia</strong> (scalp, eyebrows, eyelashes), and <strong>photophobia</strong>. Additional recurrent features include palmoplantar keratoderma, nail dystrophy, recurrent infections, xerosis, and angular cheilitis. Inheritance is <strong>X-linked recessive</strong>, so affected individuals are predominantly male; <strong>female carriers</strong> display mosaic, Blaschko-linear lesions attributable to X-chromosome inactivation (lyonization). At the severe end of the spectrum lies <strong>BRESHECK syndrome</strong> (the IFAP triad plus intellectual disability and multiple congenital anomalies). <em>MBTPS2</em> is <strong>allelic</strong> to Keratosis Follicularis Spinulosa Decalvans (KFSD), Olmsted syndrome (X-linked form), and Osteogenesis Imperfecta type XIX.</p>
+<blockquote>
+<p><em>"IFAP) syndrome is a rare autosomal recessive, X-linked, genetic disorder that involves a triad of follicular ichthyosis, atrichia of the scalp, and photophobia"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38089015/">PMID: 38089015</a></p>
+<p><em>"BRESHECK syndrome, characterized by the IFAP triad plus intellectual disability and multiple congenital anomalies"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a></p>
+<p><em>"Ichthyosis Follicularis, Atrichia and Photophobia syndrome (IFAP) with or without BRESHECK syndrome, Keratosis Follicularis Spinulosa Decalvans (KFSD), Olmsted syndrome, and Osteogenesis Imperfecta type XIX"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33743732/">PMID: 33743732</a></p>
+</blockquote>
+<p>X-linked skin-disease mosaicism in female carriers is documented in <a href="https://pubmed.ncbi.nlm.nih.gov/16720460/">PMID: 16720460</a>.</p>
+<h3>Finding 4 — Ophthalmic disease is a progressive keratopathy driven by limbal stem-cell dysfunction</h3>
+<p>The photophobia of IFAP reflects a serious, <strong>progressive corneal disease</strong>. In males, ocular features include severe photophobia, corneal erosions/epithelial defects, superficial and deep corneal (neo)vascularization, corneal scarring, and progressive vision loss (down to counting-fingers acuity) (<strong>Traboulsi 2004</strong>). <strong>Basilious et al. (2020)</strong> used anterior-segment OCT to document bilateral limbal thickening, peripheral corneal pannus, conjunctivalization, and abnormal hyperreflective epithelium — a constellation "highly suggestive of <strong>limbal stem cell dysfunction</strong>." Carrier mothers can show <strong>retinal vascular tortuosity</strong> as an ocular sign of carrier status.</p>
+<blockquote>
+<p><em>"The progressive conjunctivalization, spontaneous epithelial defects, and anterior segment optical coherence tomography features are highly suggestive of limbal stem cell dysfunction in IFAP syndrome"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32482964/">PMID: 32482964</a></p>
+<p><em>"Males with IFAP have an inexorable progression of corneal vascularization and loss of vision. Retinal vascular tortuosity may be another clinical sign of carrier status in females"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15370546/">PMID: 15370546</a></p>
+</blockquote>
+<h3>Finding 5 — Management is symptomatic; systemic acitretin gives partial benefit</h3>
+<p>No curative therapy exists; care is <strong>symptomatic and multidisciplinary</strong>. The systemic retinoid <strong>acitretin (~1 mg/kg)</strong> produced moderate improvement in cutaneous features and corneal erosions but <strong>no change in alopecia or photophobia</strong> over 6 months (<strong>Khandpur 2005</strong>). A separate case reported significant improvement of photophobia, corneal erosions, and neuropsychomotor development with <strong>acitretin plus amniotic membrane transplantation</strong> (<strong>Höpker 2011</strong>). Ocular-surface optimization employs aggressive lubrication, prophylactic antibiotics, punctal occlusion, tarsorrhaphy, and amniotic membrane transplantation; skin care relies on emollients and urea-based keratolytics (<strong>Bin Rubaian 2023</strong>). Orthopedic surgery (soft-tissue release, tendon lengthening) may be required for contractures (<strong>Ghaznavi 2025</strong>).</p>
+<blockquote>
+<p><em>"A moderate response to acitretin therapy (1 mg/kg) administered for 6 months was observed, with improvement in cutaneous features and corneal erosions and no change in alopecia or photophobia"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16268889/">PMID: 16268889</a></p>
+<p><em>"After three months using systemic retinoid (Acitretina) and posterior amniotic membrane transplantation in the left eye, there was a significant improvement of photophobia, corneal erosions and neuropsychomotor development"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21670910/">PMID: 21670910</a></p>
+</blockquote>
+<h3>Finding 6 — Epidemiology, diagnosis, and variable expressivity of identical variants</h3>
+<p>IFAP is <strong>very rare</strong> (Orphanet <a href="https://bioregistry.io/ORPHA:2273" target="_blank" rel="noopener noreferrer">ORPHA:2273</a>); approximately <strong>40 male cases</strong> had been reported by 2018, and no precise prevalence/incidence figures exist. Diagnosis rests on recognition of the clinical triad plus <strong><em>MBTPS2</em> sequencing</strong> (single-gene testing or whole-exome sequencing). Both <strong>missense and splice-site</strong> variants are pathogenic. A striking example of <strong>variable expressivity</strong> is the recurrent intronic variant <strong>c.671-9T&gt;G</strong>, which caused typical IFAP with Olmsted-like keratoderma in one patient but IFAP <em>without</em> keratoderma in two others (<strong>Wang 2014</strong>); the intronic variant <strong>c.970+5G&gt;A</strong> causes exon-7 skipping (<strong>Chen 2023</strong>). The BRESHECK acronym expands to <strong>B</strong>rain anomalies, <strong>R</strong>etardation of mentality/growth, <strong>E</strong>ctodermal dysplasia, <strong>S</strong>keletal malformations, <strong>H</strong>irschsprung disease, <strong>E</strong>ar deformity/deafness, <strong>E</strong>ye hypoplasia, <strong>C</strong>left palate, <strong>C</strong>ryptorchidism, and <strong>K</strong>idney dysplasia/hypoplasia.</p>
+<blockquote>
+<p><em>"this mutation was previously reported in two cases of IFAP without keratoderma, which suggests clinical heterogeneicity of the same mutation in MBTPS2"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a></p>
+<p><em>"BRESHECK (brain anomalies, retardation of mentality and growth, ectodermal dysplasia, skeletal malformations, Hirschsprung disease, ear deformity and deafness, eye hypoplasia, cleft palate, cryptorchidism, and kidney dysplasia/hypoplasia) syndrome"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a></p>
+<p><em>"A total of 40 cases has been reported"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">PMID: 28654459</a></p>
+</blockquote>
+<h3>Finding 7 — Molecular pathway placement: S2P is the second protease in sequential SCAP–SREBP and ATF6 cleavage, linking lipogenesis to immunity</h3>
+<p>The SREBP pathway operates as a two-cut cascade: <strong>SCAP</strong> escorts SREBP from the ER to the Golgi, where <strong>site-1 protease (S1P/MBTPS1)</strong> makes the first cut, then <strong>site-2 protease (S2P/MBTPS2)</strong> makes the intramembrane cut that releases the active transcription-factor domain, upregulating lipid-biosynthesis genes (<strong>Ozdemir &amp; Rawson 2011</strong>). The identical S1P/S2P machinery cleaves <strong>ATF6</strong> during ER stress. Importantly, the Scap–SREBP1–S1P/S2P cascade also spatiotemporally controls <strong>NF-κB</strong>: upon LPS stimulation, SREBP1 cleavage at the Golgi liberates IκBα for IKK phosphorylation and NF-κB activation, and inhibiting S2P diminishes LPS-induced NF-κB and inflammatory responses (<strong>Fei et al. 2023</strong>). This connects S2P loss to the <strong>recurrent infections</strong> seen in IFAP.</p>
+<blockquote>
+<p><em>"when demand for lipid rises, SREBP travels from the endoplasmic reticulum to the Golgi apparatus where it is cleaved by two distinct proteases"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">PMID: 20935466</a></p>
+<p><em>"Loss of Scap or inhibition of S1P or S2P diminishes, while SREBP1 deficiency augments, LPS-induced NF-κB activation and subsequent inflammatory responses"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">PMID: 37267109</a></p>
+</blockquote>
+<h3>Finding 8 — Model organisms and deep evolutionary conservation of S2P</h3>
+<p>Site-2 protease is <strong>evolutionarily ancient and conserved</strong>. In <em>Drosophila melanogaster</em>, <strong>dS2P</strong> null mutants (and <em>dSREBP</em>/<em>dScap</em> mutants) have been isolated and display <strong>lipid-auxotrophy phenotypes</strong> rescuable by dietary lipids (<strong>Ozdemir &amp; Rawson 2011</strong>). Mammalian S2P function was originally defined using <strong>Chinese hamster ovary M19 cells</strong>, which lack S2P and therefore require exogenous cholesterol/lipids; wild-type human <em>MBTPS2</em> complements this defect, whereas <strong>IFAP patient variants fail to fully complement</strong> (<strong>Oeffner 2009</strong>). No dedicated <em>Mbtps2</em> mouse or zebrafish IFAP disease model was retrieved in this investigation; the <strong>CHO-M19 complementation assay</strong> remains the principal functional model used to classify <em>MBTPS2</em> variant pathogenicity.</p>
+<blockquote>
+<p><em>"we isolated Drosophila mutants null for dsrebp and others lacking site-2 protease (ds2p), the second of two Golgi-resident proteases that cleave dSREBP"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">PMID: 20935466</a></p>
+<p><em>"Wild-type MBTPS2 was able to complement the protease deficiency in Chinese hamster M19 cells"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a></p>
+</blockquote>
+<h3>Finding 9 — Ichthyosis follicularis is genetically heterogeneous; S2P-mutant fibroblast omics reveal a lipid/collagen signature</h3>
+<p>The ichthyosis-follicularis phenotype is <strong>not specific to <em>MBTPS2</em></strong>. Biallelic <strong><em>GJB2</em></strong> (connexin-26) mutations cause a distinct autosomal-recessive syndrome of ichthyosis follicularis + severe sensorineural hearing loss + punctate palmoplantar keratoderma (<strong>Youssefian 2019, 2022</strong>), and <strong><em>SREBF1</em></strong> variants cause autosomal-dominant IFAP that overlaps hereditary mucoepithelial dysplasia (HMD) — both broaden the differential diagnosis. <em>MBTPS2</em> is also allelic to <strong>X-linked Olmsted syndrome</strong> (contrasting with autosomal-dominant <em>TRPV3</em> Olmsted; <strong>Duchatelet 2014</strong>). <strong>Omics profiling of S2P-mutant patient fibroblasts</strong> (studied in the allelic OI type XIX context) revealed perturbations in <strong>fatty-acid metabolism and collagen production</strong> as a molecular signature of <em>MBTPS2</em> deficiency (<strong>Lim 2021, 2023</strong>).</p>
+<blockquote>
+<p><em>"association of a new syndrome of an autosomal recessive disorder of ichthyosis follicularis, bilateral severe sensorineural hearing loss and punctate palmoplantar keratoderma with mutations in GJB2"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30431684/">PMID: 30431684</a></p>
+</blockquote>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The unifying model of IFAP Syndrome 1 is a <strong>dose-dependent partial failure of regulated intramembrane proteolysis</strong>. Site-2 protease sits at a metabolic and stress-signaling nexus: it is required both to activate <strong>SREBP</strong> (governing membrane lipid supply) and to activate <strong>ATF6</strong> (governing the ER's adaptive response to folding stress). Tissues with the highest demand for barrier lipids and epithelial renewal — the epidermis, hair follicle, and corneal/limbal epithelium — are the most vulnerable when S2P output falls, explaining the specificity of the IFAP triad despite the gene's ubiquitous expression.</p>
+<pre><code>Low sterol / lipid demand
+│
+▼
+ SCAP escorts SREBP  ER ──▶ Golgi
+│
+▼
+ S1P (MBTPS1) cleaves SREBP (cut 1, luminal)
+│
+▼
+ S2P (MBTPS2) cleaves SREBP (cut 2, INTRAMEMBRANE)  ◀── DEFECTIVE IN IFAP
+│
+▼
+ Active SREBP transcription factor → nucleus
+│
+▼
+ ↑ Cholesterol + fatty-acid biosynthesis genes
+│
+   (parallel arm)
+ ER stress → ATF6 → same S1P/S2P cleavage → UPR target genes  ◀── ALSO DEFECTIVE
+</code></pre>
+<p><strong>Causal chain.</strong> Hypomorphic <em>MBTPS2</em> → reduced intramembrane cleavage of SREBP and ATF6 → <strong>(a) deficient cholesterol/fatty-acid synthesis</strong> → defective epidermal barrier lipids and abnormal keratinization (ichthyosis follicularis, keratoderma), abnormal hair-follicle differentiation (atrichia), and corneal/limbal epithelial failure (keratopathy → photophobia); and <strong>(b) failure of the ATF6/UPR ER-stress response</strong> → impaired handling of ER protein-folding load, contributing to cellular dysfunction and (with NF-κB dysregulation) recurrent infection. Upstream = loss of S2P proteolytic activity; downstream = tissue-specific differentiation and stress-response failures.</p>
+<p>Two features of this model are clinically important. First, <strong>residual activity predicts severity</strong> — a graded relationship rather than an all-or-none one (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>), which is why the same gene yields disorders ranging from isolated KFSD/IFAP to lethal BRESHECK. Second, the <strong>S2P–NF-κB link</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">PMID: 37267109</a>) provides a mechanistic explanation for the recurrent infections that are otherwise puzzling in a "keratinization" disorder, integrating the barrier defect with an intrinsic innate-immune signaling defect.</p>
+<pre><code>         MBTPS2 (S2P) activity  ───────────────────────────►  high
+   BRESHECK ◄──── lethal multisystem      IFAP full triad     mild/atypical
+   (little residual activity)         (intermediate)        (more residual)
+</code></pre>
+<hr />
+<h2>Comprehensive Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> IFAP Syndrome 1 is a rare congenital ectodermal disorder defined by the triad of ichthyosis follicularis, atrichia (alopecia), and photophobia. It is a multisystem genodermatosis: beyond the diagnostic triad, patients commonly show palmoplantar keratoderma, nail dystrophy, recurrent skin/respiratory infections, growth impairment, and (in more severe cases) neurodevelopmental and multi-organ anomalies.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0100213" target="_blank" rel="noopener noreferrer">MONDO:0100213</a></td>
+</tr>
+<tr>
+<td>OMIM (disease)</td>
+<td>#308205</td>
+</tr>
+<tr>
+<td>OMIM (gene <em>MBTPS2</em>)</td>
+<td>*300294</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:2273" target="_blank" rel="noopener noreferrer">ORPHA:2273</a></td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><a href="https://bioregistry.io/HGNC:7375" target="_blank" rel="noopener noreferrer">HGNC:7375</a> (MBTPS2)</td>
+</tr>
+<tr>
+<td>Gene / locus</td>
+<td><em>MBTPS2</em>, Xp22.12</td>
+</tr>
+<tr>
+<td>ICD-10 (approx.)</td>
+<td>Q80.8 (other congenital ichthyosis)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Indexed under Ichthyosis / Genetic Skin Diseases (no unique D-term)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> IFAP syndrome; Ichthyosis Follicularis–Alopecia–Photophobia syndrome; Ichthyosis Follicularis with Atrichia and Photophobia. The severe multisystem extension is <strong>BRESHECK syndrome</strong>. <em>Note:</em> <strong>IFAP2 (OMIM #619016)</strong> is a distinct <strong>autosomal-dominant</strong> form caused by <em>SREBF1</em> and overlapping hereditary mucoepithelial dysplasia (HMD) — this report focuses on the <em>MBTPS2</em> (X-linked) form.</p>
+<p><strong>Source of information.</strong> The information base is <strong>disease-level aggregated</strong> (case reports, small case series, and functional/molecular studies) rather than large EHR/individual-patient cohorts — reflecting the disease's extreme rarity (~40 reported male cases as of 2018; <a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">PMID: 28654459</a>).</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor.</strong> The primary cause is <strong>genetic</strong>: hypomorphic (partial loss-of-function) <strong>missense and splice-site variants in <em>MBTPS2</em></strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>). No environmental or infectious cause initiates the disease.</p>
+<p><strong>Genetic risk factors.</strong> The causal variants are germline <em>MBTPS2</em> variants; because the gene is X-linked, <strong>male sex (hemizygosity)</strong> is the principal risk determinant. Residual protease activity (an intrinsic property of the specific variant) determines severity. No independent susceptibility loci or common-variant risk factors are described. Complete loss of function is presumed embryonic-lethal; only partial-function alleles are viable.</p>
+<p><strong>Environmental risk / protective factors.</strong> None established. There is no known diet, exposure, or lifestyle factor that causes, worsens, or protects against IFAP. Heat, low humidity, and bright light exacerbate the <em>symptoms</em> (xerosis, photophobia) but are not disease-modifying. In carrier <strong>females</strong>, favorably skewed X-inactivation can reduce or abolish manifestations (<a href="https://pubmed.ncbi.nlm.nih.gov/16720460/">PMID: 16720460</a>).</p>
+<p><strong>Modifier genes / stochastic factors.</strong> Variable expressivity of <em>identical</em> variants (e.g., c.671-9T&gt;G with vs without keratoderma; <a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a>) implies genetic modifiers and/or stochastic X-inactivation influence severity, but no specific modifier gene is identified.</p>
+<p><strong>Gene–environment interactions.</strong> None formally demonstrated. Given the mechanistic link between S2P and NF-κB-mediated innate immunity (<a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">PMID: 37267109</a>), infectious exposures may plausibly interact with the immune-signaling defect to drive recurrent infections, but this is inferential.</p>
+<h3>3. Phenotypes</h3>
+<p>Onset is <strong>congenital/neonatal</strong> for cutaneous and hair features; the triad is highly penetrant in affected males with <strong>variable expressivity</strong>. Course is <strong>chronic and lifelong</strong>; the keratopathy is <strong>progressive</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO</th>
+<th>Type</th>
+<th>Onset / course</th>
+<th>Frequency (males)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ichthyosis follicularis / follicular hyperkeratosis (spiny papules)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a> (Ichthyosis); <a href="http://purl.obolibrary.org/obo/HP_0007502" target="_blank" rel="noopener noreferrer">HP:0007502</a> (Follicular hyperkeratosis)</td>
+<td>Physical/skin sign</td>
+<td>Congenital, stable–progressive</td>
+<td>~100% (defining)</td>
+</tr>
+<tr>
+<td>Atrichia/alopecia scalp, eyebrows, eyelashes (non-scarring)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a> (Alopecia); <a href="http://purl.obolibrary.org/obo/HP_0100840" target="_blank" rel="noopener noreferrer">HP:0100840</a>; <a href="http://purl.obolibrary.org/obo/HP_0000561" target="_blank" rel="noopener noreferrer">HP:0000561</a></td>
+<td>Physical sign</td>
+<td>Congenital/first year</td>
+<td>~100% (defining)</td>
+</tr>
+<tr>
+<td>Photophobia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+<td>Symptom</td>
+<td>Infancy, progressive</td>
+<td>Majority (defining; may be absent, esp. females)</td>
+</tr>
+<tr>
+<td>Corneal vascularization/scarring → vision loss</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011495" target="_blank" rel="noopener noreferrer">HP:0011495</a>; <a href="http://purl.obolibrary.org/obo/HP_0200020" target="_blank" rel="noopener noreferrer">HP:0200020</a>; <a href="http://purl.obolibrary.org/obo/HP_0000559" target="_blank" rel="noopener noreferrer">HP:0000559</a>; <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a></td>
+<td>Clinical sign</td>
+<td>Infancy→childhood, <strong>progressive</strong></td>
+<td>Common in males</td>
+</tr>
+<tr>
+<td>Palmoplantar keratoderma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" rel="noopener noreferrer">HP:0000982</a></td>
+<td>Skin sign</td>
+<td>Childhood</td>
+<td>Subset (Olmsted-like overlap)</td>
+</tr>
+<tr>
+<td>Nail dystrophy / pachyonychia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" rel="noopener noreferrer">HP:0008404</a></td>
+<td>Sign</td>
+<td>Childhood</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Xerosis / dry skin</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" rel="noopener noreferrer">HP:0000958</a></td>
+<td>Symptom</td>
+<td>Congenital</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Angular cheilitis / periorificial keratotic plaques</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033052" target="_blank" rel="noopener noreferrer">HP:0033052</a></td>
+<td>Sign</td>
+<td>Childhood</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Recurrent infections (skin/respiratory)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a></td>
+<td>Sign</td>
+<td>Infancy</td>
+<td>Subset (severe cases)</td>
+</tr>
+<tr>
+<td>Growth retardation / short stature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a></td>
+<td>Sign</td>
+<td>Childhood</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Intellectual disability / developmental delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Behavioral/neuro</td>
+<td>Childhood</td>
+<td>Subset (more in BRESHECK)</td>
+</tr>
+<tr>
+<td>Joint contractures (rare)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" rel="noopener noreferrer">HP:0034392</a></td>
+<td>Sign</td>
+<td>Childhood, progressive</td>
+<td>Rare (<a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">PMID: 41458897</a>)</td>
+</tr>
+<tr>
+<td>BRESHECK extras (brain, Hirschsprung, ear/hearing, cleft palate, cryptorchidism, kidney dysplasia)</td>
+<td>multiple</td>
+<td>Congenital malformations</td>
+<td>Congenital</td>
+<td>Severe end only</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> Substantial — chronic scaly/pruritic skin, disfiguring universal alopecia (psychosocial burden), progressive visual impairment/blindness impairing education and mobility, recurrent infections, and (in severe cases) intellectual disability and organ malformations. No formal EQ-5D/SF-36/PROMIS data exist for this ultra-rare disease.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<ul>
+<li><strong>Causal gene:</strong> <strong><em>MBTPS2</em></strong> (<a href="https://bioregistry.io/HGNC:7375" target="_blank" rel="noopener noreferrer">HGNC:7375</a>; NCBI Gene 51360; UniProt Q9UHC9), Xp22.12; a ~520-aa polytopic membrane zinc metalloprotease (site-2 protease, S2P; M50 peptidase family, HExxH…LDG zinc-binding motif).</li>
+<li><strong>Variant classification (ACMG/AMP):</strong> Reported variants are <strong>Pathogenic/Likely Pathogenic</strong> when supported by functional assays; CHO-M19 complementation provides PS3-level evidence. Splice/intronic variants often require mini-gene/cDNA validation to upgrade from VUS.</li>
+<li><strong>Variant types:</strong> Predominantly <strong>missense</strong> (exchanging highly conserved residues; <a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>); also <strong>splice-site/intronic</strong> — c.671-9T&gt;G (<a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a>), c.970+5G&gt;A → exon-7 skipping (<a href="https://pubmed.ncbi.nlm.nih.gov/36539961/">PMID: 36539961</a>), and c.766G&gt;A/p.Val256Leu in BRESHECK (<a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a>).</li>
+<li><strong>Allele frequency:</strong> Pathogenic variants are private/ultra-rare; essentially absent from gnomAD (consistent with X-linked reproductive selection).</li>
+<li><strong>Origin:</strong> <strong>Germline</strong>, X-linked; transmitted by carrier mothers or de novo. No somatic/cancer role.</li>
+<li><strong>Functional consequence:</strong> <strong>Hypomorphic (partial loss of function)</strong> — residual activity inversely correlated with severity; complete LOF presumed lethal.</li>
+<li><strong>Modifier genes:</strong> None identified; variable expressivity implicates modifiers + X-inactivation.</li>
+<li><strong>Epigenetics:</strong> No disease-specific methylation/histone data; <strong>X-chromosome inactivation</strong> is the key epigenetic determinant of the mosaic carrier-female phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/16720460/">PMID: 16720460</a>).</li>
+<li><strong>Chromosomal abnormalities:</strong> None (point/splice mutations only; no recurrent CNV/translocation).</li>
+<li><strong>Allelic disorders:</strong> IFAP ± BRESHECK, KFSD (OMIM #308800), X-linked Olmsted syndrome, and OI type XIX (<a href="https://pubmed.ncbi.nlm.nih.gov/33743732/">PMID: 33743732</a>).</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p>No environmental, lifestyle, or infectious <strong>etiological</strong> factors are known. IFAP is entirely genetically determined. Low humidity, heat, and mechanical trauma exacerbate xerosis and follicular hyperkeratosis; bright light exacerbates photophobia. Recurrent infections are a <em>consequence</em> of the disorder (barrier defect + impaired S2P/NF-κB innate immunity), not an environmental cause. One report links IFAP to Hodgkin lymphoma (<a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">PMID: 28654459</a>), raising but not establishing a possible malignancy predisposition.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Molecular pathways.</strong> SCAP–SREBP lipogenesis (S1P/MBTPS1 then <strong>S2P/MBTPS2</strong> cleave SREBP in the Golgi; <a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">PMID: 20935466</a>); ATF6 branch of the UPR (same S1P/S2P machinery); NF-κB innate-immune signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">PMID: 37267109</a>). KEGG: SREBP/lipid biosynthesis; Protein processing in ER.</p>
+<p><strong>Cellular processes.</strong> Keratinocyte terminal differentiation and lamellar-body lipid secretion; corneal <strong>limbal stem cell</strong> maintenance; hair-follicle morphogenesis; ER-stress adaptation.</p>
+<p><strong>Protein dysfunction.</strong> Point/splice mutations reduce catalytic/structural function of the membrane metalloprotease (partial LOF; not aggregation). In vitro, p.Val256Leu produced <em>"impaired cell growth in cholesterol-depleted media, attenuated activation of the sterol regulatory element-binding protein pathway, and failure to activate the endoplasmic reticulum stress response pathway"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a>).</p>
+<p><strong>Metabolic changes.</strong> Deficient cholesterol/fatty-acid (barrier lipid) synthesis. <strong>CHEBI:</strong> cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>), sterol (<a href="http://purl.obolibrary.org/obo/CHEBI_15889" target="_blank" rel="noopener noreferrer">CHEBI:15889</a>), fatty acid (<a href="http://purl.obolibrary.org/obo/CHEBI_35366" target="_blank" rel="noopener noreferrer">CHEBI:35366</a>), zinc(2+) (<a href="http://purl.obolibrary.org/obo/CHEBI_29105" target="_blank" rel="noopener noreferrer">CHEBI:29105</a>).</p>
+<p><strong>Immune involvement.</strong> Recurrent infections; mechanistic link via S2P→NF-κB (<a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">PMID: 37267109</a>) and barrier failure. Not autoimmune.</p>
+<p><strong>Tissue-damage mechanisms.</strong> Corneal neovascularization and conjunctivalization from <strong>limbal stem cell dysfunction</strong>; epidermal barrier disruption.</p>
+<p><strong>GO / CL suggestions.</strong> SREBP signaling <a href="http://purl.obolibrary.org/obo/GO_0032933" target="_blank" rel="noopener noreferrer">GO:0032933</a>; response to ER stress <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a>; metalloendopeptidase activity <a href="http://purl.obolibrary.org/obo/GO_0004222" target="_blank" rel="noopener noreferrer">GO:0004222</a>; cholesterol biosynthetic process <a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a>; keratinocyte differentiation <a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a>. Cells: keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), corneal epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" rel="noopener noreferrer">CL:0000575</a>), fibroblast (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>).</p>
+<p><strong>Molecular profiling (omics).</strong> No transcriptomic/proteomic/metabolomic dataset specific to IFAP itself. The nearest data are <strong>omics of S2P-mutant patient fibroblasts</strong> (allelic OI type XIX), revealing <strong>perturbations in fatty-acid metabolism and collagen production</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34093655/">PMID: 34093655</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37305034/">PMID: 37305034</a>) — consistent with the SREBP-lipogenesis mechanism. IHC in the <em>SREBF1</em> form showed reduced nuclear SREBP1 translocation with IL-17A/S100A8 upregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/39912473/">PMID: 39912473</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure (UBERON/CL/GO)</th>
+<th>Involvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ</td>
+<td>Skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>); hair (<a href="http://purl.obolibrary.org/obo/UBERON_0001037" target="_blank" rel="noopener noreferrer">UBERON:0001037</a>)</td>
+<td>Primary — ichthyosis follicularis, atrichia</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Cornea (<a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" rel="noopener noreferrer">UBERON:0000964</a>) / limbus / conjunctiva</td>
+<td>Primary — keratopathy, limbal stem-cell failure</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Nail (<a href="http://purl.obolibrary.org/obo/UBERON_0001705" target="_blank" rel="noopener noreferrer">UBERON:0001705</a>)</td>
+<td>Secondary — dystrophy</td>
+</tr>
+<tr>
+<td>Organ (severe)</td>
+<td>Brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), colon/ENS, ear, palate, gonads, skeleton</td>
+<td>BRESHECK multisystem</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Stratified squamous epithelium</td>
+<td>Primary target</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>); corneal epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" rel="noopener noreferrer">CL:0000575</a>); limbal stem cell</td>
+<td>Primary</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>ER (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>), Golgi (<a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>), integral membrane (<a href="http://purl.obolibrary.org/obo/GO_0016021" target="_blank" rel="noopener noreferrer">GO:0016021</a>)</td>
+<td>Site of S2P dysfunction</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Lateralization.</strong> Cutaneous and ocular disease is <strong>bilateral/symmetric</strong> in affected males; <strong>female carriers</strong> show <strong>asymmetric, Blaschko-linear (mosaic)</strong> distribution due to lyonization.</p>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital/neonatal</strong> for skin/hair; <strong>photophobia/keratopathy emerge in infancy</strong> and progress. Onset pattern chronic/insidious.</li>
+<li><strong>Progression:</strong> Cutaneous features relatively stable-to-slowly progressive; <strong>ocular keratopathy is inexorably progressive</strong> — <em>"Males with IFAP have an inexorable progression of corneal vascularization and loss of vision"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15370546/">PMID: 15370546</a>). Chronic/lifelong; no spontaneous remission. Rare progressive musculoskeletal contractures (<a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">PMID: 41458897</a>).</li>
+<li><strong>Critical periods:</strong> Infancy/early childhood is the key window for ocular-surface protection to preserve vision; the neonatal period is critical in severe/BRESHECK cases (thermoregulation, infection, organ malformations).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> <strong>X-linked recessive</strong> (<em>MBTPS2</em>, Xp22.12); affected males inherit from carrier mothers or de novo; no male-to-male transmission; all daughters of an affected male are obligate carriers.</li>
+<li><strong>Penetrance / expressivity:</strong> High penetrance in hemizygous males; <strong>markedly variable expressivity</strong>, even for identical alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a>).</li>
+<li><strong>Epidemiology:</strong> Ultra-rare (Orphanet <a href="https://bioregistry.io/ORPHA:2273" target="_blank" rel="noopener noreferrer">ORPHA:2273</a>); <strong>~40 reported male cases</strong> by 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">PMID: 28654459</a>); no reliable prevalence/incidence.</li>
+<li><strong>Anticipation:</strong> Not applicable (no repeat expansion). <strong>Founder effects/consanguinity:</strong> none established (recurrent variants reflect mutational hotspots, not founders). <strong>Carrier frequency:</strong> not estimable (private variants, absent from gnomAD). <strong>Germline mosaicism:</strong> plausible but not well documented; de novo variants reported.</li>
+<li><strong>Demographics:</strong> Reported worldwide (Australia, China, India, Brazil, Saudi Arabia, Korea, etc.) with no ethnic clustering; <strong>strongly male-predominant</strong> sex ratio; rare, generally milder female cases (including an atypical female with severe contractures and no photophobia, <a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">PMID: 41458897</a>). A large Australian kindred clearly demonstrated X-linked transmission (<a href="https://pubmed.ncbi.nlm.nih.gov/19689518/">PMID: 19689518</a>).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical diagnosis:</strong> Recognition of the triad (follicular ichthyosis + congenital atrichia + photophobia).</li>
+<li><strong>Skin biopsy/histopathology:</strong> Orthokeratotic hyperkeratosis, acanthosis, and <strong>follicular plugging</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">PMID: 41458897</a>); reduced/absent hair follicles.</li>
+<li><strong>Ophthalmology:</strong> Slit-lamp (corneal vascularization, epithelial defects, pannus); <strong>anterior-segment OCT</strong> (abnormal hyperreflective epithelium indicating <strong>limbal stem cell dysfunction</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/32482964/">PMID: 32482964</a>); carrier mothers may show retinal vascular tortuosity.</li>
+<li><strong>Genetic testing (confirmatory):</strong> <strong><em>MBTPS2</em> single-gene sequencing</strong> or <strong>WES/WGS</strong>; ichthyosis/ectodermal-dysplasia panels. Splice/intronic VUS require <strong>cDNA/mini-gene assays</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36539961/">PMID: 36539961</a>); CHO-M19 complementation assesses residual function (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>). CMA/karyotype/FISH generally uninformative.</li>
+<li><strong>Clinical criteria:</strong> No formal consensus criteria; diagnosis is triad + molecular confirmation.</li>
+<li><strong>Differential diagnosis (IF is genetically heterogeneous):</strong> <em>SREBF1</em>-IFAP / HMD — <strong>autosomal dominant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33742461/">PMID: 33742461</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41492963/">PMID: 41492963</a>); <em>GJB2</em> — <strong>autosomal recessive</strong> IF + <strong>severe SNHL</strong> + punctate PPK (<a href="https://pubmed.ncbi.nlm.nih.gov/30431684/">PMID: 30431684</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35396755/">PMID: 35396755</a>); KFSD; Olmsted syndrome (X-linked <em>MBTPS2</em> vs AD <em>TRPV3</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/24452206/">PMID: 24452206</a>); other congenital ichthyoses/ectodermal dysplasias.</li>
+<li><strong>Screening:</strong> No newborn/population screening. <strong>Cascade carrier testing</strong> of at-risk female relatives; prenatal/PGT when familial variant is known.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> Isolated (non-BRESHECK) IFAP is compatible with near-normal life expectancy; <strong>BRESHECK</strong> carries high infant/childhood morbidity and mortality from brain/kidney anomalies, infections, and marrow involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a>). No formal survival statistics.</li>
+<li><strong>Morbidity/disability:</strong> Dominated by <strong>progressive visual impairment/blindness</strong>, chronic skin disease, recurrent infections, and, in severe cases, intellectual disability and organ dysfunction; rare disabling contractures.</li>
+<li><strong>Complications:</strong> Corneal scarring/blindness, secondary infections, growth failure; possible malignancy (single Hodgkin lymphoma case, <a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">PMID: 28654459</a>).</li>
+<li><strong>Recovery potential:</strong> No cure; features largely irreversible, though skin and corneal erosions can partially improve with therapy.</li>
+<li><strong>Prognostic factors:</strong> <strong>Residual MBTPS2 activity / genotype severity</strong> is the principal determinant (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>); BRESHECK features predict poor outcome. No validated prognostic biomarkers.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p>No curative/disease-modifying therapy; <strong>symptomatic, multidisciplinary</strong> (dermatology, ophthalmology, genetics ±). Suggested NCIT terms in parentheses.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Intervention</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skin care</td>
+<td>Emollients, urea keratolytics (NCIT: Emollient)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38089015/">PMID: 38089015</a></td>
+</tr>
+<tr>
+<td>Systemic retinoid</td>
+<td><strong>Acitretin ~1 mg/kg</strong> (NCIT:C29496) — partial cutaneous/corneal benefit; no effect on alopecia/photophobia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16268889/">PMID: 16268889</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19689518/">PMID: 19689518</a></td>
+</tr>
+<tr>
+<td>Ocular surface</td>
+<td>Lubrication, prophylactic antibiotics, punctal occlusion, tarsorrhaphy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32482964/">PMID: 32482964</a></td>
+</tr>
+<tr>
+<td>Ocular surgery</td>
+<td><strong>Amniotic membrane transplantation</strong> (+ acitretin)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21670910/">PMID: 21670910</a></td>
+</tr>
+<tr>
+<td>Orthopedic</td>
+<td>Soft-tissue release, Achilles lengthening for contractures</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">PMID: 41458897</a></td>
+</tr>
+<tr>
+<td>Supportive</td>
+<td>Infection management, low-vision rehab, growth/nutrition, genetic counseling</td>
+<td>Multiple</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Advanced/experimental therapies.</strong> No gene, cell, RNA, or targeted therapies are approved or in trials; no NCT-registered IFAP-specific interventional trials identified. Pharmacogenomics not applicable. Genotype (residual activity) may guide severity expectation/counseling, but no genotype-directed drug exists. Retinoid toxicity (mucocutaneous, hepatic, lipid, skeletal) and teratogenicity require monitoring.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible (monogenic germline). <strong>Genetic counseling</strong> and reproductive options (carrier testing, prenatal diagnosis, PGT-M) for at-risk families are the mainstay.</li>
+<li><strong>Secondary prevention:</strong> Early ophthalmologic surveillance and <strong>ocular-surface protection in infancy</strong> to slow corneal vascularization and preserve vision; early skin care.</li>
+<li><strong>Tertiary prevention:</strong> Infection prophylaxis/prompt treatment, vision rehabilitation, nutritional/growth support, management of BRESHECK complications.</li>
+<li><strong>Screening:</strong> Cascade genetic testing of relatives; no population/newborn screening. Routine vaccination advisable given infection risk. Behavioral/public-health/environmental interventions are not applicable to causation.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> MBTPS2 is deeply conserved. Human <em>MBTPS2</em> (Taxon 9606); mouse <em>Mbtps2</em> (Taxon 10090; NCBI Gene 270669); <em>Drosophila</em> <em>S2P</em> (Taxon 7227); hamster ortholog underlies the classic M19 mutant cell line (Taxon 10029).</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring IFAP-equivalent disease is catalogued in OMIA for companion animals or livestock; veterinary relevance is minimal.</li>
+<li><strong>Comparative biology / conservation:</strong> The S2P–SREBP lipid-regulatory axis is conserved from insects to mammals; <em>Drosophila ds2p</em> nulls show lipid-auxotrophy phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">PMID: 20935466</a>), underscoring conserved essentiality.</li>
+<li><strong>Transmission:</strong> Not applicable (non-infectious, non-zoonotic).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Utility</th>
+<th>Limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CHO-M19 cells</strong></td>
+<td>In vitro (mammalian)</td>
+<td><strong>Principal functional assay</strong> — complementation classifies variant pathogenicity/severity (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a>)</td>
+<td>Does not reproduce tissue-level phenotype</td>
+</tr>
+<tr>
+<td><strong>Patient fibroblasts</strong></td>
+<td>In vitro (human)</td>
+<td>Omics reveal fatty-acid/collagen signature; splicing/expression studies (<a href="https://pubmed.ncbi.nlm.nih.gov/34093655/">PMID: 34093655</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37305034/">PMID: 37305034</a>)</td>
+<td>Not a whole-organism model</td>
+</tr>
+<tr>
+<td><strong><em>Drosophila</em> dS2P / dSREBP nulls</strong></td>
+<td>Invertebrate genetic</td>
+<td>Conserved lipid-auxotrophy; dietary-lipid rescue (<a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">PMID: 20935466</a>)</td>
+<td>Does not model skin/eye phenotype</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Gap:</strong> No dedicated <em>Mbtps2</em> mouse or zebrafish <strong>IFAP disease model</strong> was identified; whole-animal null models are expected to be lethal. Mechanistic inference relies on cellular complementation and orthologous invertebrate genetics. <strong>Resources:</strong> MGI (Mbtps2), FlyBase (S2P), Cellosaurus (M19/CHO), plus patient-derived cells.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">19361614</a></td>
+<td>Gene identification; CHO-M19 complementation; activity–severity correlation</td>
+<td><strong>Foundational</strong> (F001, F002, F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">34655156</a></td>
+<td>BRESHECK variant impairs SREBP + abolishes UPR</td>
+<td>Dual mechanism (F002, F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33743732/">33743732</a></td>
+<td><em>MBTPS2</em> allelic disorder spectrum; RIP function</td>
+<td>Supports (F002, F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38089015/">38089015</a></td>
+<td>Defines triad &amp; inheritance; skin care</td>
+<td>Supports (F003, F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16720460/">16720460</a></td>
+<td>X-inactivation → carrier mosaicism</td>
+<td>Supports (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32482964/">32482964</a></td>
+<td>Limbal stem-cell dysfunction (AS-OCT)</td>
+<td><strong>Key ocular</strong> (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15370546/">15370546</a></td>
+<td>Progressive corneal vascularization; carrier sign</td>
+<td>Supports (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16268889/">16268889</a></td>
+<td>Acitretin partial response</td>
+<td><strong>Key treatment</strong> (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21670910/">21670910</a></td>
+<td>Acitretin + amniotic membrane benefit</td>
+<td>Supports (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">24313295</a></td>
+<td>Variable expressivity; BRESHECK acronym</td>
+<td>Supports (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28654459/">28654459</a></td>
+<td>~40 cases; Hodgkin lymphoma report</td>
+<td>Epidemiology (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36539961/">36539961</a></td>
+<td>Intronic splice variant → exon-7 skipping</td>
+<td>Diagnostics (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20935466/">20935466</a></td>
+<td>Two-protease SREBP cascade; <em>Drosophila</em> dS2P</td>
+<td>Pathway/model (F007, F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37267109/">37267109</a></td>
+<td>S2P–NF-κB immune link</td>
+<td><strong>Mechanistic</strong> (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30431684/">30431684</a></td>
+<td><em>GJB2</em> ichthyosis follicularis (DDx)</td>
+<td>Differential (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34093655/">34093655</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37305034/">37305034</a></td>
+<td>S2P-mutant fibroblast omics (lipid/collagen)</td>
+<td>Molecular signature (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33742461/">33742461</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41492963/">41492963</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39912473/">39912473</a></td>
+<td><em>SREBF1</em>-IFAP / HMD overlap</td>
+<td>Differential/heterogeneity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24452206/">24452206</a></td>
+<td><em>TRPV3</em> vs <em>MBTPS2</em> Olmsted</td>
+<td>Differential</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19689518/">19689518</a></td>
+<td>Large Australian kindred; X-linked; acitretin</td>
+<td>Inheritance/treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41458897/">41458897</a></td>
+<td>Atypical female; contractures; orthopedic surgery</td>
+<td>Phenotype expansion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35396755/">35396755</a></td>
+<td><em>GJB2</em> ichthyosis follicularis syndromes</td>
+<td>Differential</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Supported and Refuted Hypotheses</h2>
+<p><strong>Supported:</strong>
+1. IFAP1 is caused by partial LOF of <em>MBTPS2</em>, with residual activity inversely proportional to severity (<a href="https://pubmed.ncbi.nlm.nih.gov/19361614/">PMID: 19361614</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34655156/">PMID: 34655156</a>).
+2. Photophobia results from a progressive keratopathy due to <strong>limbal stem-cell dysfunction</strong>, not a primary retinal defect (<a href="https://pubmed.ncbi.nlm.nih.gov/15370546/">PMID: 15370546</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32482964/">PMID: 32482964</a>).
+3. Acitretin partially improves skin/corneal features but not alopecia/photophobia (<a href="https://pubmed.ncbi.nlm.nih.gov/16268889/">PMID: 16268889</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21670910/">PMID: 21670910</a>).</p>
+<p><strong>Refuted / not supported:</strong>
+- IFAP is <strong>not</strong> caused by environmental or infectious agents; no environmental or protective genetic modifiers are proven.
+- No animal model fully recapitulates the triad; claims of a definitive mouse/zebrafish IFAP model are <strong>not supported</strong> by retrieved literature.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Small evidence base.</strong> With ~40 reported cases, all clinical claims derive from case reports/series; no controlled trials, no formal prevalence/incidence, and no validated QoL metrics exist.</li>
+<li><strong>No animal disease model.</strong> No <em>Mbtps2</em> mouse or zebrafish IFAP model was identified; mechanistic inference relies on CHO-M19 cells, patient fibroblasts, and <em>Drosophila</em> — none of which reproduce the skin/eye phenotype.</li>
+<li><strong>Genotype–phenotype resolution is incomplete.</strong> Although residual activity correlates with severity, identical variants can produce divergent phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/24313295/">PMID: 24313295</a>), implying unidentified modifiers or stochastic X-inactivation effects.</li>
+<li><strong>Treatment evidence is anecdotal.</strong> Acitretin benefit rests on individual cases; optimal dosing, long-term outcomes, and ocular-therapy standardization are undefined.</li>
+<li><strong>Uncertain associations.</strong> The single Hodgkin-lymphoma report does not establish a malignancy risk; the S2P–NF-κB immune link is mechanistically plausible but not clinically proven in IFAP patients.</li>
+<li><strong>Citation caveat.</strong> One omics snippet (<a href="https://pubmed.ncbi.nlm.nih.gov/34093655/">PMID: 34093655</a>) was flagged as title-derived during validation; the omics conclusion should be treated as supported primarily by the paired <a href="https://pubmed.ncbi.nlm.nih.gov/37305034/">PMID: 37305034</a>.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a conditional <em>Mbtps2</em> hypomorphic mouse</strong> (epidermis- and cornea-specific) to establish the first mammalian IFAP disease model and test whether residual-activity gradients recapitulate the human severity continuum.</li>
+<li><strong>Single-cell / spatial transcriptomics of IFAP skin and limbus</strong> to define cell-type-specific SREBP/ATF6 target-gene failure and confirm limbal stem-cell depletion at molecular resolution.</li>
+<li><strong>Systematic variant-function mapping</strong> in the CHO-M19 assay for all reported <em>MBTPS2</em> variants to build a quantitative activity-vs-severity calibration usable for prognostic counseling.</li>
+<li><strong>Prospective natural-history registry</strong> (multinational, given rarity) capturing standardized ophthalmic, dermatologic, and QoL endpoints.</li>
+<li><strong>Pilot limbal stem-cell / amniotic-membrane protocols</strong> with pre-specified visual-acuity endpoints to move ocular management beyond anecdote.</li>
+<li><strong>Lipidomic/metabolomic profiling</strong> of patient skin and serum to test whether topical lipid replacement (cholesterol/fatty-acid supplementation) can bypass the SREBP defect — a mechanistically rational, low-risk therapeutic hypothesis.</li>
+<li><strong>Evaluate innate-immune function</strong> (NF-κB responsiveness) in patient monocytes to determine whether recurrent infections warrant prophylactic strategies.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 9 confirmed findings and 28 reviewed publications. Evidence classes: human clinical (case reports/series), in vitro (CHO-M19 complementation, mini-gene/splicing assays, IHC), invertebrate model (Drosophila), and computational/omics. PMIDs cited inline.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/IFAP_Syndrome_1-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/IFAP_Syndrome_1-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>24</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>43</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0100213</code> (4 mentions) - the report calls it "MONDO"; MONDO calls it <strong>IFAP syndrome 1, with or without BRESHECK syndrome</strong></li>
+<li><code>HP:0033052</code> (1 mention) - the report calls it "Angular cheilitis / periorificial keratotic plaques"; HP calls it <strong>Non-epileptic seizure</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>NCIT:C29496</code> (1 mention), reported as "Acitretin ~1 mg/kg" - NCIT does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0016021</code> (GO_0016021) (1 mention) - replaced by <code>GO:0016020</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0008404</code> (1 mention) - the report calls it "Nail dystrophy / pachyonychia"; HP calls it <strong>Nail dystrophy</strong></li>
+<li><code>HP:0000958</code> (1 mention) - the report calls it "Xerosis / dry skin"; HP calls it <strong>Dry skin</strong></li>
+<li><code>HP:0002719</code> (1 mention) - the report calls it "Recurrent infections (skin/respiratory)"; HP calls it <strong>Recurrent infections</strong></li>
+<li><code>HP:0001510</code> (1 mention) - the report calls it "Growth retardation / short stature"; HP calls it <strong>Growth delay</strong>, and lists "Growth retardation" among its other names</li>
+<li><code>HP:0001249</code> (1 mention) - the report calls it "Intellectual disability / developmental delay"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>HP:0034392</code> (1 mention) - the report calls it "Joint contractures (rare)"; HP calls it <strong>Joint contracture</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Idiopathic_Triglyceride_Deposit_Cardiomyovasculopathy-falcon.html">← Idiopathic Triglyceride Deposit Cardiomyovasculopathy (Falcon)</a>
+                
+                
+                <a href="IFAP_Syndrome_2-claude_code.html">IFAP Syndrome 2 (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/IFAP_Syndrome_1.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/IFAP_Syndrome_1-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
