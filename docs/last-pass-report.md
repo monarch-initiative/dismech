@@ -58,6 +58,17 @@ entries and 13 — so the threshold is a dial, and the classification is printed
 than hidden. Use `--list-bulk` to see exactly what was excluded, and
 `--bulk-threshold` to move the line.
 
+**How much the default misses.** About 11% of `PASSED` entries (165 of 1543 when this
+was measured) have a last "pass" whose summary recurs across 5-14 entries — under the
+default threshold, so counted as a pass. At `--bulk-threshold 8` the near misses are
+unambiguous sweeps (`backfill reference_title on evidence items`, `normalize dataset
+accession prefixes`). Worse for the residual: a campaign **split into tranches** gets a
+distinct summary per slice (`tranche 2`, `hgnc tranche 4/5`), so verbatim matching
+cannot see it as one campaign at any threshold. Fuzzy matching would catch those and is
+deliberately not done — it would make the classification unexplainable, which is the one
+property this heuristic has going for it. Read `PASSED` as "no sweep was detected", not
+as "definitely a real pass".
+
 One documented exemption: `GENERAL` events whose summary starts with
 `Legacy curation summary` are the roll-ups that imported pre-`history/` activity.
 Several coincidentally share a summary (same event count, same date range) without

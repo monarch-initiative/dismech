@@ -50,7 +50,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dismech.yaml_io import safe_load_path
@@ -85,6 +85,9 @@ STATUS_PASSED = "PASSED"
 STATUS_BULK_ONLY = "BULK_ONLY"
 STATUS_NO_HISTORY = "NO_HISTORY"
 
+# Sort position for a timestamp that will not parse: older than any real one.
+_UNREADABLE_MOMENT = datetime.min.replace(tzinfo=UTC)
+
 
 def _normalize_summary(summary: str) -> str:
     """Collapse a summary to its comparison key."""
@@ -113,8 +116,33 @@ class Event:
         """Calendar date of the session, for display."""
         return self.timestamp[:10]
 
+    @property
+    def moment(self) -> datetime:
+        """Ordering key: the timestamp as an aware UTC datetime.
+
+        Never compare ``timestamp`` strings. ``history.yaml`` permits a
+        ``[+-]HH:MM`` offset and fractional seconds as well as ``Z``, and
+        lexical order disagrees with chronological order across both: a
+        ``2026-08-01T20:00:00-05:00`` session happened *after* a
+        ``2026-08-01T23:00:00Z`` one but sorts before it, and ``.`` sorts
+        before ``Z``. Picking the newest event is this module's single core
+        operation, so it parses first.
+
+        An unreadable timestamp sorts oldest rather than raising: a malformed
+        record must not silently become the entry's "last pass", and must not
+        abort the whole report either.
+        """
+        return _parse_timestamp(self.timestamp) or _UNREADABLE_MOMENT
+
     def age_days(self, as_of: datetime) -> int | None:
-        """Whole days between this event and ``as_of``; ``None`` if unreadable."""
+        """Whole days between this event and ``as_of``; ``None`` if unreadable.
+
+        Clamped at 0: an event later than ``as_of`` reports ``0d``, not a
+        negative age. That is right for the default ``as_of`` of *now*, where a
+        future timestamp is a bad record. It also means an ``--as-of`` earlier
+        than the data reports ``0d`` for everything after it rather than saying
+        so — read a wall of ``0d`` as "your ``--as-of`` predates the ledger".
+        """
         moment = _parse_timestamp(self.timestamp)
         if moment is None:
             return None
@@ -136,10 +164,18 @@ class TargetReport:
 
     @property
     def touch_is_bulk(self) -> bool:
-        """True when the newest record is a sweep, i.e. the entry *looks* fresh."""
+        """True when the newest record is a sweep, i.e. the entry *looks* fresh.
+
+        **Only meaningful for ``PASSED``.** It compares the newest touch against
+        the newest pass, so an entry with no pass at all has nothing to compare
+        and reports ``False`` — even though a ``BULK_ONLY`` entry is the *most*
+        misleadingly-fresh-looking kind there is. A consumer counting this to
+        mean "entries whose freshness is a sweep" under-counts by every
+        ``BULK_ONLY`` row. Count ``status == BULK_ONLY`` separately.
+        """
         if self.last_touch is None or self.last_pass is None:
             return False
-        return self.last_touch.timestamp > self.last_pass.timestamp
+        return self.last_touch.moment > self.last_pass.moment
 
     def as_dict(self, as_of: datetime) -> dict[str, object]:
         """JSON/TSV-friendly projection."""
@@ -170,6 +206,13 @@ class Report:
 
     targets: list[TargetReport] = field(default_factory=list)
     bulk_summaries: dict[str, int] = field(default_factory=dict)
+    #: normalized bulk key -> one original-cased summary carrying it. The keys of
+    #: `bulk_summaries` are casefolded and whitespace-collapsed so they match
+    #: across records, which makes them useless to paste back at the ledger. This
+    #: keeps a verbatim representative so `--list-bulk` output greps against
+    #: `history/`. Casing can differ between records sharing a key; the earliest
+    #: record's spelling wins, so treat it as a representative, not the spelling.
+    bulk_display: dict[str, str] = field(default_factory=dict)
     bulk_threshold: int = DEFAULT_BULK_THRESHOLD
     unreadable: list[str] = field(default_factory=list)
 
@@ -189,8 +232,8 @@ def _parse_timestamp(value: str) -> datetime | None:
     except ValueError:
         return None
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
 
 
 def _iter_record_paths(history_dir: Path, kinds: Iterable[str]) -> Iterator[Path]:
@@ -217,6 +260,25 @@ def _record_slug(record: dict, path: Path) -> str:
     return path.parent.name
 
 
+def _primary_actor(actors: object) -> dict:
+    """The actor a session's model and tool should be attributed to.
+
+    ``actors`` is a list even for a single-actor session. Reading ``actors[0]``
+    is right for every committed record today — the 121 multi-actor ones all
+    list the agent first — but that is a property of how `just new-history`
+    happens to order them, not of the schema. Prefer the first ``ai_agent``,
+    since ``model`` and ``agent_tool`` describe an agent and a human actor
+    carries neither; fall back to the first entry of any type.
+    """
+    if not isinstance(actors, list):
+        return {}
+    entries = [a for a in actors if isinstance(a, dict)]
+    for actor in entries:
+        if str(actor.get("type") or "") == "ai_agent":
+            return actor
+    return entries[0] if entries else {}
+
+
 def load_events(
     history_dir: Path, kinds: Iterable[str]
 ) -> tuple[list[Event], dict[str, set[str]], list[str]]:
@@ -228,24 +290,45 @@ def load_events(
     for path in _iter_record_paths(history_dir, kinds):
         try:
             record = safe_load_path(path)
-        except Exception:  # noqa: BLE001 - a malformed record must not abort the report
+        except Exception:
             unreadable.append(str(path))
             continue
         if not isinstance(record, dict) or "target" not in record:
             unreadable.append(str(path))
             continue
 
-        target = record.get("target") or {}
+        target = record.get("target")
+        if not isinstance(target, dict):
+            unreadable.append(str(path))
+            continue
         kind = str(target.get("kind") or "")
         if kind not in HISTORY_DIRS:
             continue
         slug = _record_slug(record, path)
-        session = record.get("session") or {}
+        # A record can be unreadable in more ways than "YAML will not load". The
+        # schema is not enforced here, so `session:` may be a string and
+        # `actors:` a mapping; both used to raise past the guard above and abort
+        # the whole report, which contradicts the point of collecting
+        # `unreadable`. Shape is checked, not just parseability.
+        session = record.get("session")
+        if not isinstance(session, dict):
+            unreadable.append(str(path))
+            continue
         timestamp = str(session.get("timestamp") or "")
-        actors = session.get("actors") or [{}]
-        actor = actors[0] if isinstance(actors[0], dict) else {}
+        raw_actors = session.get("actors")
+        if raw_actors is not None and not isinstance(raw_actors, list):
+            # Flag rather than degrade. Attributing the session to no actor at
+            # all would silently drop it out of every `--model` filter.
+            unreadable.append(str(path))
+            continue
+        actor = _primary_actor(raw_actors)
 
-        for raw in record.get("events") or []:
+        raw_events = record.get("events") or []
+        if not isinstance(raw_events, list):
+            unreadable.append(str(path))
+            continue
+
+        for raw in raw_events:
             if not isinstance(raw, dict):
                 continue
             summary = str(raw.get("summary") or "")
@@ -299,6 +382,11 @@ def build_report(
     kinds = tuple(kinds)
     events, summary_slugs, unreadable = load_events(history_dir, kinds)
     bulk_summaries = detect_bulk_summaries(summary_slugs, bulk_threshold)
+    bulk_display: dict[str, str] = {}
+    for event in events:
+        key = _normalize_summary(event.summary)
+        if key in bulk_summaries:
+            bulk_display.setdefault(key, event.summary)
 
     by_slug: dict[tuple[str, str], list[Event]] = defaultdict(list)
     for event in events:
@@ -327,12 +415,12 @@ def build_report(
                 ),
             )
             if entry_events:
-                report.last_touch = max(entry_events, key=lambda e: e.timestamp)
+                report.last_touch = max(entry_events, key=lambda e: e.moment)
                 substantive = [
                     e for e in entry_events if is_substantive(e, bulk_summaries)
                 ]
                 if substantive:
-                    report.last_pass = max(substantive, key=lambda e: e.timestamp)
+                    report.last_pass = max(substantive, key=lambda e: e.moment)
                     report.status = STATUS_PASSED
                 else:
                     report.status = STATUS_BULK_ONLY
@@ -341,6 +429,7 @@ def build_report(
     return Report(
         targets=targets,
         bulk_summaries=bulk_summaries,
+        bulk_display=bulk_display,
         bulk_threshold=bulk_threshold,
         unreadable=unreadable,
     )
@@ -376,14 +465,17 @@ def select(
                 continue
         selected.append(target)
 
-    def sort_key(target: TargetReport) -> tuple[int, str, str]:
+    def sort_key(target: TargetReport) -> tuple[int, datetime, str]:
         # Entries with no substantive pass rank first — they are the priority — and
         # within that group the one untouched longest comes first, so a sweep last
         # week does not outrank an entry nothing has looked at since December.
+        # Ordered on the parsed moment, not the raw string; see `Event.moment`.
         if target.last_pass is None:
-            touched = target.last_touch.timestamp if target.last_touch else ""
+            touched = (
+                target.last_touch.moment if target.last_touch else _UNREADABLE_MOMENT
+            )
             return (0, touched, target.slug)
-        return (1, target.last_pass.timestamp, target.slug)
+        return (1, target.last_pass.moment, target.slug)
 
     return sorted(selected, key=sort_key)
 
@@ -496,14 +588,16 @@ def format_tsv(selected: list[TargetReport], as_of: datetime) -> str:
 
 def format_bulk(report: Report) -> str:
     out = [
-        f"Bulk sweeps detected (summary recurring across >={report.bulk_threshold} "
-        "distinct entries):",
+        (
+            f"Bulk sweeps detected (summary recurring across "
+            f">={report.bulk_threshold} distinct entries):"
+        ),
         "",
     ]
     for summary, count in sorted(
         report.bulk_summaries.items(), key=lambda kv: (-kv[1], kv[0])
     ):
-        out.append(f"  {count:>5}  {summary}")
+        out.append(f"  {count:>5}  {report.bulk_display.get(summary, summary)}")
     if not report.bulk_summaries:
         out.append("  (none)")
     return "\n".join(out)
@@ -557,15 +651,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    as_of = _parse_timestamp(args.as_of) if args.as_of else datetime.now(timezone.utc)
+    as_of = _parse_timestamp(args.as_of) if args.as_of else datetime.now(UTC)
     if as_of is None:
         parser.error(f"could not parse --as-of {args.as_of!r}")
 
     kinds = tuple(args.kind) if args.kind else tuple(KB_KINDS)
+    # Always build over every kind, then narrow in `select`. `--kind` is a view,
+    # and building narrowed would make it change the *classification* too: bulk
+    # detection counts distinct targets, so `--kind module` would look for a
+    # 15-target sweep inside a 127-entry corpus that most campaigns never reach,
+    # and a cross-kind sweep would stop being recognised as one.
     report = build_report(
         kb_dir=args.kb_dir,
         history_dir=args.history_dir,
-        kinds=kinds,
         bulk_threshold=args.bulk_threshold,
     )
 
@@ -588,7 +686,10 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "as_of": as_of.isoformat(),
                     "bulk_threshold": report.bulk_threshold,
-                    "bulk_summaries": report.bulk_summaries,
+                    "bulk_summaries": {
+                        report.bulk_display.get(key, key): count
+                        for key, count in report.bulk_summaries.items()
+                    },
                     "entries": [t.as_dict(as_of) for t in selected],
                 },
                 indent=2,
