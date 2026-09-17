@@ -29436,7 +29436,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
   {
@@ -74820,11 +74820,11 @@ window.searchData = [
     "creation_date": "2026-01-19T21:03:46Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Collagenous sprue is a rare malabsorptive small-bowel disorder defined histologically by abnormal deposition of a thickened subepithelial collagen band beneath the surface epithelium, accompanied by villous atrophy and intraepithelial lymphocytosis. Chronic mucosal immune activation and epithelial barrier disruption drive fibrotic remodeling that impairs nutrient absorption. Patients present with chronic watery diarrhea, weight loss, malabsorption, and protein-losing enteropathy; it is frequently associated with celiac disease and can be refractory to a gluten-free diet.",
+    "description": "Collagenous sprue is a rare malabsorptive small-bowel disorder defined histologically by abnormal deposition of a thickened subepithelial collagen band beneath the surface epithelium, accompanied by villous atrophy and intraepithelial lymphocytosis, with entrapment of lamina propria cellular elements within the band. Patients present with prolonged watery diarrhea, weight loss, malnutrition and severe malabsorption, and laboratory evidence of hypoalbuminemia, hypokalemia and anemia. Exposure to a drug associated with sprue-like enteropathy \u2014 most often an angiotensin receptor blocker \u2014 is common in reported cases. The disorder is associated with, but not equivalent to, celiac disease: it is frequently refractory to a gluten-free diet and occurs in patients who are celiac-seronegative and HLA-DQ2/DQ8-negative. Its aetiology and molecular pathogenesis remain uncharacterized.",
     "pathophysiology": [
       "Mucosal immune activation with intraepithelial lymphocytosis",
-      "Epithelial barrier dysfunction and tight junction disruption",
-      "Subepithelial collagen deposition and fibrotic remodeling"
+      "Subepithelial collagen deposition with entrapment of lamina propria elements",
+      "Epithelial detachment and villous atrophy"
     ],
     "cell_types": [
       "intraepithelial lymphocyte",
@@ -74843,10 +74843,10 @@ window.searchData = [
     "biological_processes": [
       "T cell mediated immune response",
       "response to cytokine",
-      "cell junction organization",
-      "epithelial cell differentiation",
       "positive regulation of collagen biosynthetic process",
-      "extracellular matrix organization"
+      "extracellular matrix organization",
+      "cell junction organization",
+      "epithelial cell differentiation"
     ],
     "phenotypes": [
       "Chronic watery diarrhea",
@@ -74881,17 +74881,14 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [
-      "HLA-DQA1",
-      "TGFB1",
-      "MMP1",
-      "MMP9",
-      "TIMP1",
-      "TJP1"
+      "HLA-DQA1"
     ],
     "treatments": [
+      "Gluten-free diet",
       "Corticosteroids (Budesonide)",
       "Thiopurines (Azathioprine/6-Thioguanine)",
       "Anti-TNF-\u03b1 Therapy",
@@ -74901,20 +74898,20 @@ window.searchData = [
     ],
     "environmental": [
       "Medications (Angiotensin II Receptor Blockers)",
-      "Medications (Proton Pump Inhibitors and NSAIDs)"
+      "Medications (NSAIDs and clofazimine)"
     ],
     "biochemical": [
       "Serum albumin",
-      "Hemoglobin/Hematocrit",
-      "Serum iron",
+      "Hemoglobin",
+      "Serum potassium",
       "Tissue transglutaminase (tTG) antibodies"
     ],
     "source_file": "Collagenous_Sprue.yaml",
     "page_url": "../pages/disorders/Collagenous_Sprue.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 3,
-    "num_genes": 6,
-    "num_treatments": 6,
+    "num_genes": 1,
+    "num_treatments": 7,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -101588,7 +101585,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 19,
     "num_treatments": 5,
-    "causal_graph_edges": "30",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "4"
   },
   {
@@ -115244,6 +115241,7 @@ window.searchData = [
       "Abnormal Renal Morphology",
       "Intrauterine Growth Retardation",
       "Developmental Delay",
+      "Intellectual Disability",
       "Hydrocephalus",
       "Ventriculomegaly",
       "Hypopigmented Skin Patches",
@@ -115389,7 +115387,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001876",
       "HP:0001909",
-      "HP:0001903",
+      "HP:0001915",
       "HP:0001873",
       "HP:0001882",
       "HP:0004322",
@@ -115470,6 +115468,7 @@ window.searchData = [
       "HP:0008209",
       "HP:0012210",
       "HP:0001511",
+      "HP:0001263",
       "HP:0001249",
       "HP:0000238",
       "HP:0002119",
@@ -115621,11 +115620,11 @@ window.searchData = [
     ],
     "source_file": "Fanconi_Anemia.yaml",
     "page_url": "../pages/disorders/Fanconi_Anemia.html",
-    "num_phenotypes": 184,
+    "num_phenotypes": 185,
     "num_pathophysiology": 22,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "174",
+    "causal_graph_edges": "230",
     "causal_graph_longest_path": "7"
   },
   {
@@ -155507,6 +155506,103 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Immunodeficiency 67",
+    "disease_id": "MONDO:0011888",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 67 is IRAK-4 deficiency: an autosomal recessive inborn error of innate immunity caused by biallelic loss-of-function variants in IRAK4, which encodes interleukin-1 receptor-associated kinase 4, the kinase recruited immediately downstream of the adaptor MyD88 in Toll-like receptor (TLR) and interleukin-1 receptor (IL-1R) family signaling. Without functional IRAK-4, cells cannot transduce signals from the MyD88-dependent TLRs (all TLRs except TLR3) and from the IL-1R family, so they fail to activate NF-kappaB and MAPK and do not mount the proinflammatory cytokine response that normally follows detection of a pyogenic organism.\nThe clinical consequence is a strikingly narrow susceptibility. Affected children suffer invasive, life-threatening infection with a small set of pyogenic bacteria - above all Streptococcus pneumoniae, and to a lesser extent Staphylococcus aureus and Pseudomonas aeruginosa - while resistance to fungi, parasites and most other bacteria is essentially intact. This redundancy is the finding the disease exists to demonstrate: the TIR-IRAK pathway turns out to be crucial for immunity to a few bacteria and dispensable against nearly everything else. The one recognized qualification to the \"antiviral immunity preserved\" rule is TLR7: because TLR7-dependent type I interferon production by plasmacytoid dendritic cells is MyD88- and IRAK-4-dependent, these patients are also at high risk of severe, hypoxemic SARS-CoV-2 pneumonia.\nTwo features make the disease dangerous out of proportion to its narrow spectrum. First, the inflammatory response to infection is characteristically weak or delayed - fever and acute-phase signs are often blunted - so severe invasive disease can advance with deceptively few warning signs. Second, susceptibility is age-dependent: the risk of invasive infection is concentrated in infancy and early childhood and falls sharply with age, so that with prophylaxis most survivors improve markedly in adolescence.\nIRAK-4 deficiency is clinically and immunologically indistinguishable from MyD88 deficiency (immunodeficiency 68), which lies one step upstream in the same pathway; the two are curated as distinct entities rather than as subtypes of one another.",
+    "pathophysiology": [
+      "IRAK4 Loss of Function",
+      "Impaired MyD88-Dependent TLR and IL-1R Signaling",
+      "Defective NF-kappaB and MAPK Activation",
+      "Blunted Proinflammatory Cytokine Production",
+      "Impaired Inflammatory Response to Pyogenic Bacteria",
+      "Invasive Pyogenic Bacterial Infection",
+      "Weak or Delayed Systemic Inflammation",
+      "Impaired TLR7-Dependent Type I Interferon Production"
+    ],
+    "cell_types": [
+      "monocyte",
+      "dendritic cell",
+      "leukocyte",
+      "plasmacytoid dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000451",
+      "CL:0000738",
+      "CL:0000784"
+    ],
+    "biological_processes": [
+      "MyD88-dependent toll-like receptor signaling pathway",
+      "interleukin-1-mediated signaling pathway",
+      "canonical NF-kappaB signal transduction",
+      "MAPK cascade",
+      "positive regulation of cytokine production",
+      "inflammatory response",
+      "type I interferon production"
+    ],
+    "phenotypes": [
+      "Recurrent systemic pyogenic infections",
+      "Recurrent streptococcus pneumoniae infections",
+      "Recurrent Staphylococcus aureus infections",
+      "Recurrent Pseudomonas aeruginosa infection",
+      "Recurrent bacterial upper respiratory tract infections",
+      "Recurrent bacterial skin infections",
+      "Sepsis",
+      "Meningitis",
+      "Decreased inflammatory response",
+      "Severe viral infection"
+    ],
+    "phenotype_categories": [
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005429",
+      "HP:0005366",
+      "HP:0002726",
+      "HP:5210057",
+      "HP:0031949",
+      "HP:0005406",
+      "HP:0100806",
+      "HP:0001287",
+      "HP:0012648",
+      "HP:0031691"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IRAK4"
+    ],
+    "treatments": [
+      "Antibiotic Prophylaxis",
+      "Antipneumococcal Vaccination",
+      "Immunoglobulin Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_67.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_67.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Immunodeficiency 69",
     "disease_id": "MONDO:0033541",
     "category": "Mendelian",
@@ -165850,6 +165946,126 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Juvenile Paget Disease",
+    "disease_id": "MONDO:0009394",
+    "category": "Complex",
+    "parents": [
+      "Metabolic Bone Disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Juvenile Paget disease (JPD; OMIM #239000, \"Paget disease of bone 5, juvenile-onset\"; ORPHA:2801) is an ultra-rare, autosomal-recessive osteopathy of infancy and early childhood, most often caused by biallelic loss of osteoprotegerin (OPG), the secreted decoy receptor encoded by TNFRSF11B that normally sequesters RANKL and restrains osteoclastogenesis. With the OPG brake removed, RANK-RANKL signalling runs unopposed, osteoclasts are grossly increased in number and activity, and the whole skeleton remodels at a rate it is not built for. Coupled osteoblastic formation cannot keep pace in an orderly way, so resorbed bone is replaced by disorganised woven bone; the child develops generalised osteopenia, progressive long-bone bowing and fractures, macrocephaly and skull-base hyperostosis, and grossly elevated serum alkaline phosphatase (the name \"hereditary/idiopathic hyperphosphatasia\" records that laboratory signature).\nTwo contrasts anchor the entry. First, JPD is emphatically NOT adult Paget disease of bone (curated separately as Paget_Disease_of_Bone). Adult PDB is a focal, late-onset, usually SQSTM1-associated disorder of a handful of lesions; JPD is a generalised, whole-skeleton process of childhood driven by a different gene through the same RANK-RANKL-OPG axis. The adult entry explicitly cites loss of OPG causing JPD as the cleanest evidence that this axis is the centre of gravity of pagetic biology; this entry does not reproduce the adult disease. Second, JPD is genetically heterogeneous: while biallelic TNFRSF11B loss of function is the predominant cause, a heterozygous activating duplication in TNFRSF11A (RANK) and a de novo neomorphic SP7 (Osterix) variant have each been reported to produce a JPD phenotype through convergent high-turnover biology, so the disease is not inheritance-uniform across its causal genes.\nThe extraskeletal disease is where OPG's non-osteoclastic roles surface, and it is partly uncoupled from bone. Sensorineural hearing loss reflects a direct cochlear requirement for OPG (spiral-ganglion degeneration), layered on conductive loss from ossicular resorption; progressive retinopathy with angioid streaks and a vasculopathy with arterial calcification and aneurysms reflect OPG's vascular role. Anti-resorptive therapy (bisphosphonates first-line; the RANKL antibody denosumab as a direct pathophysiologic mimic of the missing protein, with careful calcium monitoring) controls the skeletal disease well but does not reliably prevent the retinopathy, an important prognostic caveat.",
+    "pathophysiology": [
+      "Biallelic TNFRSF11B Loss of Function",
+      "Loss of OPG Decoy Inhibition of RANKL",
+      "Unopposed RANK-RANKL Osteoclastogenesis",
+      "Accelerated Osteoclastic Bone Resorption",
+      "Compensatory Disorganized Woven-Bone Formation",
+      "Generalized High-Turnover Osteopathy",
+      "Cranial and Skull-Base Hyperostosis",
+      "Cochlear OPG Deficiency and Spiral Ganglion Degeneration",
+      "Ectopic Vascular and Bruch-Membrane Calcification"
+    ],
+    "cell_types": [
+      "osteoblast (OPG source)",
+      "osteoclast precursor (monocyte-macrophage lineage)",
+      "multinucleated osteoclast",
+      "osteoblast",
+      "spiral ganglion neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000576",
+      "CL:0000092",
+      "CL:0011113"
+    ],
+    "biological_processes": [
+      "negative regulation of bone resorption",
+      "positive regulation of osteoclast differentiation",
+      "bone resorption",
+      "ossification (disorganized, woven)",
+      "neuron apoptotic process (spiral ganglion)"
+    ],
+    "phenotypes": [
+      "Progressive Long-Bone Deformity",
+      "Recurrent Fractures",
+      "Bone Pain",
+      "Short Stature",
+      "Kyphoscoliosis",
+      "Vertebral Compression Fracture",
+      "Macrocephaly",
+      "Elevated Serum Alkaline Phosphatase",
+      "Sensorineural Hearing Impairment",
+      "Conductive Hearing Impairment",
+      "Angioid Streaks and Retinopathy",
+      "Vascular Calcification and Arterial Aneurysm",
+      "Auricular Ossification"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Laboratory",
+      "Auditory",
+      "Ocular",
+      "Vascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0006487",
+      "HP:0002757",
+      "HP:0002653",
+      "HP:0004322",
+      "HP:0002751",
+      "HP:0002953",
+      "HP:0000256",
+      "HP:0003155",
+      "HP:0000407",
+      "HP:0000405",
+      "HP:0001102",
+      "HP:0003207",
+      "HP:0005103"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TNFRSF11B",
+      "TNFRSF11A",
+      "SP7"
+    ],
+    "treatments": [
+      "Bisphosphonate Therapy",
+      "Denosumab",
+      "Recombinant Osteoprotegerin (investigational)",
+      "Calcitonin (historical)",
+      "Anti-VEGF Intravitreal Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum alkaline phosphatase (total)"
+    ],
+    "source_file": "Juvenile_Paget_Disease.yaml",
+    "page_url": "../pages/disorders/Juvenile_Paget_Disease.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Juvenile Polyposis Syndrome",
@@ -213887,7 +214103,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "9"
   },
   {
@@ -228683,8 +228899,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Panic Disorder",
@@ -250919,7 +251135,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "54",
     "causal_graph_longest_path": "7"
   },
   {
@@ -253901,7 +254117,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "5"
   },
   {
@@ -309012,17 +309228,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2972,
+  "total_disorder_pages": 2974,
   "total_subtypes": 3745,
-  "total_disorders_and_subtypes": 6717,
-  "total_unique_evidence_sources": 41798,
-  "total_unique_publications": 39415,
+  "total_disorders_and_subtypes": 6719,
+  "total_unique_evidence_sources": 41820,
+  "total_unique_publications": 39436,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2967,
-  "total_unique_pathological_events": 17975,
+  "total_pathographs": 2969,
+  "total_unique_pathological_events": 17992,
   "total_modules": 176,
-  "total_research_reports": 3085,
+  "total_research_reports": 3087,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
