@@ -81,13 +81,13 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 # The private graph helpers are the single source of truth for gene-key
 # matching; reimplementing them here would let the audit drift from what the
 # pathograph actually does.
-from dismech.graph import (  # noqa: E402
+from dismech.graph import (
     _descriptor_lookup_keys,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
     build_causal_graph,
 )
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 #: Classes carrying the ``subtype`` foreign-key slot map to these list-valued
 #: Disease sections (PhenotypeContext is nested and handled separately).

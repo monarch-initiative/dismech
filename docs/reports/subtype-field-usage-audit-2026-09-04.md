@@ -220,3 +220,19 @@ Adrenocortical_Disease` needs PDE11A/PDE8B/PRKACA nodes; `Lissencephaly_
 Spectrum_Disorders` needs the dystroglycanopathy and ARX arms) or a curator's
 judgment that a shared final-common-pathway node suffices. Those are per-entry
 literature jobs, best tracked as issues rather than as one sweep.
+
+### A note on reading these numbers later
+
+Every figure above describes the tree as it stood when the sweep ran. The
+backlog is a moving target in one direction: each newly curated disorder entry
+that declares gene-specific subtypes can add unwired genes of its own, so the
+count drifts upward between sweeps even when no existing entry regresses.
+Merging `main` into this branch moved it from 66 genes across 33 entries to 92
+across 40, including 8 fresh `name_mention` cases, none of which existed when
+the passes above were run.
+
+Treat the counts as a dated measurement rather than a standing fact, and
+re-derive the current state with `just subtype-usage-audit` before planning
+work from them. The claim that survives the drift is the structural one: for
+the entries this sweep touched, the mechanical seams are worked out, so what
+remains in *those* entries needs curation rather than a backfill.
