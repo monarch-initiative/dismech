@@ -1216,8 +1216,8 @@ The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
 `MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
 `PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
 them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
-`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`) are questions
-for a curator and never gate — an undifferentiated lump is the ladder's default
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
 state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
 the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
 disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
