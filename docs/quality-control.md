@@ -416,6 +416,7 @@ just check-granularity --scope all              # cross-entry classes over every
 | `UNBOUND_SUBTYPE`, `UNBOUND_AGENT_STRATUM` | R12 — may have no honest term to bind | no |
 | `NO_PROGRESSION` | R21 — only matters where the disease has phases | no |
 | `MISSING_LIFECYCLE` | R26 — heuristic: transmission text names a vector or reservoir | no |
+| `POINTER_TERM_MISMATCH` | R20 — a pointer resolves, but its `subtype_term` disagrees with the target's `disease_term` | no |
 | `POINTER` | informational — a pointer subtype, working as designed | no |
 
 **Report-only, and the advisory half is not a number to drive up.** An
