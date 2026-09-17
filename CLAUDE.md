@@ -30,6 +30,28 @@ Claude Code skills are available in `.claude/skills/`:
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 
+**A skill file that is misnamed or missing its frontmatter is not an error — it
+is a skill that never loads.** Claude Code discovers a skill by looking for
+`SKILL.md` in each directory and says nothing when it does not find one, so the
+only symptom is a skill that never triggers, which looks exactly like a skill
+nobody needed. `microbiome-curation` sat with a lowercase `skill.md` for close
+to a month (#11758); it arrived in a curation PR adding CMT disorder entries,
+which is the shape of the problem — skill files enter through PRs about
+something else and get the attention that PR's subject gets.
+
+```bash
+just check-skill-files   # gate: SKILL.md present and cased, frontmatter valid,
+                         # name matches the directory, description non-empty,
+                         # and every .claude/skills/ path a justfile or script
+                         # runs still exists. Offline, in `just qc`, and ungated
+                         # and whole-tree in CI for the same reason
+                         # check-duplicate-keys is.
+just list-skill-files    # census, including description lengths; exit 0
+```
+
+Description *length* is reported and never gated — no ceiling is documented in
+this repo, so a threshold here would be invented rather than sourced.
+
 ## Key Commands
 
 ```bash
@@ -53,6 +75,11 @@ just validate-terms-schema
 
 # Check that no bound term is flagged Not4Curation by its own ontology
 just check-not4curation
+
+# Report phenotypes that no causal edge explains — the complement of
+# `just check-causal-targets`, report-only (see "Phenotypes Nothing Points At")
+just list-disconnected-phenotypes
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml --format tsv
 
 # Run pytest tests
 just pytest-all
@@ -865,6 +892,141 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
 
+### Phenotypes Nothing Points At (dismech#11935)
+
+`check-causal-targets` asks which declared edges name a target that resolves to
+nothing. The **complementary** question — which phenotypes no edge names — had
+no per-entry front door, and it is the more common state: a little over half of
+the phenotype nodes in `kb/disorders/` are causally connected, and on some 985
+entries (a third of those carrying phenotypes) **not one** phenotype is. There
+the pathograph stops at the pathophysiology layer and the phenotypes render as a
+disconnected island beside it. Every edge in such an entry can resolve perfectly
+— the motivating instance, `SLC35A1-Congenital_Disorder_of_Glycosylation`, has 8
+pathophysiology nodes, 13 phenotype nodes and 7 clean edges, none of which
+reaches a phenotype. (That count is live content and moves: it was 12 until
+#11934 added a phenotype, so read it as an illustration, not a fixture.)
+
+```bash
+just list-disconnected-phenotypes                        # census + triage worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only the 0-connected entries
+just list-disconnected-phenotypes kb/disorders/MyDisease.yaml
+```
+
+**It reuses the metric rather than recomputing it, and it is the second door
+onto it.** The computation is
+`dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+`phenotypes[].causal_inlink` compliance score, already exposed as
+`just compliance-connectivity` — which is now a **gate**, enforcing the
+`min_compliance` floor in `conf/qc_config.yaml` over the KB-wide aggregate (see
+*A resolving target is not a connected phenotype* below, which owns the floor
+and the corpus figure; do not restate either here, or the two drift apart).
+
+That recipe is not superseded. It stays the one to run for the *compliance*
+view — phenotype inlink and gene outlink together, and the aggregate ratchet.
+What it does not give is the per-entry triage: no ranking, no `--format tsv`, no
+attachment classes, and its name is filed under compliance rather than next to
+`just list-causal-targets` and `just list-cancer-origin`, which is plausibly why
+neither #11935 nor the #11934 review round found it. Both recipes call the same
+function, so they cannot disagree on a number.
+
+**The two are not in tension, and the distinction is the point.** The gate is a
+corpus-level ratchet against erosion: no single entry can trip it, and a red
+build means sustained drift. This recipe is the per-entry worklist you reach for
+*after* that, or when wiring a specific disease — which is why it stays
+report-only even though the metric it reads now gates.
+
+**Report-only, and deliberately not a number to drive up.** It exits 0; a gate
+at this scale would be a baseline file the size of the problem. Connecting a
+phenotype is real curation — the edge asserts which mechanism produces which
+clinical feature, which is often exactly what the literature does not settle —
+and some phenotypes legitimately have no upstream node in the entry (a
+laboratory readout, a feature whose mechanism is genuinely unknown). An edge
+added to clear a report is worse than no edge, for the same reason the stub
+queue refuses to score itself. `--strict` and `--fail-under` exist for whoever
+decides to gate a subset later.
+
+So read the per-entry triage, not the corpus percentage: the summary ranks the
+entries where *nothing* is connected by how many phenotypes are stranded,
+because an entry with every phenotype stranded is one sitting's work, and a
+different signal from one carrying a single gap.
+
+**Three kinds of edge touch a phenotype without explaining it, and none of them
+counts as connected** — that is the strict reading the issue left open, resolved
+by the predicate rather than by a special case. A `treats`/`targets` edge from a
+treatment says the phenotype is *addressed*, not what produces it; a
+`phenotypes[].reports_on` link carries the `readout` predicate and is
+observational; a `PREDISPOSES`/`MODULATES` environmental link is non-committal
+by construction (only `TRIGGERS` and `EXACERBATES` are in
+`qc_plugins.CAUSAL_PREDICATES`). `subtype` scoping connects nothing either.
+Rather than argue those out of the denominator, each disconnected phenotype
+carries an **attachment** class — `ISOLATED`, `TREATED`, `READOUT`,
+`NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — so "nothing in the graph knows this node
+exists", which is the overwhelming majority, reads differently from "something
+points at it, but not a mechanism", which is about a thousand. Both are
+unexplained; they are not the same curation job. Run the recipe for current
+counts rather than trusting a number written here.
+
+### Pathograph Node Classes (`kb/node_classes/`)
+
+A curated vocabulary of *kinds of pathophysiology node*, ordered as a causal
+cascade (genomic, environmental, molecular activity, molecular substance,
+pathway, cellular, tissue/organ, systemic, outcome) plus cross-cutting classes
+(disposition, compensation, intervention point). It lives in
+`kb/node_classes/pathograph_node_classes.txt` as an indented plain-text tree.
+Each line's kind is decided by its first non-space character: `#` comment,
+`[Disease_Entry] Node name` a worked example (a real pathophysiology node),
+`:key value` an attribute, `= expression` the class's logical definition, and
+anything else a class with an optional ` -- gloss`. A definition is a
+sufficient condition over the node's ontology-bound slots
+(`biological_processes some GO:0008219 'cell death'`,
+`chemical_entities some CHEBI modifier INCREASED`; grammar in
+`src/dismech/node_class_definitions.py`); judgement classes (DISPOSITION,
+OUTCOME, STILL UNPLACED …) deliberately carry none. A companion
+`pathograph_node_class_go_seed.tsv` maps GO biological-process terms to
+classes. There is **no schema slot yet**: no disorder entry names a class, and
+the scanner applies the vocabulary read-only. Edit the tree by PR like any
+other `kb/` content.
+
+```bash
+just node-classes --verify-kb              # grammar + every cited leaf resolves in kb/
+just node-classes --check-definitions      # definition labels vs the term caches (--online: OLS)
+just node-classes --evaluate               # each definition vs its examples and the KB (needs GO sqlite)
+just node-class-scan                       # apply the seed table across kb/: coverage
+just node-class-scan --format debundle     # nodes whose own GO terms span two classes
+just node-role-audit                       # the free-text `role` slot against the edges
+```
+
+Design record: `docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`.
+
+**A resolving target is not a connected phenotype.** `check-causal-targets` asks
+whether a declared target *resolves*; it says nothing about a phenotype nobody
+ever wrote an edge to, because an absent edge is not a broken one. An entry can
+pass it perfectly with every phenotype floating. Schizophrenia was the worked
+case: one dangling target and **six** phenotypes simply never wired, so fixing
+the dangling target alone moved it from 0/7 to 1/7.
+
+The metric that sees those is `phenotypes[].causal_inlink`:
+
+```bash
+just compliance-connectivity                    # gate (runs in `just qc`)
+just compliance-connectivity --list-unconnected # names the floating phenotypes per file
+```
+
+It enforces the `min_compliance` floor in `conf/qc_config.yaml` — **50.0**,
+against a measured 53.9% (18,989/35,255 nodes) when the floor was turned on.
+Read a failure correctly: the floor applies to the **KB-wide aggregate**, not
+per file, so no single entry can trip it (100 new entries with everything
+disconnected move it ~1.5 points). It is a ratchet against erosion, and a red
+build means sustained drift — the fix is a wiring pass over the worst files, not
+a change to whichever PR happened to go red. Raise the floor as coverage
+improves; `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
+lowering it, and a `null` there silently disables the gate.
+
+The sibling metric `genetic[].mechanism_outlink` (causal genes wired to a
+mechanism, currently 48.9%) is deliberately still advisory — same recipe,
+`--genes-fail-under` to check it ad hoc.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
@@ -1447,6 +1609,82 @@ from a large controlled trial, and a `DIRECT` one from a single case report:
 nobody has judged it, which is the honest state of most of the KB. Do not fill
 it in to look complete.
 
+#### `quote_role` is document provenance, and a third separate axis
+
+`reference` says **which paper** a quote came from. `quote_role` (optional) says
+**whether that paper produced the finding or was repeating somebody else's**:
+where in the cited publication's own argument the quoted sentence sits:
+
+- `PRIMARY_RESULT`: the cited publication produced this observation,
+  measurement, analysis, or conclusion
+- `BACKGROUND`: it is restating something established elsewhere, such as an
+  introduction, a framing sentence, a motivation for the work
+- `REVIEW_SYNTHESIS`: it is the publication's synthesis of work it did not
+  perform: a review, commentary, editorial, or consensus statement
+
+**Use it when `evidence_source` alone would say something false.** The case it
+exists for (#10262) is a quote taken from an animal study's *introduction*, where
+that introduction states the human clinical picture:
+
+```yaml
+- reference: PMID:42162447          # a mouse base-editing study
+  supports: SUPPORT
+  quote_role: BACKGROUND
+  evidence_source: HUMAN_CLINICAL
+  snippet: "Pathogenic variants in KCNQ4 account for ~9.5% of autosomal dominant nonsyndromic cases."
+```
+
+`MODEL_ORGANISM` there would assert that a mouse measured human allele frequency.
+`HUMAN_CLINICAL` alone would assert the publication is a human clinical study.
+`OTHER`, where review pressure used to push these, says nothing at all, and
+files the case next to the unrelated "quoted from a review" one.
+`HUMAN_CLINICAL` + `BACKGROUND` is exactly true and exactly queryable.
+
+**Leave it off unless you have assessed it**, as with `directness`. There is no
+`UNKNOWN` value: absent already means nobody has judged it.
+
+**It does not change what `evidence_source` means.** `evidence_source` still
+grades the evidence the quoted text describes; `quote_role` records that the
+citing paper is not where it came from. The two are orthogonal, and so are
+`supports` (direction) and `directness` (inferential distance). A `BACKGROUND`
+quote can be `DIRECT`, `SUPPORT` and `HUMAN_CLINICAL` all at once.
+
+**Finding candidates:**
+
+```bash
+just list-background-citations                 # worklist, three tiers, report-only
+just list-background-citations --format tsv    # one row per candidate
+just list-background-citations --tier A        # the deterministic tier alone
+just list-background-citations kb/disorders/MyDisease.yaml
+```
+
+Tier A is deterministic: NLM structured-abstract section labels in the cached
+reference body, located by string containment. Tier B is the MeSH
+animal-without-`Humans` heuristic, which covers only items graded
+`HUMAN_CLINICAL` or `OTHER` citing animal-only papers, so **its count is a lower
+bound on a narrow slice and not a measure of the problem**. Tier C reports a
+recorded `quote_role` that contradicts Tier A.
+
+**Report-only, never an autofill.** A structured `BACKGROUND:` paragraph
+routinely closes with the authors' own framing of what they did, so a flagged
+snippet can be correctly `PRIMARY_RESULT`; and a quote taken from a full text has
+no NLM labels to sit between, so Tier A declines to classify it rather than
+guessing. Read the sentence. This is the same line `dismech-terms` draws for
+ontology-term suggestions.
+
+Worked examples: `Cerebrocostomandibular_Syndrome` (one chick-embryo paper cited
+both ways, `BACKGROUND` for the human clinical picture in its introduction and
+`PRIMARY_RESULT` for its own rib-gap experiments),
+`Autosomal_Dominant_Nonsyndromic_Hearing_Loss_2A` (two mouse papers' background
+epidemiology, beside the human family series that is the `PRIMARY_RESULT` behind
+it), `Immunodeficiency_98_With_Autoinflammation` (the two unrelated reasons an
+item lands on `OTHER`, now distinguished as `BACKGROUND` and
+`REVIEW_SYNTHESIS`).
+
+A quoted **aim** statement ("the aim of the present study was to…") has no value
+in this enum; it is neither the paper's finding nor somebody else's fact. Leave
+`quote_role` off; `just list-background-citations` reports those separately.
+
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
 
@@ -1463,6 +1701,14 @@ claims is the same defect as one item mixing two `evidence_source` values, and
 has the same remedy: split it.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
+
+That rule is about *how the curation was done*, and it is unchanged. It does not
+decide the case where the quoted sentence describes one kind of evidence and the
+citing paper ran another: for that, grade `evidence_source` from the quoted text
+and record the mismatch in `quote_role` (see
+[`quote_role` is document provenance](#quote_role-is-document-provenance-and-a-third-separate-axis)
+above). Pushing such an item to `OTHER` on the strength of this paragraph alone
+throws away both facts, which is the defect #10262 was filed about.
 
 Set `evidence_source` to clarify the publication's evidence type:
 - HUMAN_CLINICAL for direct human observations (default when not specified)
@@ -2799,6 +3045,40 @@ The snippet counter is fast and advisory; `validate-disorders` is the gate.
 Never claim a check that did not finish. If evidence cannot be verified, use an
 exact quote from a better source, move the claim to notes where appropriate, or
 remove the evidence.
+
+### GeneReviews and StatPearls Baseline (`just check-genereviews`)
+
+A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry
+(review skill item 15). Whether one **exists** is now answered offline from a
+committed index of every PubMed-indexed chapter of both Bookshelf collections
+(`cache/bookshelf/`; PubMed's `genereviews[book]` / `statpearls[book]` fields
+select them exactly), so the automated reviewer -- whose sandbox blocks `curl`
+and every web tool -- can verify a "no GeneReviews chapter exists" note instead
+of recording it as unverifiable, which is what happened twice on #11592.
+
+```bash
+just check-genereviews kb/disorders/MyDisease.yaml   # per entry (offline)
+just check-genereviews --strict FILE                 # exit 1 on a GeneReviews gap
+just check-genereviews --online FILE                 # + live PubMed title search
+just check-genereviews --format tsv                  # whole-KB census
+just refresh-bookshelf-index                         # rebuild cache/bookshelf/
+```
+
+**Semi-deterministic, on purpose.** Identity findings are exact and gate under
+`--strict`: `MISTAGGED` (a `GeneReviews`-tagged reference that is not a
+chapter), `CITED_UNTAGGED` (a chapter PMID or NBK URL cited but not tagged in
+`references:`), `UNTAGGED_CHAPTER` (a chapter whose normalised title equals one
+of the entry's names). Partial title matches are `CANDIDATE_CHAPTER` and are
+listed for a person to read -- `Alpha Thalassemia` inside *Alpha-Thalassemia
+X-Linked Intellectual Disability Syndrome* is not that disease's chapter, and
+no string rule settles that. Nothing gates on StatPearls: it is a point-of-care
+reference across all of medicine with a light editorial process, citable for
+orientation (and taggable as `StatPearls`) but never a baseline, and its absence
+is never a gap. `just tag-references` now decides chapter membership from the
+same index rather than by grepping the cached abstract for the word
+"GeneReviews", which a journal article citing one also contains. The index is a
+dated snapshot; staleness is printed, never gated. See
+[`docs/genereviews-baseline-check.md`](docs/genereviews-baseline-check.md).
 
 ## Ontology and Term Caches
 
