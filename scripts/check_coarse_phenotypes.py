@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require a stated reason for phenotypes bound to top-level HPO terms.
+"""Require a stated reason for phenotypes bound to coarse HPO terms.
 
 A phenotype bound to ``HP:0000478`` *Abnormality of the eye* validates, renders,
 exports, and derives the correct UI facet -- while saying almost nothing. The
@@ -418,8 +418,9 @@ def write_baseline(findings: list[Finding]) -> int:
         "# Grandfathered coarse phenotype bindings "
         "(see scripts/check_coarse_phenotypes.py).\n"
         "# Each line is `path<TAB>location<TAB>curie`: a phenotype bound to a\n"
-        "# top-level HPO organ-system term without saying why, via\n"
-        "# `coarse_binding_basis`. New occurrences NOT listed here fail the guard.\n"
+        "# coarse HPO term -- a body system, whole organ or gross body region --\n"
+        "# without saying why, via `coarse_binding_basis`. New occurrences NOT\n"
+        "# listed here fail the guard.\n"
         "# Only ever shrink this file -- clearing a row means a curator decided\n"
         "# between VARIABLE_SPECTRUM / SOURCE_UNSPECIFIED / NO_HPO_TERM /\n"
         "# PATHOGRAPH_HUB, or bound a specific term instead.\n"
@@ -529,17 +530,19 @@ def main() -> int:
 
     if new_missing:
         print(
-            f"-- {len(new_missing)} phenotype(s) bound to a top-level HPO term with no "
+            f"-- {len(new_missing)} phenotype(s) bound to a coarse HPO term with no "
             "stated reason --\n"
         )
         print(
-            "   These terms are the direct children of HP:0000118: they name an organ\n"
-            "   system, and are what the browser's 'Phenotype Systems' facet is built\n"
-            "   from. A binding to one is not wrong, but it must say which it is:\n"
+            "   These terms name a body system, a whole organ or a gross body region\n"
+            "   rather than a finding. Tier 0 is the 23 direct children of HP:0000118,\n"
+            "   which the browser's 'Phenotype Systems' facet is built from; tier 1 is\n"
+            "   CoarsePhenotypeTermEnum. A binding to one is not wrong, but it must\n"
+            "   say which it is:\n"
             "     VARIABLE_SPECTRUM   involvement varies in form; no characteristic finding\n"
             "     SOURCE_UNSPECIFIED  the cited source characterizes it no further\n"
             "     NO_HPO_TERM         narrower than any HP term; preferred_term carries it\n"
-            "     PATHOGRAPH_HUB      a convergence node with sequelae into the specifics\n"
+            "     PATHOGRAPH_HUB      a convergence node a causal edge already reaches\n"
             "   If none of those is true, bind the specific finding instead. Do NOT pick\n"
             "   a narrower term the source does not support just to clear this.\n"
         )

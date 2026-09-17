@@ -234,13 +234,16 @@ path, and a curation PR touches only `kb/`, matching neither the `python` nor th
 `schema` filter. The checks written to protect knowledge-base content are exactly
 the ones a content-only PR skips.
 
-The 331 bindings that predate the slot are grandfathered in
-`tests/coarse_phenotype_baseline.txt`. **That file may only shrink**, with one
-exception: deliberately widening the coarse set itself grows it once, as adding
-tier 1 took it from 164 to 341 in a reviewed pass. Clearing a
-row means a curator decided between the four values, or bound a specific term
-instead. A companion-rule violation is never grandfathered, because a declared
-basis can only come from content written after the slot existed.
+The 397 bindings that predate the slot are grandfathered in
+`tests/coarse_phenotype_baseline.txt`. **That file may only shrink**, with two
+exceptions, both argued in the diff that takes them: deliberately widening the
+coarse set grows it once (adding tier 1 took it from 164 to 341 in a reviewed
+pass), and so does refreshing the branch onto a moved `main`, because the
+baseline is a snapshot of the pre-existing backlog taken at the moment the guard
+lands (331 to 386 to 397, from entries curated in the meantime). Clearing a row means
+a curator decided between the four values, or bound a specific term instead. A
+companion-rule violation is never grandfathered, because a declared basis can
+only come from content written after the slot existed.
 
 Companion rules apply wherever a basis is declared, including on terms outside
 the coarse set. That is deliberate: it lets a curator declare a basis on a
@@ -250,23 +253,24 @@ unchecked.
 
 ## Burning down the backlog
 
-331 bindings across 235 files, of which 174 files carry exactly one. The census
+397 bindings across 279 files, of which 203 files carry exactly one. The census
 sorts them by term:
 
 ```bash
 just list-coarse-phenotypes | head -40
 ```
 
-`HP:0002664` Neoplasm (46), `HP:0000478` Abnormality of the eye (33),
-`HP:0000077` Abnormality of the kidney (26) and `HP:0011024` Abnormality of the
+`HP:0002664` Neoplasm (51), `HP:0000478` Abnormality of the eye (41),
+`HP:0000077` Abnormality of the kidney (29) and `HP:0011024` Abnormality of the
 gastrointestinal tract (21) are a third of it. Two shapes are worth separating
 before starting:
 
-- **80 are hub candidates** — already reached by a causal edge and carrying no
+- **94 are hub candidates** — already reached by a causal edge and carrying no
   frequency. `PATHOGRAPH_HUB` annotates what the node is already doing.
-- **164 make a clinical claim**, carrying a frequency, so they need a curator to
+- **189 make a clinical claim**, carrying a frequency, so they need a curator to
   read the evidence and choose between `VARIABLE_SPECTRUM` and
-  `SOURCE_UNSPECIFIED`.
+  `SOURCE_UNSPECIFIED`. Half of those are also reached by an edge, so the two
+  shapes overlap rather than partition.
 
 Neoplasm is the best place to start on the rest: in cancer-predisposition entries
 the specific tumour types are usually already curated as sibling phenotypes.

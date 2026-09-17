@@ -2032,9 +2032,10 @@ development" node — that belongs in `pathophysiology`, binds GO, and asserts a
 a hub binds HP and asserts a system-level outcome; the two may sit in sequence.
 A coarse node carrying a `frequency` is a `VARIABLE_SPECTRUM`, not a hub.
 
-The 331 bindings predating the slot are grandfathered in
+The 397 bindings predating the slot are grandfathered in
 `tests/coarse_phenotype_baseline.txt`, which may only shrink — except when the
-coarse set itself is deliberately widened, as adding tier 1 did. Worked examples,
+coarse set itself is deliberately widened, as adding tier 1 did, or when the
+snapshot is retaken against a moved `main`. Worked examples,
 one per value: `Schaaf-Yang_Syndrome`, `PAICS_Deficiency`,
 `Li-Fraumeni_Syndrome`, `Rubinstein-Taybi_Syndrome`. See
 [`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).

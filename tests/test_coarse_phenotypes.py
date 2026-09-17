@@ -350,16 +350,29 @@ def test_baseline_only_shrinks():
     Nothing enforces this mechanically — a PR can always regenerate the file —
     so the guard is that the committed size is asserted here, and raising it
     means editing this number in the same diff, in front of a reviewer.
+
+    It has been raised twice, both times for a reason that is not a curation
+    PR admitting its own defect:
+
+    - 164 -> 341 when the coarse set itself was widened with tier 1, in one
+      reviewed pass over all 360 distinct `Abnormal*` terms bound in the KB.
+    - 331 -> 386 -> 397 across two refreshes onto a moving main (826 commits,
+      then 158). The baseline is a snapshot of the pre-existing backlog taken
+      at the moment the guard lands, so refreshing the branch retakes it. The
+      69 rows added across both were curated on main in the meantime; none came
+      from this branch, and 3 came off where main's curators rebound a coarse
+      term to a narrower one. The rate -- roughly 1 in 10 new entries -- is the
+      argument for landing the guard rather than for widening it again.
     """
     rows = [
         line
         for line in BASELINE.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    assert len(rows) <= 331, (
-        f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink, "
-        "except when the coarse set itself is deliberately widened (tier 1 took it "
-        "from 164 to 341 in one reviewed pass). "
+    assert len(rows) <= 397, (
+        f"{len(rows)} grandfathered coarse bindings — the baseline may only shrink. "
+        "The two exceptions on record are a deliberate widening of the coarse set "
+        "and a refresh onto a moved main; both are argued in this test's docstring. "
         "If a new coarse binding is genuinely right, give it a coarse_binding_basis "
         "rather than adding a row here."
     )

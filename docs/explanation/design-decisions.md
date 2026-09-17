@@ -431,14 +431,15 @@ validation (only a warning), so an unconstrained prefix can pass unchecked — s
 
 ### 4b. Coarse phenotype bindings state a basis; specificity is never scored (2026-09-05)
 
-**Decision.** A phenotype bound to one of the 23 **top-level HPO organ-system terms** —
-the direct children of `HP:0000118`, which are also the `PhenotypeCategoryEnum` meanings
-and the browser's *Phenotype Systems* facet vocabulary — must declare
+**Decision.** A phenotype bound to a **coarse HPO term** must declare
 `coarse_binding_basis` on its descriptor: `VARIABLE_SPECTRUM`, `SOURCE_UNSPECIFIED`,
 `NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Two are bare declarations; the other two carry a
-checkable requirement. All are enforced offline and whole-KB by
-`just check-coarse-phenotypes`; the 164 bindings predating the slot are grandfathered in
-a shrink-only baseline.
+checkable requirement. The coarse set is 56 terms across two hand-reviewed schema
+enums — the 23 direct children of `HP:0000118` (`PhenotypeCategoryEnum`, which is also
+the browser's *Phenotype Systems* facet vocabulary) and 33 curated terms below those
+roots (`CoarsePhenotypeTermEnum`) that still name a system, organ or region. All are
+enforced offline and whole-KB by `just check-coarse-phenotypes`; the bindings predating
+the slot are grandfathered in a shrink-only baseline.
 
 **A coarse binding states a reason; it never lists what it left out.** The first
 implementation gave `VARIABLE_SPECTRUM` (then named `SPECTRUM_SUMMARY`) a companion
@@ -471,9 +472,9 @@ were considered and are recorded here so they are not re-proposed:
    derived facet can say whether a coarse binding was deliberate.
 
 What remains is a **closed, hand-reviewed list**: membership is the whole specificity
-model, and widening it is a schema pull request with an argument attached. The subset is
-read from `PhenotypeCategoryEnum`'s `meaning:` values rather than restated, so the coarse
-set and the facet set cannot drift apart.
+model, and widening it is a schema pull request with an argument attached. Tier 0 is read
+from `PhenotypeCategoryEnum`'s `meaning:` values rather than restated, so the coarse set
+and the facet set cannot drift apart.
 
 **Rationale.** The three legitimate reasons for a coarse binding were already present in
 the knowledge base as prose nothing could read — `PAICS_Deficiency` ("the specific ocular

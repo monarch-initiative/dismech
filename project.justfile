@@ -1408,10 +1408,11 @@ list-cancer-origin *args="":
 backfill-cancer-origin *args="":
     uv run python scripts/backfill_cancer_origin.py {{args}}
 
-# Require a stated reason for phenotypes bound to a TOP-LEVEL HPO organ-system
-# term (the 23 direct children of HP:0000118, i.e. the PhenotypeCategoryEnum
-# meanings that also drive the browser's "Phenotype Systems" facet). Such a term
-# names a facet bucket, not a finding. Three legitimate reasons exist -- a
+# Require a stated reason for phenotypes bound to a COARSE HPO term: the 23
+# organ-system roots (the PhenotypeCategoryEnum meanings, which also drive the
+# browser's "Phenotype Systems" facet) plus the 33 hand-curated terms below them
+# in CoarsePhenotypeTermEnum that still name a system, organ or body region.
+# Such a term names a bucket, not a finding. Three legitimate reasons exist -- a
 # pleiotropic spectrum, a source that says no more, a claim narrower than any HP
 # term -- and the KB already carries all three as prose nothing can read; this
 # makes them `coarse_binding_basis` instead, leaving the unexplained binding as
