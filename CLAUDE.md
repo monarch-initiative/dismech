@@ -3908,6 +3908,27 @@ before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
+### Shepherd repair scope and generated-cache conflicts
+
+The shepherd tends eligible abandoned code, tests, schema, workflow, and
+documentation PRs as well as curation. Python is in scope. Unresolved review
+feedback comes first; an approved clean branch is the merge controller's work,
+even when it is behind main. Do not refresh a branch merely for freshness.
+
+The separate `repair-caches` job handles additive conflicts in term and enum
+CSVs only. It preserves every source row, rejects competing fields (including
+timestamps) and deletions, and never checks out PR code. A private index changes
+only verified conflicting CSV blobs in Git's ordinary merge result. Publication
+must fast-forward the exact inspected PR head; an explicit expected-head lease
+also rejects concurrent rewinds or branch deletion. This cannot rewrite history.
+Reference markdown and other generated formats remain shepherd work; never
+resolve a generated directory wholesale by taking one side. A deterministic
+refusal does not authorize abandoning the PR.
+
+The job uses the agent's existing author/assignment guards. Manual inputs
+`max_cache_repairs` (default 3; 0 disables), `dry_run`, and `pr_number` control it.
+See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
+
 ### Deterministic auto-merge of ready PRs
 
 The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
