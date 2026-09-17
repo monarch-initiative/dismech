@@ -9092,20 +9092,25 @@ window.searchData = [
       "Depletion of Neural-Crest-Derived Skeletal Precursors in the Pharyngeal Arches"
     ],
     "cell_types": [
-      "neural crest cell"
+      "neural crest cell",
+      "neuroepithelial cell"
     ],
     "cell_type_ids": [
-      "CL:0011012"
+      "CL:0011012",
+      "CL:0000710"
     ],
     "biological_processes": [
+      "transcription by RNA polymerase I",
       "rRNA transcription",
       "ribosome biogenesis",
       "translation",
       "neural crest cell development",
       "signal transduction by p53 class mediator",
       "apoptotic process",
+      "intrinsic apoptotic signaling pathway by p53 class mediator",
       "cell population proliferation",
-      "neural crest cell migration"
+      "neural crest cell migration",
+      "embryonic cranial skeleton morphogenesis"
     ],
     "phenotypes": [
       "Mandibulofacial Dysostosis",
@@ -138426,6 +138431,11 @@ window.searchData = [
       "Telomere Dysfunction and Genomic Instability",
       "Accumulation of Driver Mutations",
       "WNT/Beta-Catenin Pathway Activation",
+      "Hepatocyte MLKL Upregulation",
+      "Necroptosis-Independent MLKL Function",
+      "MFN2 Suppression and Impaired Mitochondrial Fusion",
+      "Impaired Mitochondrial Oxidative Phosphorylation",
+      "Aerobic Glycolytic Shift in MASLD-Associated HCC",
       "PI3K/AKT/mTOR Pathway Activation",
       "TP53 Pathway Inactivation",
       "Enhanced Hepatocyte Proliferation",
@@ -138446,6 +138456,10 @@ window.searchData = [
       "telomere maintenance",
       "DNA repair",
       "Wnt signaling pathway",
+      "necroptotic process",
+      "mitochondrial fusion",
+      "oxidative phosphorylation",
+      "glycolytic process",
       "TOR signaling",
       "phosphatidylinositol-mediated signaling",
       "apoptotic process",
@@ -138509,7 +138523,8 @@ window.searchData = [
     ],
     "environmental": [
       "Chronic hepatitis B or C infection",
-      "Alcohol and aflatoxin exposure"
+      "Alcohol and aflatoxin exposure",
+      "Long-term Western diet feeding"
     ],
     "biochemical": [
       "Alpha-Fetoprotein (AFP)",
@@ -138519,10 +138534,10 @@ window.searchData = [
     "source_file": "Hepatocellular_Carcinoma.yaml",
     "page_url": "../pages/disorders/Hepatocellular_Carcinoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 16,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -146046,14 +146061,16 @@ window.searchData = [
       "Anti-IL-5 or anti-IL-5R biologic therapy"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Absolute eosinophil count"
+    ],
     "source_file": "Hypereosinophilic_Syndrome.yaml",
     "page_url": "../pages/disorders/Hypereosinophilic_syndrome.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -153496,6 +153513,7 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
+      "Absolute eosinophil count",
       "Serum tryptase",
       "Serum vitamin B12",
       "Cardiac troponin T"
@@ -153506,7 +153524,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "7"
   },
   {
@@ -294247,16 +294265,19 @@ window.searchData = [
     ],
     "cell_types": [
       "Migratory neural crest cell",
-      "Neuroepithelial cell"
+      "Neuroepithelial cell",
+      "Neural crest cell"
     ],
     "cell_type_ids": [
       "CL:0000333",
-      "CL:0000710"
+      "CL:0000710",
+      "CL:0011012"
     ],
     "biological_processes": [
       "Ribosome biogenesis",
       "Cellular response to oxidative stress",
       "Apoptotic process",
+      "Intrinsic apoptotic signaling by p53 class mediator",
       "Neural crest cell development",
       "Neural crest cell migration",
       "Embryonic cranial skeleton morphogenesis"
@@ -310916,13 +310937,13 @@ window.searchMetrics = {
   "total_disorder_pages": 2988,
   "total_subtypes": 3751,
   "total_disorders_and_subtypes": 6739,
-  "total_unique_evidence_sources": 42450,
-  "total_unique_publications": 40058,
+  "total_unique_evidence_sources": 42451,
+  "total_unique_publications": 40059,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 2983,
-  "total_unique_pathological_events": 18112,
-  "total_modules": 176,
+  "total_unique_pathological_events": 18117,
+  "total_modules": 177,
   "total_research_reports": 3104,
   "total_classifications": 19,
   "total_comorbidities": 31,
