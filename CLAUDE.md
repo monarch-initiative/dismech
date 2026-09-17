@@ -2983,12 +2983,21 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. The first four use baselines, as
-does `check-causal-targets`; do not update a baseline to admit a
-defect introduced by the current change. `check-environmental-evidence` had one
-too, until the #8296 backlog reached zero and it became a hard gate -- an
-exposure that genuinely cannot be cited now carries a `review_notes:` waiver
-instead of a baseline row (see below).
+defective sources that the cache contradicts. `check-snippet-length`,
+`check-title-snippets`, `check-snippet-grading` and `check-causal-targets` use
+baselines; do not update a baseline to admit a defect introduced by the current
+change.
+
+Two of these gates used to have a baseline and no longer do, by the same route:
+the backlog was repaired, then the mechanism was removed, so there is now no way
+to grandfather a finding. `check-environmental-evidence` got there first (#8296),
+and an exposure that genuinely cannot be cited now carries a `review_notes:`
+waiver instead of a baseline row (see below). `check-folded-hyphens` followed
+once #11760 had repaired its 293-split backlog, which was #4800's stated
+endpoint. Where that check flags a line that is genuinely correct, the fix is to
+teach the detector the shape and pin it with a test -- as `COORD_RE` does for
+suspended hyphens and `is_status_marker` for clinical negativity markers
+(`ER+/HER2-`, `T-B-NK-`) -- rather than to record an exception.
 
 **When an exposure genuinely cannot be cited, say so in `review_notes:`.**
 `check-environmental-evidence` treats an `environmental[]` entry whose
