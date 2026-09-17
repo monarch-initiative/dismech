@@ -62,9 +62,14 @@ member that fails a necessary criterion is a contradiction to resolve by
 correcting the member annotation, criterion, or membership.
 
 HP and GO leaves are evaluated over `is_a`/`part_of` ontology closure;
-`HAS_GENE` remains exact. If ontology access fails, evaluation falls back to
-exact matching and can under-report satisfaction. State the criterion at the
-intended conceptual level rather than compensating for a missing annotation.
+`HAS_GENE` remains exact. The closure is read from the committed
+`cache/closure/<prefix>.csv` files, so the audit is offline and deterministic.
+A criterion term with no cached closure evaluates to `UNKNOWN` (never a
+downgraded exact match, which would report false contradictions) and fails
+`--strict`. After adding or changing an HP or GO criterion term, run
+`just build-grouping-closure-cache` and commit `cache/closure/`; never
+hand-edit those files. State the criterion at the intended conceptual level
+rather than compensating for a missing annotation.
 
 ## Add members and differentiators
 
@@ -86,11 +91,17 @@ define or distinguish diseases; use a `ModuleCollection` in
 ```bash
 just validate-grouping kb/groupings/<Grouping>.yaml
 just check-groupings kb/groupings/<Grouping>.yaml
-just check-groupings --strict kb/groupings/<Grouping>.yaml
+just check-groupings --strict --offline kb/groupings/<Grouping>.yaml
+just build-grouping-closure-cache            # after adding an HP/GO criterion term
+just validate-grouping-batch kb/groupings/<Grouping>.yaml   # what CI runs
 just gen-grouping-page kb/groupings/<Grouping>.yaml
 ```
 
-Use `just validate-groupings` for the full set. Treat the evaluator's
-`UNKNOWN` as missing information, not failure; investigate every
-`NOT_SATISFIED` listed member. Generated `pages/groupings/*.html` files are
-derived and must not be committed with hand-authored changes.
+Use `just validate-groupings` for the full set. CI runs
+`validate-grouping-batch` on every changed grouping file: schema, terms,
+references, then the strict offline audit, which fails on a malformed
+criteria tree, a dangling member or module reference, an uncached criterion
+term, or a listed member that does not satisfy a `NECESSARY` criterion. Treat
+the evaluator's `UNKNOWN` as missing information, not failure; investigate
+every `NOT_SATISFIED` listed member. Generated `pages/groupings/*.html` files
+are derived and must not be committed with hand-authored changes.

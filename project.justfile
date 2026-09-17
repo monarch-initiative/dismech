@@ -591,13 +591,74 @@ validate-groupings:
     fi
 
 # Lint and audit disease grouping membership criteria (structural + advisory).
-# Structural lint is enforced in pytest; this report also evaluates whether
-# listed members satisfy NECESSARY criteria (advisory — criteria may be
-# aspirational). Pass a file to scope to one grouping; --strict to gate.
-# Use `--overlaps` to report all pairwise disease-member overlaps.
+# Structure and foreign keys always report; the membership audit evaluates
+# whether listed members satisfy NECESSARY criteria over the committed HP/GO
+# closure cache (cache/closure/). Pass a file to scope to one grouping;
+# --strict to gate on structure, dangling keys, uncached criterion terms and
+# NOT_SATISFIED members; --offline to never contact an ontology (what CI
+# runs). Use `--overlaps` to report all pairwise disease-member overlaps.
 [group('QC')]
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
+
+# Populate cache/closure/<prefix>.csv with the is_a/part_of closure of every
+# HP/GO term cited by grouping membership criteria. Append-only like the term
+# caches: only uncached terms are fetched (from OLS, so this needs network).
+# `--refresh` re-fetches everything after an ontology release; `--prune` drops
+# terms no grouping cites. Commit the result; the audit and CI read it offline.
+[group('QC')]
+build-grouping-closure-cache *args="":
+    uv run python -m dismech.groupings --build-closure-cache {{args}}
+
+# Batched, CI-shaped validation of changed grouping files: schema, terms,
+# references, then the strict offline structural/membership audit. Mirrors
+# `validate-disorders`, which is what a grouping-only PR previously got none
+# of -- kb/groupings/ was in no CI path filter and every grouping pytest is
+# under the `kb_data` marker (schema-change lane only).
+[group('QC')]
+validate-grouping-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    for f in "$@"; do
+        if [[ "$f" == {{groupings_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-grouping file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing grouping YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} grouping file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Grouping "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Grouping --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}"
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    echo "Structural lint, foreign keys and membership audit (strict, offline)..."
+    uv run python -m dismech.groupings --strict --offline "${existing[@]}" || exit_code=1
+    echo ""
+
+    just normalize-cache || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more grouping files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} grouping file(s) passed validation."
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
