@@ -586,8 +586,8 @@ conversions; `agent_life_cycle` on the ~23 vector-borne and zoonotic entries; th
 review of the 11 undecided lumps, one at a time; the rung-1 groupings (rickettsioses,
 viral hepatitides, soil-transmitted helminthiases, enteric fevers, arboviral haemorrhagic
 fevers); retiring `Infectious_Disease`; the `UNDECIDED` infectious stubs and the
-coverage gaps the review found (typhoid, herpes zoster, anthrax, sepsis and UTI still have
-no entry; diphtheria has since been curated). Two
+coverage gaps the review found (typhoid, herpes zoster, anthrax and UTI still have no
+entry; diphtheria and sepsis have since been curated). Two
 decisions this clause does *not* make: an ontology binding for `Transmission`, which is
 free text today so R25's second half is a required string that no query can use — R17
 turns on transmission route and vector, so a bound slot is a prerequisite for enforcing

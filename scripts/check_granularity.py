@@ -439,7 +439,7 @@ class CorpusIndex:
 
     slugs: set[str] = field(default_factory=set)
     by_term: dict[str, list[str]] = field(default_factory=dict)
-    by_name: dict[str, str] = field(default_factory=dict)
+    by_name: dict[str, list[str]] = field(default_factory=dict)
     term_of: dict[str, str | None] = field(default_factory=dict)
 
     def add(self, slug: str, doc: dict) -> None:
@@ -450,7 +450,7 @@ class CorpusIndex:
             self.by_term.setdefault(term_id, []).append(slug)
         key = normalise_name(doc.get("name"))
         if key:
-            self.by_name.setdefault(key, slug)
+            self.by_name.setdefault(key, []).append(slug)
 
 
 def _entries_in(directory: Path) -> Iterator[Path]:
@@ -564,9 +564,11 @@ def _assess_cross_entry(
         if hit is None:
             for candidate in (st.get("name"), st.get("display_name")):
                 key = normalise_name(candidate)
-                other = index.by_name.get(key) if key else None
-                if other and other != slug:
-                    hit = f"{other} (same name)"
+                others = (
+                    [o for o in index.by_name.get(key, []) if o != slug] if key else []
+                )
+                if others:
+                    hit = f"{', '.join(others)} (same name)"
                     break
         if hit:
             report.findings.append(
