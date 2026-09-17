@@ -24,6 +24,7 @@ from functools import wraps
 from bs4 import BeautifulSoup
 from ruamel.yaml import YAML
 
+from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
 from dismech.frontmatter import contains_frontmatter_delimiter, split_frontmatter
 
 logger = logging.getLogger("linkml_reference_validator.patch")
@@ -138,6 +139,27 @@ def _wrap_quote_yaml_value(original):
         if "\n" in value or "\r" in value:
             return json.dumps(value, ensure_ascii=False)
         return original(self, value, *args, **kwargs)
+
+    return wrapper
+
+
+def _wrap_cache_path(original):
+    """Wrap ``ReferenceFetcher._cache_path`` to reuse a DOI's existing cache file.
+
+    Upstream derives the filename from the DOI exactly as written, so the same
+    DOI in two capitalizations names two files (#9112). This is the one hook both
+    directions go through: ``_load_from_disk`` reaches it via ``get_cache_path``,
+    while ``_save_to_disk`` calls it directly and bypasses ``get_cache_path`` --
+    so wrapping ``get_cache_path``, as the ClinicalTrials patch does, would fix
+    the read and still write the duplicate.
+    """
+
+    @wraps(original)
+    def wrapper(reference_id, cache_dir):
+        path = original(reference_id, cache_dir)
+        if not is_doi_reference(reference_id):
+            return path
+        return resolve_doi_cache_path(path)
 
     return wrapper
 
@@ -583,6 +605,18 @@ def apply_patch():
         logger.debug(
             "Applied ClinicalTrials.gov cache path compatibility patch "
             "(prefixed case variants and bare NCT ids)"
+        )
+
+    if not getattr(ReferenceFetcher, "_doi_cache_case_patch_applied", False):
+        # ``_cache_path`` is a staticmethod: unwrap the function and re-wrap it,
+        # or the patched version would be called with ``self`` as reference_id.
+        ReferenceFetcher._cache_path = staticmethod(
+            _wrap_cache_path(ReferenceFetcher.__dict__["_cache_path"].__func__)
+        )
+        ReferenceFetcher._doi_cache_case_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug(
+            "Applied case-insensitive DOI cache-file reuse patch to "
+            "ReferenceFetcher._cache_path"
         )
 
     if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):

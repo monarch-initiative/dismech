@@ -718,6 +718,20 @@ validate-graphs:
 # causal-connectivity (fraction of phenotype nodes reached by a causal edge) and
 # gene-to-mechanism wiring (fraction of causal genes wired into a mechanism).
 # Pass --list-unconnected to see floating phenotype / unwired gene names per file.
+#
+# GATING: exits non-zero when the KB-wide aggregate falls below the
+# `min_compliance` set for the metric in conf/qc_config.yaml -- currently 50.0
+# for `phenotypes[].causal_inlink`, and unset (advisory) for
+# `genetic[].mechanism_outlink`. `--fail-under` / `--genes-fail-under` override
+# per invocation. Runs in `just qc` and as an ungated whole-KB CI step, for the
+# reason check-duplicate-keys and check-causal-targets do: the aggregate moves
+# when an entry is added anywhere, so a changed-path filter would miss it.
+#
+# This is the complement of check-causal-targets, not a duplicate of it. That
+# one asks whether a declared target RESOLVES; this asks whether a phenotype is
+# REACHED at all. An entry can pass the first perfectly with every phenotype
+# floating, which is what Schizophrenia did -- one dangling target, six
+# phenotypes simply never wired.
 [group('QC')]
 compliance-connectivity *ARGS:
     uv run python -m dismech.qc_plugins {{kb_dir}} -c conf/qc_config.yaml {{ARGS}}
@@ -876,7 +890,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1169,19 +1183,35 @@ check-not4curation *args:
 # sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
 # in multiplies the mismatch rate several times over; pass --include-low to see
 # the rest, or `--format conformance-gates` for the current rate under each gate.
-# Design artifact -- nothing in kb/ or the schema depends on it.
+# Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
     uv run python -m dismech.node_class_scan {{args}}
 
+# Audit the free-text pathophysiology `role` slot against what the graph
+# already says (step 1 of the node-classification design's next-step list).
+# Each normalised value is mapped to the facet it answers -- causal POSITION
+# (checked against downstream in/out-degree), therapeutic/biomarker INTERFACE
+# (checked against the linking slots), or a kind-of-thing claim that no
+# computation recovers. `summary` sizes the curated residue; `casing` lists
+# spellings that collapse; `crosstab` is role x computed position; `residue`
+# is the per-node worklist; `tsv` is everything. Read-only -- writes nothing
+# to kb/.
+[group('QC')]
+node-role-audit *args:
+    uv run python -m dismech.node_role_audit {{args}}
+
 # Parse and check the compact pathograph node-class tree
-# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
-# -- nothing in kb/ or the schema depends on it -- but its leaves are real
-# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
-# worse than no tree because it still looks grounded. Bare invocation checks the
+# (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
+# with no schema slot yet; its leaves are real (node, disease) pairs, and a
+# tree whose leaves have drifted from the KB is worse than no tree because it
+# still looks grounded. Bare invocation checks the
 # grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
-# `text` being a stable round-trip of the compact form.
+# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
+# line's term labels against the caches (--online: against OLS); --evaluate
+# runs each logical definition over its own examples and the whole KB (needs
+# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
+# being a stable round-trip of the compact form.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
@@ -1212,6 +1242,16 @@ list-skill-files:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Guard against tracked paths that differ only in letter case (#11204). On the
+# macOS/Windows default case-insensitive filesystem only one file of such a pair
+# can exist, so one path shows as modified forever and `git rebase` refuses to
+# run. Linux CI sees nothing wrong, which is how 17 DOI cache pairs accumulated.
+# Ungated and whole-repo for the same reason as check-duplicate-keys: the PRs
+# that add a collision touch only kb/ and references_cache/. <1s, offline.
+[group('QC')]
+check-case-collisions:
+    uv run python scripts/check_case_collisions.py
 
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
@@ -1252,11 +1292,45 @@ check-causal-targets *files:
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
 
+# Census of AOP-derivable causal chains: how many entries hold a run of nodes
+# that is measured at every node, cited at every edge, or both. Backs
+# docs/reports/aop-derivable-measurable-chains-2026-09-10.md -- run this rather
+# than trusting the numbers there, which move with every curation PR.
+# Example: just aop-chain-census --list-joint 3
+[group('QC')]
+aop-chain-census *args:
+    uv run python scripts/aop_chain_census.py "$@"
+
 # Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
 # entries as the backlog is burned down -- never to admit a new break.
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# The complement of check-causal-targets: phenotypes that NO causal edge
+# explains. That check finds edges whose target resolves to nothing; this finds
+# phenotype nodes nothing points at, which is invisible to it -- an entry whose
+# every edge resolves cleanly can still leave every one of its phenotypes as a
+# disconnected island beside the pathophysiology layer. Reuses
+# `dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+# `phenotypes[].causal_inlink` compliance score, so the recipe and the score
+# cannot disagree. This is the triage view of that metric, not a replacement for
+# `just compliance-connectivity`, which stays the compliance view AND the gate
+# (phenotype inlink + gene outlink, enforcing the corpus `min_compliance` floor)
+# and has no per-entry ranking, tsv output, or attachment classes. The floor is
+# corpus-level so no single entry trips it; this is the per-entry worklist, which
+# is why it stays report-only and exit 0: connecting a phenotype is real curation
+# (which mechanism produces which feature), so an edge added to clear a report is
+# worse than no edge. The useful output is the
+# per-entry triage --
+# entries where NOTHING is connected, ranked by phenotypes stranded -- not the
+# corpus percentage. --format tsv/json, --zero-only, --strict, --fail-under.
+# See issue #11935.
+#
+# Phenotypes no causal edge explains: per-entry triage, exit 0.
+[group('QC')]
+list-disconnected-phenotypes *args="":
+    uv run python scripts/check_disconnected_phenotypes.py {{args}}
 
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
@@ -2986,6 +3060,17 @@ ncit-edges-list limit="20":
 [group('Research')]
 ncit-p302-audit *args="":
     uv run python scripts/ncit_p302_audit.py {{args}}
+
+# Census how many references_cache/PMID_*.md files cached abstract_only are
+# actually recoverable full text under the JATS extractor fix from #10876
+# (issue #10878). --phase idconv|recoverability|missing-tables|summarize|all;
+# missing-tables is offline and fast (the default here) -- idconv/recoverability
+# hit PMC/NCBI and are resumable, and recoverability over the full PMC-linked
+# set takes several hours without an NCBI_API_KEY. See docs/reports/ for the
+# write-up.
+[group('Research')]
+abstract-only-recovery-census *args="--phase missing-tables":
+    uv run python scripts/audit_abstract_only_recovery.py {{args}}
 
 # ============== Classification Schemas ==============
 

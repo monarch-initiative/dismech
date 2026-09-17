@@ -492,7 +492,8 @@ def publish_release(
         for record in publishable
         if record["status"] == "EXPORTED"
     }
-    # Constructing the client contacts NDEx; reject invalid local content first.
+
+    # Ndex2 contacts the server during construction; validate local files first.
     client = Ndex2(host=host, username=username, password=password)
 
     for record in publishable:
