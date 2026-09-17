@@ -154,19 +154,11 @@ def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
         calls.append(args)
         if args[0:2] == ["pr", "list"]:
             return prs
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return {"commit": {"sha": "current-base"}}
-        if args[0] == "api" and "/compare/" in args[1]:
-            head = args[1].rsplit("...", maxsplit=1)[-1]
-            integrated = head == "head-5"
-            return {
-                "base_commit": {"sha": "current-base"},
-                "merge_base_commit": {
-                    "sha": "current-base" if integrated else "old-base"
-                },
-                "behind_by": 0 if integrated else 1,
-            }
+        assert args[:2] == ["pr", "view"]
+        number = int(args[2])
         return {
+            "headRefOid": f"head-{number}",
+            "reviewDecision": "APPROVED",
             "isDraft": False,
             "mergeStateStatus": "CLEAN",
             "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}],
@@ -174,7 +166,10 @@ def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
 
     monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
     selected = policy.list_agent_candidates("o/r", limit=3)
-    assert [pr["number"] for pr in selected] == [1, 2, 3]
+    # The old review request gets attention before conflicts; approved clean
+    # branches 1 and 5 belong to the closer even with an old baseRefOid.
+    assert [pr["number"] for pr in selected] == [3, 2, 4]
+    assert not any(args[0] == "api" for args in calls)
     list_fields = calls[0][calls[0].index("--json") + 1]
     assert "baseRefOid" in list_fields
     assert "headRefOid" in list_fields
@@ -192,15 +187,9 @@ def test_aligned_approved_red_pr_stays_in_agent_lane(monkeypatch):
     def fake_gh_json(args):
         if args[0:2] == ["pr", "list"]:
             return [red]
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return {"commit": {"sha": "current-base"}}
-        if args[0] == "api":
-            return {
-                "base_commit": {"sha": "current-base"},
-                "merge_base_commit": {"sha": "current-base"},
-                "behind_by": 0,
-            }
         return {
+            "headRefOid": red["headRefOid"],
+            "reviewDecision": "APPROVED",
             "isDraft": False,
             "mergeStateStatus": "UNSTABLE",
             "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "FAILURE"}],
@@ -210,13 +199,76 @@ def test_aligned_approved_red_pr_stays_in_agent_lane(monkeypatch):
     assert [pr["number"] for pr in policy.list_agent_candidates("o/r")] == [8]
 
 
-def test_base_ref_oid_is_not_used_as_ancestry_proof():
-    comparison = {
-        "base_commit": {"sha": "current-base"},
-        "merge_base_commit": {"sha": "older-base"},
-        "behind_by": 2,
-    }
-    assert not policy._comparison_contains_base(comparison, "current-base", "head-8")
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"headRefOid": "new-head"},
+        {"reviewDecision": "CHANGES_REQUESTED"},
+        {"mergeable": "UNKNOWN"},
+    ],
+)
+def test_changed_or_unknown_approved_state_is_not_silently_omitted(
+    monkeypatch, overrides
+):
+    pr = make_pr(reviewDecision="APPROVED")
+
+    def fake_gh_json(args):
+        if args[:2] == ["pr", "list"]:
+            return [pr]
+        return {
+            **pr,
+            "mergeStateStatus": "CLEAN",
+            "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+            **overrides,
+        }
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert [item["number"] for item in policy.list_agent_candidates("o/r")] == [7]
+
+
+def test_python_review_work_is_not_starved_by_approved_branch_maintenance(monkeypatch):
+    prs = [
+        make_pr(number=number, reviewDecision="APPROVED", mergeable="CONFLICTING")
+        for number in range(1, 10)
+    ]
+    prs.append(
+        make_pr(
+            number=9144,
+            headRefName="fix/8320-validator-fixture-inert",
+            updatedAt="2026-08-21T00:00:00Z",
+            files=[{"path": "tests/test_data.py"}, {"path": "tests/test_stubs.py"}],
+        )
+    )
+
+    def fake_gh_json(args):
+        if args[:2] == ["pr", "list"]:
+            return prs
+        return {}
+
+    monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
+    assert [pr["number"] for pr in policy.list_agent_candidates("o/r", limit=1)] == [
+        9144
+    ]
+
+
+def test_unapproved_conflict_gets_repair_priority_over_missing_review():
+    conflict = make_pr(
+        number=1, reviewDecision="REVIEW_REQUIRED", mergeable="CONFLICTING"
+    )
+    review_gap = make_pr(
+        number=2, reviewDecision="REVIEW_REQUIRED", mergeable="MERGEABLE"
+    )
+    assert policy._agent_action_rank(conflict, False) < policy._agent_action_rank(
+        review_gap, False
+    )
+
+
+def test_changes_requested_order_is_oldest_first():
+    older = make_pr(number=1, updatedAt="2026-08-01T00:00:00Z")
+    newer = make_pr(number=2, updatedAt="2026-09-01T00:00:00Z")
+    assert policy._agent_action_rank(older, False) < policy._agent_action_rank(
+        newer, False
+    )
 
 
 def test_specific_candidate_uses_same_state_and_base_guards(monkeypatch):
