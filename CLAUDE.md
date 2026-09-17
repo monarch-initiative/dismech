@@ -3276,13 +3276,15 @@ they were removed.
 just check-case-collisions      # whole repo, <1s, offline
 ```
 
-It runs in `just qc` and as an ungated CI step. The usual source is a DOI
+It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written (#9112), and some scripts lowercase it first.
-Fetch a DOI once, in the publisher's capitalization. To fix a collision, keep
-the path matching the publisher's capitalization and remove the other from the
-index with `git rm --cached <path>`, which works on a case-insensitive disk
-because it never touches the file itself.
+filename copies the DOI as written. The patched fetcher now reuses an existing
+`DOI_*.md` file whose name differs only in case, on both read and write
+(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. To fix a
+collision that gets past it, keep the path matching the publisher's
+capitalization and remove the other from the index with `git rm --cached <path>`,
+which works on a case-insensitive disk because it never touches the file itself.
 
 ## Retired Enum Values (dismech#10061)
 
