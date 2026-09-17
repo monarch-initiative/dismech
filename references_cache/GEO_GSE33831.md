@@ -1,0 +1,11 @@
+---
+reference_id: GEO:GSE33831
+title: Mesenchymal Stem Cells Transfer Mitochondria to the Cells with Virtually Absent Mitochondrial Function but Not to the Cells Harboring Pathogenic Mitochondrial DNA Mutations
+content_type: summary
+---
+
+# Mesenchymal Stem Cells Transfer Mitochondria to the Cells with Virtually Absent Mitochondrial Function but Not to the Cells Harboring Pathogenic Mitochondrial DNA Mutations
+
+## Content
+
+It has been reported that human mesenchymal stem cells (MSCs) can transfer mitochondria to the cells with severely compromised mitochondrial function. We tested whether MSCs transfer mitochondria to the cells under several different conditions of mitochondrial dysfunction, including human pathogenic mitochondrial DNA (mtDNA) mutations. Using biochemical selection methods, we found that exponentially growing cells in restrictive media (uridine- and bromodeoxyuridine [BrdU]+) after coculture of MSCs (uridine-independent and BrdU-sensitive) and 143B-derived cells with severe mitochondrial dysfunction induced by either long-term ethidium bromide treatment or short-term rhodamine 6G (R6G) treatment (uridine-dependent but BrdU-resistant). The exponentially growing cells had nuclear DNA fingerprint patterns identical to 143B, and a sequence of mtDNA identical to the MSCs. Since R6G causes rapid and irreversible damage to mitochondria without the removal of mtDNA, the mitochondrial function appears to be restored through a direct transfer of mitochondria rather than mtDNA alone. Conditioned media, which were prepared by treating mtDNA-less 143B rho0 cells under uridine-free condition, induced increased chemotaxis in MSC, which was also supported by transcriptome analysis. A chemotaxis inhibitory agent blocked mitochondrial transfer phenomenon in the above condition. However, we could not find any evidence of mitochondrial transfer to the cells harboring human pathogenic mtDNA mutations (A3243G mutation or 4,977 bp deletion). Thus, the mitochondrial transfer is limited to the condition of a near total absence of mitochondrial function. Elucidation of the mechanism of mitochondrial transfer will help us create a potential “cell therapy-based mitochondrial restoration or mitochondrial gene therapy” for human diseases caused by mitochondrial dysfunction.
