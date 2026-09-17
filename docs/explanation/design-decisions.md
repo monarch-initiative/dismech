@@ -943,9 +943,14 @@ to 7% in the Indian cohort).
 questions and bind to different vocabularies:
 
 - **`modality`** (`ImagingModalityEnum`) — a small closed set (MRI, functional MRI, CT,
-  PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with `meaning:`
-  values bound to the **NCI Thesaurus Diagnostic Imaging branch** (e.g. `NCIT:C16809`
-  Magnetic Resonance Imaging, `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET).
+  micro-CT, PET, SPECT, ultrasound, X-ray, mammography, angiography, OCT, other), with
+  `meaning:` values bound to the **NCI Thesaurus Diagnostic Imaging branch** where NCIT
+  has a term for the modality (e.g. `NCIT:C16809` Magnetic Resonance Imaging,
+  `NCIT:C17204` Computed Tomography, `NCIT:C17007` PET). `MICRO_CT` and `OTHER` carry
+  no meaning: NCIT has no micro-CT term, and the value is scoped to *in-vivo*
+  micrometer-resolution CT so it stays inside this decision's boundary; ex vivo
+  micro-CT of fixed specimens (diceCT embryo morphometry) is a model readout, recorded
+  on an `ExperimentalReadout` with an `IMAGING` dataset, not an `ImagingFinding`.
 - **`imaging_finding_term`** (`ImagingFindingDescriptor`) — the imaging appearance, bound
   via `ImagingFindingTerm` to the **NCIT Imaging Finding branch** (`NCIT:C176708` /
   `NCIT:C199145`) and/or the **HP Phenotypic-abnormality branch** (`HP:0000118`), since
