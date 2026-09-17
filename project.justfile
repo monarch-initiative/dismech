@@ -890,7 +890,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-duplicate-keys check-enum-values check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1242,6 +1242,16 @@ list-skill-files:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Guard against tracked paths that differ only in letter case (#11204). On the
+# macOS/Windows default case-insensitive filesystem only one file of such a pair
+# can exist, so one path shows as modified forever and `git rebase` refuses to
+# run. Linux CI sees nothing wrong, which is how 17 DOI cache pairs accumulated.
+# Ungated and whole-repo for the same reason as check-duplicate-keys: the PRs
+# that add a collision touch only kb/ and references_cache/. <1s, offline.
+[group('QC')]
+check-case-collisions:
+    uv run python scripts/check_case_collisions.py
 
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed

@@ -3262,6 +3262,28 @@ curation, and the two usually differ — one carries `notes`, the other cited
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
 
+## Case-Colliding Paths (dismech#11204)
+
+Git must never track two paths that differ only in letter case, such as
+`references_cache/DOI_10.1172_JCI89626.md` and
+`references_cache/DOI_10.1172_jci89626.md`. On the macOS and Windows default
+filesystem only one of them can exist, so one path shows as modified forever,
+no `git checkout` or `git stash` clears it, and `git rebase` refuses to run.
+Linux CI sees nothing wrong, which is how 17 such DOI pairs accumulated before
+they were removed.
+
+```bash
+just check-case-collisions      # whole repo, <1s, offline
+```
+
+It runs in `just qc` and as an ungated CI step. The usual source is a DOI
+fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
+filename copies the DOI as written (#9112), and some scripts lowercase it first.
+Fetch a DOI once, in the publisher's capitalization. To fix a collision, keep
+the path matching the publisher's capitalization and remove the other from the
+index with `git rm --cached <path>`, which works on a case-insensitive disk
+because it never touches the file itself.
+
 ## Retired Enum Values (dismech#10061)
 
 The sibling of the duplicate-key problem above, with the same merge-shaped
