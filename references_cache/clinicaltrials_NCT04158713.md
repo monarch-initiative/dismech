@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04158713"
+reference_id: clinicaltrials:NCT04158713
 title: "Chemoprevention With Monthly IPTp With Dihydroartemisinin-piperaquine for Malaria in HIV-infected Pregnant Participants on Daily Cotrimoxazole in Kenya and Malawi: a Multi-centre Placebo-controlled Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Chemoprevention With Monthly IPTp With Dihydroartemisinin-piperaquine for Malaria in HIV-infected Pregnant Participants on Daily Cotrimoxazole in Kenya and Malawi: a Multi-centre Placebo-controlled Trial
