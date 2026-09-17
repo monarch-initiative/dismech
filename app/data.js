@@ -35059,8 +35059,8 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
-    "name": "Autosomal Recessive Osteopetrosis Type 2",
-    "disease_id": "MONDO:0009816",
+    "name": "Autosomal Recessive Osteopetrosis 1",
+    "disease_id": "MONDO:0009815",
     "category": "Mendelian",
     "parents": [
       "Sclerosing Bone Dysplasias"
@@ -35068,12 +35068,13 @@ window.searchData = [
     "creation_date": "2026-02-13T00:31:42Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal recessive osteopetrosis type 2 (ARO2) is a severe sclerosing bone disease caused by biallelic loss-of-function mutations in TCIRG1, encoding the osteoclast-specific a3 subunit of the vacuolar H+-ATPase. TCIRG1 mutations are the most frequent cause of infantile malignant osteopetrosis, accounting for over 50% of ARO cases. Osteoclasts are present in normal or elevated numbers but are non-functional due to inability to acidify the resorption lacuna. The disease is characterized by dense but brittle bones, bone marrow failure, cranial nerve compression, and hepatosplenomegaly. Without hematopoietic stem cell transplantation, the disease is fatal within the first decade of life.\n",
+    "description": "Autosomal recessive osteopetrosis 1 (ARO1, OPTB1, malignant infantile osteopetrosis) is a severe sclerosing bone disease caused by biallelic loss-of-function variants in TCIRG1, encoding the osteoclast-specific a3 subunit of the vacuolar H+-ATPase. TCIRG1 variants are the most frequent cause of infantile malignant osteopetrosis, accounting for roughly half of autosomal recessive osteopetrosis cases. Osteoclasts differentiate normally and are present in normal or elevated numbers, but cannot acidify the resorption lacuna, so bone mineral is never dissolved; this is what makes ARO1 an osteoclast-rich osteopetrosis, in contrast to the osteoclast-poor forms caused by defects in the RANK/RANKL differentiation axis. The defect is specific to extracellular acidification: lysosomal proton pumping and systemic acid-base balance are preserved, which separates ARO1 from carbonic anhydrase II deficiency. Failure of resorption produces dense but brittle bones, obliteration of the medullary cavity with marrow failure and compensatory extramedullary haematopoiesis, cranial nerve compression at unwidened skull foramina, and hypocalcaemia with secondary hyperparathyroidism and superimposed rickets. Without haematopoietic stem cell transplantation the disease is usually fatal within the first decade.\n",
     "pathophysiology": [
       "Vacuolar Proton Pump Deficiency in Osteoclasts",
       "Progressive Skeletal Sclerosis",
       "Bone Marrow Failure from Medullary Obliteration",
-      "Cranial Nerve Compression from Skull Thickening"
+      "Cranial Nerve Compression from Skull Thickening",
+      "Failure of Skeletal Calcium Mobilization"
     ],
     "cell_types": [
       "Osteoclast"
@@ -35107,15 +35108,35 @@ window.searchData = [
       "Optic nerve compression",
       "Growth delay",
       "Recurrent respiratory infections",
-      "Pallor"
+      "Pallor",
+      "Rickets",
+      "Secondary hyperparathyroidism",
+      "Extramedullary hematopoiesis",
+      "Short stature",
+      "Optic atrophy",
+      "Nystagmus",
+      "Delayed eruption of teeth",
+      "Carious teeth",
+      "Proptosis",
+      "Hypertelorism",
+      "Micrognathia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Metabolic",
+      "Endocrine",
+      "Hematologic",
+      "Growth",
+      "Ophthalmologic",
+      "Dental",
+      "Craniofacial"
+    ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Constitutional",
       "Digestive",
       "Ear",
+      "Endocrine",
       "Eye",
       "Growth",
       "Head and Neck",
@@ -35147,29 +35168,43 @@ window.searchData = [
       "HP:0007807",
       "HP:0001510",
       "HP:0002205",
-      "HP:0000980"
+      "HP:0000980",
+      "HP:0002748",
+      "HP:0000867",
+      "HP:0001978",
+      "HP:0004322",
+      "HP:0000648",
+      "HP:0000639",
+      "HP:0000684",
+      "HP:0000670",
+      "HP:0000520",
+      "HP:0000316",
+      "HP:0000347"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "FREQUENT"
     ],
     "genes": [
-      "TCIRG1 Mutations",
-      "TNFSF11"
+      "TCIRG1"
     ],
     "treatments": [
-      "Hematopoietic Stem Cell Transplantation",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Recombinant Human Interferon Gamma-1b",
+      "Calcium and Vitamin D Supplementation",
+      "Optic Nerve Decompression",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
-    "source_file": "Autosomal_Recessive_Osteopetrosis.yaml",
-    "page_url": "../pages/disorders/Autosomal_Recessive_Osteopetrosis_Type_2.html",
-    "num_phenotypes": 21,
-    "num_pathophysiology": 4,
-    "num_genes": 2,
-    "num_treatments": 2,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "3"
+    "source_file": "Autosomal_Recessive_Osteopetrosis_1.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Osteopetrosis_1.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Autosomal Recessive Osteopetrosis 3",
@@ -310177,14 +310212,14 @@ window.searchMetrics = {
   "total_disorder_pages": 2982,
   "total_subtypes": 3751,
   "total_disorders_and_subtypes": 6733,
-  "total_unique_evidence_sources": 41945,
-  "total_unique_publications": 39555,
+  "total_unique_evidence_sources": 41956,
+  "total_unique_publications": 39566,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
   "total_pathographs": 2977,
-  "total_unique_pathological_events": 18045,
+  "total_unique_pathological_events": 18046,
   "total_modules": 176,
-  "total_research_reports": 3096,
+  "total_research_reports": 3097,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
