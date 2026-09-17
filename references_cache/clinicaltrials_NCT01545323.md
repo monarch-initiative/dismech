@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01545323"
+reference_id: clinicaltrials:NCT01545323
 title: Phase I Study of Ex-vivo Lentiviral Gene Therapy for the Inherited Skin Disease Netherton Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase I Study of Ex-vivo Lentiviral Gene Therapy for the Inherited Skin Disease Netherton Syndrome
