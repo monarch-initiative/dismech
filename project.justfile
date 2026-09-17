@@ -934,6 +934,18 @@ knowledge-gap-audit *args="":
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
+# Census of has_subtypes usage (how many subtypes are ever referenced by a
+# subtype: foreign key) plus the deterministic subtype-gene wiring check: a
+# gene named in has_subtypes[].genes that no pathophysiology node carries and
+# no genetic: node links into the mechanism chain is reported as
+# GENETIC_UNWIRED or ABSENT. Advisory by default; --strict exits non-zero.
+#   just subtype-usage-audit
+#   just subtype-usage-audit --format list --status ABSENT
+#   just subtype-usage-audit --format tsv --out /tmp/subtypes.tsv
+[group('QC')]
+subtype-usage-audit *args="":
+    uv run python scripts/subtype_usage_audit.py {{args}}
+
 # Compare each model->mechanism link's `model_scale` against its target node's
 # `biological_scale`. Reports upward extrapolation (model below its target's
 # scale -- it cannot observe the outcome it is cited for) separately from the
