@@ -87,6 +87,18 @@ susceptibility to infection.
 | Report | [`TDAR_AOP/openscientist-tdar-aop-network.md`](TDAR_AOP/openscientist-tdar-aop-network.md) |
 | Artifacts | `TDAR_AOP/artifacts/` — two network JSONs and their rendered PNGs |
 
+Two companion documents sit beside the report in `TDAR_AOP/`. Neither renders on
+the website — only top-level `projects/*.md` does — so they are read in the
+repository:
+
+- [`TDAR_AOP/failed-claims.md`](TDAR_AOP/failed-claims.md) — the report's claims
+  that do not survive checking against their own sources, each with the claim in
+  the report's own words, what was checked, and what the source says.
+- [`TDAR_AOP/findings-to-actions.md`](TDAR_AOP/findings-to-actions.md) — a
+  checklist over all twelve finding sections, separating the ones implying work
+  in this repository from the ones that are observations about the AOP framework
+  with no dismech action.
+
 The report is a **lead**, not a source. Its citations have not been put through
 `just validate-research-references`, and the verification below was done by hand
 against AOP-Wiki and PubMed. The provider bundle also contained iteration
