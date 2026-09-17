@@ -87,7 +87,7 @@ GATING = ("CONFLICT", "EMPTY", "LIGANDLESS_TARGET")
 
 
 class Finding:
-    __slots__ = ("path", "location", "kind", "detail")
+    __slots__ = ("detail", "kind", "location", "path")
 
     def __init__(self, path: Path, location: str, kind: str, detail: str) -> None:
         self.path = path
@@ -104,7 +104,7 @@ def _treatment_like(node: dict) -> bool:
     )
 
 
-def _walk(node: object, path: str = "") -> "list[tuple[str, dict]]":
+def _walk(node: object, path: str = "") -> list[tuple[str, dict]]:
     """Every mapping in the document that looks like a Treatment, with its path.
 
     Generic recursion rather than a `treatments:` lookup on purpose: a Treatment
@@ -210,7 +210,7 @@ def _display(path: Path) -> str:
         return str(path)
 
 
-def scan_repo(paths: "list[Path] | None" = None) -> list[Finding]:
+def scan_repo(paths: list[Path] | None = None) -> list[Finding]:
     explicit = {p.resolve() for p in paths} if paths else set()
     findings: list[Finding] = []
     for path in _files(explicit):
