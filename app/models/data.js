@@ -498,11 +498,11 @@ window.searchData = [
   {
     "model_key": "Primary_Ciliary_Dyskinesia--computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities--0",
     "name": "CFD model of mucociliary clearance under ciliary abnormalities",
-    "description": "Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \u2014 the central mechanism of PCD.",
+    "description": "Three-dimensional computational study of mucus transport under varied ciliary density, beat pattern, frequency, coordination and missing-cilia regions. The institutional abstract reports stronger effects for density, pattern and frequency and weaker effects for some spatial arrangements. This general physiological model is not calibrated to PCD patient genotypes or proven clinical trajectories.",
     "model_type": "Physiological",
     "model_type_raw": "PHYSIOLOGICAL",
     "model_format": "Format not recorded",
-    "model_software": "in-house finite-difference / immersed-boundary solver",
+    "model_software": "Software not recorded",
     "base_model": "",
     "model_id": "",
     "repository_url": "",
@@ -528,12 +528,12 @@ window.searchData = [
     ],
     "num_mechanisms": 1,
     "findings": [
-      "A two-layer airway-surface-liquid CFD model with immersed-boundary cilia quantifies the effect of various ciliary abnormalities on mucociliary clearance."
+      "Published computational results identify cilia density, waveform and frequency as important determinants of transport in the modeled system; clinical PCD effect sizes are not established."
     ],
     "num_findings": 1,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "General CFD model of impaired mucociliary clearance rather than a genotype-specific PCD model; cited by DOI (no PubMed abstract available for snippet-level validation).",
+    "notes": "DOI metadata and the author institutional record (https://kth.diva-portal.org/smash/record.jsf?pid=diva2:1779672) identify the study. The sanctioned DOI cache lacks full text; solver implementation and quantitative validation were not independently verified, and no simulation was rerun.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Primary_Ciliary_Dyskinesia.html#computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities",
     "source_file": "kb/disorders/Primary_Ciliary_Dyskinesia.yaml"
@@ -2484,7 +2484,7 @@ window.searchData = [
     "num_findings": 2,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-caf-mediated-invasion-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
@@ -2492,7 +2492,7 @@ window.searchData = [
   {
     "model_key": "Pancreatic_Ductal_Adenocarcinoma--computational-model-pdac-immunotherapy-physicell-model--1",
     "name": "PDAC Immunotherapy PhysiCell Model",
-    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states and is a strong executable analogue of PDAC immune-excluded ecology.",
+    "description": "Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states using explicit cell-state and interaction rules.",
     "model_type": "Agent Based",
     "model_type_raw": "AGENT_BASED",
     "model_format": "C++/XML/CSV",
@@ -2567,7 +2567,7 @@ window.searchData = [
     "num_findings": 3,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`.",
+    "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-immunotherapy-physicell-model",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
@@ -3410,6 +3410,52 @@ window.searchData = [
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-revised-per2-circadian-phosphoswitch-model",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
+    "model_key": "Rosacea--computational-model-rosacea-innate-immune-axis-boolean-model--0",
+    "name": "Rosacea Innate-Immune Axis Boolean Model",
+    "description": "A synchronous Boolean network of the cutaneous innate-immune arm of rosacea: barrier impairment and Demodex proliferation through pro-cathelicidin transcription, TLR2, KLK5/KLK7 and LL-37 to the inflammasome, mast-cell, Th1/Th17 and angiogenic branches, and on to the vascular and papulopustular phenotypes. Authored in this repository rather than curated from a publication, because no Boolean, logical or other dynamical model of rosacea has been published; PubMed returns nothing for rosacea combined with Boolean network, logical model, agent-based or mathematical model, and the computational rosacea literature is entirely network pharmacology and molecular docking. Every node maps to a pathophysiology, environmental, treatment or phenotype node in this entry, and every rule transcribes causal edges curated here, so the model asserts no biology of its own: it makes the curated chain executable, so that what the chain implies can be derived instead of argued. Nothing in it is fitted to data.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Boolean rule specification (YAML)",
+    "model_software": "Python (standard library and PyYAML)",
+    "base_model": "",
+    "model_id": "rosacea_innate_boolean",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Rosacea",
+    "disease_id": "MONDO:0006604",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Skin Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Papulopustular inflammation",
+      "Neurovascular vasodilation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "No combination of the interventions that can be grounded in this entry switches off the papulopustular phenotype in the model.",
+      "Removing mites alone clears only telangiectasia in the model, which overstates what an acaricide does to the cathelicidin axis.",
+      "The erythematotelangiectatic scenario produces papules and pustules, which is clinically wrong and exposes the absence of subtype gating in the curated graph."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Spec models/rosacea_innate_boolean.yaml, runner models/rosacea_innate_boolean.py, committed results models/rosacea_innate_boolean.results.json. Regenerate with `uv run python models/rosacea_innate_boolean.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean.config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
+    "creation_date": "2026-04-05T12:00:00Z",
+    "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
+    "source_file": "kb/disorders/Rosacea.yaml"
   },
   {
     "model_key": "Cystic_Fibrosis--computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis--1",
@@ -4854,8 +4900,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 103,
-  "total_source_entries": 40,
+  "total_models": 104,
+  "total_source_entries": 41,
   "total_model_types": 8,
   "total_runnable": 4,
   "total_with_repository": 43
