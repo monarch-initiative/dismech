@@ -406,17 +406,33 @@ Each is declared complementary in `germinal_center_reaction`'s own description.
 
 ### Conformance state of the antibody-deficiency entries
 
-`germinal_center_reaction`'s description and notes name five entries as intended
-conformers. Three currently declare `conforms_to`:
+At the time of this survey, `germinal_center_reaction`'s description named five
+entries as intended conformers and three of the six antibody-deficiency entries
+declared `conforms_to`. That gap is what issue #11897 was opened against, and it
+has since been closed — so both states are recorded here, because the survey
+finding is what motivated the work and the current state is what a reader needs.
 
-| Entry | `conforms_to` |
-|---|---|
-| `Common_Variable_Immunodeficiency` | `germinal_center_reaction#Germinal Center Reaction` |
-| `Specific_Antibody_Deficiency` | `germinal_center_reaction#Affinity-Matured Class-Switched B Cell Output` |
-| `Autosomal_Agammaglobulinemia` | `germinal_center_reaction#Durable Protective Humoral Immunity` |
-| `X-linked_Agammaglobulinemia` | none |
-| `Hyper-IgM_Syndrome_Type_2` | none |
-| `Selective_IgA_Deficiency` | none |
+| Entry | At the survey | Now (`main`) |
+|---|---|---|
+| `Common_Variable_Immunodeficiency` | `#Germinal Center Reaction` | unchanged |
+| `Specific_Antibody_Deficiency` | `#Affinity-Matured Class-Switched B Cell Output` | unchanged |
+| `Autosomal_Agammaglobulinemia` | `#Durable Protective Humoral Immunity` | unchanged |
+| `X-linked_Agammaglobulinemia` | **none** | `#Durable Protective Humoral Immunity` |
+| `Hyper-IgM_Syndrome_Type_2` | **none** | `#Germinal Center Reaction` |
+| `Selective_IgA_Deficiency` | none | **none — deliberate** |
+
+All anchors are on `germinal_center_reaction`; the module stem is elided in the
+table for width.
+
+So five of six now declare, not three. `Selective_IgA_Deficiency` remains
+unconformed on purpose: #11897 recorded it as genuinely uncertain — the defect is
+isotype-restricted, the entry records intact heavy-chain alpha loci, its genetics
+are associative rather than a lesion in the chain, and mucosal IgA sits partly in
+the T-independent territory the module explicitly scopes out. A recorded decision
+not to conform was named there as an acceptable outcome, and that is the outcome.
+
+The module description was updated in the same work and now names seven entries
+in the decreased-or-absent direction rather than five.
 
 Also conforming: `Activated_PI3K-delta_Syndrome`, `Kabuki_Syndrome` (both in the
 decreased direction) and `Follicular_Lymphoma` (dysregulated direction).
