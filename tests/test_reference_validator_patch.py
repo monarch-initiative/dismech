@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+from linkml_reference_validator.etl.extract.html import HTMLExtractor
 from linkml_reference_validator.etl.extract.xml import XMLExtractor
 from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
@@ -75,7 +77,9 @@ def test_save_to_disk_patch_forwards_unknown_keyword_arguments():
     # Wrap a stand-in original, so the assertion is about the wrapper's
     # forwarding rather than about whatever upstream's parameters happen to be
     # this release -- which is the whole point.
-    _wrap_save_to_disk(_original)(None, _Reference(), True, private=True, future_arg="x")
+    _wrap_save_to_disk(_original)(
+        None, _Reference(), True, private=True, future_arg="x"
+    )
 
     assert seen["args"] == (True,)
     assert seen["kwargs"] == {"private": True, "future_arg": "x"}
@@ -119,6 +123,54 @@ def test_save_to_disk_patch_survives_a_real_uncached_fetch(tmp_path, monkeypatch
     fetcher._save_by_access(_Content())
 
     assert (tmp_path / "PMID_14991055.md").is_file()
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        (
+            "Use of hospital morbidity data in an epidemiological analysis of diseases caused\n"
+            "by Legionella pneumophila"
+        ),
+        'A title: with a "quoted"\nsecond line',
+        "Line one\r\nLine two",
+        "Unicode β and a \\backslash\nare preserved",
+    ],
+)
+def test_multiline_metadata_round_trips_through_real_cache_writer(tmp_path, title):
+    """Crossref line breaks must neither break YAML nor silently become spaces."""
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator  # noqa: F401
+
+    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
+    original = ReferenceContent(
+        reference_id="DOI:10.1000/multiline-metadata",
+        title=title,
+        authors=["An author\nconsortium"],
+        journal="A journal\nname",
+        keywords=["A multiline\nkeyword"],
+        content="Unmodified source body.",
+        content_type="abstract",
+    )
+    fetcher._save_to_disk(original)
+    restored = fetcher._load_from_disk(original.reference_id)
+
+    assert restored is not None
+    assert restored.title == original.title
+    assert restored.authors == original.authors
+    assert restored.journal == original.journal
+    assert restored.keywords == original.keywords
+    assert restored.content == original.content
+
+
+def test_multiline_metadata_patch_preserves_single_line_quoting(tmp_path):
+    import dismech.patch_reference_validator  # noqa: F401
+
+    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
+    assert fetcher._quote_yaml_value("Ordinary title") == "Ordinary title"
+    assert fetcher._quote_yaml_value("Title: with colon") == '"Title: with colon"'
+    assert fetcher._quote_yaml_value('A "quoted" title') == '"A \\"quoted\\" title"'
 
 
 def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
@@ -357,3 +409,91 @@ def test_article_without_tables_is_unchanged():
     xml = b"<article><body><sec><p>Body paragraph.</p></sec></body></article>"
 
     assert XMLExtractor().extract(xml) == "Body paragraph."
+
+
+def test_html_inline_markup_preserves_source_word_boundaries():
+    """Italic gene names must not fuse with the prose surrounding them."""
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<article><p>  Altered CA excitatory neurons <i>NMDA</i> receptors and "
+        b"<i>HOMER1</i>, a key postsynaptic scaffolding protein, support "
+        b"<a href='/study'>neuroplasticity</a> in MDD.  </p></article>"
+    )
+    assert HTMLExtractor().extract(html) == (
+        "Altered CA excitatory neurons NMDA receptors and HOMER1, a key "
+        "postsynaptic scaffolding protein, support neuroplasticity in MDD."
+    )
+
+
+def test_html_inline_markup_does_not_invent_spaces_inside_words():
+    """A blanket separator=' ' would corrupt genuine typography."""
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<p>neuro<em>genesis</em> depends on Ca<sup>2+</sup> and "
+        b"H<sub>2</sub>O. The effect<sup>1</sup> was measured.</p>"
+    )
+    assert HTMLExtractor().extract(html) == (
+        "neurogenesis depends on Ca2+ and H2O. The effect1 was measured."
+    )
+
+
+def test_html_preserves_whitespace_before_and_after_superscripts():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    assert (
+        HTMLExtractor().extract(b"<p>The effect <sup>1,2</sup> was replicated.</p>")
+        == "The effect 1,2 was replicated."
+    )
+
+
+def test_html_paragraph_selection_and_script_removal_are_unchanged():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<html><p>Outside article.</p><main><p>Outside article in main.</p>"
+        b"<article><p>One <i>gene</i>.</p><p> \n </p>"
+        b"<p><style>hidden style</style>Two<script>hidden script</script>.</p>"
+        b"</article></main></html>"
+    )
+    assert HTMLExtractor().extract(html) == "One gene.\n\nTwo."
+    assert HTMLExtractor().extract(
+        b"<main><p>A <em>main</em> paragraph.</p></main>"
+    ) == ("A main paragraph.")
+
+
+def test_html_without_paragraph_text_uses_upstream_fallback():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    # The existing fallback separates all text nodes with newlines; this patch
+    # deliberately changes only paragraph extraction.
+    assert HTMLExtractor().extract(b"<main>One <em>gene</em>.</main>") == "One\ngene\n."
+    assert (
+        HTMLExtractor().extract(b"<html><p> </p><script>hidden</script></html>") is None
+    )
+
+
+def test_html_recovered_quote_passes_the_unchanged_matcher(tmp_path):
+    """Repair source extraction, retaining rejection of an altered quote."""
+    from linkml_reference_validator.models import ReferenceContent
+    from linkml_reference_validator.validation.supporting_text_validator import (
+        SupportingTextValidator,
+    )
+
+    import dismech.patch_reference_validator  # noqa: F401
+
+    quote = "Altered neurons NMDA receptors and HOMER1 support neuroplasticity."
+    content = HTMLExtractor().extract(
+        b"<p>Altered neurons <i>NMDA</i> receptors and <i>HOMER1</i> support neuroplasticity.</p>"
+    )
+    record = ReferenceContent(
+        reference_id="DOI:10.1000/html-boundaries",
+        content=content,
+        content_type="full_text_html",
+    )
+    validator = SupportingTextValidator(ReferenceValidationConfig(cache_dir=tmp_path))
+    assert validator.find_text_in_reference(quote, record).found
+    assert not validator.find_text_in_reference(
+        quote.replace("support", "disrupt"), record
+    ).found

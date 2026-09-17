@@ -113,6 +113,11 @@ jobs:
               - 'scripts/verify_merge_integrity.py'
               # Guarded by tests/test_term_validator_wrapper.py (#11004).
               - 'scripts/run_term_validator.sh'
+              # The reference gate's negative controls must run when its policy
+              # changes, not only when Python changes (issue #7514).
+              - 'scripts/run_reference_validator.sh'
+              - 'conf/reference_validator_config.yaml'
+              - '.linkml-reference-validator.yaml'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -405,6 +410,16 @@ jobs:
       - name: Check for Not4Curation ontology bindings
         run: uv run python scripts/not4curation_audit.py
 
+      # Ungated and whole-tree on purpose, for the same reason as the step
+      # below. A skill file with no SKILL.md, or with one miscased as skill.md,
+      # is silently not loaded -- Claude Code reports nothing and the skill just
+      # never triggers. `microbiome-curation` was in that state for close to a
+      # month (issue #11758). It arrived in #8651, a curation PR adding CMT
+      # disorder entries, so a changed-path filter would have skipped the very
+      # change that broke it. Offline, well under a second.
+      - name: Check Claude Code skill files
+        run: uv run python scripts/check_skill_files.py
+
       # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
       # MERGE, not by authoring: two concurrent curation PRs adding the same
       # block at different points in one file merge without a git conflict, so
@@ -414,6 +429,17 @@ jobs:
       # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-repo on purpose. Two tracked paths that differ only in
+      # letter case coexist on this Linux runner, so nothing here fails, while on
+      # the macOS/Windows default filesystem only one of them can exist: one path
+      # shows as modified forever and `git rebase` refuses to run. Such pairs have
+      # been removed by hand four times (#598, #1305, #9540, #11204), most
+      # recently 17 DOI cache files fetched in two capitalizations. The PRs that
+      # add them touch only kb/ and references_cache/, so a path-filtered pytest
+      # lane would skip them. <1s, offline.
+      - name: Check for case-colliding paths
+        run: uv run python scripts/check_case_collisions.py
 
       # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
       # the duplicate-key step above -- this is its schema-narrowing twin.
@@ -431,6 +457,23 @@ jobs:
       # rather than conformance, which is what makes it affordable here.
       - name: Check enum values are permissible
         run: uv run python scripts/check_enum_values.py
+
+      # Ungated and whole-KB for the same merge-shaped reason as its two
+      # neighbours. A treatment's carrier facts (delivery_platform, targeting
+      # ligand) have two legal homes while the nested
+      # `oligonucleotide_details` copy is being retired: one PR moving a
+      # treatment onto the Treatment-level `delivery_system` block and another
+      # editing the nested copy on that same treatment are each green against
+      # their own base, and only the merge result holds both values. The
+      # renderer resolves `delivery_system` first, so the disagreement is
+      # silent -- the nested value is hidden rather than surfaced.
+      #
+      # Gates on CONFLICT, EMPTY and LIGANDLESS_TARGET only. The nested-only
+      # records are the migration worklist and are reported, never gated:
+      # gating them would turn every oligonucleotide entry in the KB red for a
+      # change none of their curators made. Offline, seconds, one walk.
+      - name: Check delivery systems are consistent
+        run: uv run python scripts/check_delivery_system.py
 
       # Ungated and whole-KB on purpose, and for a sharper reason than the
       # checks around it: the entity-ref rules ARE covered by pytest
@@ -466,6 +509,42 @@ jobs:
       # gates new breakage only.
       - name: Check pathograph targets resolve
         run: uv run python scripts/check_causal_targets.py
+
+      # The step above asks whether a declared causal target RESOLVES. This one
+      # asks whether a phenotype is REACHED at all -- the failure it cannot see.
+      # An entry passes the resolve check perfectly with every phenotype
+      # floating, because a phenotype nobody ever wrote an edge to is not a
+      # broken target, just an absent one. Schizophrenia was the worked case: one
+      # dangling target, and six phenotypes simply never connected.
+      #
+      # Enforces the `min_compliance` floor on `phenotypes[].causal_inlink` from
+      # conf/qc_config.yaml (50.0 against a measured 53.9% when turned on). The
+      # floor is a ratchet against erosion applied to the KB-WIDE AGGREGATE, not
+      # a per-PR gate -- ~100 new entries with everything disconnected move it
+      # about 1.5 points -- so a failure here means sustained drift, not one bad
+      # entry, and the fix is a wiring pass over the worst files rather than a
+      # change to whatever PR happened to go red. Raise the floor as coverage
+      # improves; never lower it to get green.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours: the
+      # aggregate moves when an entry is added anywhere, so a changed-path
+      # filter would miss the drift it exists to catch. ~21s.
+      - name: Check pathograph connectivity floor
+        run: just compliance-connectivity
+
+      # The pathograph node-class tree (kb/node_classes/) cites ~2,200 real
+      # `[Disease] Node name` pairs by bare name, the same reference form as
+      # the pathograph targets above and with the same failure mode: renaming
+      # a node in a curation PR silently strands every example that named it,
+      # and a tree whose leaves have drifted from the KB is worse than no tree
+      # because it still looks grounded. The pytest that checks this
+      # (test_committed_tree_examples_resolve_in_kb) sits in the `python`
+      # lane, which a kb/-only PR never enters, so until this step existed the
+      # only catch was the nightly sweep, a day late, on main.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours.
+      - name: Check node-class tree examples resolve
+        run: uv run python -m dismech.node_classes --verify-kb
 
       # The third target grammar, and the one nothing else sees. A
       # `proposed_experiments[].{perturbations,readouts}[].target` uses the
