@@ -1,0 +1,41 @@
+---
+reference_id: DOI:10.1182/blood-2018-04-845644
+title: A mutation of the human EPHB2 gene leads to a major platelet functional defect
+authors:
+- Eliane Berrou
+- Christelle Soukaseum
+- Rémi Favier
+- Frédéric Adam
+- Ziane Elaib
+- Alexandre Kauskot
+- Jean-Claude Bordet
+- Paola Ballerini
+- Stephane Loyau
+- Miao Feng
+- Karine Dias
+- Abbas Muheidli
+- Stephane Girault
+- Alan T. Nurden
+- Ernest Turro
+- Willem H. Ouwehand
+- Cécile V. Denis
+- Martine Jandrot-Perrus
+- Jean-Philippe Rosa
+- Paquita Nurden
+- Marijke Bryckaert
+journal: Blood
+year: '2018'
+doi: 10.1182/blood-2018-04-845644
+content_type: abstract_only
+is_preprint: false
+---
+
+# A mutation of the human EPHB2 gene leads to a major platelet functional defect
+**Authors:** Eliane Berrou, Christelle Soukaseum, Rémi Favier, Frédéric Adam, Ziane Elaib, Alexandre Kauskot, Jean-Claude Bordet, Paola Ballerini, Stephane Loyau, Miao Feng, Karine Dias, Abbas Muheidli, Stephane Girault, Alan T. Nurden, Ernest Turro, Willem H. Ouwehand, Cécile V. Denis, Martine Jandrot-Perrus, Jean-Philippe Rosa, Paquita Nurden, Marijke Bryckaert
+**Journal:** Blood (2018)
+**DOI:** [10.1182/blood-2018-04-845644](https://doi.org/10.1182/blood-2018-04-845644)
+
+## Content
+
+Abstract
+The ephrin transmembrane receptor family of tyrosine kinases is involved in platelet function. We report the first EPHB2 variant affecting platelets in 2 siblings (P1 and P2) from a consanguineous family with recurrent bleeding and normal platelet counts. Whole-exome sequencing identified a c.2233C&gt;T variant (missense p.R745C) of the EPHB2 gene. P1 and P2 were homozygous for this variant, while their asymptomatic parents were heterozygous. The p.R745C variant within the tyrosine kinase domain was associated with defects in platelet aggregation, αIIbβ3 activation, and granule secretion induced by G-protein–coupled receptor (GPCR) agonists and convulxin, as well as in thrombus formation on collagen under flow. In contrast, clot retraction, flow-dependent platelet adhesion, and spreading on fibrinogen were only mildly affected, indicating limited effects on αIIbβ3 outside-in signaling. Most importantly, Lyn, Syk, and FcRγ phosphorylation, the initial steps in glycoprotein VI (GPVI) platelet signaling were drastically impaired in the absence of platelet–platelet contact, indicating a positive role for EPHB2 in GPVI activation. Likewise platelet activation by PAR4-AP showed defective Src activation, as opposed to normal protein kinase C activity and Ca2+ mobilization. Overexpression of wild-type and R745C EPHB2 variant in RBL-2H3 (rat basophilic leukemia) cells stably expressing human GPVI confirmed that EPHB2 R745C mutation impaired EPHB2 autophosphorylation but had no effect on ephrin ligand-induced EPHB2 clustering, suggesting it did not interfere with EPHB2-ephrin–mediated cell-to-cell contact. In conclusion, this novel inherited platelet disorder affecting EPHB2 demonstrates this tyrosine kinase receptor plays an important role in platelet function through crosstalk with GPVI and GPCR signaling.
