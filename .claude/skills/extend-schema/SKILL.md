@@ -1,11 +1,11 @@
 ---
 name: extend-schema
 description: >
-  Use when changing the data model / schema in src/dismech/schema/*.yaml; when *considering* a schema change
-  when deciding whether a curation need warrants a schema change at all; or when migrating KB
-  content after a schema change. Not for filling in an
-  existing slot (see the curation skills) or for ontology bindings inside the
-  schema's dynamic enums (see dismech-terms).
+  Use when changing the data model / schema in src/dismech/schema/*.yaml; when
+  considering a schema change, including deciding whether a curation need
+  warrants one at all; or when migrating KB content after a schema change. Not
+  for filling in an existing slot (see the curation skills) or for ontology
+  bindings inside the schema's dynamic enums (see dismech-terms).
 ---
 
 # Extend the dismech LinkML Schema
@@ -31,6 +31,7 @@ ontology `meaning` / `reachable_from` bindings inside dynamic enums (use
 | `src/dismech/schema/hypothesis_assessment.yaml`, `hypothesis_reconciliation.yaml` | `kb/hypotheses/` |
 | `src/dismech/schema/research_synthesis.yaml` | deep-research synthesis |
 | `src/dismech/schema/classifications/` | the `classifications` block |
+| `src/dismech/schema/dismech.history.yaml` | not a schema — an auto-appended edit log beside `dismech.yaml`. Never hand-edit it; `validate-all` skips `*.history.yaml` |
 
 This guide mostly pertains to the *core schema* ie dismech.yaml
 
@@ -90,8 +91,8 @@ then once migration is done (including open PRs) narrow the schema.
 ## Mechanics — what to regenerate
 
 ```bash
-just lint-schema                              # linkml-lint
-just validate-all                             # every KB file against the new schema
+just lint-schema                              # linkml-lint -- dismech.yaml ONLY, not the other five
+just validate-all                             # every *disorder* file; modules/groupings have their own recipes
 just check-enum-values                        # whole-KB, offline
 just validate-terms-schema                    # the schema's own dynamic enums
 just gen-jsonschema                           # -> project/jsonschema/ (gitignored)
@@ -103,11 +104,6 @@ just gen-schema-docs                          # -> elements/ (derived; CI commit
 **TODO — resolve:** history is inconsistent about whether a schema change must
 regenerate them (#10758 did; #9806 and #10629 did not). Decide the rule and
 state it here.
-
-**Gotcha:** `just gen-python` / `gen-project` read `LINKML_SCHEMA_NAME`, which
-has no default in the repo (`justfile:29` falls back to `_no_schema_given_`).
-Run them as `LINKML_SCHEMA_NAME=dismech just gen-python`. TODO: verify, and
-consider fixing the default instead of documenting the workaround.
 
 **Do not hand-commit** `elements/`, `docs/` HTML, or anything else the
 generate-pages workflow owns. See CLAUDE.md "What NOT to commit".
@@ -132,6 +128,20 @@ TODO. Checklist to confirm and expand:
 - [ ] `CLAUDE.md` — curator-facing semantics, if a curator will fill the slot.
 - [ ] `docs/explanation/design-decisions.md` — if this settles or reopens a
       recorded decision.
+- [ ] **A `history/schema/` record.** The convention is live — `history/schema/`
+      already holds records for `ModuleCategoryEnum`, `TherapeuticModalityEnum`,
+      `maxo-removal`, `entity-ref-prefix-normalisation` and others, i.e. exactly
+      the enum-narrowing and slot-addition changes this skill is for. Unlike the
+      KB kinds, `schema` records need an explicit `--path`:
+
+      ```bash
+      just new-history --kind schema --slug <EnumOrSlotName> \
+        --path src/dismech/schema/dismech.yaml \
+        --event EDIT --outcome changed \
+        --summary "Add <slot>" --agent-tool claude-code --model <model-id> \
+        --pr <PR_NUMBER> --details "What changed and why."
+      just validate-history <path-printed-by-new-history>
+      ```
 
 ## Common mistakes
 
@@ -145,12 +155,15 @@ TODO. Seeds:
 
 ## Validation before the PR
 
-TODO — assemble the real sequence. Starting point:
-
 ```bash
 just lint-schema
-just validate-all
-just check-enum-values
-just check-duplicate-keys
+just validate-terms-schema
 just qc
 ```
+
+`just qc` already chains `check-duplicate-keys`, `check-enum-values`,
+`validate-all`, `validate-modules`, `validate-groupings` and
+`validate-module-collections` (`project.justfile:879`), so do not run those
+separately — `validate-all` is the slow one and you would pay for it twice.
+`validate-terms-schema` is not in the chain and is the one that checks the
+dynamic enums you just edited.
