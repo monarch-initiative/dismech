@@ -88,7 +88,6 @@ from dismech.graph import (
     _genetic_item_infers_mechanism_edges,
     build_causal_graph,
 )
-from dismech.yaml_io import safe_load
 
 #: Classes carrying the ``subtype`` foreign-key slot map to these list-valued
 #: Disease sections (PhenotypeContext is nested and handled separately).
@@ -187,7 +186,7 @@ def _symbol_words(descriptor: dict) -> set[str]:
 
 def audit_entry(path: Path) -> tuple[EntryCensus | None, list[GeneRow]]:
     """Audit one disorder file; returns (census, gene wiring rows)."""
-    disorder = safe_load(path.read_text())
+    disorder = kb_cache.load_document(path)
     if not isinstance(disorder, dict):
         return None, []
     subtypes = _iter_subtypes(disorder.get("has_subtypes") or [])
@@ -347,9 +346,11 @@ def _write_tsv(rows: list[GeneRow], out) -> None:
 
 
 def main() -> int:
-    # One walk over kb/disorders per run, so the shared-parse cache would cost
-    # a hash per file and ~450 MB of retention for no hits. Under pytest, which
-    # imports audit_entry directly alongside other scans, it stays on.
+    # audit_entry reads through kb_cache, so this matters: one walk over
+    # kb/disorders per run means no cache hits to collect, and the cache would
+    # cost a hash per file plus ~450 MB of retention for nothing. In `main`
+    # rather than at import, so pytest -- which imports audit_entry directly
+    # and runs it alongside other scans in one process -- still gets the cache.
     kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(

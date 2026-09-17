@@ -21,7 +21,8 @@ Two related concerns about the `has_subtypes` field:
 
 All numbers below regenerate with `just subtype-usage-audit` (summary),
 `--format tsv` (per-gene rows), or `--format list --status ABSENT`
-(worst-case findings). The audit is advisory — the backlog predates it, so
+(worst-case findings) — as measurements of the tree on the dates given, not as
+standing facts; see *A note on reading these numbers later* at the end. The audit is advisory — the backlog predates it, so
 there is no gate and no baseline; `--strict` exists for focused sweeps.
 
 ## Census: how actively is `has_subtypes` used?
@@ -216,12 +217,15 @@ merged in), 66 genes across 33 entries, and **none of them mechanical**: the
 `name_mention` backlog stood at zero and the description and snippet seams
 were worked out. Both figures move as the KB grows -- see the note at the end
 of this report, and re-derive with `just subtype-usage-audit` rather than
-quoting them. For the entries this sweep touched, what remains needs either a curated per-gene mechanism node with
-fetched literature (B2M/CIITA in `Hodgkin_Lymphoma` need an MHC-loss immune
-evasion node distinct from the PD-L1 one; `Primary_Pigmented_Nodular_
-Adrenocortical_Disease` needs PDE11A/PDE8B/PRKACA nodes; `Lissencephaly_
-Spectrum_Disorders` needs the dystroglycanopathy and ARX arms) or a curator's
-judgment that a shared final-common-pathway node suffices. Those are per-entry
+quoting them.
+
+For the entries this sweep touched, what remains needs either a curated
+per-gene mechanism node with fetched literature (B2M/CIITA in
+`Hodgkin_Lymphoma` need an MHC-loss immune evasion node distinct from the
+PD-L1 one; `Primary_Pigmented_Nodular_Adrenocortical_Disease` needs
+PDE11A/PDE8B/PRKACA nodes; `Lissencephaly_Spectrum_Disorders` needs the
+dystroglycanopathy and ARX arms) or a curator's judgment that a shared
+final-common-pathway node suffices. Those are per-entry
 literature jobs, best tracked as issues rather than as one sweep.
 
 ### A note on reading these numbers later
