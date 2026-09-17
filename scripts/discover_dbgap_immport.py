@@ -210,7 +210,7 @@ def http_json(url: str, retries: int = 3):
         try:
             with urllib.request.urlopen(req, timeout=90) as resp:
                 return json.loads(decode_body(resp.read()))
-        except Exception as exc:  # noqa: BLE001 - any failure is just a miss here
+        except Exception as exc:  # any failure is just a miss here
             last = exc
             time.sleep(1.5 * (attempt + 1))
     print(f"WARN  request failed: {url} ({last})", file=sys.stderr)
@@ -224,7 +224,7 @@ def http_text(url: str, retries: int = 2) -> str:
         try:
             with urllib.request.urlopen(req, timeout=90) as resp:
                 return decode_body(resp.read())
-        except Exception:  # noqa: BLE001 - a miss is just "no data dictionary"
+        except Exception:  # a miss is just "no data dictionary"
             time.sleep(1.0 * (attempt + 1))
     return ""
 

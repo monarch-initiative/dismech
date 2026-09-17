@@ -178,7 +178,7 @@ def test_unknown_organism_is_omitted_rather_than_guessed():
 
 
 def test_raw_latin1_byte_inside_utf8_body_decodes_without_replacement_char():
-    raw = "molecular mechanisms of Sj".encode() + b"\xf6" + "gren's syndrome".encode()
+    raw = b"molecular mechanisms of Sj" + b"\xf6" + b"gren's syndrome"
     decoded = decode_body(raw)
     assert decoded == "molecular mechanisms of Sjögren's syndrome"
     assert "�" not in decoded
@@ -519,7 +519,7 @@ def test_dbgap_resolver_reports_a_study_with_no_phs_identifier(monkeypatch):
         "http_json",
         lambda url, **kw: {"entry": [{"resource": {"title": "Some Study", "identifier": []}}]},
     )
-    status, title, note, extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
+    status, _title, note, _extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
     assert status == vda.ERROR
     assert "no phs identifier" in note
 
@@ -542,7 +542,7 @@ def test_dbgap_resolver_reports_the_canonical_versioned_accession(monkeypatch):
             ]
         },
     )
-    status, title, _, extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
+    status, _title, _, extra = vda.resolve_dbgap("phs001289.v1.p1", None, None)
     assert status == vda.OK
     assert extra["canonical_accession"] == "phs001289.v2.p1"
     assert "dbGaP current is phs001289.v2.p1" in extra["version_note"]
@@ -570,6 +570,6 @@ def test_immport_resolver_reports_organism_as_a_scalar(monkeypatch):
             }
         },
     )
-    status, title, _, extra = vda.resolve_immport("SDY1679", None, None)
+    status, _title, _, extra = vda.resolve_immport("SDY1679", None, None)
     assert status == vda.OK
     assert extra["organism"] == "Homo sapiens"
