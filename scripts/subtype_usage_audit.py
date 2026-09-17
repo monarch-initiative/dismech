@@ -81,6 +81,7 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 # The private graph helpers are the single source of truth for gene-key
 # matching; reimplementing them here would let the audit drift from what the
 # pathograph actually does.
+from dismech import kb_cache
 from dismech.graph import (
     _descriptor_lookup_keys,
     _gene_lookup_keys,
@@ -346,6 +347,10 @@ def _write_tsv(rows: list[GeneRow], out) -> None:
 
 
 def main() -> int:
+    # One walk over kb/disorders per run, so the shared-parse cache would cost
+    # a hash per file and ~450 MB of retention for no hits. Under pytest, which
+    # imports audit_entry directly alongside other scans, it stays on.
+    kb_cache.default_off()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "files",

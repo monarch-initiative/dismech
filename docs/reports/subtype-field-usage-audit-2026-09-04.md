@@ -211,9 +211,12 @@ indexing should decide that slot deliberately.
 
 ### What is left
 
-66 genes across 33 entries, and **none of them is mechanical**. The
-`name_mention` backlog is zero, the description and snippet seams are worked
-out, and what remains needs either a curated per-gene mechanism node with
+As of the sweep described above (branch tip `804e0f08`, before `main` was
+merged in), 66 genes across 33 entries, and **none of them mechanical**: the
+`name_mention` backlog stood at zero and the description and snippet seams
+were worked out. Both figures move as the KB grows -- see the note at the end
+of this report, and re-derive with `just subtype-usage-audit` rather than
+quoting them. For the entries this sweep touched, what remains needs either a curated per-gene mechanism node with
 fetched literature (B2M/CIITA in `Hodgkin_Lymphoma` need an MHC-loss immune
 evasion node distinct from the PD-L1 one; `Primary_Pigmented_Nodular_
 Adrenocortical_Disease` needs PDE11A/PDE8B/PRKACA nodes; `Lissencephaly_

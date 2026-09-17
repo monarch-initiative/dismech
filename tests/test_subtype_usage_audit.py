@@ -165,3 +165,68 @@ has_subtypes:
     (row,) = rows
     assert row.subtype == "Child Type"
     assert row.status == "ABSENT"
+
+
+# The subtype names the gene by an alias with no `term:` block, so its only
+# lookup key is that alias. No pathophysiology node carries the alias, so the
+# gene cannot be WIRED_DIRECT -- it reaches the mechanism node only because the
+# genetic: record carries both the alias and the CURIE the node is bound to.
+WIRED_VIA_GENETIC_ENTRY = """name: Via Genetic Disease
+has_subtypes:
+- name: Type G
+  genes:
+  - preferred_term: GENE2 protein
+genetic:
+- name: GENE2
+  relationship_type: CAUSATIVE
+  gene_term:
+    preferred_term: GENE2 protein
+    term:
+      id: hgnc:55555
+      label: GENE2
+pathophysiology:
+- name: Downstream Mechanism
+  genes:
+  - preferred_term: GENE2
+    term:
+      id: hgnc:55555
+      label: GENE2
+"""
+
+NO_KEYS_ENTRY = """name: Keyless Disease
+has_subtypes:
+- name: Type K
+  genes:
+  - description: a gene descriptor carrying no preferred_term, label or id
+pathophysiology:
+- name: Core Mechanism
+"""
+
+
+def test_wired_via_genetic(tmp_path):
+    path = _write(tmp_path, "Via_Genetic_Disease", WIRED_VIA_GENETIC_ENTRY)
+    _, rows = audit.audit_entry(path)
+    (row,) = rows
+    assert row.status == "WIRED_VIA_GENETIC"
+    assert row.genetic_nodes == ["GENE2"]
+
+
+def test_wired_via_genetic_needs_a_contributing_genetic_record(tmp_path):
+    # Same shape, but the genetic record is typed non-contributing, so
+    # _genetic_item_infers_mechanism_edges draws no edge and the verdict must
+    # fall back to GENETIC_NONCAUSAL rather than claiming the gene is wired.
+    body = WIRED_VIA_GENETIC_ENTRY.replace(
+        "  relationship_type: CAUSATIVE", "  relationship_type: MODIFIER"
+    )
+    path = _write(tmp_path, "Noncausal_Via_Genetic", body)
+    _, rows = audit.audit_entry(path)
+    (row,) = rows
+    assert row.status == "GENETIC_NONCAUSAL"
+
+
+def test_gene_descriptor_without_usable_keys(tmp_path):
+    path = _write(tmp_path, "Keyless_Disease", NO_KEYS_ENTRY)
+    _, rows = audit.audit_entry(path)
+    (row,) = rows
+    assert row.status == "NO_KEYS"
+    assert row.gene == "?"
