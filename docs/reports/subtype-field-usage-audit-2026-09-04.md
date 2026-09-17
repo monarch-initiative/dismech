@@ -138,22 +138,85 @@ Non-Syndromic_X-Linked_Intellectual_Disability (8).
    gene-subtyped entries with zero stratified content are the natural
    worklist.
 
-## Status update (2026-09-04, same branch)
+## Status update (2026-09-17, same branch)
 
-Follow-up 1 and the descriptor half of follow-up 2 were applied on this
-branch. All 41 `name_mention` cases (19 entries) received a `genes:`
-descriptor on the pathophysiology node whose name and description already
-assert that gene's mechanism, plus two adjacent cases spotted during
-review: IRAK1 in `Chromosome_Xq_Duplication` (same duplication-dosage
-pattern as its flagged neighbours) and the complex-level attachment in
-`Galloway-Mowat_Syndrome` — LAGE3/OSGEP/TP53RK/TPRKB/GON7/YRDC onto
-"KEOPS and t6A Biogenesis Deficiency", NUP107/NUP133 onto "Nuclear Pore
-Dysfunction", and WDR73 onto its named node, each per the node's own
-description. PRDM15 was deliberately left `ABSENT`: it has no mechanism
-node, so its wiring needs real curation, not a descriptor.
+The descriptor-backfill follow-ups were worked to exhaustion on this branch,
+in three passes of decreasing mechanicalness. **The unwired backlog went from
+327 genes across 81 entries to 66 across 33**, and `WIRED_DIRECT` from 594 to
+855.
 
-Post-fix audit: `WIRED_DIRECT` 594 → 644, unwired backlog 327 → 277
-(`GENETIC_UNWIRED` 212, `ABSENT` 65), `name_mention` backlog 41 → 0.
-Every remaining flagged gene now needs either a curated per-gene
-mechanism node or a judgment call about a shared final-common-pathway
-node — there are no purely mechanical fixes left.
+**Pass 1 - symbol in the node name (41 genes, 19 entries).** Every
+`name_mention` case received a `genes:` descriptor on the node whose name and
+description already assert that gene's mechanism, plus two adjacent cases
+found in review: IRAK1 in `Chromosome_Xq_Duplication` and the complex-level
+attachments in `Galloway-Mowat_Syndrome` (six KEOPS/t6A genes, NUP107/NUP133,
+WDR73). That pass also showed the heuristic's limit: "OSGEP" is not a word in
+"KEOPS and t6A Biogenesis Deficiency", so complex-level node naming escapes a
+symbol match entirely.
+
+**Pass 2 - symbol in the node *description* (185 genes, 53 entries).** The
+much larger seam. A node description that says "Biallelic loss-of-function
+variants in CHST14 (dermatan 4-O-sulfotransferase-1) or DSE..." is curated
+prose making exactly the claim a `genes:` descriptor makes machine-readable.
+Each placement was read against the full description before it was applied,
+which is what caught the cases that should *not* be wired (below).
+
+**Pass 2a - the node names the protein, not the gene (11 genes).** These were
+invisible to any symbol search: `SERPINC1` against a node called "Antithrombin
+Deficiency", `SGCA-D` against "Alpha-, beta-, gamma-, and delta-sarcoglycan
+co-assemble...", `TUBA1A`/`TUBG1` against "mutations in microtubule subunits
+(tubulins)", `CP`/`FTL` against an "iron homeostasis" arm. Worth knowing for
+any future sweep: a gene-symbol grep systematically misses the nodes named
+after what the gene makes.
+
+**Pass 2b - the gene is named in the node's evidence snippet (4 genes).** The
+last mechanical seam: TNFAIP3/NFKBIA in `Hodgkin_Lymphoma` (the snippet reads
+"destructive mutations in negative regulators of NF-kB signaling (e.g.
+TNFAIP3, NFKBIA)"), DNM2 in `Lethal_Congenital_Contracture_Syndrome`, C2CD3 in
+`Orofaciodigital_Syndrome`.
+
+**Real curation - `Split_Hand_Foot_Malformation`.** The report's worst case (13
+subtype genes, 12 `ABSENT`, no gene anywhere in the pathograph) is now down to
+2, both deliberate. Ten genes were wired to the AER node and HOXD13 to the
+central-ray node, each backed by an evidence item on the same node - the
+convergent-gene list already present (PMID:30101460) plus four added here for
+DYNC1I1 as the DLX5/DLX6 enhancer host, the SHFM3 10q24 ectopic-AER mechanism
+covering BTRC/FBXW4, PRDM1, and HOXD-cluster haploinsufficiency. Every new
+snippet verifies against `references_cache`.
+
+### What the audit cannot decide, with worked cases
+
+Three flagged genes were left unwired **on purpose**, and each is a case where
+wiring would have asserted something the entry's own evidence denies:
+
+- **DLX1/DLX2 in `Split_Hand_Foot_Malformation`.** They sit in the deleted
+  2q31.1 interval, but the entry's own SHFM5 evidence says "the absence of
+  hand/foot anomalies in any of the individuals with deletions of DLX1/DLX2 but
+  not the HOXD cluster supports the hypothesis that haploinsufficiency of the
+  HOXD cluster, rather than DLX1/DLX2, accounts for the skeletal
+  abnormalities". A `review_notes` on that subtype now records the decision so
+  the next sweep does not undo it.
+- **BTK in `Isolated_Growth_Hormone_Deficiency`.** The node is *named*
+  "BTK-Region Xq21.3-q22 Genetic Lesion" - a perfect `name_mention` hit - and
+  its description exists precisely to say BTK names the locus "not because BTK
+  itself has been shown to cause the GH deficiency". The gene already sits in
+  `genetic_context.gene`, which is the honest placement.
+
+That last case is also a small finding about the tooling:
+`dismech.graph._gene_lookup_keys` reads `gene:` and `genes:` but not
+`genetic_context.gene`, so a gene placed there reads as unwired. Only one
+flagged gene KB-wide is in that position, so it is a known false positive
+rather than a systematic blind spot - but a future change to the graph's gene
+indexing should decide that slot deliberately.
+
+### What is left
+
+66 genes across 33 entries, and **none of them is mechanical**. The
+`name_mention` backlog is zero, the description and snippet seams are worked
+out, and what remains needs either a curated per-gene mechanism node with
+fetched literature (B2M/CIITA in `Hodgkin_Lymphoma` need an MHC-loss immune
+evasion node distinct from the PD-L1 one; `Primary_Pigmented_Nodular_
+Adrenocortical_Disease` needs PDE11A/PDE8B/PRKACA nodes; `Lissencephaly_
+Spectrum_Disorders` needs the dystroglycanopathy and ARX arms) or a curator's
+judgment that a shared final-common-pathway node suffices. Those are per-entry
+literature jobs, best tracked as issues rather than as one sweep.
