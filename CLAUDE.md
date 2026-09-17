@@ -29,6 +29,9 @@ Claude Code skills are available in `.claude/skills/`:
 - **dismech-references**: Use when curating or validating evidence and references.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
+- **extend-schema**: Use when adding, narrowing, deprecating, or removing a
+  class, slot, or enum in `src/dismech/schema/`, or when deciding whether a
+  curation need warrants a schema change at all.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
