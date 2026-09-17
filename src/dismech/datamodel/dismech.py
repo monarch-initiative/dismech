@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-09-11T00:21:20
+# Generation date: 2026-09-17T03:29:32
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -92,6 +92,7 @@ BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
 BIOPROJECT = CurieNamespace('bioproject', 'https://www.ncbi.nlm.nih.gov/bioproject/')
 CELLXGENE = CurieNamespace('cellxgene', 'https://cellxgene.cziscience.com/collections/')
+CITO = CurieNamespace('cito', 'http://purl.org/spar/cito/')
 CLINICALTRIALS = CurieNamespace('clinicaltrials', 'https://clinicaltrials.gov/study/')
 CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
 DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
@@ -2138,6 +2139,7 @@ class EvidenceItem(YAMLRoot):
     reference_title: Optional[str] = None
     supports: Optional[Union[str, "EvidenceItemSupportEnum"]] = None
     directness: Optional[Union[str, "DirectnessEnum"]] = None
+    quote_role: Optional[Union[str, "QuoteRoleEnum"]] = None
     evidence_source: Optional[Union[str, "EvidenceSourceEnum"]] = None
     snippet: Optional[str] = None
     explanation: Optional[str] = None
@@ -2155,6 +2157,9 @@ class EvidenceItem(YAMLRoot):
 
         if self.directness is not None and not isinstance(self.directness, DirectnessEnum):
             self.directness = DirectnessEnum(self.directness)
+
+        if self.quote_role is not None and not isinstance(self.quote_role, QuoteRoleEnum):
+            self.quote_role = QuoteRoleEnum(self.quote_role)
 
         if self.evidence_source is not None and not isinstance(self.evidence_source, EvidenceSourceEnum):
             self.evidence_source = EvidenceSourceEnum(self.evidence_source)
@@ -6806,6 +6811,29 @@ class DirectnessEnum(EnumDefinitionImpl):
         description="""How directly the quoted evidence bears on the claim it is attached to. The evidential counterpart of CausalLinkTypeEnum, which records the same notion of directness for a causal edge.""",
     )
 
+class QuoteRoleEnum(EnumDefinitionImpl):
+    """
+    Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced,
+    something it restates from elsewhere, or its synthesis of a literature it did not generate.
+    """
+    PRIMARY_RESULT = PermissibleValue(
+        text="PRIMARY_RESULT",
+        title="Primary result",
+        description="""The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.""")
+    BACKGROUND = PermissibleValue(
+        text="BACKGROUND",
+        title="Background",
+        description="""The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.""")
+    REVIEW_SYNTHESIS = PermissibleValue(
+        text="REVIEW_SYNTHESIS",
+        title="Review synthesis",
+        description="""The quoted text is the cited publication's synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.""")
+
+    _defn = EnumDefinition(
+        name="QuoteRoleEnum",
+        description="""Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced, something it restates from elsewhere, or its synthesis of a literature it did not generate.""",
+    )
+
 class EvidenceSourceEnum(EnumDefinitionImpl):
     """
     The provenance/source of the evidence item
@@ -8881,7 +8909,7 @@ class EnvironmentalEffectEnum(EnumDefinitionImpl):
 class ImagingModalityEnum(EnumDefinitionImpl):
     """
     In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus
-    Diagnostic Imaging branch.
+    Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.
     """
     MRI = PermissibleValue(
         text="MRI",
@@ -8901,7 +8929,7 @@ class ImagingModalityEnum(EnumDefinitionImpl):
     MICRO_CT = PermissibleValue(
         text="MICRO_CT",
         title="Micro-Computed Tomography",
-        description="""High-resolution X-ray computed tomography with micrometer-scale voxels, including contrast-enhanced (diceCT) micro-CT of embryos and ex vivo specimens; the modality behind registration-based whole-embryo morphometry""")
+        description="""In-vivo X-ray computed tomography acquired at micrometer-scale voxel resolution, as used for live small-animal scanning and for high-resolution peripheral quantitative CT of human bone microarchitecture""")
     PET = PermissibleValue(
         text="PET",
         title="Positron Emission Tomography",
@@ -8944,7 +8972,7 @@ class ImagingModalityEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="ImagingModalityEnum",
-        description="""In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.""",
+        description="""In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.""",
     )
 
 class ElectrophysiologyModalityEnum(EnumDefinitionImpl):
@@ -12562,6 +12590,9 @@ slots.supports = Slot(uri=DISMECH.supports, name="supports", curie=DISMECH.curie
 
 slots.directness = Slot(uri=DISMECH.directness, name="directness", curie=DISMECH.curie('directness'),
                    model_uri=DISMECH.directness, domain=None, range=Optional[Union[str, "DirectnessEnum"]])
+
+slots.quote_role = Slot(uri=DISMECH.quote_role, name="quote_role", curie=DISMECH.curie('quote_role'),
+                   model_uri=DISMECH.quote_role, domain=None, range=Optional[Union[str, "QuoteRoleEnum"]])
 
 slots.evidence_source = Slot(uri=DISMECH.evidence_source, name="evidence_source", curie=DISMECH.curie('evidence_source'),
                    model_uri=DISMECH.evidence_source, domain=None, range=Optional[Union[str, "EvidenceSourceEnum"]])

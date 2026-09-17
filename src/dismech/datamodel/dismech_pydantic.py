@@ -143,6 +143,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                                  'prefix_reference': 'https://www.ncbi.nlm.nih.gov/bioproject/'},
                   'cellxgene': {'prefix_prefix': 'cellxgene',
                                 'prefix_reference': 'https://cellxgene.cziscience.com/collections/'},
+                  'cito': {'prefix_prefix': 'cito',
+                           'prefix_reference': 'http://purl.org/spar/cito/'},
                   'clinicaltrials': {'prefix_prefix': 'clinicaltrials',
                                      'prefix_reference': 'https://clinicaltrials.gov/study/'},
                   'clinvar': {'prefix_prefix': 'clinvar',
@@ -3133,6 +3135,24 @@ class DirectnessEnum(str, Enum):
     """
 
 
+class QuoteRoleEnum(str, Enum):
+    """
+    Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced, something it restates from elsewhere, or its synthesis of a literature it did not generate.
+    """
+    Primary_result = "PRIMARY_RESULT"
+    """
+    The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.
+    """
+    Background = "BACKGROUND"
+    """
+    The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.
+    """
+    Review_synthesis = "REVIEW_SYNTHESIS"
+    """
+    The quoted text is the cited publication's synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.
+    """
+
+
 class EvidenceSourceEnum(str, Enum):
     """
     The provenance/source of the evidence item
@@ -4901,7 +4921,7 @@ class EnvironmentalEffectEnum(str, Enum):
 
 class ImagingModalityEnum(str, Enum):
     """
-    In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+    In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.
     """
     Magnetic_Resonance_Imaging = "MRI"
     """
@@ -4917,7 +4937,7 @@ class ImagingModalityEnum(str, Enum):
     """
     Micro_Computed_Tomography = "MICRO_CT"
     """
-    High-resolution X-ray computed tomography with micrometer-scale voxels, including contrast-enhanced (diceCT) micro-CT of embryos and ex vivo specimens; the modality behind registration-based whole-embryo morphometry
+    In-vivo X-ray computed tomography acquired at micrometer-scale voxel resolution, as used for live small-animal scanning and for high-resolution peripheral quantitative CT of human bone microarchitecture
     """
     Positron_Emission_Tomography = "PET"
     """
@@ -12166,6 +12186,17 @@ class EvidenceItem(ConfiguredBaseModel):
          'exact_mappings': ['sepio:directionOfEvidenceProvided'],
          'examples': [{'value': 'SUPPORT'}]} })
     directness: Optional[DirectnessEnum] = Field(default=None, description="""How directly the quoted text bears on the claim. Optional: absent means no one has assessed it, which is the state of most of the knowledge base.""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'], 'examples': [{'value': 'DIRECT'}]} })
+    quote_role: Optional[QuoteRoleEnum] = Field(default=None, description="""Where the quoted sentence sits in the cited publication's own argument -- a result that publication produced, background it restates from elsewhere, or its synthesis of a literature. Optional: absent means no one has assessed it, which is the state of most of the knowledge base.""", json_schema_extra = { "linkml_meta": {'comments': ['Records provenance of the *finding*, where `reference` records '
+                      'provenance of the *sentence*. Those are different objects, and '
+                      'the model represented them identically until issue #10262.',
+                      'Judge it from the quoted text and the cached reference body, '
+                      "never from the reference's MeSH terms or publication type "
+                      'alone: a human cohort study has an introduction too, and an '
+                      'animal study can report a patient series. `just '
+                      'list-background-citations` builds the worklist; the call stays '
+                      "a curator's."],
+         'domain_of': ['EvidenceItem'],
+         'examples': [{'value': 'BACKGROUND'}]} })
     evidence_source: Optional[EvidenceSourceEnum] = Field(default=None, description="""Origin of the evidence item (human clinical, model organism, in vitro, or computational)""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'], 'recommended': False} })
     snippet: Optional[str] = Field(default=None, description="""An exact excerpt/quote from the referenced publication that supports or refutes the claim""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the '
                       'linkml-reference-validator tool.'],
@@ -14282,7 +14313,7 @@ class PublicationReference(ConfiguredBaseModel):
          'implements': ['linkml:title'],
          'recommended': True} })
     found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
-    tags: Optional[list[ReferenceTagEnum]] = Field(default=None, description="""Authoritative-source tags for a reference (e.g. GeneReviews). Populated programmatically by scripts/tag_references.py; use `just tag-references` to refresh.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
+    tags: Optional[list[ReferenceTagEnum]] = Field(default=None, description="""Authoritative-source tags for a reference (e.g. GeneReviews). Populated programmatically by scripts/tag_references.py, which decides membership from the committed Bookshelf index (`cache/bookshelf/`); use `just tag-references` to refresh.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'ExperimentalModel',
                        'ComputationalModel',
