@@ -26,11 +26,14 @@ def main():
         name = d.get("name", path)
         syms = set()
 
-        def collect(o):
+        def collect(o, syms=syms):
             t = o.get("term")
-            if isinstance(t, dict) and str(t.get("id", "")).lower().startswith("hgnc:"):
-                if t.get("label"):
-                    syms.add(t["label"])
+            if (
+                isinstance(t, dict)
+                and str(t.get("id", "")).lower().startswith("hgnc:")
+                and t.get("label")
+            ):
+                syms.add(t["label"])
 
         walk(d, collect)
         kind = "module" if "/modules/" in path else "disorder"
