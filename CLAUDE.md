@@ -76,6 +76,11 @@ just validate-terms-schema
 # Check that no bound term is flagged Not4Curation by its own ontology
 just check-not4curation
 
+# Report phenotypes that no causal edge explains — the complement of
+# `just check-causal-targets`, report-only (see "Phenotypes Nothing Points At")
+just list-disconnected-phenotypes
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml --format tsv
+
 # Run pytest tests
 just pytest-all
 
@@ -886,6 +891,81 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `environmental[].influences_mechanisms`); those are not covered by the
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
+
+### Phenotypes Nothing Points At (dismech#11935)
+
+`check-causal-targets` asks which declared edges name a target that resolves to
+nothing. The **complementary** question — which phenotypes no edge names — had
+no per-entry front door, and it is the more common state: a little over half of
+the phenotype nodes in `kb/disorders/` are causally connected, and on some 985
+entries (a third of those carrying phenotypes) **not one** phenotype is. There
+the pathograph stops at the pathophysiology layer and the phenotypes render as a
+disconnected island beside it. Every edge in such an entry can resolve perfectly
+— the motivating instance, `SLC35A1-Congenital_Disorder_of_Glycosylation`, has 8
+pathophysiology nodes, 13 phenotype nodes and 7 clean edges, none of which
+reaches a phenotype. (That count is live content and moves: it was 12 until
+#11934 added a phenotype, so read it as an illustration, not a fixture.)
+
+```bash
+just list-disconnected-phenotypes                        # census + triage worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only the 0-connected entries
+just list-disconnected-phenotypes kb/disorders/MyDisease.yaml
+```
+
+**It reuses the metric rather than recomputing it, and it is the second door
+onto it.** The computation is
+`dismech.qc_plugins.causal_inlink_coverage`, the metric behind the
+`phenotypes[].causal_inlink` compliance score, already exposed as
+`just compliance-connectivity` — which is now a **gate**, enforcing the
+`min_compliance` floor in `conf/qc_config.yaml` over the KB-wide aggregate (see
+*A resolving target is not a connected phenotype* below, which owns the floor
+and the corpus figure; do not restate either here, or the two drift apart).
+
+That recipe is not superseded. It stays the one to run for the *compliance*
+view — phenotype inlink and gene outlink together, and the aggregate ratchet.
+What it does not give is the per-entry triage: no ranking, no `--format tsv`, no
+attachment classes, and its name is filed under compliance rather than next to
+`just list-causal-targets` and `just list-cancer-origin`, which is plausibly why
+neither #11935 nor the #11934 review round found it. Both recipes call the same
+function, so they cannot disagree on a number.
+
+**The two are not in tension, and the distinction is the point.** The gate is a
+corpus-level ratchet against erosion: no single entry can trip it, and a red
+build means sustained drift. This recipe is the per-entry worklist you reach for
+*after* that, or when wiring a specific disease — which is why it stays
+report-only even though the metric it reads now gates.
+
+**Report-only, and deliberately not a number to drive up.** It exits 0; a gate
+at this scale would be a baseline file the size of the problem. Connecting a
+phenotype is real curation — the edge asserts which mechanism produces which
+clinical feature, which is often exactly what the literature does not settle —
+and some phenotypes legitimately have no upstream node in the entry (a
+laboratory readout, a feature whose mechanism is genuinely unknown). An edge
+added to clear a report is worse than no edge, for the same reason the stub
+queue refuses to score itself. `--strict` and `--fail-under` exist for whoever
+decides to gate a subset later.
+
+So read the per-entry triage, not the corpus percentage: the summary ranks the
+entries where *nothing* is connected by how many phenotypes are stranded,
+because an entry with every phenotype stranded is one sitting's work, and a
+different signal from one carrying a single gap.
+
+**Three kinds of edge touch a phenotype without explaining it, and none of them
+counts as connected** — that is the strict reading the issue left open, resolved
+by the predicate rather than by a special case. A `treats`/`targets` edge from a
+treatment says the phenotype is *addressed*, not what produces it; a
+`phenotypes[].reports_on` link carries the `readout` predicate and is
+observational; a `PREDISPOSES`/`MODULATES` environmental link is non-committal
+by construction (only `TRIGGERS` and `EXACERBATES` are in
+`qc_plugins.CAUSAL_PREDICATES`). `subtype` scoping connects nothing either.
+Rather than argue those out of the denominator, each disconnected phenotype
+carries an **attachment** class — `ISOLATED`, `TREATED`, `READOUT`,
+`NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — so "nothing in the graph knows this node
+exists", which is the overwhelming majority, reads differently from "something
+points at it, but not a mechanism", which is about a thousand. Both are
+unexplained; they are not the same curation job. Run the recipe for current
+counts rather than trusting a number written here.
 
 ### Pathograph Node Classes (`kb/node_classes/`)
 
@@ -3181,6 +3261,28 @@ curation, and the two usually differ — one carries `notes`, the other cited
 `evidence`. Fold them into the single block at the canonical position and keep
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
+
+## Case-Colliding Paths (dismech#11204)
+
+Git must never track two paths that differ only in letter case, such as
+`references_cache/DOI_10.1172_JCI89626.md` and
+`references_cache/DOI_10.1172_jci89626.md`. On the macOS and Windows default
+filesystem only one of them can exist, so one path shows as modified forever,
+no `git checkout` or `git stash` clears it, and `git rebase` refuses to run.
+Linux CI sees nothing wrong, which is how 17 such DOI pairs accumulated before
+they were removed.
+
+```bash
+just check-case-collisions      # whole repo, <1s, offline
+```
+
+It runs in `just qc` and as an ungated CI step. The usual source is a DOI
+fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
+filename copies the DOI as written (#9112), and some scripts lowercase it first.
+Fetch a DOI once, in the publisher's capitalization. To fix a collision, keep
+the path matching the publisher's capitalization and remove the other from the
+index with `git rm --cached <path>`, which works on a case-insensitive disk
+because it never touches the file itself.
 
 ## Retired Enum Values (dismech#10061)
 
