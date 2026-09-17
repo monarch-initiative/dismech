@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dominant Beta-Thalassemia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Dominant Beta-Thalassemia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Dominant Beta-Thalassemia</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-11</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011381" target="_blank" rel="noopener noreferrer">MONDO:0011381</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Dominant β-thalassemia is a form of β-thalassemia in which heterozygosity for a single <em>HBB</em> mutation produces a clinically significant hemolytic/dyserythropoietic anemia. It is also known as <strong>inclusion-body β-thalassemia</strong>, <strong>dominantly inherited β-thalassemia</strong>, and <strong>hyperunstable hemoglobinopathy (HUH)</strong> — the latter term explicitly equated with "dominantly inherited β-thalassemia" in the literature and classified as "a relatively rare form of congenital hemolytic anemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a>). The defining feature is that the mutant allele encodes a <em>translated</em>, structurally abnormal β-globin that forms inclusion bodies, so a single copy causes disease.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0011381" target="_blank" rel="noopener noreferrer">MONDO:0011381</a></td>
+</tr>
+<tr>
+<td>OMIM (β-thalassemia; <em>HBB</em>)</td>
+<td>#603902 (beta-thalassemia); <em>HBB</em> gene 141900</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><em>HBB</em>, <a href="https://bioregistry.io/HGNC:4827" target="_blank" rel="noopener noreferrer">HGNC:4827</a>, NCBI Gene 3043, chromosome 11p15.4</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>beta-Thalassemia (D017086)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>D56.1 (Beta thalassemia)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>3A50.1 (Beta thalassaemia)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> dominant beta-thalassemia; dominantly inherited β-thalassemia; inclusion-body β-thalassemia; hyperunstable hemoglobinopathy (HUH); (historically overlapping with) congenital Heinz-body hemolytic anemia due to unstable β-globin variants.</p>
+<p><strong>Nature of evidence.</strong> The knowledge base for this entity is derived from <strong>aggregated disease-level resources and case/family reports</strong> (individual probands and pedigrees with defined <em>HBB</em> variants), plus mechanistic work in <strong>in-vitro</strong> systems and <strong>mouse models</strong>. It is not primarily an EHR/population-cohort disease because of its rarity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> Heterozygous mutations in the β-globin gene <em>HBB</em> on chromosome 11p15.4. Unlike recessive β-thalassemia (where a single defective allele is silent), the dominant form arises from <strong>specific mutation classes — predominantly in exon 3 — that produce an abnormal but translated globin product</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/1971109/">PMID: 1971109</a>). Representative causal variants documented in the literature:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (common name / HGVS)</th>
+<th>Type</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hb Hradec Kralove, β115(G17)Ala→Asp</td>
+<td>Missense (exon 3)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7693620/">PMID: 7693620</a></td>
+</tr>
+<tr>
+<td>Codon 121 (G→T), codon 112 (T→A)</td>
+<td>Nonsense (exon 3, NMD-escaping)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a></td>
+</tr>
+<tr>
+<td>Hb Dieppe, β127(H5)Gln→Arg</td>
+<td>Missense (exon 3)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34957901/">PMID: 34957901</a></td>
+</tr>
+<tr>
+<td>HBB:c.313delA</td>
+<td>Frameshift / elongating</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a></td>
+</tr>
+<tr>
+<td>Hb Grand Junction, HBB:c.348_349delinsG; p.His117IlefsX42</td>
+<td>Frameshift (codons 115/116)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Genetic risk factors.</strong> The causal variant itself is the sole necessary risk factor. <strong>Modifier genes</strong> influence severity: the <strong>α-globin genotype</strong> (co-inherited α-thalassemia is protective; see below) and <strong>HbF-modifying loci</strong> (e.g., <em>BCL11A</em>, <em>HBS1L-MYB</em>) provide "some prediction of disease severity for β thalassemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/28651846/">PMID: 28651846</a>). <strong>AHSP (α-hemoglobin-stabilizing protein)</strong> is a candidate modulatory factor via its role in escorting free α-globin (<a href="https://pubmed.ncbi.nlm.nih.gov/31894534/">PMID: 31894534</a>).</p>
+<p><strong>Environmental risk factors.</strong> None are established as causal. Oxidative stressors could theoretically aggravate hemolysis in unstable-hemoglobin states, but the disease is fundamentally monogenic. Family history (an affected parent) is the main non-modifiable factor; <strong>de novo mutation</strong> is well documented.</p>
+<p><strong>Protective factors.</strong> The best-established <strong>genetic protective factor is co-inherited α-thalassemia</strong> (e.g., a −3.7 kb single α-gene deletion), which "leads to a decreased imbalance between α and β chain formation, and subsequently a milder phenotype" (<a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a>). <strong>Elevated HbF</strong> (high-HbF genotypes/HbF-inducing modifiers) is likewise ameliorating.</p>
+<p><strong>Gene–environment interactions.</strong> Not a significant feature. Disease expression is governed largely by the primary lesion plus genetic modifiers (α-genotype, HbF).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The phenotype resembles <strong>β-thalassemia intermedia</strong> / congenital non-spherocytic hemolytic anemia. In Hb Hradec Kralove heterozygotes the picture was "moderate anemia, reticulocytosis, nucleated red cells, target cells, and other red cell changes, Heinz body formation, and splenomegaly," with marked compensatory increase in fetal-hemoglobin synthesis (<a href="https://pubmed.ncbi.nlm.nih.gov/7693620/">PMID: 7693620</a>). Czech/Slovak dominant alleles presented as thalassemia intermedia with Heinz bodies in peripheral erythrocytes, and — importantly — <strong>severity varied markedly even within families</strong> carrying identical mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset / severity / frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hemolytic anemia</td>
+<td>Lab / clinical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" rel="noopener noreferrer">HP:0001878</a> (Hemolytic anemia); <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a> (Anemia)</td>
+<td>Childhood onset; moderate; near-universal</td>
+</tr>
+<tr>
+<td>Reticulocytosis</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" rel="noopener noreferrer">HP:0001923</a> (Reticulocytosis)</td>
+<td>Chronic compensatory; frequent</td>
+</tr>
+<tr>
+<td>Heinz bodies / red-cell inclusions</td>
+<td>Lab / morphologic</td>
+<td>(Heinz body inclusion; verify HPO ID)</td>
+<td>Hallmark; frequent</td>
+</tr>
+<tr>
+<td>Splenomegaly</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> (Splenomegaly)</td>
+<td>Progressive; common</td>
+</tr>
+<tr>
+<td>Jaundice / hyperbilirubinemia</td>
+<td>Clinical / lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a> (Jaundice); <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" rel="noopener noreferrer">HP:0002904</a> (Hyperbilirubinemia)</td>
+<td>Chronic; common</td>
+</tr>
+<tr>
+<td>Microcytic hypochromic red cells</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001935" target="_blank" rel="noopener noreferrer">HP:0001935</a> (Microcytic anemia)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Nucleated RBCs / abnormal morphology</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012132" target="_blank" rel="noopener noreferrer">HP:0012132</a> (Erythroid abnormality)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Elevated HbA2 / HbF</td>
+<td>Lab</td>
+<td>(elevated HbF; verify HPO ID)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Iron overload (secondary)</td>
+<td>Lab / clinical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011031" target="_blank" rel="noopener noreferrer">HP:0011031</a> (Abnormal iron homeostasis)</td>
+<td>Late; treatment/disease related</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> Chronic anemia, fatigue, splenomegaly, and (when present) transfusion dependence and iron-overload complications impair daily functioning. QoL burden parallels that documented for β-thalassemia intermedia/transfusion-dependent thalassemia; generic tools (SF-36, EQ-5D) are used in the broader thalassemia literature. Disease-specific QoL data for the dominant subtype specifically were <strong>not identified</strong>.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>HBB</em> (β-globin; <a href="https://bioregistry.io/HGNC:4827" target="_blank" rel="noopener noreferrer">HGNC:4827</a>; NCBI Gene 3043; OMIM 141900), chromosome 11p15.4.</p>
+<p><strong>Pathogenic variants.</strong> Dominant β-thalassemia is characteristically caused by:
+- <strong>Missense</strong> mutations in <strong>exon 3</strong> producing hyperunstable globins (e.g., Hb Hradec Kralove β115Ala→Asp; Hb Dieppe β127Gln→Arg) — "certain missense mutations in exon 3, however, produce unstable globins causing a dominant β-thal phenotype or hemolytic anemia in heterozygotes" (<a href="https://pubmed.ncbi.nlm.nih.gov/34957901/">PMID: 34957901</a>).
+- <strong>Nonsense</strong> mutations in exon 3 that <strong>escape nonsense-mediated decay</strong> (e.g., codon 121 G→T, codon 112 T→A), so a truncated toxic chain is translated (<a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a>).
+- <strong>Frameshift/elongating</strong> variants (e.g., HBB:c.313delA producing a β-chain elongated by 10 residues; Hb Grand Junction p.His117IlefsX42) (<a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a>).</p>
+<p><strong>Variant classification.</strong> These variants are <strong>pathogenic (dominant)</strong> by family segregation and functional data. <strong>Origin is germline</strong> (inherited or de novo); this is not a somatic/oncologic disease. <strong>Allele frequencies</strong> are effectively absent from population databases (private/rare family-specific alleles), consistent with the lack of malaria-driven selection.</p>
+<p><strong>Functional consequences.</strong> The defining consequence is a <strong>toxic gain-of-function / dominant-negative</strong> effect: the abnormal chain "binds heme and produces aggregations that are relatively resistant to proteolytic degradation" (<a href="https://pubmed.ncbi.nlm.nih.gov/1971109/">PMID: 1971109</a>). For frameshift/elongating alleles, the phenotype is "mainly related to the stability of mutant mRNA, the degradation of mutant proteins" — a combination of mRNA-stability and protein-degradation determinants rather than simple quantitative deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a>).</p>
+<p><strong>Modifier genes:</strong> α-globin genotype (co-inherited α-thalassemia), HbF loci (<em>BCL11A</em>, <em>HBS1L-MYB</em>), and <em>AHSP</em>.</p>
+<p><strong>Epigenetic information / chromosomal abnormalities.</strong> No specific epigenetic signature or large-scale chromosomal abnormality is characteristic; the disease is a point-mutation/small-indel disorder of <em>HBB</em>. (HbF induction pharmacology engages γ-globin regulation but is therapeutic, not etiologic.)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Dominant β-thalassemia is a <strong>monogenic disease with no established environmental, toxic, occupational, lifestyle, or infectious cause</strong>. Oxidative stress is mechanistically central to the <em>pathophysiology</em> (see Section 6) but is generated endogenously by the unstable globin rather than by external exposures. Chronic transfusion (a treatment) introduces secondary risks (iron overload; historically transfusion-transmitted HCV/HBV in the broader thalassemia population, e.g. <a href="https://pubmed.ncbi.nlm.nih.gov/28836463/">PMID: 28836463</a>). No infectious agent triggers the disease.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>heterozygous <em>HBB</em> exon-3 missense/nonsense/frameshift mutation</strong> <em>leads to</em> production of an mRNA that (for NMD-escaping/elongating alleles) is translated into a <strong>structurally abnormal, hyperunstable β-globin chain</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/1971109/">PMID: 1971109</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a>).</li>
+<li>The abnormal β-globin <strong>binds heme and precipitates</strong>, forming <strong>protease-resistant aggregates / inclusion (Heinz) bodies</strong> <em>because</em> it escapes normal proteolytic clearance (<a href="https://pubmed.ncbi.nlm.nih.gov/1971109/">PMID: 1971109</a>).</li>
+<li>In parallel, defective β-globin <strong>results in an α/β chain imbalance</strong>, leaving <strong>excess unpaired α-globin</strong>; AHSP normally escorts free α-globin, but the excess <strong>overwhelms this chaperone</strong>, so unpaired α-globin also precipitates (<a href="https://pubmed.ncbi.nlm.nih.gov/40655320/">PMID: 40655320</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31894534/">PMID: 31894534</a>).</li>
+<li>The <strong>erythroid protein quality-control (PQC) system</strong> — ubiquitin–proteasome (Nrf1-driven) plus compensatory <strong>ULK1-mediated autophagy</strong> — attempts to degrade the aggregates; <strong>dominance reflects the failure/escape of this clearance</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22427201/">PMID: 22427201</a>).</li>
+<li>Precipitated globin <strong>with attached heme accumulates</strong>, <em>leading to</em> <strong>reactive oxygen species (ROS) and oxidative membrane damage</strong> in erythroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/29180398/">PMID: 29180398</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25724329/">PMID: 25724329</a>).</li>
+<li>Oxidative stress <em>results in</em> <strong>apoptosis of erythroid precursors → ineffective erythropoiesis</strong> in the bone marrow (<a href="https://pubmed.ncbi.nlm.nih.gov/25724329/">PMID: 25724329</a>). <em>(Branch: GDF11/ActRIIA signaling amplifies this via an ROS-driven autocrine loop involving α-globin precipitation — <a href="https://pubmed.ncbi.nlm.nih.gov/24658077/">PMID: 24658077</a>.)</em></li>
+<li>Surviving inclusion-bearing red cells that reach circulation are <strong>removed predominantly by the spleen</strong> (cordal-macrophage phagocytosis in the red pulp), <em>leading to</em> <strong>hemolytic anemia and splenomegaly</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/142356/">PMID: 142356</a>).</li>
+<li>Chronic anemia and ineffective erythropoiesis <em>lead to</em> <strong>compensatory HbF elevation</strong>, increased intestinal iron absorption, and <strong>secondary iron overload</strong> — the downstream clinical manifestations (thalassemia-intermedia phenotype).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways / cellular processes:</strong> protein aggregation, ubiquitin–proteasome degradation, macroautophagy (ULK1), oxidative-stress signaling (Nrf1/Nrf2), Fas/Fas-ligand apoptosis of immature erythroblasts, and GDF11–ActRIIA (TGF-β–superfamily) signaling in ineffective erythropoiesis. β-thalassemia "fits into the broader framework of protein-aggregation disorders that use PQC pathways as cell-protective mechanisms" (<a href="https://pubmed.ncbi.nlm.nih.gov/22427201/">PMID: 22427201</a>).</li>
+<li><strong>Protein dysfunction:</strong> misfolding, heme-bound aggregation, protease resistance (gain-of-toxic-function / dominant-negative).</li>
+<li><strong>Immune involvement:</strong> not autoimmune; splenic macrophage phagocytosis is the effector of hemolysis.</li>
+<li><strong>Tissue-damage mechanism:</strong> oxidative stress → apoptosis (marrow) and macrophage-mediated erythrophagocytosis (spleen).</li>
+</ul>
+<p><strong>Upstream vs downstream:</strong> the <em>HBB</em> mutation and unstable-globin aggregation are <strong>upstream</strong>; ROS, ineffective erythropoiesis, splenic hemolysis, HbF compensation, and iron overload are <strong>downstream</strong>.</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a> (response to endoplasmic reticulum stress), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a> (proteasome-mediated ubiquitin-dependent protein catabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0043249" target="_blank" rel="noopener noreferrer">GO:0043249</a> (erythrocyte maturation), <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" rel="noopener noreferrer">GO:0030218</a> (erythrocyte differentiation).
+<strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" rel="noopener noreferrer">CL:0000765</a> (erythroblast), <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" rel="noopener noreferrer">CL:0000764</a> (erythroid progenitor cell), <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage — splenic red-pulp).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary tissue/organ:</strong> <strong>bone marrow / erythroid lineage</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> bone marrow) — site of ineffective erythropoiesis; <strong>blood</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>).</li>
+<li><strong>Spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>) — primary site of destruction of inclusion-bearing red cells and cause of splenomegaly (<a href="https://pubmed.ncbi.nlm.nih.gov/142356/">PMID: 142356</a>); the <strong>red pulp</strong> is the specific compartment.</li>
+<li><strong>Liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>) — secondary iron deposition; minor Kupffer-cell phagocytosis; extramedullary hematopoiesis in severe cases.</li>
+<li><strong>Secondary/systemic:</strong> endocrine glands, heart, and bones (from iron overload and marrow expansion) — as in the broader thalassemia-intermedia spectrum.</li>
+<li><strong>Cell populations (CL):</strong> erythroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" rel="noopener noreferrer">CL:0000765</a>), erythrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a>), splenic red-pulp macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>).</li>
+<li><strong>Subcellular / GO Cellular Component:</strong> cytosol (site of globin aggregation; <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>), proteasome complex (<a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" rel="noopener noreferrer">GO:0000502</a>), autophagosome (<a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" rel="noopener noreferrer">GO:0005776</a>); Heinz bodies are membrane-associated cytoplasmic inclusions.</li>
+<li><strong>Lateralization:</strong> systemic/bilateral (a blood/marrow disorder); splenomegaly involves the single left-sided organ.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> typically <strong>childhood</strong>, often insidious with chronic hemolytic anemia; some cases recognized in adolescence/adulthood. Reported probands include adolescents (<a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a>) and adults (a 41-year-old with a novel frameshift, <a href="https://pubmed.ncbi.nlm.nih.gov/39103314/">PMID: 39103314</a>).</li>
+<li><strong>Onset pattern:</strong> <strong>chronic</strong>, congenital in genetic terms; clinically insidious.</li>
+<li><strong>Progression / course:</strong> <strong>chronic, lifelong, generally stable-to-progressive</strong>, with progressive splenomegaly and cumulative iron overload if untreated. Severity is <strong>variable even within families</strong> carrying identical alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a>).</li>
+<li><strong>Remission / intervention windows:</strong> no spontaneous remission; <strong>splenectomy</strong> can produce "almost complete recovery from hemolysis" and transfusion independence (<a href="https://pubmed.ncbi.nlm.nih.gov/142356/">PMID: 142356</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42261228/">PMID: 42261228</a>); curative HSCT/gene therapy offers a one-time intervention.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>autosomal dominant</strong> — a single <em>HBB</em> allele causes disease; <strong>de novo</strong> mutations occur, explaining sporadic/isolated cases.</li>
+<li><strong>Penetrance / expressivity:</strong> high penetrance but <strong>variable expressivity</strong>, strongly influenced by α-globin genotype and HbF (<a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28651846/">PMID: 28651846</a>).</li>
+<li><strong>Anticipation / mosaicism:</strong> not a repeat-expansion disorder (no anticipation); germline mosaicism is theoretically possible but not a defining feature.</li>
+<li><strong>Epidemiology:</strong> <strong>rare and pan-ethnic.</strong> Overall β-thalassemia is among the most common monogenic diseases (~1.5% of the global population are carriers; ~7% of the world population carry a thalassemia gene, with 300,000–400,000 affected births/year) — but these figures pertain to the <em>recessive</em> forms (<a href="https://pubmed.ncbi.nlm.nih.gov/21082937/">PMID: 21082937</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36367309/">PMID: 36367309</a>). The <strong>dominant</strong> (inclusion-body) form is a small minority: one survey noted only <strong>~12 families worldwide</strong> known with a third-exon nonsense β-thal mutation, and it appears in isolated families/de novo cases across ethnic groups.</li>
+<li><strong>Why pan-ethnic (not malaria-linked):</strong> because heterozygotes are symptomatic, the dominant alleles are <strong>not maintained by malaria selection</strong> — "the absence of selective preference of these mutations in malaria infested areas as a result of serious clinical manifestations in heterozygotes" (<a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">PMID: 8184583</a>). This distinguishes it from recessive β-thalassemia's geographic clustering.</li>
+<li><strong>Sex ratio / age distribution:</strong> no strong sex predilection (autosomal); presents across childhood-to-adult ages.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory / hematologic.</strong>
+- CBC: microcytic, hypochromic indices with anemia; reticulocytosis; abnormal red-cell morphology (target cells, nucleated RBCs).
+- <strong>Heinz-body / inclusion-body preparation</strong> (supravital stain, e.g., methyl violet): hallmark of unstable-globin disorders — inclusions may be sparse before splenectomy and abundant after (<a href="https://pubmed.ncbi.nlm.nih.gov/7022469/">PMID: 7022469</a>).
+- <strong>Heat-instability / isopropanol stability tests</strong>: positive for unstable hemoglobins (<a href="https://pubmed.ncbi.nlm.nih.gov/24074398/">PMID: 24074398</a>).
+- <strong>Hemoglobin analysis</strong> by HPLC/capillary electrophoresis: elevated <strong>HbA2</strong> and often <strong>HbF</strong>; abnormal peaks for some variants (though many unstable variants are electrophoretically silent).
+- <strong>Mass spectrometry</strong> (MALDI-TOF) can quantify globin-chain imbalance as a rapid screen (<a href="https://pubmed.ncbi.nlm.nih.gov/35098837/">PMID: 35098837</a>).
+- Hemolysis markers: unconjugated hyperbilirubinemia, elevated LDH, low haptoglobin.</p>
+<p><strong>Genetic testing (definitive).</strong> <strong>Single-gene <em>HBB</em> sequencing</strong> is the diagnostic gold standard and is required to identify the exon-3/frameshift variant, since many causal variants are not detectable by protein methods. <strong>α-globin (<em>HBA1/HBA2</em>) genotyping</strong> should accompany it to assess the protective α-thalassemia modifier. Gene panels or WES/WGS can be used when <em>HBB</em> Sanger sequencing is non-diagnostic. In-silico protein modeling can support pathogenicity of novel variants (<a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a>).</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> Differentiate from: recessive β-thalassemia intermedia/major, other <strong>congenital Heinz-body hemolytic anemias / unstable hemoglobins</strong> (e.g., Hb Köln β98Val→Met, <a href="https://pubmed.ncbi.nlm.nih.gov/24074398/">PMID: 24074398</a>), G6PD deficiency and other enzymopathies, and hereditary spherocytosis. Family history of a dominantly transmitted hemolytic anemia plus <em>HBB</em> sequencing resolves the diagnosis.</p>
+<p><strong>Screening.</strong> For the dominant form, <strong>cascade family testing</strong> after an index case is the key strategy; classical carrier screening (aimed at recessive β-thal) does not detect dominant alleles in silent carriers because there are none.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Course:</strong> chronic, lifelong hemolytic/dyserythropoietic anemia of <strong>intermediate severity</strong> (thalassemia-intermedia–like). Most affected individuals are <strong>not transfusion-dependent from birth</strong> but may require intermittent or (in severe variants) regular transfusion.</li>
+<li><strong>Complications:</strong> progressive splenomegaly/hypersplenism, cholelithiasis (chronic hemolysis), secondary <strong>iron overload</strong> with attendant endocrine, hepatic, and cardiac risk (as in NTDT/thalassemia intermedia — <a href="https://pubmed.ncbi.nlm.nih.gov/36295656/">PMID: 36295656</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28589785/">PMID: 28589785</a>), extramedullary hematopoiesis, and thrombosis risk in the broader NTDT spectrum.</li>
+<li><strong>Recovery / prognostic modifiers:</strong> <strong>splenectomy</strong> can normalize hemolysis and confer transfusion independence in unstable-hemoglobin disease (<a href="https://pubmed.ncbi.nlm.nih.gov/142356/">PMID: 142356</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42261228/">PMID: 42261228</a>). <strong>Co-inherited α-thalassemia and high HbF</strong> predict milder disease (<a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">PMID: 24432801</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28651846/">PMID: 28651846</a>). Prognosis is generally favorable with modern supportive care, though rare severe unstable-hemoglobin cases have had fatal outcomes from hemosiderosis (<a href="https://pubmed.ncbi.nlm.nih.gov/6162731/">PMID: 6162731</a>).</li>
+<li><strong>Mortality:</strong> no disease-specific survival statistics exist for this rare subtype; outcomes track the thalassemia-intermedia/NTDT literature and depend on iron-overload management.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Supportive / foundational care.</strong> Red-cell <strong>transfusion</strong> as needed, <strong>iron chelation</strong> (deferoxamine, deferasirox, deferiprone) for iron overload, folate supplementation, and <strong>splenectomy</strong> for hypersplenism/transfusion burden — the latter especially effective in inclusion-body/unstable-hemoglobin disease (<a href="https://pubmed.ncbi.nlm.nih.gov/142356/">PMID: 142356</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42261228/">PMID: 42261228</a>).</p>
+<p><strong>HbF induction.</strong> Hydroxyurea and sirolimus (rapamycin) induce γ-globin/HbF; sirolimus co-induces AHSP and ULK1-autophagy in patient erythroid cells, addressing α-globin excess (<a href="https://pubmed.ncbi.nlm.nih.gov/40655320/">PMID: 40655320</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38731008/">PMID: 38731008</a>).</p>
+<p><strong>Disease-modifying agents.</strong> <strong>Luspatercept</strong> (ActRIIB ligand trap / erythroid maturation agent) and <strong>mitapivat</strong> (pyruvate-kinase activator) are approved and "have demonstrated clinically meaningful improvements in hemoglobin levels and reduction of transfusion burden" (<a href="https://pubmed.ncbi.nlm.nih.gov/42584024/">PMID: 42584024</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34889443/">PMID: 34889443</a>).</p>
+<p><strong>Curative / advanced therapeutics.</strong> <strong>Allogeneic HSCT</strong> (curative in eligible patients); <strong>gene addition</strong> with <strong>betibeglogene autotemcel (beti-cel)</strong> and <strong>CRISPR-based <em>BCL11A</em> editing</strong> with <strong>exagamglogene autotemcel (exa-cel)</strong> — approved and achieving "high rates of durable transfusion independence" (<a href="https://pubmed.ncbi.nlm.nih.gov/42584024/">PMID: 42584024</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34493145/">PMID: 34493145</a>). Note: gene-<em>addition</em> corrects globin-chain imbalance but does not remove a dominant toxic allele; allogeneic HSCT and (conceptually) allele-directed editing more fully address a dominant-negative product — an important consideration specific to this subtype.</p>
+<p><strong>Suggested NCIT terms (verify codes):</strong> Luspatercept, Mitapivat, Hydroxyurea (C577), Deferasirox (C29331), Deferoxamine, Splenectomy (C51772), Hematopoietic Stem Cell Transplantation (C15431), Gene Therapy (C15254), Red Blood Cell Transfusion.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> as a dominant/often de novo monogenic disease, population carrier screening is less applicable than for recessive β-thal. <strong>Genetic counseling</strong> for affected individuals (50% transmission risk per pregnancy) and <strong>cascade family testing</strong> are central.</li>
+<li><strong>Reproductive options:</strong> <strong>prenatal diagnosis</strong> and <strong>preimplantation genetic testing (PGT)</strong> for the known familial <em>HBB</em> variant.</li>
+<li><strong>Secondary/tertiary prevention:</strong> early detection of iron overload (ferritin, MRI T2*), timely chelation, vaccination and antibiotic prophylaxis after splenectomy (encapsulated-organism protection), and monitoring for endocrine/cardiac complications.</li>
+<li><strong>Public health:</strong> premarital/genetic screening programs (e.g., Saudi Arabia, <a href="https://pubmed.ncbi.nlm.nih.gov/39073533/">PMID: 39073533</a>) target recessive hemoglobinopathies primarily; they do not prevent dominant/de novo cases.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Human <em>HBB</em> (NCBI Gene 3043). Orthologous β-globin genes exist across mammals (mouse <em>Hbb</em> cluster). β-globin structure and the α/β balance are evolutionarily conserved, which is why murine β-thalassemia models recapitulate core mechanisms.</li>
+<li><strong>Natural disease in animals:</strong> unstable-hemoglobin/thalassemia-like syndromes are not a prominent naturally occurring veterinary disease for the dominant human variants specifically; comparative data are limited. No zoonotic potential (non-infectious genetic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse models</strong> are the principal system. β-thalassemia mice reproduce <strong>ineffective erythropoiesis, α-globin precipitation, oxidative stress, and iron dysregulation</strong>, and have been used to validate mechanistic and therapeutic hypotheses: e.g., an ActRIIA ligand trap (RAP-011) correcting ineffective erythropoiesis and GDF11 biology (<a href="https://pubmed.ncbi.nlm.nih.gov/24658077/">PMID: 24658077</a>); heme-oxygenase inhibition ameliorating anemia/iron overload (<a href="https://pubmed.ncbi.nlm.nih.gov/29180398/">PMID: 29180398</a>); and <strong>integrated PQC (proteasome + autophagy) regulation of free α-globin in murine β-thalassemia</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22427201/">PMID: 22427201</a>).</li>
+<li><strong>In-vitro / cellular models:</strong> K562 and primary erythroid precursor cells (ErPCs) for AHSP/Nrf2/ULK1 studies (<a href="https://pubmed.ncbi.nlm.nih.gov/35092867/">PMID: 35092867</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40655320/">PMID: 40655320</a>); HEK-293T transfection to dissect mutant-mRNA/protein stability for specific dominant alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">PMID: 34271589</a>); patient nucleated erythrocytes for functional characterization.</li>
+<li><strong>Model characteristics/limitations:</strong> murine models capture the chain-imbalance/ineffective-erythropoiesis axis well but are usually engineered as loss-of-function/recessive backgrounds; <strong>faithful modeling of a translated toxic dominant-negative β-globin (knock-in of a human hyperunstable allele)</strong> is a gap.</li>
+<li><strong>Resources:</strong> MGI (mouse), Cellosaurus (K562), plus patient-derived iPSC/erythroid-differentiation platforms.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Heterozygous HBB exon-3 mutation (missense / NMD-escaping nonsense / frameshift-elongating)
+     |  (translated, NOT degraded by NMD)
+     v
+HYPERUNSTABLE beta-globin chain  --------------+
+     | binds heme, precipitates        | defective beta -&gt; alpha/beta imbalance
+     v                                  v
+      Protease-resistant inclusion (Heinz)     Excess unpaired alpha-globin
+bodies -- escape UPS + autophagy --&gt;     (overwhelms AHSP chaperone)
+     |  (Nrf1/Nrf2, ULK1 PQC fail)      |
+     +----------------+-----------------+
+                      v
+    ROS / oxidative membrane damage (heme, Fe)
+                      |
+ +--------------------+---------------------+
+ v                                          v
+   Apoptosis of erythroblasts                 Inclusion-laden RBCs cleared
+   = INEFFECTIVE ERYTHROPOIESIS                by SPLENIC red-pulp macrophages
+   (amplified by GDF11-ActRIIA loop)           = HEMOLYSIS + SPLENOMEGALY
+ |                                          |
+ +---------------&gt; CHRONIC ANEMIA &lt;---------+
+                      |
+ compensatory ^HbF, ^iron absorption -&gt; SECONDARY IRON OVERLOAD
+                      |
+          Thalassemia-intermedia phenotype
+   Modifiers:  (-) co-inherited alpha-thalassemia, high HbF -&gt; milder disease
+</code></pre>
+<p>The unifying insight from this investigation is that <strong>dominant β-thalassemia is a proteostasis disorder of the erythron</strong>: dominance is not about quantitative haploinsufficiency but about a <strong>translated, aggregation-prone, protease-resistant globin that escapes protein quality control</strong> and acts as a toxic dominant-negative. This reframes it alongside protein-aggregation diseases and explains (a) why only specific exon-3/frameshift alleles are dominant, (b) why co-inherited α-thalassemia (which lowers the competing α-globin burden) is protective, and (c) why gene-<em>addition</em> therapy — which supplies normal β-globin but leaves the toxic allele intact — may be mechanistically less complete than allogeneic HSCT for this subtype.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1971109/">1971109</a></td>
+<td><em>Molecular basis for dominantly inherited inclusion body beta-thalassemia</em></td>
+<td>Foundational: exon-3 <em>HBB</em> mutations; aggregates resistant to proteolysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7693620/">7693620</a></td>
+<td><em>Hb Hradec Kralove β115Ala→Asp</em></td>
+<td>Dominant phenotype; hematologic picture; splenectomy; ↑HbF</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8184583/">8184583</a></td>
+<td><em>Dominant β-thal alleles in Czech/Slovak population</em></td>
+<td>Nonsense exon-3 alleles; rarity (~12 families); non-malaria rationale; Heinz bodies; variable severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34957901/">34957901</a></td>
+<td><em>Hb Dieppe</em></td>
+<td>Confirms exon-3 missense → unstable globin → dominant phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34271589/">34271589</a></td>
+<td><em>HBB:c.313delA elongated β-globin</em></td>
+<td>Frameshift/elongation; mRNA-stability + protein-degradation determinants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24432801/">24432801</a></td>
+<td><em>Hb Grand Junction (HUH)</em></td>
+<td>HUH = dominant β-thal synonym; α-thalassemia co-inheritance is protective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28651846/">28651846</a></td>
+<td><em>Molecular basis of β-thal / targets</em></td>
+<td>HbF + α-globin genotype predict severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22427201/">22427201</a></td>
+<td><em>Integrated PQC of free α-globin in murine β-thal</em></td>
+<td>Proteasome + autophagy clearance; protein-aggregation framework</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/142356/">142356</a></td>
+<td><em>Ultrastructure of spleen/liver in unstable-Hb anemia</em></td>
+<td>Spleen is site of clearance; splenectomy → recovery</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42261228/">42261228</a></td>
+<td><em>Unstable Hb Perth managed with splenectomy</em></td>
+<td>Clinical evidence for splenectomy efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25724329/">25724329</a></td>
+<td><em>Role of α-Hb chaperone</em></td>
+<td>ROS → apoptosis → ineffective erythropoiesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29180398/">29180398</a></td>
+<td><em>Heme-oxygenase inhibition in β-thal mice</em></td>
+<td>Unpaired globin + heme → oxidative erythroblast death</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24658077/">24658077</a></td>
+<td><em>ActRIIA ligand trap corrects ineffective erythropoiesis</em></td>
+<td>GDF11/ROS/α-globin amplification loop; luspatercept rationale</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40655320/">40655320</a></td>
+<td><em>ULK1 + AHSP co-induction (sirolimus)</em></td>
+<td>Autophagy/AHSP response to α-globin excess</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42584024/">42584024</a></td>
+<td><em>2026 Update on Clinical Trials in β-Thalassemia</em></td>
+<td>Approved disease-modifying (luspatercept, mitapivat) + curative gene therapies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21082937/">21082937</a></td>
+<td><em>Global burden of β-thal / HbE</em></td>
+<td>1.5% global carrier baseline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36367309/">36367309</a></td>
+<td><em>Gujarat screening</em></td>
+<td>7% global thalassemia carriers; 300–400k affected births/yr</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Evidence types span <strong>human clinical case/family reports</strong> (variant characterization, phenotype, splenectomy), <strong>mouse models</strong> (mechanism, therapeutics), and <strong>in-vitro cellular systems</strong> (PQC, AHSP/Nrf2/ULK1, mutant mRNA/protein stability).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Rarity → sparse quantitative data.</strong> No robust prevalence/incidence, survival, or QoL statistics exist <em>specifically</em> for the dominant subtype; epidemiology is inferred from case series and the broader β-thal/NTDT literature.</li>
+<li><strong>Phenotype frequencies are qualitative.</strong> Per-phenotype percentages are not well established for this subtype; HPO frequencies given here are approximate.</li>
+<li><strong>Mechanistic evidence is partly extrapolated</strong> from recessive β-thal and general unstable-hemoglobin biology (mouse/in-vitro); direct demonstration of PQC-escape <em>for each dominant allele</em> is limited.</li>
+<li><strong>Ontology term IDs</strong> for a few entries (e.g., "Heinz bodies," some NCIT drug codes) should be verified by curators against current ontology releases.</li>
+<li><strong>Therapeutic subtype-specificity untested.</strong> Whether gene-addition vs. allele-directed editing differs in efficacy for a <em>dominant toxic</em> allele is a hypothesis, not a demonstrated clinical result.</li>
+<li><strong>No dedicated animal model</strong> faithfully expressing a human hyperunstable dominant β-globin knock-in was identified.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Curate a variant registry</strong> of all reported dominant <em>HBB</em> alleles (exon-3 missense/nonsense, frameshift/elongating) with HGVS nomenclature, ClinVar submission, and linked phenotype severity, to enable genotype–phenotype correlation.</li>
+<li><strong>Generate a knock-in mouse or iPSC-erythroid model</strong> expressing a representative hyperunstable human β-globin (e.g., Hb Hradec Kralove) to directly test PQC-escape and dominant-negative toxicity.</li>
+<li><strong>Quantify PQC flux</strong> (proteasome vs. ULK1-autophagy) for individual dominant alleles in patient-derived erythroblasts; test whether pharmacologic autophagy induction (sirolimus) is allele-dependent.</li>
+<li><strong>Systematically test the α-thalassemia modifier</strong> by stratifying reported cases (and any registry) by α-genotype to quantify the protective effect size.</li>
+<li><strong>Evaluate curative-therapy mechanism-fit:</strong> model whether gene-addition adequately dilutes a translated toxic allele vs. approaches that reduce/edit the mutant allele, informing therapy selection for dominant cases.</li>
+<li><strong>Confirm and standardize ontology mappings</strong> (HPO/GO/CL/UBERON/NCIT) for knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 9 confirmed findings across 5 iterations and 37 reviewed papers. Evidence prioritizes primary literature with verified abstract quotes; PMIDs are provided for all mechanistic and clinical claims.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Dominant_Beta-Thalassemia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Dominant_Beta-Thalassemia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>4</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>31</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:24432801</code> <em>(abstract only)</em>: "leads to a decreased imbalance between α and β chain formation, and subsequently a milder phenotype"</li>
+<li>closest text in source: "Both patients also have a 3.7 kb deletion on one α gene, leading to a decreased imbalance between α and β chain formation, and subsequently a milder phenotype than that seen in other hyperunstable Hb variants."</li>
+<li><code>PMID:1971109</code> <em>(abstract only)</em>: "binds heme and produces aggregations that are relatively resistant to proteolytic degradation"</li>
+<li>closest text in source: "It is suggested that the phenotypic difference between this condition and the more common recessive forms of beta-thalassemia lies mainly in the length and stability of the abnormal translation products that are synthesized and, in particular, whether they are capable of binding heme and producing aggregations that are relatively resistant to proteolytic degradation."</li>
+<li><code>PMID:34889443</code> <em>(abstract only)</em>: "have demonstrated clinically meaningful improvements in hemoglobin levels and reduction of transfusion burden"</li>
+<li>closest text in source: "Luspatercept, a transforming growth factor-β inhibitor, has demonstrated efficacy in reducing ineffective erythropoiesis, improving anemia, and possibly reducing iron loading"</li>
+<li><code>PMID:34493145</code> <em>(abstract only)</em>: "high rates of durable transfusion independence"</li>
+<li>closest text in source: "Although treatments have a significant impact on quality of life (QoL), life expectancy, and long-term health outcomes have improved in recent decades through safer RBC transfusion practices and better iron chelation strategies"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0011381</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>dominant beta-thalassemia</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0012132</code> (1 mention) - the report calls it "Erythroid abnormality"; HP calls it <strong>Erythroid hyperplasia</strong></li>
+<li><code>HP:0011031</code> (1 mention) - the report calls it "Abnormal iron homeostasis"; HP calls it <strong>Abnormality of iron homeostasis</strong></li>
+<li><code>CL:0000764</code> (1 mention) - the report calls it "erythroid progenitor cell"; CL calls it <strong>erythroid lineage cell</strong></li>
+<li><code>CL:0000235</code> (2 mentions) - the report calls it "macrophage — splenic red-pulp"; CL calls it <strong>macrophage</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="DLG4-Related_Synaptopathy-openscientist.html">← DLG4-Related Synaptopathy (OpenScientist)</a>
+                
+                
+                <a href="Dominant_Deafness-Onychodystrophy_Syndrome-falcon.html">Dominant Deafness-Onychodystrophy Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Dominant_Beta-Thalassemia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Dominant_Beta-Thalassemia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
