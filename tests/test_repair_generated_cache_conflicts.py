@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 _SPEC = importlib.util.spec_from_file_location(
     "repair_generated_cache_conflicts",
     Path(__file__).resolve().parents[1]

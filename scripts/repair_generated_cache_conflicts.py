@@ -12,15 +12,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 from generated_cache_merge import UnsafeMerge, is_supported_cache_path, merge_cache_csv
 from pr_shepherd_policy import agent_candidate_decision
-
 
 OID = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
 # Root-level JSON caches are never merge inputs. Inspect tree metadata only;

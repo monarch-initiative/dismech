@@ -387,6 +387,12 @@ author and assignment guards as the agent, rejects fork heads, and defers while
 checks reported on the PR are unfinished. It never marks ready, approves, or
 merges a PR into main.
 
+Agent tending waits for this run's cache job. Cache sweeps serialize with
+`cancel-in-progress: false`, so an earlier sweep can add queueing time before
+this run's own repair job, whose execution is limited to 20 minutes. A delayed
+shepherd may therefore be waiting on cache repair, not stalled in the agent.
+The agent still runs after a failed or timed-out repair job; cancellation stops it.
+
 The first supported formats are exactly `cache/<prefix>/terms.csv` and
 `cache/enums/*.csv`. A generated directory name alone is not authorization to
 discard content. The job only unions **unchanged source rows plus additions**:

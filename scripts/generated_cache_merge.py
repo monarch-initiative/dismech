@@ -116,6 +116,8 @@ def _serialize(header: list[str], rows: list[tuple[str, ...]]) -> bytes:
     # CRLF makes csv.writer quote labels containing either CR or LF. Strip
     # only each record's terminator; global newline replacement would alter a
     # multiline label, and a bare-LF writer need not quote embedded CRs.
+    # All output records intentionally use LF, even for CRLF input, matching
+    # the cache CSV invariant in .gitattributes; quoted field values stay intact.
     writer = csv.writer(record, lineterminator="\r\n")
     output: list[str] = []
     for row in [header, *rows]:

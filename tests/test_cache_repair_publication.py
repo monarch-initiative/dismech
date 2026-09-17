@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -21,18 +21,18 @@ def git(path, *args):
 
 
 def eligible(head):
-    return dict(
-        number=12,
-        state="OPEN",
-        baseRefName="main",
-        headRefName="repair-me",
-        headRefOid=head,
-        author={"login": "ai4c-agent[bot]", "is_bot": True},
-        assignees=[],
-        isCrossRepository=False,
-        mergeable="CONFLICTING",
-        statusCheckRollup=[],
-    )
+    return {
+        "number": 12,
+        "state": "OPEN",
+        "baseRefName": "main",
+        "headRefName": "repair-me",
+        "headRefOid": head,
+        "author": {"login": "ai4c-agent[bot]", "is_bot": True},
+        "assignees": [],
+        "isCrossRepository": False,
+        "mergeable": "CONFLICTING",
+        "statusCheckRollup": [],
+    }
 
 
 @pytest.fixture
@@ -114,6 +114,7 @@ def test_racing_remote_ref_cannot_be_overwritten(publication, race):
         result = subprocess.run(
             ["git", "-C", str(remote), "show-ref", "--verify", "refs/heads/repair-me"],
             capture_output=True,
+            check=False,
         )
         assert result.returncode != 0
     else:

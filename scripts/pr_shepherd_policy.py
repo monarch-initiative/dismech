@@ -207,7 +207,12 @@ def list_agent_candidates(
     ranked = []
     for pr in safe:
         controller_owned = False
-        if str(pr.get("reviewDecision") or "").upper() == "APPROVED":
+        # A known conflict always stays in the agent lane, so checking whether
+        # the merge controller owns it cannot change the shortlist.
+        if (
+            str(pr.get("reviewDecision") or "").upper() == "APPROVED"
+            and str(pr.get("mergeable") or "").upper() != "CONFLICTING"
+        ):
             try:
                 details = _gh_json(
                     [

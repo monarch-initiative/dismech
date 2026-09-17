@@ -170,6 +170,7 @@ def test_scan_candidates_are_ranked_bounded_and_leave_ready_work_to_controller(
     # branches 1 and 5 belong to the closer even with an old baseRefOid.
     assert [pr["number"] for pr in selected] == [3, 2, 4]
     assert not any(args[0] == "api" for args in calls)
+    assert [int(args[2]) for args in calls if args[:2] == ["pr", "view"]] == [1, 5]
     list_fields = calls[0][calls[0].index("--json") + 1]
     assert "baseRefOid" in list_fields
     assert "headRefOid" in list_fields
@@ -241,9 +242,8 @@ def test_python_review_work_is_not_starved_by_approved_branch_maintenance(monkey
     )
 
     def fake_gh_json(args):
-        if args[:2] == ["pr", "list"]:
-            return prs
-        return {}
+        assert args[:2] == ["pr", "list"], "known conflicts need no detail lookup"
+        return prs
 
     monkeypatch.setattr(policy, "_gh_json", fake_gh_json)
     assert [pr["number"] for pr in policy.list_agent_candidates("o/r", limit=1)] == [
