@@ -109673,6 +109673,117 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Ergotism",
+    "disease_id": "MONDO:0042496",
+    "category": "Environmental",
+    "parents": [
+      "mycotoxicosis"
+    ],
+    "creation_date": "2026-09-18T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ergotism is intoxication by ergot alkaloids - ergoline compounds produced by fungi of the genus Claviceps, classically Claviceps purpurea, which replaces the grain of rye and other cereals with a dark sclerotium. The ergoline ring is close enough in shape to serotonin, noradrenaline and dopamine that the alkaloids act as agonists and partial agonists at 5-HT and alpha-adrenergic receptors. On vascular smooth muscle this produces arterial contraction that is unusually prolonged, outlasting the exposure by hours, and the resulting vasospasm starves distal tissue of blood.\nTwo clinical forms have been recognised since the medieval epidemics and are still the standard division. Gangrenous ergotism is the vasospastic one: burning pain and paresthesia in the extremities, then coldness, pallor and loss of pulses, then dry gangrene that historically cost people their feet. Convulsive ergotism is neuropsychiatric - muscle twitching and spasm, altered mental state, hallucinations, sweating and fever persisting for weeks - and has been argued to be epidemic serotonin syndrome, recognised centuries before the modern syndrome was named. A gastrointestinal form is also described. Which form predominated in a given epidemic tracked the alkaloid composition of the local ergot rather than the dose, with convulsive outbreaks east of the Rhine and gangrenous ones west of it.\nThe disease did not end with clean grain. Its dominant modern form is iatrogenic: ergotamine and dihydroergotamine are still prescribed for migraine and ergometrine for postpartum haemorrhage, and ergotamine has less than 5% oral bioavailability because CYP3A4 destroys it on first pass. Add a strong CYP3A4 inhibitor - an HIV protease inhibitor, cobicistat, a macrolide - and that barrier disappears, turning a therapeutic dose into a toxic one. Case series of severe ergotism are now dominated by exactly this interaction, and it has killed. Recognised early the vasospasm is reversible on stopping the drug; recognised late the ischaemia is not.",
+    "pathophysiology": [
+      "Ergot Alkaloid Entry into the Circulation",
+      "CYP3A4 Inhibition Raising Systemic Ergotamine Concentration",
+      "Ergoline Agonism at Vascular 5-HT and Alpha-Adrenergic Receptors",
+      "Sustained Vascular Smooth Muscle Contraction",
+      "Central Serotonergic Overstimulation",
+      "Arterial Vasospasm with Distal Hypoperfusion",
+      "Distal Tissue Ischemia and Dry Gangrene",
+      "Convulsive and Neuropsychiatric Syndrome"
+    ],
+    "cell_types": [
+      "vascular smooth muscle cell",
+      "dorsal horn neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "serotonin receptor signaling driven by ergot alkaloid agonism",
+      "adrenergic receptor signaling driven by ergot alkaloid agonism",
+      "sustained smooth muscle contraction driven by ergot alkaloid agonism",
+      "central serotonin receptor signaling driven by ergot alkaloid agonism",
+      "tissue response to ischaemic hypoxia"
+    ],
+    "phenotypes": [
+      "Vasospasm",
+      "Gangrene",
+      "Coronary artery spasm",
+      "Intermittent claudication",
+      "Acrocyanosis",
+      "Paresthesia",
+      "Limb pain",
+      "Seizure",
+      "Muscle spasm",
+      "Hallucinations",
+      "Confusion",
+      "Cerebral ischaemia",
+      "Nausea and vomiting",
+      "Fever",
+      "Hyperhidrosis"
+    ],
+    "phenotype_categories": [
+      "Vascular",
+      "Neurologic",
+      "Neuropsychiatric",
+      "Gastrointestinal",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0025637",
+      "HP:0100758",
+      "HP:0025497",
+      "HP:0004417",
+      "HP:0001063",
+      "HP:0003401",
+      "HP:0009763",
+      "HP:0001250",
+      "HP:0003394",
+      "HP:0000738",
+      "HP:0001289",
+      "HP:0002637",
+      "HP:0002017",
+      "HP:0001945",
+      "HP:0000975"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Withdrawal of the ergot alkaloid",
+      "Intravenous vasodilator therapy",
+      "Endovascular revascularisation",
+      "Corticosteroid rescue therapy",
+      "Amputation of non-viable tissue",
+      "Sympathectomy"
+    ],
+    "environmental": [
+      "Ingestion of cereal grain contaminated with Claviceps sclerotia",
+      "Therapeutic ergot alkaloid administration",
+      "Co-administration of a strong CYP3A4 inhibitor"
+    ],
+    "biochemical": [],
+    "source_file": "Ergotism.yaml",
+    "page_url": "../pages/disorders/Ergotism.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Erythrokeratodermia Variabilis",
     "disease_id": "MONDO:0017851",
     "category": "Mendelian",
@@ -161928,46 +162039,6 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
-    "name": "Infectious Disease",
-    "disease_id": "MONDO:0005550",
-    "category": "Infectious Disease",
-    "parents": [],
-    "creation_date": "2026-02-02T00:16:36Z",
-    "updated_date": null,
-    "subtypes": [],
-    "description": "Infectious diseases are caused by pathogenic microorganisms such as bacteria, viruses, fungi, and parasites.",
-    "pathophysiology": [
-      "Pathogen Invasion and Replication",
-      "Host Genetic Susceptibility and Immune Response",
-      "Toll-Like Receptor Signaling and Cytokine Release"
-    ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [
-      "immune response"
-    ],
-    "phenotypes": [],
-    "phenotype_categories": [],
-    "phenotype_hpo_categories": [],
-    "phenotype_ids": [],
-    "frequencies": [],
-    "genes": [],
-    "treatments": [
-      "Vaccination",
-      "Antimicrobial Therapy"
-    ],
-    "environmental": [],
-    "biochemical": [],
-    "source_file": "Infectious_Disease.yaml",
-    "page_url": "../pages/disorders/Infectious_Disease.html",
-    "num_phenotypes": 0,
-    "num_pathophysiology": 3,
-    "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
-  },
-  {
     "name": "Infective Endocarditis",
     "disease_id": "MONDO:0000565",
     "category": "Infectious",
@@ -191673,6 +191744,102 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Mast Cell Activation Syndrome",
+    "disease_id": "MONDO:0100004",
+    "category": "Complex",
+    "parents": [],
+    "creation_date": "2026-09-18T03:03:47Z",
+    "updated_date": null,
+    "subtypes": [
+      "Idiopathic MCAS",
+      "Secondary MCAS"
+    ],
+    "description": "Mast cell activation syndrome (MCAS) is a clinical entity in which mast cells release excessive and/or aberrant quantities of mediators (histamine, tryptase, prostaglandin D2, cysteinyl leukotrienes, heparin, and cytokines) in response to physical, chemical, immunologic, or psychological triggers, producing recurrent, episodic, multisystem symptoms without the mast-cell proliferation seen in mastocytosis. It is subclassified as idiopathic (no identifiable trigger or clonal marker), secondary (a well-defined IgE-mediated or non-IgE trigger such as allergy or chronic infection/inflammation is identified), or combined (both a clonal marker and a secondary trigger); hereditary alpha-tryptasemia can co-occur with any of these as a severity modifier. Diagnosis requires meeting all three consensus criteria (episodic multi-organ mediator-release symptoms, an event-related rise in a validated mediator marker, and response to anti-mediator therapy) and excluding both a clonal mast cell disorder and a well-defined secondary cause.",
+    "pathophysiology": [
+      "Mast Cell Surface Receptor Engagement",
+      "Downstream Signaling Cascade Activation",
+      "Mast Cell Degranulation and Mediator Release",
+      "Multisystem Mediator-Driven Symptom Generation"
+    ],
+    "cell_types": [
+      "mast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000097"
+    ],
+    "biological_processes": [
+      "mast cell degranulation"
+    ],
+    "phenotypes": [
+      "Flushing",
+      "Urticaria",
+      "Angioedema",
+      "Pruritus",
+      "Abdominal pain",
+      "Diarrhea",
+      "Hypotension",
+      "Tachycardia",
+      "Dyspnea",
+      "Wheezing"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031284",
+      "HP:0001025",
+      "HP:0100665",
+      "HP:0000989",
+      "HP:0002027",
+      "HP:0002014",
+      "HP:0002615",
+      "HP:0001649",
+      "HP:0002094",
+      "HP:0030828"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TPSAB1"
+    ],
+    "treatments": [
+      "H1/H2 Antihistamines",
+      "Leukotriene Receptor Antagonist",
+      "Oral Cromolyn",
+      "Ketotifen",
+      "Omalizumab",
+      "Epinephrine for Acute Anaphylaxis"
+    ],
+    "environmental": [
+      "Alcohol consumption",
+      "NSAID exposure"
+    ],
+    "biochemical": [
+      "Serum tryptase, event-related rise"
+    ],
+    "source_file": "Mast_Cell_Activation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Mast_Cell_Activation_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mayer-Rokitansky-Kuster-Hauser_Syndrome",
@@ -312984,19 +313151,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3009,
-  "total_subtypes": 3764,
-  "total_disorders_and_subtypes": 6773,
-  "total_unique_evidence_sources": 42731,
-  "total_unique_publications": 40336,
+  "total_disorder_pages": 3010,
+  "total_subtypes": 3766,
+  "total_disorders_and_subtypes": 6776,
+  "total_unique_evidence_sources": 42743,
+  "total_unique_publications": 40348,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3004,
-  "total_unique_pathological_events": 18236,
+  "total_pathographs": 3005,
+  "total_unique_pathological_events": 18244,
   "total_modules": 177,
-  "total_research_reports": 3125,
+  "total_research_reports": 3127,
   "total_classifications": 19,
-  "total_comorbidities": 31,
+  "total_comorbidities": 32,
   "total_groupings": 102
 };
 window.dispatchEvent(new Event('searchDataReady'));
