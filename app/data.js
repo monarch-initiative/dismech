@@ -34188,6 +34188,143 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 115",
+    "disease_id": "MONDO:0032762",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB115 is bilateral, nonsyndromic sensorineural hearing loss of childhood onset caused by biallelic variants in SPNS2, which encodes the plasma-membrane exporter of sphingosine-1-phosphate (S1P).\nWhat makes this entry worth having is where the lesion sits. Most curated cochlear entities fail inside the hair cell - in the stereocilia bundle, in transduction, or at the ribbon synapse. SPNS2 does not. The mouse work that identified the gene shows the earliest measurable defect is a fall in the endocochlear potential, and locates the primary lesion in the cochlear lateral wall rather than in the organ of Corti. Hair cell degeneration follows, and the authors read it as secondary. So the pathograph runs from a lipid transport failure, through the battery that drives mechanotransduction, to the sensory cells - and the hair cell loss is a consequence rather than the start.\nThe provenance of that mechanism should be stated plainly, because almost all of it is mouse. The human side of DFNB115 is two published probands: a child from a United States clinic who is compound heterozygous for a frameshift and an in-frame single-codon deletion in SPNS2, and an eight-year-old Iranian girl compound heterozygous for a nonsense and a missense allele. Nobody has measured an endocochlear potential in a person with DFNB115, and no human cochlear tissue has been examined. The entry therefore grades the strial and endocochlear-potential nodes as MODEL_ORGANISM evidence and says so at each node.\nOne mouse result has no human counterpart and is the reason this entity is interesting therapeutically rather than only descriptively. Reactivating Spns2 transcription in mice that had already lost hearing brought auditory brainstem response thresholds back to close to normal at low and mid frequencies, and protected hair cells from the secondary degeneration - but only if done early enough. That is a demonstration that this class of hearing loss is reversible in principle, and a critical-window claim that nothing in the human literature can yet confirm or refute. It is curated as an animal-model rescue and as an open discussion, not as a treatment.\nOMIM flags the SPNS2 gene-phenotype relationship as provisional, which is recorded here rather than smoothed over: NCBI mim2gene_medgen carries the `question` comment on OMIM:618457, the marker for an OMIM gene-map phenotype entered with a leading question mark. Two unrelated probands with biallelic damaging alleles, a concordant mouse mutant, and a structural study showing that pathogenic substitutions abolish transport is a reasonable body of evidence, but it is not the multi-family segregation a definitive call would need.",
+    "pathophysiology": [
+      "SPNS2 Biallelic Loss of Function",
+      "Failure of Sphingosine-1-Phosphate Export",
+      "Stria Vascularis Disorganization",
+      "Reduced Expression of Strial Ion-Transport Proteins",
+      "Endocochlear Potential Collapse",
+      "Progressive Sensory Hair Cell Degeneration"
+    ],
+    "cell_types": [
+      "strial marginal cell",
+      "cochlear outer hair cell",
+      "cochlear inner hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002492",
+      "CL:0000601",
+      "CL:0000589"
+    ],
+    "biological_processes": [
+      "sphingosine-1-phosphate receptor signaling pathway",
+      "lipid transport",
+      "potassium ion transmembrane transport in the cochlear lateral wall",
+      "sensory perception of sound",
+      "death of cochlear hair cells"
+    ],
+    "phenotypes": [
+      "Bilateral Sensorineural Hearing Impairment",
+      "Childhood Onset of Hearing Impairment",
+      "Severe Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008619",
+      "HP:0011474",
+      "HP:0008625"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SPNS2"
+    ],
+    "treatments": [
+      "Genetic Counselling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_115.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_115.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 123",
+    "disease_id": "MONDO:0958277",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB123 is bilateral, severe-to-profound, nonsyndromic hearing impairment caused by biallelic variants in STX4, which encodes syntaxin-4, a target-SNARE of the plasma membrane.\nThe entity rests on a single large consanguineous Pakistani family with eight affected individuals, homozygous for a splice-region variant that causes exon skipping and a frameshift. The segregation is strong for one family - a two-point LOD of 5.9 - and the supporting work is expression, localisation and a zebrafish knockdown rather than anything done in human cochlear tissue.\nWhere this sits mechanistically is worth stating, because it is not the usual hair-bundle story. STX4 is a general membrane-fusion protein: it is the t-SNARE half of the machinery that docks and fuses vesicles at the plasma membrane, and it works in many tissues. What makes it a deafness gene is where it is found and what happens when it is removed. The murine orthologue is widely expressed through the developing and adult inner ear, the protein sits in the cell body, plasma membrane and stereocilia of both inner and outer hair cells, and knocking the fish orthologue down disrupts mechanotransduction in neuromast hair cells as well as producing an abnormal startle response. So the proposed lesion is a failure of membrane trafficking in the hair cell, read out as a transduction defect. What the trafficked cargo is, and which of the three subcellular pools of STX4 matters, is not established.\nA second STX4 phenotype exists and is not the same disease. A separate group reported two patients with damaging STX4 variants whose presentation was syndromic - dilated cardiomyopathy with ventricular ectopy, sensorineural hearing loss, developmental delay and hypotonia in one, and perinatal lethality with severe pleiotropic abnormalities in the other - and showed that the missense allele in the first is hypomorphic. This entry curates DFNB123, the nonsyndromic entity, and records the relationship between the two as an open question rather than merging them. Which one a given STX4 genotype produces is exactly the kind of question a dose-dependent allelic series raises, and nobody has tested it.\nOMIM flags the gene-phenotype relationship as provisional: NCBI mim2gene_medgen carries the `question` comment on OMIM:620745, its marker for a gene-map phenotype entered with a leading question mark. That is consistent with the evidence base - one family, however well it segregates, plus non-human functional support.",
+    "pathophysiology": [
+      "STX4 Biallelic Loss of Function",
+      "Failure of SNARE-Mediated Membrane Fusion",
+      "Loss of Syntaxin-4 from the Hair Cell Membrane and Stereocilia",
+      "Hair Cell Mechanotransduction Failure",
+      "Disturbed Inner Ear Development"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "vesicle fusion at the plasma membrane",
+      "vesicle-mediated transport",
+      "hair cell mechanotransduction",
+      "inner ear development"
+    ],
+    "phenotypes": [
+      "Bilateral Severe-to-Profound Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0012714"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "STX4"
+    ],
+    "treatments": [
+      "Genetic Counselling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_123.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_123.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 124",
     "disease_id": "MONDO:0968981",
     "category": "Mendelian",
@@ -34778,6 +34915,79 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 88",
+    "disease_id": "MONDO:0014182",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss",
+      "Hereditary Hearing Loss"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB88 is prelingual, severe-to-profound, bilateral hearing loss caused by biallelic variants in ELMOD3. It is defined by a single large consanguineous Pakistani family, PKDF468, in which a homozygous missense change in the ELMO domain segregates with deafness.\nTwo things make this entity worth curating separately from the other stereocilia genes around it. The first is the biochemistry. ELMOD3 had no known enzymatic activity when the family was solved; the same paper that mapped the locus showed that recombinant ELMOD3 is a GTPase-activating protein for the ARF-family GTPase ARL2, and that the disease allele abolishes that activity. So the lesion is a specific, measured loss of an enzymatic activity rather than an inferred loss of a structural protein, and it was assayed on the patient's own allele rather than on a null.\nThe second is where in the bundle it acts. ELMOD3 immunoreactivity in rodent cochlea sits in the stereocilia, kinocilia and cuticular plate of hair cells, and is stronger in inner than outer hair cells; in the vestibular end organs the protein is in the hair cell bodies but not in the hair bundles. That asymmetry is the structural correlate of a clinical observation the family makes independently - the affected individuals are deaf and their balance is normal.\nThe mechanism downstream of the GAP defect comes almost entirely from a constitutive mouse knockout, and it is an actin-cytoskeleton story: F-actin staining across the cochlea is reduced, inner hair cell stereocilia shorten and fuse, outer hair cell stereocilia progressively degenerate, distortion-product otoacoustic emission thresholds rise, and ARL2 protein itself is less abundant in the mutant cochlea.\nTwo disagreements are recorded rather than smoothed over. The mouse hears normally for two months and then deteriorates; the humans in family PKDF468 are deaf before they speak. And the human audiograms are of *mixed* loss, with a large conductive component in both ears of one individual, which no part of the hair-bundle mechanism explains - and which temporal-bone CT in two affected members does not explain either, since the middle ear and mastoid were well aerated bilaterally. Both are curated as open discussions.",
+    "pathophysiology": [
+      "ELMOD3 Biallelic Loss of Function",
+      "Loss of ARL2 GTPase-Activating Activity",
+      "ELMOD3 Localisation to Cochlear Hair Cell Stereocilia",
+      "Disorganized Stereociliary Actin Cytoskeleton",
+      "Inner Hair Cell Stereocilia Shortening and Fusion",
+      "Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification",
+      "Cochlear Sensory Transduction Failure"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell",
+      "sensory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601",
+      "CL:0000855"
+    ],
+    "biological_processes": [
+      "auditory receptor cell stereocilium organization",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Prelingual Mixed Hearing Impairment",
+      "Sensorineural Hearing Impairment",
+      "Conductive Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000410",
+      "HP:0000407",
+      "HP:0000405"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ELMOD3"
+    ],
+    "treatments": [
+      "Hearing Amplification and Audiological Rehabilitation",
+      "Genetic Counselling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_88.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_88.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
   },
   {
@@ -59670,6 +59880,70 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 2E",
+    "disease_id": "MONDO:0030366",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-17T16:17:48Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CMD2E is the autosomal recessive dilated cardiomyopathy caused by biallelic loss-of-function variants in JPH2, the gene for junctophilin-2. It is the recessive counterpart of the dominant JPH2 disease already curated here as Hypertrophic_Cardiomyopathy_17, and the two are separated by mechanism as well as by inheritance: the dominant disease runs on missense alleles that alter how junctophilin-2 regulates the ryanodine receptor, while this one removes the protein.\nThe mechanism is architectural rather than biochemical. Junctophilin-2 tethers the t-tubule sarcolemma to the junctional sarcoplasmic reticulum and so holds the dyadic cleft at the width that places L-type calcium channels opposite ryanodine receptors. Calcium-induced calcium release depends on that geometry, not on any catalytic step, so losing the tether degrades excitation-contraction coupling by moving two channels apart. The mouse genetics are unusually clean on this point: germline Jph2-null embryos die with deficient junctional membrane complexes and abnormal calcium transients, and acute cardiac-specific knockdown in adults produces loss of junctional membrane complexes, increased variability in the plasmalemma-to-sarcoplasmic-reticulum distance, and heart failure.\nClinically it presents in the neonatal period or early childhood with rapidly progressive systolic failure, and transplantation is a realistic outcome. There is no disease-specific therapy. AAV9-mediated JPH2 delivery rescues contractility in a mouse pressure-overload model, which is a rationale rather than a treatment.",
+    "pathophysiology": [
+      "JPH2 Loss of Function",
+      "Failure of Junctional Membrane Complex Assembly",
+      "Failure of Calcium-Induced Calcium Release",
+      "Impaired Cardiac Contractility"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "release of sequestered calcium ion into cytosol by sarcoplasmic reticulum",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "JPH2"
+    ],
+    "treatments": [
+      "Guideline-directed paediatric heart failure management",
+      "Cardiac transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiomyopathy_Dilated_2E.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_2E.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dilated Cardiomyopathy 2G",
@@ -102353,6 +102627,7 @@ window.searchData = [
       "TERC",
       "TINF2",
       "RTEL1",
+      "PFBMFT3",
       "CTC1",
       "RPA1",
       "ACD",
@@ -102449,6 +102724,7 @@ window.searchData = [
       "TERC",
       "TINF2",
       "RTEL1",
+      "RTEL1-PFBMFT3",
       "CTC1",
       "RPA1",
       "ACD",
@@ -102477,9 +102753,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Dyskeratosis_Congenita.html",
     "num_phenotypes": 12,
     "num_pathophysiology": 3,
-    "num_genes": 19,
+    "num_genes": 20,
     "num_treatments": 5,
-    "causal_graph_edges": "39",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "4"
   },
   {
@@ -197907,6 +198183,116 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Mitochondrial Complex I Deficiency, Nuclear Type 15",
+    "disease_id": "MONDO:0032620",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex I Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial complex I deficiency nuclear type 15 (MC1DN15) is the isolated complex I deficiency caused by biallelic variants in NDUFAF4. NDUFAF4 is not a subunit of the enzyme. It is a 20.2 kDa matrix assembly factor - discovered as the uncharacterised open reading frame C6ORF66 - that rides along with Q-module assembly intermediates from early in complex I biogenesis until it dissociates just before the enzyme is finished.\nThe assembly lesion has an unusual and informative shape. When NDUFAF4 is missing, the Q-module subassemblies it travels with do not accumulate: they simply are not made. What accumulates instead is everything else - proximal and distal P-module intermediates and an N-module intermediate all pile up, unable to find the Q-module partner they need. So the defect reads as a failure to *connect* separately built modules rather than as a failure to build any one of them, and the authors of that experiment propose two specific steps NDUFAF4 is needed for.\nThe clinical range is wide for a gene with so few reported patients, and the two poles were described eighteen years apart. At the severe end is the founding consanguineous family: five children with infantile mitochondrial encephalomyopathy, plus a sixth patient with antenatal cardiomyopathy carrying the same allele. A second family added Leigh syndrome, a third added two siblings with neonatal facial dysmorphism, lactic acidosis and fatal encephalopathy with central hypoventilation and 3-methylglutaconic aciduria. Then in 2026 a targeted screen of complex I genes in patients with optic atrophy found three further patients in two families - all with *isolated* optic atrophy, and NDUFAF4 was associated for the first time with the autosomal-recessive Leber hereditary optic neuropathy phenotype.\nWhether that is one disease with an enormous range or two, this entry treats it as one, and a structural observation supports doing so: the optic-atrophy alleles sit in a well-modelled globular domain, while the Leigh-associated alleles reported earlier affect the N-terminus, where they may impair mitochondrial import rather than the protein's assembly function. That is a hypothesis about genotype-phenotype correlation, not a demonstrated one, and it is recorded as an open discussion rather than as a mechanism.\nMC1DN15 also carries a published attempt at a gene-directed therapy, which is unusual for a disease with a dozen reported patients: a TAT-fused recombinant NDUFAF4 delivered into patient fibroblasts, which raised complex I activity and ATP production. It has never left cell culture.",
+    "pathophysiology": [
+      "Biallelic NDUFAF4 Variant",
+      "Loss of NDUFAF4 from Q-Module Assembly Intermediates",
+      "Stalled Complex I Assembly with Accumulated P- and N-Module Intermediates",
+      "Respiratory Chain Supercomplex Remodelling",
+      "Isolated Complex I Deficiency",
+      "Neonatal and Infantile Encephalopathy with Lactic Acidosis",
+      "Retinal Ganglion Cell and Optic Nerve Degeneration"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial electron transport, NADH to ubiquinone"
+    ],
+    "phenotypes": [
+      "Decreased Activity of Mitochondrial Complex I",
+      "Leigh Syndrome",
+      "Encephalopathy",
+      "Lactic Acidosis",
+      "Optic Atrophy",
+      "Central Hypoventilation",
+      "Cardiomyopathy",
+      "3-Methylglutaconic Aciduria",
+      "Hyperammonemia",
+      "Abnormal Facial Shape",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Seizure",
+      "Feeding Difficulties",
+      "Leukoencephalopathy"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurologic",
+      "Ophthalmologic",
+      "Respiratory",
+      "Cardiovascular",
+      "Craniofacial",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011923",
+      "HP:0001298",
+      "HP:0003128",
+      "HP:0000648",
+      "HP:0002791",
+      "HP:0001638",
+      "HP:0003535",
+      "HP:0001987",
+      "HP:0001999",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0002352"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NDUFAF4"
+    ],
+    "treatments": [
+      "Idebenone for the Optic Neuropathy",
+      "TAT-mediated NDUFAF4 Protein Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_15.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_15.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mitochondrial Complex I Deficiency Nuclear Type 19",
     "disease_id": "MONDO:0032624",
     "category": "Mendelian",
@@ -199559,6 +199945,72 @@ window.searchData = [
     "num_genes": 3,
     "num_treatments": 6,
     "causal_graph_edges": "5",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Mitochondrial Spastic Paraplegia",
+    "disease_id": "MONDO:0975951",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Spastic Paraplegia"
+    ],
+    "creation_date": "2026-09-17T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial spastic paraplegia (SPGM) is a complex hereditary spastic paraplegia transmitted down the maternal line, reported in one Chinese family in which all affected members across four generations carry a homoplasmic m.1661A>G variant in MT-TV, the mitochondrially encoded transfer RNA for valine.\nThe name reads like a category and is not one. \"Mitochondrial spastic paraplegia\" could reasonably mean \"any HSP with a mitochondrial cause\", which would be a grouping - SPG7 and SPG13 are both mitochondrial, and both are curated elsewhere in this knowledge base as separate nuclear-gene diseases. It is not what the term denotes. MONDO:0975951 is equivalent to OMIM:500018, an entry in OMIM's mitochondrial-DNA series created for this one family and this one variant, and the defining feature is not \"a mitochondrial cause\" but mitochondrial *inheritance*: the lesion is in the mitochondrial genome, so it passes only from mothers, and no nuclear locus is involved.\nThe mechanism proposed is a chain from an mtDNA tRNA variant to a shortage of mitochondrial genomes. Transcriptome sequencing in the affected family showed upregulated mitochondrial autophagy genes, and the authors read that as the route by which the MT-TV variant lowers mtDNA copy number. The fourth generation, with the lowest copy number, had the earliest onset and the most severe disease, which is the entity's internal dose-response argument. Peroneal nerve biopsy showed ultrastructural abnormalities in myelin and mitochondria, so there is peripheral as well as central involvement.\nTwo things should be read with the evidence base in mind. First, this is one family and one paper, and no independent replication exists; the entry curates what that paper reports and marks the inferred steps as inferred. Second, homoplasmy is unusual for a pathogenic mitochondrial tRNA variant and is not obviously good news for pathogenicity: other MT-TV variants act through a steep heteroplasmy threshold, with carriers asymptomatic below about 70 percent mutant load. A homoplasmic variant has no such reservoir of wild-type genomes to explain variable expression, so the within-family variation has to come from somewhere else - which is exactly the copy-number argument the paper makes. It is recorded here as an open question rather than as a settled mechanism.",
+    "pathophysiology": [
+      "Homoplasmic MT-TV m.1661A>G Variant",
+      "Upregulation of Mitochondrial Autophagy Gene Expression",
+      "Reduced Mitochondrial DNA Copy Number",
+      "Myelin and Mitochondrial Ultrastructural Abnormality in Peripheral Nerve",
+      "Length-Dependent Degeneration of Corticospinal Axons"
+    ],
+    "cell_types": [
+      "Schwann cell",
+      "upper motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002573",
+      "CL:0008048"
+    ],
+    "biological_processes": [
+      "mitophagy",
+      "mitochondrial DNA metabolic process",
+      "mitochondrial translation"
+    ],
+    "phenotypes": [
+      "Progressive Spastic Paraplegia",
+      "Lower Limb Spasticity"
+    ],
+    "phenotype_categories": [
+      "Nervous System"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007020",
+      "HP:0002061"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "MT-TV"
+    ],
+    "treatments": [
+      "Genetic Counselling for Mitochondrial Inheritance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Spastic_Paraplegia.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Spastic_Paraplegia.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "5"
   },
   {
@@ -311625,17 +312077,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2994,
-  "total_subtypes": 3753,
-  "total_disorders_and_subtypes": 6747,
-  "total_unique_evidence_sources": 42495,
-  "total_unique_publications": 40103,
+  "total_disorder_pages": 3000,
+  "total_subtypes": 3754,
+  "total_disorders_and_subtypes": 6754,
+  "total_unique_evidence_sources": 42524,
+  "total_unique_publications": 40131,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2989,
-  "total_unique_pathological_events": 18147,
+  "total_pathographs": 2995,
+  "total_unique_pathological_events": 18178,
   "total_modules": 177,
-  "total_research_reports": 3110,
+  "total_research_reports": 3114,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
