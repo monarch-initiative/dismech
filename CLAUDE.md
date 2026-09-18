@@ -1804,6 +1804,25 @@ again.
 
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
+**Reading the ledger back — "when was this entry last really curated?"**
+`history/` is what answers that; git cannot, because a whole-KB slot migration and a
+genuine re-curation are the same kind of touch in `git log`. But a bulk sweep writes a
+history record too (one identical `Backfill therapeutic_modality` record sits on 700
+entries), so the newest record is not the answer either.
+
+```bash
+just last-pass-report                       # summary + stalest 25, as a worklist
+just last-pass-report --status NO_HISTORY   # entries with no history record at all
+just last-pass-report --model sonnet-4      # everything last passed by an older model
+just last-pass-report --list-bulk           # audit which summaries counted as sweeps
+```
+
+It classifies each entry `PASSED` / `BULK_ONLY` / `NO_HISTORY`, flags `PASSED` entries
+whose *newest* record is a sweep, and orders stalest-first. The report is only as
+complete as the ledger — a real pass whose PR forgot its history record reads as stale
+— which is another reason to add the record. See
+[`docs/last-pass-report.md`](docs/last-pass-report.md) and issue #5334.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.
@@ -1882,6 +1901,16 @@ binding is right, so a fabricated CURIE landing inside its enum produces the
 **When you cannot source an identifier, omit the field and say why in `notes`.**
 An absent binding with a recorded reason is a curation gap someone can close. A
 fabricated one that validates is a false statement about an ontology.
+
+**But that recorded reason is itself a claim, and it is the one nothing checks.**
+Writing "no more specific term exists" without having run the search produces an
+over-broad binding whose false justification tells the next reviewer to skip the
+one check that would catch it — three such bindings came out of a single batch of
+ten entries (dismech#7835), each refuted by re-running the search the note said
+had been run. Write the query verbatim and what it returned, or write no note:
+an unexplained over-broad binding is a smaller defect than one carrying a false
+justification. Step 3a of the `dismech-terms` skill has the rule and the worked
+examples.
 
 **The same rule governs citation strings**, which have the same failure shape:
 `reference_title` is copied from the `title:` frontmatter of the
