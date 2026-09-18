@@ -34040,6 +34040,143 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Autosomal Recessive Hypophosphatemic Rickets 1",
+    "disease_id": "MONDO:0009430",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders",
+      "Hereditary Hypophosphatemic Rickets",
+      "FGF23-Mediated Hypophosphatemia"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive hypophosphatemic rickets 1 (ARHR1) is the DMP1-related member of the hereditary FGF23-excess phosphate-wasting disorders. Biallelic loss-of-function variants in DMP1, which encodes dentin matrix protein 1, a SIBLING-family acidic phosphoprotein secreted into the matrix by osteocytes, mature osteoblasts and odontoblasts, remove a protein that bone needs for two separate things: to mature osteocytes and mineralize the matrix around them, and to restrain FGF23 transcription in those same cells. The second failure gives the disease its endocrine signature. Osteocytic FGF23 rises, circulating intact FGF23 is elevated or inappropriately normal, the proximal tubule stops reclaiming phosphate, renal calcitriol synthesis is held down rather than rising as it should, and the result is lifelong hypophosphatemia with normal calcium and parathyroid hormone. Downstream of that point the physiology is the one shared with X-linked hypophosphatemia: hydroxyapatite is not laid down at the mineralization front, the hypertrophic zone of the growth plate fails to involute, and the child develops rickets while the adult carries osteomalacia.\nWhat distinguishes ARHR1 from its X-linked sibling is the local, DMP1-intrinsic half of the disease. In the Dmp1-null mouse, deleting Fgf23 from osteocytes normalizes serum phosphate but only partly corrects the bone, and DMP1-deficient osteoprogenitors mineralize poorly in culture even when phosphate and FGF23 are held constant; in patients, heterozygous carriers with normal phosphate can still show a mild mineralization defect and dysmorphic osteocytes on biopsy. The adult picture in reported families is also more severe and more paradoxical than in XLH: alongside osteomalacia, pseudofractures, bone pain, short stature and lower-limb varus deformity, several kindreds have developed cranial hyperostosis, paraspinal ligament calcification, extensive enthesopathy with spinal immobilization, and a high axial bone density that led to an initial diagnosis of a sclerosing bone dysplasia. Dental disease (enlarged pulp chambers, abscesses, early tooth loss) and hearing impairment are reported in a subset.\nThe entry is organised as a single causal chain from the DMP1 lesion through the osteocyte to the kidney and back to the skeleton, with the downstream mineralization nodes conforming to the defective skeletal mineralization module. Treatment is conventional oral phosphate with active vitamin D; burosumab is approved for XLH and tumour-induced osteomalacia, not for ARHR1, and its use here rests on case reports.",
+    "pathophysiology": [
+      "Biallelic DMP1 Loss of Function",
+      "Defective Osteocyte Maturation and Pericellular Mineralization",
+      "Increased Osteocytic FGF23 Production",
+      "Elevated Circulating Intact FGF23",
+      "Reduced Proximal Tubular Phosphate Reabsorption",
+      "Suppressed Renal Calcitriol Synthesis",
+      "Chronic Hypophosphatemia",
+      "Skeletal Mineralization Failure",
+      "Growth Plate Hypertrophic Zone Expansion",
+      "Rickets and Osteomalacia",
+      "Dentin Hypomineralization"
+    ],
+    "cell_types": [
+      "osteocyte",
+      "osteoblast",
+      "odontoblast",
+      "proximal tubule epithelial cell",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0000060",
+      "CL:0002306",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "osteoblast to osteocyte differentiation",
+      "pericellular bone matrix mineralization",
+      "FGF receptor signalling in osteocytes",
+      "phosphate ion homeostasis",
+      "tubular phosphate reabsorption",
+      "renal 1,25-dihydroxyvitamin D synthesis",
+      "bone mineralization",
+      "growth plate cartilage development",
+      "dentin mineralization"
+    ],
+    "phenotypes": [
+      "Rickets",
+      "Osteomalacia",
+      "Hypophosphatemia",
+      "Elevated Circulating FGF23",
+      "Short Stature",
+      "Lower-Limb Varus Deformity",
+      "Bone Pain",
+      "Pathologic Fractures and Pseudofractures",
+      "Enthesopathy and Paraspinal Ligament Calcification",
+      "Joint Contractures and Spinal Immobilization",
+      "Cranial Hyperostosis",
+      "Osteosclerosis with Increased Axial Bone Density",
+      "Dental Abscesses and Early Tooth Loss",
+      "Hearing Impairment",
+      "Elevated Alkaline Phosphatase"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Laboratory",
+      "Growth",
+      "Musculoskeletal",
+      "Dental",
+      "Sensory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002748",
+      "HP:0002749",
+      "HP:0002148",
+      "HP:6000407",
+      "HP:0004322",
+      "HP:0002979",
+      "HP:0002653",
+      "HP:0002756",
+      "HP:0034392",
+      "HP:0004437",
+      "HP:0011001",
+      "HP:0030757",
+      "HP:0000365",
+      "HP:0003155"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Biallelic DMP1 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Oral Phosphate with Active Vitamin D",
+      "Burosumab",
+      "Corrective Orthopedic Surgery",
+      "Dental Surveillance and Care",
+      "Genetic Counseling and Family Testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Phosphate",
+      "Renal Phosphate Wasting (TmP/GFR)",
+      "Intact FGF23",
+      "1,25-Dihydroxyvitamin D",
+      "Alkaline Phosphatase",
+      "Parathyroid Hormone and Calcium"
+    ],
+    "source_file": "Autosomal_Recessive_Hypophosphatemic_Rickets_1.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Hypophosphatemic_Rickets_1.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Autosomal Recessive Limb-Girdle Muscular Dystrophy",
     "disease_id": "MONDO:0015152",
     "category": "Mendelian",
@@ -43487,6 +43624,107 @@ window.searchData = [
     "num_genes": 4,
     "num_treatments": 8,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Biliary, Renal, Neurologic, and Skeletal Syndrome",
+    "disease_id": "MONDO:0859191",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathy"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biliary, renal, neurologic and skeletal syndrome is an autosomal recessive ciliopathy caused by biallelic variants in TTC26 - the gene HGNC now names IFT56 - which encodes an atypical component of the intraflagellar transport B complex. It was defined in 2019 from seven individuals in seven families whose shared and unexpected presentation was severe neonatal cholestasis: lethal in one, requiring liver transplantation in two.\nThe name enumerates affected organs rather than naming a mechanism, which is usually the shape of a grouping. Here it is not, and the reason is worth stating. All four systems fail from one lesion in one conserved transport machine. The primary cilium is a shared signalling organelle rather than an organ-specific structure, so a defect in the machinery that builds and loads it presents wherever ciliary signalling is developmentally load bearing - the intrahepatic biliary tree, the kidney, the brain, the limb skeleton, and, as a later series added, the pituitary. The quartet in the name is the classic ciliopathy quartet, and it is a single pathograph rather than four.\nThe contribution this entry makes beyond \"another ciliopathy\" is the biliary emphasis. Fibrocystic liver disease was already established ciliopathy territory; severe neonatal cholestasis was not, and the index study's own conclusion is that ciliopathy belongs in the differential for neonatal cholestasis even when none of the more familiar ciliopathy features is present.\n",
+    "pathophysiology": [
+      "TTC26 Loss of Function",
+      "Abnormal Ciliary Structure and IFT-B Cargo Loading",
+      "Motile Cilia Beat Dysfunction",
+      "Dysregulated Sonic Hedgehog Signalling",
+      "Failed Intrahepatic Biliary Development",
+      "Multisystem Ciliopathy Organ Involvement"
+    ],
+    "cell_types": [
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:1000488"
+    ],
+    "biological_processes": [
+      "intraciliary transport",
+      "cilium assembly",
+      "cilium movement",
+      "cerebrospinal fluid circulation",
+      "smoothened signaling pathway",
+      "intrahepatic bile duct development"
+    ],
+    "phenotypes": [
+      "Cholestasis",
+      "Polydactyly",
+      "Renal cyst",
+      "Interrupted pituitary stalk",
+      "Hydrocephalus",
+      "Aqueductal stenosis",
+      "Congenital heart defect",
+      "Diabetes insipidus",
+      "Optic atrophy",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Skeletal",
+      "Renal",
+      "Endocrine",
+      "Neurological",
+      "Cardiovascular",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001406",
+      "HP:0010442",
+      "HP:0000107",
+      "HP:0034978",
+      "HP:0000238",
+      "HP:0002410",
+      "HP:0001627",
+      "HP:0000873",
+      "HP:0000648",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TTC26"
+    ],
+    "treatments": [
+      "Ursodiol for Cholestasis",
+      "Desmopressin for Diabetes Insipidus",
+      "Ventriculoperitoneal Shunt",
+      "Serial Knee Casting for Congenital Knee Dislocation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Biliary_Renal_Neurologic_And_Skeletal_Syndrome.yaml",
+    "page_url": "../pages/disorders/Biliary,_Renal,_Neurologic,_and_Skeletal_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -78008,6 +78246,106 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Deficiency 28",
+    "disease_id": "MONDO:0014775",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial disease",
+      "Combined oxidative phosphorylation deficiency"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation deficiency 28 is an autosomal recessive mitochondrial disease caused by biallelic variants in SLC25A26, which encodes the mitochondrial S-adenosylmethionine carrier (SAMC). SAM is made in the cytoplasm and cannot cross the inner mitochondrial membrane unaided; SAMC is believed to be its only route in. When the carrier fails, the matrix runs short of the methyl donor that essentially every mitochondrial methylation reaction depends on.\nSAMC is an antiporter, not a uniporter, and that detail turns out to carry the genotype-phenotype relationship. It imports SAM in exchange for exporting SAH, the by-product that every methylation reaction generates and that mitochondria cannot regenerate in situ - SAM synthesis and SAH recycling both happen in the cytoplasm. A carrier defect can therefore fail in two directions, and the two produce different diseases. Reduced SAM import gives the severe neonatal phenotype; impaired SAH export gives a much milder, later-onset mitochondrial myopathy, which mouse and fruit fly models were used to establish. That branch is currently the principal prognostic determinant in this disease, and it is the reason the entry models the two limbs separately rather than as one depleted pool.\nThat makes this a *substrate-supply* defect, and it is the reason the entry sits apart from its many COXPD siblings. Most combined OXPHOS deficiencies are caused by a missing structural subunit or a missing assembly factor, where the chain itself cannot be built. Here the chain is intact and the machinery for building it is intact; what fails is a chemical modification step several removes upstream. One carrier defect therefore propagates into at least four distinct downstream failures that the index study demonstrated separately: mitochondrial RNA stability, protein modification, mitochondrial translation, and the biosynthesis of coenzyme Q10 and lipoic acid. The \"combined\" in the disease name is not a statement about which complexes are low - it is a consequence of the lesion sitting above all of them.\nClinically the range is wide for a disease known from so few families: neonatal death from respiratory insufficiency and hydrops at one end; childhood episodes of cardiopulmonary failure with pulmonary hypertension and severe lactic acidosis in the middle; and at the other end adults with exercise intolerance and mitochondrial myopathy, one of whom presented with recurrent severe abdominal pain and metabolic decompensation. The adult cases nonetheless show marked respiratory-chain deficiency and mitochondrial histopathology in skeletal muscle comparable to the early-onset cases, so the mildness is in the clinical course rather than in the biochemistry.\n",
+    "pathophysiology": [
+      "SLC25A26 Loss of Function",
+      "Reduced Intra-Mitochondrial S-Adenosylmethionine",
+      "Impaired Matrix SAH Export",
+      "Failed Mitochondrial RNA and Protein Methylation",
+      "Impaired CoQ10 and Lipoic Acid Biosynthesis",
+      "Combined Respiratory Chain Complex Deficiency",
+      "Acute Metabolic Decompensation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "tRNA methylation",
+      "mitochondrial translation",
+      "ubiquinone biosynthetic process",
+      "lipoate biosynthetic process",
+      "mitochondrial respiratory chain complex assembly"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Pulmonary arterial hypertension",
+      "Muscle weakness",
+      "Respiratory failure",
+      "Decreased activity of mitochondrial complex IV",
+      "Hydrops fetalis",
+      "Hypotonia",
+      "Bradycardia",
+      "Global developmental delay",
+      "Exercise intolerance",
+      "Recurrent abdominal pain with metabolic decompensation"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Respiratory",
+      "Laboratory",
+      "Prenatal",
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0002092",
+      "HP:0001324",
+      "HP:0002878",
+      "HP:0008347",
+      "HP:0001789",
+      "HP:0001252",
+      "HP:0001662",
+      "HP:0001263",
+      "HP:0003546"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SLC25A26"
+    ],
+    "treatments": [
+      "Riociguat for Refractory Pulmonary Hypertension",
+      "Conventional Combination PAH Therapy",
+      "Dichloroacetate for Acute Lactic Acidosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_28.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_28.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Deficiency 34",
     "disease_id": "MONDO:0054741",
     "category": "Mendelian",
@@ -97522,11 +97860,7 @@ window.searchData = [
       "Angiographic Embolization",
       "Surgical Ligation or Wedge Resection"
     ],
-    "environmental": [
-      "Hypertension",
-      "Chronic Kidney Disease",
-      "Diabetes Mellitus"
-    ],
+    "environmental": [],
     "biochemical": [
       "Hemoglobin"
     ],
@@ -160400,6 +160734,103 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Immunodeficiency 97 With Autoinflammation",
+    "disease_id": "MONDO:0030717",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 97 with autoinflammation is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in PIK3CG, which encodes p110gamma, the catalytic subunit of class IB phosphoinositide 3-kinase (PI3Kgamma). PI3Kgamma is expressed almost exclusively in leukocytes and is activated downstream of G-protein-coupled receptors, which places it at the junction between chemokine sensing and cell-intrinsic restraint of myeloid activation.\nThe disease has the paradoxical shape its name records: it is simultaneously an immunodeficiency and an autoinflammatory disorder. On the deficiency side there are childhood-onset antibody defects with reduced memory B cells, reduced memory CD8 T cells and markedly reduced regulatory T cells. On the inflammatory side, PI3Kgamma-deficient macrophages and monocytes over-produce IL-12 and IL-23 on Toll-like receptor stimulation in a GSK3alpha/beta-dependent manner, and CXCR3-positive tissue-homing CD4 T cells are expanded, giving T-lymphocytic pneumonitis and colitis. Losing the kinase therefore removes a brake on innate inflammation while also removing a signal that adaptive immunity needs - which is why experimental systems had previously produced conflicting verdicts on whether PI3Kgamma is pro- or anti-inflammatory.\nTwo features of the evidence base should be read before the mechanism below. First, the human disease rests on very few reported patients, and everything in this entry graded HUMAN_CLINICAL derives from one of them: the index patient with complete absence of p110gamma (PMID:31554793). A second, unrelated patient with compound heterozygous PIK3CG variants has been reported independently (PMID:33054089), and that patient presented differently - a hyperferritinemic, HLH-like inflammatory syndrome controlled on anakinra, with an NK-cell defect, rather than the antibody deficiency and lymphocytic tissue infiltration this entry is built around. The two reports also characterise the residual kinase differently, which is recorded in the evidence-base discussion. Second, the mouse knockout recapitulates the disease only after exposure to natural microbiota through co-housing with pet-store mice - under specific-pathogen-free conditions it does not. The mechanism is therefore conditional on microbial exposure in the model, and that conditionality has not been demonstrated in humans. Both points are recorded as explicit discussions rather than smoothed over.\n",
+    "pathophysiology": [
+      "PIK3CG Loss of Function",
+      "Unrestrained TLR-Driven Myeloid IL-12 and IL-23 Production",
+      "Impaired Adaptive Lymphocyte Compartments",
+      "CXCR3-Positive T Cell Tissue Infiltration"
+    ],
+    "cell_types": [
+      "macrophage",
+      "monocyte",
+      "regulatory T cell",
+      "memory B cell",
+      "memory CD8-positive T cell",
+      "CXCR3-positive tissue-homing CD4 T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576",
+      "CL:0000815",
+      "CL:0000787",
+      "CL:0000909",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "interleukin-12 production",
+      "interleukin-23 production",
+      "toll-like receptor signaling pathway",
+      "regulatory T cell differentiation"
+    ],
+    "phenotypes": [
+      "Decreased circulating immunoglobulin concentration",
+      "Decreased specific antibody response to vaccination",
+      "Thrombocytopenia",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Recurrent respiratory infections",
+      "Autoimmune hemolytic anemia",
+      "Lymphocytic interstitial pneumonitis",
+      "Colitis"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Hematological",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004313",
+      "HP:0032140",
+      "HP:0001873",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0002205",
+      "HP:0001890",
+      "HP:0006527",
+      "HP:0002583"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PIK3CG"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement Therapy",
+      "Mycophenolate Mofetil",
+      "B Cell Depletion with Rituximab"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_97_With_Autoinflammation.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_97_With_Autoinflammation.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Immunodeficiency 98 With Autoinflammation",
     "disease_id": "MONDO:0024777",
     "category": "Mendelian",
@@ -194490,6 +194921,94 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12RB1 Deficiency",
+    "disease_id": "MONDO:0013955",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Mendelian susceptibility to mycobacterial disease"
+    ],
+    "creation_date": "2026-09-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mendelian susceptibility to mycobacterial disease (MSMD) due to complete interleukin-12 receptor beta-1 (IL-12Rbeta1) deficiency is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in IL12RB1. It is the most common genetic etiology of MSMD. Patients present in childhood with disease caused by weakly virulent mycobacteria - above all the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria - and with non-typhoidal, extraintestinal salmonellosis, while routine immunological testing is unremarkable.\nEvery genetic etiology of MSMD converges on interferon gamma (IFN-gamma): each impairs either the production of the cytokine or the cellular response to it. IL-12Rbeta1 sits in the production arm, and its molecular logic is the shared-chain one. The beta-1 chain encoded by IL12RB1 is not specific to the IL-12 receptor: it pairs with IL-12Rbeta2 to form the high-affinity IL-12 receptor on T and NK cells, and with IL-23R to form the IL-23 receptor. A complete beta-1 defect therefore abolishes cellular responsiveness to both cytokines at once. Loss of IL-12 signalling removes the dominant signal driving T and NK lymphocytes to secrete IFN-gamma, so IFN-gamma-dependent macrophage activation fails and intramacrophagic mycobacteria and Salmonella replicate unchecked. Loss of IL-23 signalling additionally depletes IL-17-producing T cells, which is the accepted explanation for the mucocutaneous candidiasis seen in roughly a quarter of patients.\nThis is the receptor-side counterpart of IL-12p40 (IL12B) deficiency, and the two are clinically near-indistinguishable: the same shared-chain logic operates one step apart on the same axis, cytokine in one case and receptor in the other. The lesion lies upstream of IFN-gamma in both, so recombinant IFN-gamma remains a mechanistically rational adjunct to prolonged antimycobacterial chemotherapy - the therapeutic dividing line that separates the production-arm etiologies of MSMD from the IFN-gamma receptor defects, where the same drug cannot work.\n",
+    "pathophysiology": [
+      "IL12RB1 Loss of Function",
+      "Abolished Cellular Responsiveness to IL-12 and IL-23",
+      "Impaired IL-12-Dependent IFN-gamma Production",
+      "Failed IFN-gamma-Dependent Macrophage Activation",
+      "Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella",
+      "Impaired IL-23-Dependent IL-17 Immunity"
+    ],
+    "cell_types": [
+      "T-helper 1 cell",
+      "natural killer cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000545",
+      "CL:0000623",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "interleukin-12-mediated signaling pathway",
+      "interleukin-23-mediated signaling pathway",
+      "type II interferon production",
+      "macrophage activation",
+      "interleukin-17 production"
+    ],
+    "phenotypes": [
+      "Disseminated BCG disease",
+      "Non-tuberculous mycobacterial infection",
+      "Non-typhoidal salmonellosis",
+      "Tuberculosis",
+      "Chronic mucocutaneous candidiasis",
+      "Decreased circulating interferon-gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0020087",
+      "HP:5210115",
+      "HP:5210093",
+      "HP:5210111",
+      "HP:0002728",
+      "HP:0033253"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "IL12RB1"
+    ],
+    "treatments": [
+      "Antimycobacterial Therapy",
+      "Recombinant Interferon Gamma",
+      "Avoidance of BCG Vaccination",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [
+      "BCG vaccination"
+    ],
+    "biochemical": [],
+    "source_file": "Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12RB1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12RB1_Deficiency.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Partial IRF8 Deficiency",
     "disease_id": "MONDO:0013957",
     "category": "Mendelian",
@@ -198504,13 +199023,21 @@ window.searchData = [
       "Cortical Spreading Depression",
       "Trigeminovascular Activation",
       "Central Sensitization",
-      "CGRP Pathway"
+      "CGRP Pathway",
+      "Trigemino-Vestibular Pathway",
+      "Vestibulo-Thalamo-Cortical Dysfunction",
+      "Vestibulo-Cerebellar Integration Failure and Compensation",
+      "Vestibular CGRP Signaling"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "Neural Signaling",
-      "Pain Signaling"
+      "Pain Signaling",
+      "Nociceptive Signaling",
+      "Glutamatergic Synaptic Transmission",
+      "Multisensory Integration",
+      "Vestibular CGRP receptor signaling"
     ],
     "phenotypes": [
       "Headache",
@@ -198580,11 +199107,11 @@ window.searchData = [
     "source_file": "Migraine.yaml",
     "page_url": "../pages/disorders/Migraine.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 10,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Migraine with aura",
@@ -313955,19 +314482,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3016,
+  "total_disorder_pages": 3021,
   "total_subtypes": 3771,
-  "total_disorders_and_subtypes": 6787,
-  "total_unique_evidence_sources": 42903,
-  "total_unique_publications": 40504,
+  "total_disorders_and_subtypes": 6792,
+  "total_unique_evidence_sources": 42961,
+  "total_unique_publications": 40562,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3011,
-  "total_unique_pathological_events": 18312,
+  "total_pathographs": 3016,
+  "total_unique_pathological_events": 18342,
   "total_modules": 177,
-  "total_research_reports": 3133,
+  "total_research_reports": 3138,
   "total_classifications": 19,
-  "total_comorbidities": 43,
+  "total_comorbidities": 46,
   "total_groupings": 102
 };
 window.dispatchEvent(new Event('searchDataReady'));
