@@ -2,6 +2,13 @@
 title: NAMO Rare-Disease Experimental Models
 status: IN_PROGRESS
 description: Bridge dismech's disease-centric curation model to Monarch NAMO without importing the full NAMO schema into dismech.
+tags: [MODELS, NAM, RARE_DISEASE, CROSSWALK]
+diseases:
+  - Cystic_Fibrosis
+  - Stargardt_Disease
+  - Noonan_Syndrome
+  - Crohn_Disease
+  - Ulcerative_Colitis
 ---
 
 # NAMO Rare-Disease Experimental Models
@@ -17,10 +24,10 @@ that are:
 - focused on high-signal rare-disease examples
 
 ## Initial Scope
-- Cystic Fibrosis
-- Stargardt Disease
-- Noonan Syndrome
-- Crohn Disease as an IBD-adjacent host-microbiome/barrier test case
+- Cystic_Fibrosis
+- Stargardt_Disease
+- Noonan_Syndrome
+- Crohn_Disease as an IBD-adjacent host-microbiome/barrier test case
 
 ## Current Bridge Pattern
 Use a narrow disease-level `experimental_models` slot in dismech rather than a
@@ -46,21 +53,26 @@ dismech remains disease-centric while NAMO is model-centric.
 
 ## Disease Anchors
 
-### Cystic Fibrosis
+### Cystic_Fibrosis
 - Patient-derived airway organoid theratyping
 - CF airway-on-chip microphysiological model
 - NuLi/CuFi airway epithelial cell-line model
 
-### Stargardt Disease
+### Stargardt_Disease
 - Patient-derived retinal organoid model
 - STGD1 iPSC-derived RPE disease-in-a-dish model
 
-### Noonan Syndrome
+### Noonan_Syndrome
 - Noonan cortical organoid model
 - Noonan iPSC-cardiomyocyte model
 
-### Crohn / IBD Bridge
+### Crohn_Disease / IBD Bridge
 - Primary human small-intestinal monolayer barrier model from UNC
+
+### Ulcerative_Colitis
+- Biopsy-derived UC colonoid air-liquid interface model
+- Cytokine-conditioned hiPSC-derived colon organoid UC model
+- Human colon-on-chip mucus barrier model
 
 ## Aadra Bhatt / UNC Note
 The user's requested UNC lead appears to be Aadra P. Bhatt.
@@ -70,17 +82,18 @@ Current curation stance:
   human intestinal bacteria as a lab direction.
 - The strongest immediately curatable Bhatt anchor is PMID:29094594, a primary
   human small-intestinal monolayer platform paper.
-- That paper is not Crohn-specific, so it should be modeled as `PARTIAL` support
-  for Crohn/IBD translational relevance, not as direct Crohn evidence.
+- That paper is not Crohn_Disease-specific, so it is curated as `SUPPORT` whose
+  `explanation` records the indirect bridge ("remaining an indirect bridge rather
+  than direct disease evidence"), not as direct Crohn_Disease evidence. It predates
+  the retirement of `PARTIAL` from `EvidenceItem.supports` (issue #7439) and does
+  not yet set an explicit `directness: INDIRECT`.
 
-This is the right level of confidence for now. Stronger Crohn-specific curation
+This is the right level of confidence for now. Stronger Crohn_Disease-specific curation
 should wait for a directly attributable host-microbe coculture, organoid, or
-microbiome paper tied to Crohn disease or broader IBD.
+microbiome paper tied to Crohn_Disease or broader IBD.
 
 ## Next Expansion Targets
-- Add Ulcerative Colitis alongside Crohn if a stronger microbiome coculture model
-  is identified.
-- Add CF intestinal organoid-monolayer as a separate bridge case if we want
+- Add Cystic_Fibrosis intestinal organoid-monolayer as a separate bridge case if we want
   explicit coverage of organoid-derived 2D systems.
 - Consider a follow-on schema refinement for `functional_assays` and `concordance`
   if we decide to track more of NAMO's richer comparison model.

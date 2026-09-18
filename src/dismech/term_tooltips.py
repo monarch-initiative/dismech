@@ -169,6 +169,19 @@ TERM_ROLES: dict[str, TermRole] = {
     "treatment.therapeutic_agent": TermRole("This treatment", "uses", "therapeutic agent"),
     "treatment.food": TermRole("This dietary modification", "concerns", "food"),
     "treatment.target_phenotype": TermRole("This treatment", "targets", "phenotype"),
+    "treatment.target_gene": TermRole(
+        "This treatment", "base-pairs with the transcript of", "gene"
+    ),
+    # Delivery system: what carries the drug, and what that carrier is aimed at.
+    # The subject is the carrier rather than the treatment, because a targeting
+    # claim is about uptake of the formulation, not about the drug's mechanism --
+    # vutrisiran's GalNAc reaches ASGR1, while the siRNA itself acts on TTR.
+    "treatment.targeting_receptor": TermRole(
+        "This treatment's delivery system", "is taken up through", "receptor"
+    ),
+    "treatment.target_cell_types": TermRole(
+        "This treatment's delivery system", "is aimed at", "cell type"
+    ),
     # Environmental factors
     "environment.exposure_term": TermRole("This environmental factor", "is", "exposure"),
     "environment.environment_context": TermRole(
