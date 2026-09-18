@@ -7890,6 +7890,7 @@ window.searchData = [
     "pathophysiology": [
       "FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation",
       "Prolonged FGFR3 signaling in growth-plate chondrocytes",
+      "Primary cilium shortening and disrupted ciliary signaling",
       "Growth-plate chondrocyte dysregulation",
       "Impaired endochondral ossification and chondrodysplasia",
       "Reduced longitudinal growth of endochondral bones",
@@ -7916,6 +7917,9 @@ window.searchData = [
       "MAPK cascade",
       "ERK1 and ERK2 cascade",
       "cell surface receptor signaling pathway via STAT",
+      "cilium assembly",
+      "intraciliary transport",
+      "smoothened signaling pathway",
       "chondrocyte differentiation",
       "cell population proliferation",
       "endochondral ossification",
@@ -8051,11 +8055,11 @@ window.searchData = [
     "source_file": "Achondroplasia.yaml",
     "page_url": "../pages/disorders/Achondroplasia.html",
     "num_phenotypes": 43,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "50",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "53",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Achoo Syndrome",
@@ -24065,6 +24069,125 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Arthrochalasia Ehlers-Danlos Syndrome",
+    "disease_id": "MONDO:0007525",
+    "category": "Mendelian",
+    "parents": [
+      "Ehlers-Danlos Syndrome",
+      "Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-09-15T22:22:27Z",
+    "updated_date": null,
+    "subtypes": [
+      "Arthrochalasia Type 1",
+      "Arthrochalasia Type 2"
+    ],
+    "description": "Arthrochalasia Ehlers-Danlos syndrome (aEDS, formerly EDS type VII A/B) is a rare autosomal dominant connective-tissue disorder caused by heterozygous variants in COL1A1 (aEDS type 1) or COL1A2 (aEDS type 2) that cause partial or complete skipping of exon 6, the exon encoding the N-telopeptide of proalpha1(I) or proalpha2(I). Exon 6 carries the cleavage site for procollagen N-proteinase, so its loss prevents removal of the N-propeptide from mutant chains: pN-collagen accumulates and, because a proportion of assembling type I procollagen heterotrimers incorporate a mutant chain alongside normal ones, the resulting collagen fibrils are structurally abnormal even though only one allele is affected. The disease is defined clinically by severe generalized joint hypermobility with congenital bilateral hip dislocation and skin hyperextensibility. This shares its terminal defect (retained N-propeptide, defective fibril assembly) with dermatosparaxis EDS, which arises instead from biallelic loss of the N-proteinase enzyme itself (ADAMTS2); the two conditions are nonetheless clinically distinct, with joint dislocation dominating arthrochalasia and extreme skin fragility/bruising dominating dermatosparaxis.\n",
+    "pathophysiology": [
+      "COL1A1 Exon 6 Skipping Variant",
+      "COL1A2 Exon 6 Skipping Variant",
+      "Loss of Procollagen N-Proteinase Cleavage Site",
+      "Retained Procollagen N-Propeptide",
+      "Aberrant Collagen Fibril Assembly",
+      "Craniofacial and Ectodermal Dysmorphic Features",
+      "Loss of Connective Tissue Tensile Strength",
+      "Joint Capsule and Ligament Laxity",
+      "Skin Fragility and Abnormal Texture",
+      "Skeletal Fragility"
+    ],
+    "cell_types": [
+      "dermal fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002620"
+    ],
+    "biological_processes": [
+      "protein processing",
+      "collagen biosynthetic process",
+      "collagen fibril organization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Congenital Hip Dislocation",
+      "Generalized Joint Hypermobility",
+      "Recurrent Joint Dislocation",
+      "Congenital or Early-Onset Hypotonia",
+      "Hyperextensible Skin",
+      "Bruising Susceptibility",
+      "Recurrent Fractures",
+      "Kyphoscoliosis",
+      "Short Stature",
+      "Clubfoot",
+      "Umbilical Hernia",
+      "Blue Sclerae",
+      "Osteopenia",
+      "Hypertelorism",
+      "Epicanthal Folds",
+      "Micrognathia",
+      "Sparse Hair"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic",
+      "Dermatologic",
+      "Growth",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Skeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001374",
+      "HP:0002761",
+      "HP:0001373",
+      "HP:0001252",
+      "HP:0000974",
+      "HP:0000978",
+      "HP:0002757",
+      "HP:0002751",
+      "HP:0004322",
+      "HP:0001762",
+      "HP:0001537",
+      "HP:0000592",
+      "HP:0000938",
+      "HP:0000316",
+      "HP:0000286",
+      "HP:0000347",
+      "HP:0008070"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL1A1",
+      "COL1A2"
+    ],
+    "treatments": [
+      "Hip Surgical Management",
+      "Bisphosphonate Therapy for Skeletal Fragility",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Arthrochalasia_Ehlers-Danlos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Arthrochalasia_Ehlers-Danlos_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Arthrogryposis-Renal Dysfunction-Cholestasis Syndrome",
@@ -61869,6 +61992,7 @@ window.searchData = [
     "description": "Celiac disease is a chronic immune-mediated enteropathy of the small intestine triggered by dietary gluten in genetically susceptible individuals carrying HLA-DQ2 or HLA-DQ8 haplotypes. Deamidated gluten peptides presented to gluten-reactive CD4+ T cells drive a mucosal immune response that produces villous atrophy, crypt hyperplasia, intraepithelial lymphocytosis, and characteristic anti-tissue-transglutaminase autoantibodies. The resulting malabsorption causes chronic diarrhea, weight loss, iron deficiency anemia, and other nutritional deficiencies, and the disease typically remits on a strict gluten-free diet.",
     "pathophysiology": [
       "Gluten-Triggered Immune Response",
+      "Mixed Th1/Th17/IL-21 Mucosal Cytokine Response",
       "Intestinal Epithelial Damage",
       "Autoantibody Production",
       "Barrier Dysfunction",
@@ -61876,6 +62000,7 @@ window.searchData = [
     ],
     "cell_types": [
       "T Helper Cell",
+      "Mucosal CD4+ T cell",
       "Intestinal Epithelial Cell",
       "Plasma Cell"
     ],
@@ -61886,6 +62011,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "Antigen Processing",
+      "T-helper 1 cell cytokine production",
+      "Mucosal interleukin-17A production",
       "Apoptosis",
       "Response to Bacterium"
     ],
@@ -62012,11 +62139,11 @@ window.searchData = [
     "source_file": "Celiac_Disease.yaml",
     "page_url": "../pages/disorders/Celiac_Disease.html",
     "num_phenotypes": 22,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 12,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Central Areolar Choroidal Dystrophy",
@@ -73589,6 +73716,122 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Classical-like Ehlers-Danlos Syndrome",
+    "disease_id": "MONDO:0011670",
+    "category": "Mendelian",
+    "parents": [
+      "Ehlers-Danlos Syndrome",
+      "Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-09-16T16:49:39Z",
+    "updated_date": null,
+    "subtypes": [
+      "clEDS-1",
+      "clEDS-2"
+    ],
+    "description": "Classical-like Ehlers-Danlos syndrome (clEDS) is a group of autosomal recessive connective-tissue disorders that clinically resemble classic EDS (generalized joint hypermobility, hyperextensible/velvety skin, easy bruising) but characteristically lack the atrophic scarring seen in classic EDS. Two molecularly distinct, genetically heterogeneous forms are recognized: clEDS-1, caused by biallelic loss-of-function variants in TNXB (tenascin-X), and clEDS-2, caused by biallelic loss-of-function variants in AEBP1 (encoding the aortic carboxypeptidase-like protein, ACLP). Both genes encode extracellular matrix proteins that normally organize dermal collagen fibrillogenesis; their loss produces disorganized, sparsely packed collagen fibrils and a resulting skin/joint/vascular fragility phenotype, with additional distinguishing features (peripheral neuromuscular involvement in clEDS-1; hair loss and vascular aneurysm risk in clEDS-2) that reflect each protein's distinct additional roles.\n",
+    "pathophysiology": [
+      "TNXB Loss-of-Function",
+      "AEBP1 Loss-of-Function",
+      "Impaired Osteoblast Wnt/beta-catenin Signaling",
+      "Disorganized Dermal Collagen Matrix",
+      "Other Ectodermal and Ocular Findings",
+      "Skin Fragility and Hyperextensibility",
+      "Joint Hypermobility and Instability",
+      "Vascular and Visceral Fragility",
+      "Peripheral Nerve and Muscle Involvement"
+    ],
+    "cell_types": [
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Hyperextensible Skin",
+      "Easy Bruising",
+      "Delayed Wound Healing",
+      "Atrophic Scarring",
+      "Osteopenia",
+      "Generalized Joint Hypermobility",
+      "Pes Planus",
+      "Pes Cavus",
+      "Vaginal, Uterine, and/or Rectal Prolapse",
+      "Aortic Aneurysm",
+      "Proximal Muscle Weakness",
+      "Distal Muscle Weakness",
+      "Peripheral Axonal Neuropathy",
+      "Fatigue",
+      "Alopecia",
+      "Piezogenic Pedal Papules",
+      "Peripheral Edema",
+      "Thin Skin",
+      "High Myopia",
+      "Intestinal Perforation"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000974",
+      "HP:0000978",
+      "HP:0001058",
+      "HP:0001075",
+      "HP:0000938",
+      "HP:0002761",
+      "HP:0001763",
+      "HP:0001761",
+      "HP:0031607",
+      "HP:0004942",
+      "HP:0003701",
+      "HP:0002460",
+      "HP:0003477",
+      "HP:0012378",
+      "HP:0001596",
+      "HP:0025509",
+      "HP:0012398",
+      "HP:0000963",
+      "HP:0011003",
+      "HP:0031368"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNXB",
+      "AEBP1"
+    ],
+    "treatments": [
+      "Non-Weight-Bearing Exercise and Physical Therapy",
+      "Ascorbic Acid (Vitamin C)",
+      "Desmopressin (DDAVP)"
+    ],
+    "environmental": [
+      "Invasive Procedures and Surgery (Tissue Fragility Risk)"
+    ],
+    "biochemical": [],
+    "source_file": "Classical-like_Ehlers-Danlos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Classical-like_Ehlers-Danlos_Syndrome.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Clear Cell Ovarian Carcinoma",
     "disease_id": "MONDO:0000548",
     "category": "",
@@ -76665,6 +76908,79 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Defect Type 15",
+    "disease_id": "MONDO:0013987",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Defect",
+      "Mitochondrial Disease",
+      "Leigh Syndrome Spectrum"
+    ],
+    "creation_date": "2026-09-16T02:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation defect type 15 (COXPD15) is caused by biallelic variants in MTFMT, the mitochondrial methionyl-tRNA formyltransferase. Metazoan mitochondria use a single tRNA(Met) for both translation initiation and elongation; MTFMT formylates a portion of the Met-tRNA(Met) pool to generate the fMet-tRNA(Met) that the mitochondrial initiation factor requires. Loss of MTFMT therefore cripples mitochondrial translation initiation, reducing synthesis of the thirteen mtDNA-encoded OXPHOS subunits and producing a combined respiratory-chain deficiency most visible in complexes I and IV.\nMTFMT was identified in 2011 by MitoExome sequencing of two children with Leigh syndrome and combined OXPHOS deficiency \u2014 simultaneously settling a debate about whether formylated initiator tRNA is required in human mitochondria. The clinical picture across the subsequently assembled cohorts is a Leigh syndrome spectrum disorder: developmental delay and motor symptoms presenting at a median of 14 months, symmetrical basal ganglia lesions, periventricular and subcortical white matter abnormalities, and brainstem lesions on MRI, with microcephaly, ataxia and muscular hypotonia recurring across families. The hypomorphic founder splice allele c.626C>T, present in most index cases, is one of the most frequent disease alleles in OXPHOS disorders generally, and its residual function is the accepted reason MTFMT-related Leigh syndrome runs a milder course than other nuclear Leigh genes: in the 38-patient natural-history cohort nearly three quarters of patients were alive at last review and 29% survived into adulthood.",
+    "pathophysiology": [
+      "Loss of Mitochondrial Methionyl-tRNA Formyltransferase Activity",
+      "Impaired Mitochondrial Translation",
+      "Combined Respiratory Chain Deficiency"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial translation initiation",
+      "mitochondrial translation",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Leigh Syndrome Spectrum Encephalopathy",
+      "White Matter Abnormalities",
+      "Brainstem Lesions",
+      "Global Developmental Delay",
+      "Microcephaly",
+      "Intellectual Disability",
+      "Ataxia",
+      "Muscular Hypotonia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002134",
+      "HP:0002500",
+      "HP:0002363",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MTFMT"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_15.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_15.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Defect Type 21",
     "disease_id": "MONDO:0014398",
     "category": "Mendelian",
@@ -76890,6 +77206,95 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Combined Oxidative Phosphorylation Defect Type 24",
+    "disease_id": "MONDO:0014547",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-17T16:17:48Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COXPD24 is the autosomal recessive mitochondrial disease caused by biallelic NARS2 variants. NARS2 encodes the mitochondrial asparaginyl-tRNA synthetase, which charges mitochondrial tRNA-Asn. Charging is an obligatory step in mitochondrial translation, and mitochondrial translation makes only thirteen proteins, all of them respiratory chain subunits. So a synthetase defect produces a *combined* respiratory chain deficiency rather than a single-complex one, and the biochemical signature in muscle is deficiency of complex I and complex IV together.\nWhat makes this entry difficult is not the mechanism but the range. The same gene produces isolated nonsyndromic sensorineural hearing loss at one end (DFNB94) and Alpers- or Leigh-type encephalopathy with refractory epilepsy and early death at the other, and more recently neonatal insulin-dependent diabetes as a third presentation. Sensorineural hearing impairment is the feature that runs through the whole range and is described as cardinal.\nWhether genotype predicts which end of the range a patient sits at is contested in the sources themselves, and this entry does not resolve it. The paper that described the two poles argued that lesion severity cosegregates with phenotype, with a functional experiment to support it: the hearing-loss variant fails to rescue oxygen consumption in Leigh-syndrome fibroblasts. The systematic review that followed, across seventeen patients, concluded there is no strong genotype-outcome association. Both are curated.\nThere is no disease-modifying therapy. Management is supportive.",
+    "pathophysiology": [
+      "NARS2 Loss of Function",
+      "Reduced Charged Mitochondrial tRNA-Asn",
+      "Failure of Mitochondrial Translation",
+      "Combined Complex I and Complex IV Deficiency",
+      "Energy Failure in High-Demand Post-Mitotic Tissue"
+    ],
+    "cell_types": [
+      "pancreatic beta cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000169"
+    ],
+    "biological_processes": [
+      "tRNA aminoacylation for protein translation",
+      "mitochondrial translation"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Seizure",
+      "Global developmental delay",
+      "Diabetes mellitus",
+      "Small for gestational age",
+      "Myopathy",
+      "Intellectual disability",
+      "Alpers- or Leigh-type progressive encephalopathy",
+      "Lactic acidosis"
+    ],
+    "phenotype_categories": [
+      "Otologic",
+      "Neurologic",
+      "Endocrine",
+      "Growth",
+      "Musculoskeletal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0000857",
+      "HP:0001518",
+      "HP:0003198",
+      "HP:0001249",
+      "HP:0002448",
+      "HP:0003128"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NARS2"
+    ],
+    "treatments": [
+      "Multidisciplinary supportive management",
+      "Insulin therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Defect_Type_24.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Defect_Type_24.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "7"
   },
   {
@@ -93730,7 +94135,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -120433,13 +120838,17 @@ window.searchData = [
       "Synaptic protein synthesis and mGluR signaling dysregulation",
       "Dendritic spine and synapse maturation abnormality",
       "Neurodevelopmental circuit dysfunction",
-      "Neuronal hyperexcitability"
+      "Neuronal hyperexcitability",
+      "Astrocytic GABA transport dysregulation",
+      "Excess translation of chromatin regulators"
     ],
     "cell_types": [
-      "neuron"
+      "neuron",
+      "astrocyte"
     ],
     "cell_type_ids": [
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000127"
     ],
     "biological_processes": [
       "mismatch repair",
@@ -120447,7 +120856,10 @@ window.searchData = [
       "regulation of synaptic plasticity",
       "synapse organization",
       "protein localization to synapse",
-      "central nervous system development"
+      "central nervous system development",
+      "gamma-aminobutyric acid transport",
+      "translation",
+      "chromatin remodeling"
     ],
     "phenotypes": [
       "Sleep Disturbance",
@@ -120571,10 +120983,10 @@ window.searchData = [
     "source_file": "Fragile_X_Syndrome.yaml",
     "page_url": "../pages/disorders/Fragile_X_Syndrome.html",
     "num_phenotypes": 34,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "8"
   },
   {
@@ -121028,6 +121440,8 @@ window.searchData = [
       "oxidative phosphorylation",
       "intracellular iron ion homeostasis",
       "response to oxidative stress",
+      "ferroptosis",
+      "mitophagy",
       "apoptotic process"
     ],
     "phenotypes": [
@@ -121114,7 +121528,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "6"
   },
   {
@@ -155305,7 +155719,8 @@ window.searchData = [
       "Lymphadenopathy",
       "Proteinuria",
       "Aortitis",
-      "Pulmonary Involvement"
+      "Pulmonary Involvement",
+      "Peripheral Blood Eosinophilia"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
@@ -155319,6 +155734,7 @@ window.searchData = [
       "Respiratory"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Digestive",
       "Genitourinary",
@@ -155340,9 +155756,12 @@ window.searchData = [
       "HP:0002716",
       "HP:0000093",
       "HP:6001461",
-      "HP:0002088"
+      "HP:0002088",
+      "HP:0001880"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
     "genes": [
       "HLA-DRB1",
       "FCGR2B"
@@ -155372,7 +155791,7 @@ window.searchData = [
     ],
     "source_file": "IgG4-Related_Disease.yaml",
     "page_url": "../pages/disorders/IgG4-Related_Disease.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 13,
     "num_pathophysiology": 25,
     "num_genes": 2,
     "num_treatments": 8,
@@ -173682,6 +174101,153 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Kyphoscoliotic Ehlers-Danlos Syndrome",
+    "disease_id": "MONDO:0016002",
+    "category": "Mendelian",
+    "parents": [
+      "Ehlers-Danlos Syndrome",
+      "Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-09-15T21:15:24Z",
+    "updated_date": null,
+    "subtypes": [
+      "kEDS-PLOD1",
+      "kEDS-FKBP14"
+    ],
+    "description": "Kyphoscoliotic Ehlers-Danlos syndrome (kEDS) is an autosomal recessive connective-tissue disorder characterized by congenital or early-onset hypotonia, progressive kyphoscoliosis, generalized joint hypermobility, and skin fragility. It is genetically heterogeneous, with two known causal genes acting at different steps of collagen biosynthesis: PLOD1 (kEDS-PLOD1, formerly EDS type VIA, ~90% of molecularly confirmed cases), encoding lysyl hydroxylase 1, which hydroxylates telopeptide lysine residues required for mature collagen crosslink formation; and FKBP14 (kEDS-FKBP14, formerly EDS type VIB), encoding an ER-resident peptidyl-prolyl isomerase/chaperone implicated in procollagen folding, whose deficiency additionally causes myopathy and hearing impairment not typical of kEDS-PLOD1. MONDO retired the single umbrella term for this disease (MONDO:0034024) in favor of two gene-specific child concepts; this entry is anchored on MONDO:0016002 (\"Ehlers-Danlos syndrome, kyphoscoliotic type 1\"), which now carries the general \"kyphoscoliotic Ehlers-Danlos syndrome\"/\"kEDS\"/\"EDS VI\" synonyms and represents the common PLOD1-related form, with the FKBP14-related form modeled as a subtype anchored on its own MONDO:0013800 term.\n",
+    "pathophysiology": [
+      "PLOD1 Loss-of-Function",
+      "Deficient Telopeptide Lysyl Hydroxylation",
+      "FKBP14 Loss-of-Function",
+      "Impaired Procollagen Folding and Secretion",
+      "Defective Collagen Crosslink Maturation",
+      "Disorganized Dermal and Vascular Collagen Fibrils",
+      "Weakened Musculoskeletal and Paraspinal Connective Tissue",
+      "Skin Fragility and Poor Wound Healing",
+      "Joint Hypermobility and Instability",
+      "Arterial Wall Fragility",
+      "Ocular Globe Fragility"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "fibroblast of the aortic adventitia"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0002547"
+    ],
+    "biological_processes": [
+      "peptidyl-lysine hydroxylation",
+      "protein folding in endoplasmic reticulum",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Congenital or Early-Onset Hypotonia",
+      "Kyphoscoliosis",
+      "Generalized Joint Hypermobility",
+      "Fragile Skin",
+      "Recurrent Joint Dislocations",
+      "Hyperextensible Skin",
+      "Arterial Rupture and Dissection",
+      "Refractive Error",
+      "Retinal Detachment",
+      "Blue Sclerae",
+      "Myopathy",
+      "Hearing Impairment",
+      "Gross Motor Developmental Delay",
+      "Osteopenia",
+      "Mitral Valve Prolapse",
+      "Inguinal Hernia",
+      "Bladder Diverticulum",
+      "Subdural Hygroma",
+      "Bifid Uvula",
+      "Rectal Prolapse",
+      "Clubfoot",
+      "Restrictive Ventilatory Defect",
+      "Recurrent Pneumonia",
+      "Cardiac Failure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Otologic",
+      "Skeletal",
+      "Genitourinary",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001252",
+      "HP:0002751",
+      "HP:0002761",
+      "HP:0001030",
+      "HP:0001373",
+      "HP:0000974",
+      "HP:0025019",
+      "HP:0000539",
+      "HP:0000541",
+      "HP:0000592",
+      "HP:0003198",
+      "HP:0000365",
+      "HP:0001270",
+      "HP:0000938",
+      "HP:0001634",
+      "HP:0000023",
+      "HP:0000015",
+      "HP:6001070",
+      "HP:0000193",
+      "HP:0002035",
+      "HP:0001762",
+      "HP:0002091",
+      "HP:0006532",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLOD1",
+      "FKBP14"
+    ],
+    "treatments": [
+      "Physical and Occupational Therapy",
+      "Orthopedic Management of Kyphoscoliosis",
+      "Beta-Blocker Therapy for Aortic Dilatation",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Joint-Stressing and High-Impact Physical Activity",
+      "Diagnostic Arteriography"
+    ],
+    "biochemical": [
+      "Urinary lysyl-pyridinoline to hydroxylysyl-pyridinoline ratio"
+    ],
+    "source_file": "Kyphoscoliotic_Ehlers-Danlos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Kyphoscoliotic_Ehlers-Danlos_Syndrome.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "L-2-Hydroxyglutaric Aciduria",
@@ -199506,6 +200072,153 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mitochondrial Complex V (ATP Synthase) Deficiency, Nuclear Type 1",
+    "disease_id": "MONDO:0011421",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex V Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-16T02:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial complex V (ATP synthase) deficiency nuclear type 1 (MC5DN1) is the ATPAF2-related form of isolated ATP synthase deficiency. ATPAF2 (historically ATP12) is not a structural subunit but an assembly factor: the human homolog of the yeast Atp12 chaperone, which binds the F1 alpha subunit during construction of the catalytic alpha3-beta3 head and prevents its nonproductive aggregation. Its 2004 identification was the first report of a pathogenic mutation in a human nuclear-encoded ATPase assembly gene \u2014 before it, complex V deficiency had been attributed only to mitochondrial MT-ATP6 mutations.\nThe entire genetically confirmed literature is one patient: a girl born to healthy consanguineous Moroccan parents, homozygous for c.280T>A (p.Trp94Arg), with severe neonatal encephalopathy, dysmorphic features, lactic acidosis and 3-methylglutaconic aciduria, cortical-subcortical brain atrophy followed by basal ganglia atrophy, and death at 14 months during an intercurrent infection. The 2024 systematic review of ATP synthase disorders still lists a single ATPAF2 case, so every phenotype \"frequency\" here is an observation in one child, not a population estimate.\nThe mechanistic case is nonetheless strong: patient tissues show severe, predominantly isolated loss of assembled complex V, and yeast provides the functional proof \u2014 wild-type human ATPAF2 rescues the respiratory defect of a yeast atp12 deletion, the mutant gene does not, and the W94R substitution falls at the most conserved position of the protein. MC5DN1 is distinguished from the far more common TMEM70-related MC5DN2, from the structural-subunit deficiency MC5DN3 (ATP5F1E), and from the maternally inherited MT-ATP6/MT-ATP8 diseases, all separate dismech entries.",
+    "pathophysiology": [
+      "Loss of ATP12 F1 Assembly Factor Function",
+      "Isolated ATP Synthase Deficiency",
+      "Progressive Neurodegeneration with Energy Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial ATP synthase complex assembly",
+      "mitochondrial ATP synthesis"
+    ],
+    "phenotypes": [
+      "Progressive Encephalopathy",
+      "Lactic Acidosis",
+      "3-Methylglutaconic Aciduria",
+      "Global Developmental Delay",
+      "Dysmorphic Facial Features",
+      "Abnormal Basal Ganglia Morphology"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002448",
+      "HP:0003128",
+      "HP:0003535",
+      "HP:0001263",
+      "HP:0001999",
+      "HP:0002134"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATPAF2"
+    ],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_V_ATP_Synthase_Deficiency_Nuclear_Type_1.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_V_ATP_Synthase_Deficiency,_Nuclear_Type_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Mitochondrial Complex V (ATP Synthase) Deficiency, Nuclear Type 2",
+    "disease_id": "MONDO:0013546",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex V Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-16T02:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial complex V (ATP synthase) deficiency nuclear type 2 (MC5DN2) is the TMEM70-related form of isolated ATP synthase deficiency and by a wide margin the most common nuclear-encoded complex V disease \u2014 TMEM70 was identified in 2008 by homozygosity mapping in a large series of patients, and by 2015 at least 65 genetically confirmed patients had been reported, against a handful for every other nuclear complex V gene combined. TMEM70 is an ancillary factor required for the biogenesis of ATP synthase rather than a structural subunit; its loss leaves the respiratory chain complexes I-IV intact while the amount of assembled, functional complex V collapses.\nThe classic presentation is neonatal mitochondrial encephalo-cardiomyopathy: severe muscular hypotonia and apnoeic spells from birth, hypertrophic cardiomyopathy, profound lactic acidosis and hyperammonaemia, with persistent 3-methylglutaconic aciduria as the biochemical signature. Genital anomalies (hypospadias, cryptorchidism) are common in boys, a feature unusual among mitochondrial diseases. Early mortality is high \u2014 in the founder-mutation natural-history cohort ten of 25 patients died within the first six weeks \u2014 but the disease is not uniformly lethal: survivors stabilise with hypotonia and psychomotor delay, the cardiomyopathy is typically non-progressive and can even regress, and later crises of life-threatening hyperammonaemia are triggered by intercurrent illness and fasting rather than by relentless neurodegeneration.\nMost patients carry the founder splice-site variant c.317-2A>G, which is strongly enriched in the Roma population; homozygosity for it is sufficient for molecular diagnosis without muscle biopsy in a typical clinical setting. MC5DN2 is distinguished from the maternally inherited MT-ATP6/MT-ATP8 diseases (separate dismech entries), which affect the same enzyme through mitochondrial-genome structural-subunit mutations, and from the very rare nuclear structural-subunit and assembly-factor deficiencies MC5DN1 (ATPAF2) and MC5DN3 (ATP5F1E).",
+    "pathophysiology": [
+      "Loss of TMEM70 Ancillary Biogenesis Factor Function",
+      "Stalled F1 Intermediate Accumulation",
+      "Isolated ATP Synthase Deficiency",
+      "Mitochondrial Ultrastructural Degeneration",
+      "Systemic Energy Failure with Metabolite Accumulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial ATP synthase complex biogenesis",
+      "mitochondrial ATP synthesis"
+    ],
+    "phenotypes": [
+      "Muscular Hypotonia",
+      "Apnea",
+      "Hypertrophic Cardiomyopathy",
+      "Lactic Acidosis",
+      "Hyperammonemia",
+      "3-Methylglutaconic Aciduria",
+      "Hypospadias",
+      "Cryptorchidism",
+      "Global Developmental Delay",
+      "Failure to Thrive",
+      "Dysmorphic Features"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001252",
+      "HP:0002104",
+      "HP:0001639",
+      "HP:0003128",
+      "HP:0001987",
+      "HP:0003535",
+      "HP:0000047",
+      "HP:0000028",
+      "HP:0001263",
+      "HP:0001508",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TMEM70"
+    ],
+    "treatments": [
+      "Supportive and Anaplerotic Metabolic Crisis Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_Complex_V_ATP_Synthase_Deficiency_Nuclear_Type_2.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_V_ATP_Synthase_Deficiency,_Nuclear_Type_2.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mitochondrial Complex V (ATP Synthase) Deficiency, Nuclear Type 3",
     "disease_id": "MONDO:0013547",
     "category": "Mendelian",
@@ -204701,6 +205414,7 @@ window.searchData = [
     "pathophysiology": [
       "Demyelination",
       "Axonal Damage",
+      "EBNA1-GlialCAM Molecular Mimicry",
       "Th1/Th17-Mediated Neuroinflammation",
       "Inflammatory Lesions",
       "Compartmentalized CNS Inflammation",
@@ -204715,6 +205429,7 @@ window.searchData = [
       "Microglial cell",
       "Astrocyte",
       "CD4-positive, alpha-beta T cell",
+      "Cerebrospinal-fluid plasmablast",
       "T-helper 17 cell",
       "T-helper 1 cell",
       "Macrophage",
@@ -204727,6 +205442,7 @@ window.searchData = [
       "CL:0000129",
       "CL:0000127",
       "CL:0000624",
+      "CL:0000980",
       "CL:0000899",
       "CL:0000545",
       "CL:0000235",
@@ -204738,6 +205454,8 @@ window.searchData = [
       "Cytokine-mediated signaling pathway",
       "Complement activation",
       "Myelination",
+      "B cell activation",
+      "Humoral immune response mediated by circulating immunoglobulin",
       "T-helper 17 type immune response",
       "Inflammatory response",
       "Macroautophagy",
@@ -204850,10 +205568,10 @@ window.searchData = [
     "source_file": "Multiple_Sclerosis.yaml",
     "page_url": "../pages/disorders/Multiple_Sclerosis.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 18,
     "num_treatments": 5,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
   },
   {
@@ -206156,6 +206874,7 @@ window.searchData = [
     "biological_processes": [
       "vasodilation",
       "oxidative phosphorylation",
+      "muscle tissue sodium homeostasis",
       "purine nucleotide metabolic process",
       "platelet activation",
       "calcium ion transmembrane transport",
@@ -207692,6 +208411,96 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "53",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Myopathic Ehlers-Danlos Syndrome",
+    "disease_id": "MONDO:0034022",
+    "category": "Mendelian",
+    "parents": [
+      "Ehlers-Danlos Syndrome",
+      "Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-09-16T17:43:16Z",
+    "updated_date": null,
+    "subtypes": [
+      "mEDS Dominant",
+      "mEDS Recessive"
+    ],
+    "description": "Myopathic Ehlers-Danlos syndrome (mEDS) is a connective-tissue/muscle overlap disorder caused by heterozygous (dominant) or biallelic (recessive) pathogenic variants in COL12A1, which encodes collagen XII, a fibril-associated collagen with interrupted triple helices (FACIT) that bridges collagen I-containing fibrils with other extracellular matrix components, including decorin and tenascin-X. The disorder spans a clinical spectrum: the milder, typically dominant end (historically termed Bethlem myopathy 2, an exact synonym of mEDS) presents with congenital hypotonia, proximal joint contractures, distal joint hypermobility, and progressive proximal and axial muscle weakness; the more severe, typically recessive end (Ullrich congenital muscular dystrophy 2) presents at birth with profound weakness, arthrogryposis, and respiratory insufficiency. Reduced or structurally abnormal collagen XII secondarily depletes extracellular decorin and tenascin-X, the same two matrix proteins whose primary loss drives classical-like EDS (TNXB) -- a mechanistic parallel between the two disorders' convergent effects on the matrix, not a structural link between the two dismech entries themselves.\n",
+    "pathophysiology": [
+      "COL12A1 Dominant Variant",
+      "COL12A1 Biallelic Loss-of-Function",
+      "Depleted Collagen XII-Bridged Extracellular Matrix",
+      "Impaired Muscle Force Transmission",
+      "Joint and Skin Connective Tissue Laxity",
+      "Cardiac Valve Connective Tissue Involvement",
+      "Craniofacial and Dysmorphic Features"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Proximal and Axial Muscle Weakness",
+      "Skeletal Muscle Atrophy",
+      "Congenital Hypotonia",
+      "Distal Joint Hypermobility",
+      "Arthrogryposis",
+      "Hip Dysplasia",
+      "Gingival Overgrowth",
+      "Micrognathia",
+      "Mitral Regurgitation",
+      "Talipes Equinovarus",
+      "Kyphoscoliosis",
+      "Motor Delay"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0003202",
+      "HP:0001252",
+      "HP:0020152",
+      "HP:0002804",
+      "HP:0001385",
+      "HP:0000212",
+      "HP:0000347",
+      "HP:0001653",
+      "HP:0001762",
+      "HP:0002751",
+      "HP:0001270"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL12A1"
+    ],
+    "treatments": [
+      "Orthopedic Management of Scoliosis and Joint Contractures",
+      "Respiratory Support (Noninvasive to Invasive Mechanical Ventilation)",
+      "Nutritional Support (Nasogastric or Gastrostomy Feeding)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Myopathic_Ehlers-Danlos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Myopathic_Ehlers-Danlos_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Myopathy, Lactic Acidosis, and Sideroblastic Anemia",
@@ -235254,6 +236063,102 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Periodontal Ehlers-Danlos Syndrome",
+    "disease_id": "MONDO:0007527",
+    "category": "Mendelian",
+    "parents": [
+      "Ehlers-Danlos Syndrome",
+      "Connective Tissue Disorder"
+    ],
+    "creation_date": "2026-09-16T17:29:22Z",
+    "updated_date": null,
+    "subtypes": [
+      "pEDS-1",
+      "pEDS-2"
+    ],
+    "description": "Periodontal Ehlers-Danlos syndrome (pEDS, formerly EDS type VIII) is a rare autosomal dominant connective-tissue disorder caused by heterozygous missense or in-frame insertion/deletion variants in C1R (pEDS-1, the majority) or C1S (pEDS-2), which encode the C1r and C1s subunits of the first component of the classical complement pathway. Unlike most other EDS subtypes, pEDS is not caused by a primary defect in a collagen gene or a collagen-modifying enzyme. Pathogenic variants instead destabilize the C1r or C1s protein structure, causing uncontrolled intracellular auto-activation and extracellular release of activated C1s outside its normal physiological control by C1-inhibitor. Activated C1s directly degrades extracellular collagen I, shifting collagen turnover toward net resorption and producing thin, sparse, poorly organized collagen fibers. The clinical hallmark is early-onset, rapidly progressing periodontitis with premature tooth loss and a lack of attached gingiva, accompanied by variable connective-tissue findings including pretibial hyperpigmentation, easy bruising, distal joint hypermobility, hoarse voice, and, less commonly, vascular or visceral rupture.\n",
+    "pathophysiology": [
+      "C1R Gain-of-Function Variant",
+      "C1S Gain-of-Function Variant",
+      "Uncontrolled Extracellular Activated C1s",
+      "Aberrant Collagen I Degradation",
+      "Periodontal Connective Tissue Destruction",
+      "Dermal and Vascular Connective Tissue Fragility"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "fibroblast of gingiva"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0002552"
+    ],
+    "biological_processes": [
+      "collagen catabolic process"
+    ],
+    "phenotypes": [
+      "Severe Early-Onset Periodontitis",
+      "Gingival Recession",
+      "Lack of Attached Gingiva",
+      "Pretibial Hyperpigmentation",
+      "Bruising Susceptibility",
+      "Fragile Skin",
+      "Distal Joint Hypermobility",
+      "Hoarse Voice",
+      "Leukoencephalopathy",
+      "Cerebral Arterial Aneurysm",
+      "Aortic Aneurysm",
+      "Intestinal Perforation",
+      "Venous Insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000166",
+      "HP:0030816",
+      "HP:0000168",
+      "HP:0034517",
+      "HP:0000978",
+      "HP:0001030",
+      "HP:0020152",
+      "HP:0001609",
+      "HP:0002352",
+      "HP:0007029",
+      "HP:0004942",
+      "HP:0031368",
+      "HP:0005293"
+    ],
+    "frequencies": [],
+    "genes": [
+      "C1R",
+      "C1S"
+    ],
+    "treatments": [
+      "Regular Periodontal Care",
+      "Physical Therapy for Joint Hypermobility"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Periodontal_Ehlers-Danlos_Syndrome.yaml",
+    "page_url": "../pages/disorders/Periodontal_Ehlers-Danlos_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Peripartum Cardiomyopathy",
     "disease_id": "MONDO:0018920",
     "category": "Complex",
@@ -241079,6 +241984,7 @@ window.searchData = [
     ],
     "biochemical": [
       "Testosterone",
+      "11-Oxygenated Androgens",
       "LH",
       "SHBG",
       "Fasting Insulin",
@@ -243190,7 +244096,8 @@ window.searchData = [
       "Pharmacotherapy - Fludrocortisone",
       "Compression Garments",
       "Pharmacotherapy - Ivabradine",
-      "Pharmacotherapy - Pyridostigmine"
+      "Pharmacotherapy - Pyridostigmine",
+      "Transcutaneous Auricular Vagus Nerve Stimulation"
     ],
     "environmental": [],
     "biochemical": [],
@@ -243199,8 +244106,8 @@ window.searchData = [
     "num_phenotypes": 14,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "31",
+    "num_treatments": 9,
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "5"
   },
   {
@@ -290850,7 +291757,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "60",
     "causal_graph_longest_path": "9"
   },
   {
@@ -312077,17 +312984,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3000,
-  "total_subtypes": 3754,
-  "total_disorders_and_subtypes": 6754,
-  "total_unique_evidence_sources": 42524,
-  "total_unique_publications": 40131,
+  "total_disorder_pages": 3009,
+  "total_subtypes": 3764,
+  "total_disorders_and_subtypes": 6773,
+  "total_unique_evidence_sources": 42731,
+  "total_unique_publications": 40336,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 2995,
-  "total_unique_pathological_events": 18178,
+  "total_pathographs": 3004,
+  "total_unique_pathological_events": 18236,
   "total_modules": 177,
-  "total_research_reports": 3114,
+  "total_research_reports": 3125,
   "total_classifications": 19,
   "total_comorbidities": 31,
   "total_groupings": 102
