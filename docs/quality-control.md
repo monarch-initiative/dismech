@@ -285,9 +285,13 @@ is how computed metrics ride alongside schema-driven ones in a single report
 - **total** — number of phenotype nodes in the causal graph
   (`build_causal_graph()`), so it matches exactly what the pathograph renders.
 - **populated** — phenotype nodes reached by at least one *causal* edge. Only
-  `causes` and `leads_to` predicates count (`CAUSAL_PREDICATES`). A `treats`
-  edge (treatment → phenotype) or a `models` edge does **not** mechanistically
-  explain a phenotype, so those are excluded.
+  the `CAUSAL_PREDICATES` count: `causes`, `leads_to`, and the two
+  environmental predicates that make a genuine causal claim, `triggers` and
+  `exacerbates`. A `treats` edge (treatment → phenotype), a `readout` edge
+  (`phenotypes[].reports_on`), a `models` edge, and the non-committal
+  environmental predicates (`predisposes_to`, `protects_against`, `modulates`,
+  `influences`) do **not** mechanistically explain a phenotype, so those are
+  excluded.
 
 A phenotype is fixed by adding its `name` as a `downstream` target on the
 upstream pathophysiology node:
@@ -312,14 +316,74 @@ just compliance-connectivity --list-unconnected
 just compliance-connectivity --fail-under 30
 ```
 
+### Triage view: `just list-disconnected-phenotypes`
+
+The recipe above is the compliance view, and a gate: both metric halves, the
+aggregate percentages, and the `min_compliance` floor it enforces over the
+corpus. Issue #11935 asked for the **per-entry triage** of the phenotype half,
+filed next to `just list-causal-targets` and `just list-cancer-origin` rather
+than under compliance. The two are complementary rather than redundant — a
+corpus ratchet no single entry can trip, and a worklist for wiring one disease. It is a thin wrapper
+around the same `causal_inlink_coverage` function, so the two can never
+disagree on a number:
+
+```bash
+just list-disconnected-phenotypes                        # census + ranked worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only 0-connected entries
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml
+```
+
+It adds a ranked zero-connectivity worklist (entries where *no* phenotype is
+connected, ordered by how many are stranded — every phenotype stranded is one
+sitting's work, a single gap is a different signal), `--format tsv`/`json`, and
+an **attachment class** per stranded phenotype:
+
+| Class | Meaning |
+|---|---|
+| `ISOLATED` | no edge in the graph touches the node at all |
+| `TREATED` | a `treats`/`targets` edge from a treatment reaches it |
+| `READOUT` | a `reports_on`/biomarker `readout` edge involves it |
+| `NONCAUSAL_INBOUND` | a non-committal environmental or other non-causal edge reaches it |
+| `SEQUELA_SOURCE` | it explains something downstream, but nothing explains it |
+
+None of those counts as connected — that is the strict reading, and it follows
+from the predicate rather than from a special case. They are reported so that
+"nothing in the graph knows this node exists" reads differently from "something
+points at it, but not a mechanism"; both are unexplained, and they are not the
+same curation job.
+
+It is report-only (exit 0), with `--strict` and `--fail-under` opt-in. That is
+about *this view*, not about the metric: the aggregate is gated by
+`compliance-connectivity`, while a per-entry gate would need a baseline file the
+size of the problem. Connecting a phenotype is real curation: the edge asserts
+which mechanism produces which clinical feature, which is often exactly what the
+literature does not settle. Some phenotypes legitimately have no upstream node in the entry — a
+laboratory readout, a feature whose mechanism is genuinely unknown. An edge
+added to clear a report is worse than no edge.
+
+This check is the **complement** of `just check-causal-targets`, which finds
+edges whose target resolves to nothing. An entry can pass that check perfectly
+and still leave every phenotype unexplained; the motivating instance,
+`SLC35A1-Congenital_Disorder_of_Glycosylation`, has 7 cleanly resolving edges,
+none of which reaches a phenotype.
+
 `conf/qc_config.yaml` configures it like any other path:
 
 ```yaml
 paths:
   "phenotypes[].causal_inlink":
     weight: 1.5
-    min_compliance: null   # contributes to weighted score; does not gate CI yet
+    min_compliance: 50.0   # gates: `just compliance-connectivity` fails below it
 ```
+
+**That floor is live and applies to the KB-wide aggregate, not per file**, so no
+single entry can trip it and a red build means sustained drift across the
+corpus. `test_committed_causal_inlink_floor_is_set_and_never_lowered` blocks
+lowering it, and `null` there silently disables the gate. The sibling
+`genetic[].mechanism_outlink` is deliberately still advisory. CLAUDE.md's
+*A resolving target is not a connected phenotype* carries the current figure and
+how to read a failure; this page deliberately does not restate it.
 
 ## Adding a new computed metric
 
