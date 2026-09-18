@@ -38952,7 +38952,9 @@ window.searchData = [
       "Myocardial infarction",
       "Coma",
       "Anorexia",
-      "Nausea and vomiting"
+      "Nausea and vomiting",
+      "Hemophagocytic lymphohistiocytosis",
+      "Splenic rupture"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -39002,7 +39004,9 @@ window.searchData = [
       "HP:0001658",
       "HP:0001259",
       "HP:0002039",
-      "HP:0002017"
+      "HP:0002017",
+      "HP:0012156",
+      "HP:0012223"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -39028,11 +39032,11 @@ window.searchData = [
     ],
     "source_file": "Babesiosis.yaml",
     "page_url": "../pages/disorders/Babesiosis.html",
-    "num_phenotypes": 23,
+    "num_phenotypes": 25,
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "43",
+    "causal_graph_edges": "45",
     "causal_graph_longest_path": "6"
   },
   {
