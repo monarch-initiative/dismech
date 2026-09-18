@@ -27,6 +27,24 @@ summaries scheduled workflows post. **Not** in scope: prose inside KB YAML
 curator who wants the mechanism, and their denser register is correct — do not
 apply this skill's plainness rules to them.
 
+## Before you post
+
+**Re-read the thread immediately before posting — not when you started the work
+that produced the comment.** Threads move while a comment is being written, and
+a reply that contradicts what somebody said an hour earlier is worse than no
+reply at all.
+
+The same goes for repository state you quote. Re-read the file at the commit you
+are about to cite, rather than trusting a copy you read earlier in the session.
+
+Worked example: a comment on #8512 reporting that a provider outage had cleared
+said the issue had "been quiet since 14 August". A maintainer had commented ten
+hours earlier, testing the very claim that comment went on to make and finding
+it false — and the comment also quoted a `project.justfile` passage from a stale
+`origin/main` ref, text that no longer existed and whose stated rationale had
+since been replaced. Both checks had been run. They had been run eleven hours
+too early, and retracting them took a second comment.
+
 ## The rules
 
 **BLUF: Lead with the finding, ideally around 3 sentences.** Use plain language,
