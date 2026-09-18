@@ -298,40 +298,37 @@ def iter_variant_items(
     return items
 
 
-def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
+# Sections that contribute named elements as graph nodes.
+NODE_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("pathophysiology", "pathophysiology"),
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+    ("experimental_models", "experimental_model"),
+    ("computational_models", "computational_model"),
+)
+
+
+def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
+    """Every name that can be the target of a bare-name pathograph edge.
+
+    Split out of :func:`build_causal_graph` so that the CI gate over bare
+    targets (``scripts/check_causal_targets.py``) resolves against exactly the
+    node set the graph builds, rather than a hand-copied subset of it. That
+    duplication had already drifted: the gate mirrored the eight
+    :data:`NODE_SECTIONS` but not the two sources below, leaving 1,813 real node
+    names KB-wide invisible to it, so a bare target legitimately naming an
+    animal model or a variant would have been reported as dangling.
     """
-    Build a causal graph from disorder data.
+    nodes: dict[str, NodeInfo] = {}
 
-    Collects nodes from named elements in various sections and edges from
-    downstream/sequelae relationships. Checks referential integrity.
-
-    Args:
-        disorder: Parsed disorder YAML data
-
-    Returns:
-        CausalGraph with nodes, edges, and any integrity issues
-    """
-    graph = CausalGraph()
-
-    # Sections that contain named elements (potential nodes)
-    node_sections = [
-        ("pathophysiology", "pathophysiology"),
-        ("phenotypes", "phenotype"),
-        ("environmental", "environmental"),
-        ("genetic", "genetic"),
-        ("treatments", "treatment"),
-        ("biochemical", "biochemical"),
-        ("experimental_models", "experimental_model"),
-        ("computational_models", "computational_model"),
-    ]
-
-    # Collect all nodes
-    for section_key, node_type in node_sections:
-        items = disorder.get(section_key, []) or []
-        for item in items:
+    for section_key, node_type in NODE_SECTIONS:
+        for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and "name" in item:
                 name = item["name"]
-                graph.nodes[name] = NodeInfo(
+                nodes[name] = NodeInfo(
                     name=name,
                     node_type=node_type,
                     description=item.get("description"),
@@ -349,7 +346,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         label = animal_model_label(item)
         if not label:
             continue
-        graph.nodes[label] = NodeInfo(
+        nodes[label] = NodeInfo(
             name=label,
             node_type="animal_model",
             description=item.get("description"),
@@ -359,11 +356,30 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         name = variant.get("name")
         if not name:
             continue
-        graph.nodes[name] = NodeInfo(
+        nodes[name] = NodeInfo(
             name=name,
             node_type="genetic",
             description=variant.get("description"),
         )
+
+    return nodes
+
+
+def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
+    """
+    Build a causal graph from disorder data.
+
+    Collects nodes from named elements in various sections and edges from
+    downstream/sequelae relationships. Checks referential integrity.
+
+    Args:
+        disorder: Parsed disorder YAML data
+
+    Returns:
+        CausalGraph with nodes, edges, and any integrity issues
+    """
+    graph = CausalGraph()
+    graph.nodes.update(collect_graph_nodes(disorder))
 
     phenotype_lookup = _build_section_lookup(
         disorder.get("phenotypes", []) or [], descriptor_key="phenotype_term"
