@@ -98,7 +98,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 # Imported after the sys.path insertion above, so it resolves from src/.
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech.yaml_io import safe_load_path
 
 CACHE_DIR = _REPO_ROOT / "references_cache"
 RESEARCH_DIR = _REPO_ROOT / "research"
@@ -172,7 +172,7 @@ def _clean_number(raw: str) -> str:
 def _fmt(value: float) -> str:
     """Render a derived number the way the corpus is most likely to write it."""
     if abs(value - round(value)) < 1e-9:
-        return str(int(round(value)))
+        return str(round(value))
     return f"{value:.6f}".rstrip("0").rstrip(".")
 
 
@@ -649,20 +649,20 @@ def render_summary(reports: list[FileReport], out) -> None:
     print("=" * 66, file=out)
     print(f"  entries scanned                       : {len(reports)}", file=out)
     print(f"  quantitative figures in prose         : {total_figures}", file=out)
-    print("", file=out)
+    print(file=out)
     print(f"  NOT_IN_ADJACENT (cited, not supported): {len(misattr)}", file=out)
     print(f"    ...and absent entry-wide too        : {len(hard)}", file=out)
     print(f"  UNCITED (no adjacent evidence at all) : {len(uncited)}", file=out)
-    print("", file=out)
+    print(file=out)
     print(f"  entries with >=1 NOT_IN_ADJACENT      : {len(flagged)}", file=out)
     print(f"    ...with a DR report in research/    : {len(dr_flagged)}", file=out)
-    print("", file=out)
+    print(file=out)
     for status in ("OK", "NOT_IN_ADJACENT", "UNCITED", "NO_FIGURES"):
         print(f"  {status:<20} {counts.get(status, 0)}", file=out)
 
     if not flagged:
         return
-    print("", file=out)
+    print(file=out)
     print("Highest NOT_IN_ADJACENT counts (DR-backed entries first):", file=out)
     ranked = sorted(
         flagged, key=lambda r: (not r.has_dr_artifact, -len(r.misattributions), r.name)
@@ -675,7 +675,7 @@ def render_summary(reports: list[FileReport], out) -> None:
             file=out,
         )
     by_kind = Counter(f.kind for f in misattr)
-    print("", file=out)
+    print(file=out)
     print("By figure kind: " + ", ".join(f"{k}={v}" for k, v in by_kind.most_common()), file=out)
 
 

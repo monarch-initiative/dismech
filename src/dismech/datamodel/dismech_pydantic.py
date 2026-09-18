@@ -143,6 +143,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                                  'prefix_reference': 'https://www.ncbi.nlm.nih.gov/bioproject/'},
                   'cellxgene': {'prefix_prefix': 'cellxgene',
                                 'prefix_reference': 'https://cellxgene.cziscience.com/collections/'},
+                  'cito': {'prefix_prefix': 'cito',
+                           'prefix_reference': 'http://purl.org/spar/cito/'},
                   'clinicaltrials': {'prefix_prefix': 'clinicaltrials',
                                      'prefix_reference': 'https://clinicaltrials.gov/study/'},
                   'clinvar': {'prefix_prefix': 'clinvar',
@@ -216,6 +218,10 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
 class ICDOMorphologyEnum(str, Enum):
     """
     ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.
+This is a coarse histogenetic vocabulary, not a slot for four-digit ICD-O codes. Two rules govern it.
+Granularity (the lump/split rule): a value names a morphology *family*, not an individual tumour entity. A family earns its own value when the knowledge base holds neoplastic entries that no existing value can hold correctly, and when it is a top-level morphology group in ICD-O / the WHO classification. A sub-family is split out of its parent only when it dominates curation practice — which is why ``Adenocarcinoma`` and ``Squamous Cell Carcinoma`` sit beside ``Carcinoma``, and ``Multiple Myeloma`` beside ``Plasma Cell Neoplasm``, while single entities (glomus tumour, chordoma, GIST) are held by their family rather than given a value of their own.
+Behaviour: this axis names the morphology family, and most values are behaviour-neutral — ``Nerve Sheath Neoplasm`` and ``Pericytic Neoplasm`` cover benign and malignant members alike. Where ICD-O itself splits a family on behaviour, the values follow it (``Adenoma`` vs ``Adenocarcinoma``). Do not read malignancy into a value that does not assert it. A first-class behaviour slot (the ICD-O ``/0``-``/3`` digit) and a place for the four-digit code itself remain open on monarch-initiative/dismech#7548.
+When no value fits, omit ``icdo_morphology`` and record why in the entry's ``notes`` or a ``CURATION_TODO`` discussion. There is deliberately no ``Other`` value: the omissions are the signal that tells us which family to add next, and this expansion was driven by exactly those notes.
     """
     Carcinoma = "Carcinoma"
     """
@@ -256,6 +262,58 @@ class ICDOMorphologyEnum(str, Enum):
     Embryonal_Neoplasm = "Embryonal Neoplasm"
     """
     Cancer arising from embryonic tissue
+    """
+    Adenoma = "Adenoma"
+    """
+    Benign neoplasm of glandular epithelium; the benign counterpart of Adenocarcinoma
+    """
+    Trophoblastic_Tumor = "Trophoblastic Tumor"
+    """
+    Neoplasm of trophoblastic cells, gestational or non-gestational
+    """
+    Mesothelial_Neoplasm = "Mesothelial Neoplasm"
+    """
+    Neoplasm arising from the mesothelium lining the pleura, peritoneum, pericardium or tunica vaginalis
+    """
+    Pericytic_Neoplasm = "Pericytic Neoplasm"
+    """
+    Mesenchymal neoplasm arising from the perivascular (pericytic) cells of connective and soft tissue
+    """
+    Nerve_Sheath_Neoplasm = "Nerve Sheath Neoplasm"
+    """
+    Neoplasm arising from the cells of the peripheral nerve sheath
+    """
+    Meningioma = "Meningioma"
+    """
+    Neoplasm of meningothelial (arachnoidal) cells
+    """
+    Germ_Cell_Tumor = "Germ Cell Tumor"
+    """
+    Gonadal or extragonadal neoplasm originating from germ cells
+    """
+    Sex_Cord_Stromal_Tumor = "Sex Cord-Stromal Tumor"
+    """
+    Neoplasm of the gonadal sex cord and stromal cells (granulosa, Sertoli, Leydig, fibroblast)
+    """
+    Neuroendocrine_Neoplasm = "Neuroendocrine Neoplasm"
+    """
+    Neoplasm of cells showing neuroendocrine differentiation
+    """
+    Plasma_Cell_Neoplasm = "Plasma Cell Neoplasm"
+    """
+    Clonal proliferation of immunoglobulin-secreting plasma cells
+    """
+    Myeloproliferative_Neoplasm = "Myeloproliferative Neoplasm"
+    """
+    Clonal myeloid neoplasm with effective but excessive production of one or more mature blood cell lineages
+    """
+    Myelodysplastic_Syndrome = "Myelodysplastic Syndrome"
+    """
+    Clonal myeloid neoplasm characterised by dysplasia and ineffective haematopoiesis
+    """
+    Histiocytic_and_Dendritic_Cell_Neoplasm = "Histiocytic and Dendritic Cell Neoplasm"
+    """
+    Neoplasm of histiocytes and accessory/dendritic cells
     """
 
 
@@ -471,7 +529,7 @@ class IUISCategoryEnum(str, Enum):
     """
     bone_marrow_failure = "bone marrow failure"
     """
-    Table 9 - Bone marrow failure syndromes (Fanconi, DKC, SDS, DBA)
+    Table 9 - Bone marrow failure syndromes (Fanconi anemia, dyskeratosis congenita, MIRAGE, Coats plus)
     """
     phenocopy_of_IEI = "phenocopy of IEI"
     """
@@ -3077,6 +3135,24 @@ class DirectnessEnum(str, Enum):
     """
 
 
+class QuoteRoleEnum(str, Enum):
+    """
+    Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced, something it restates from elsewhere, or its synthesis of a literature it did not generate.
+    """
+    Primary_result = "PRIMARY_RESULT"
+    """
+    The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.
+    """
+    Background = "BACKGROUND"
+    """
+    The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.
+    """
+    Review_synthesis = "REVIEW_SYNTHESIS"
+    """
+    The quoted text is the cited publication's synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.
+    """
+
+
 class EvidenceSourceEnum(str, Enum):
     """
     The provenance/source of the evidence item
@@ -3249,47 +3325,73 @@ class PrevalenceMeasureEnum(str, Enum):
 
 class PrevalenceClassEnum(str, Enum):
     """
-    Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover records that report only prose ("rare", "common") with no numeric estimate. When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.
+    Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency.
+IMPORTANT: a band reports magnitude only. It does not say what is being measured; the sibling `measure_type` slot does that, and a band is meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record means "1-9 of every 100,000 people have this disease"; the same band on an ANNUAL_INCIDENCE record means "1-9 new cases per 100,000 per year"; on a CARRIER_FREQUENCY record it describes carriers, who do not have the disease at all. Never read, compare, aggregate, or render a band without reading `measure_type` alongside it. `rate_denominator` pins the denominator explicitly and should be preferred by consumers where present.
+The five numeric bands are aligned to the Orphanet prevalence classes, so Orphanet-sourced prevalence records (and the ICEES/ORPHA structured sources) map across directly; on a non-prevalence measure the same boundaries are read purely as magnitude.
+The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are each defined by a prevalence threshold and each presuppose that the source gave no numeric estimate. They are therefore INVALID on the two measures that are definitely not prevalence — ANNUAL_INCIDENCE and CARRIER_FREQUENCY — and should not sit alongside a populated `rate_per_100000`. They remain correct on the prevalence measures, on CASES_IN_LITERATURE, and on UNKNOWN, which is the ordinary prose-only case: a source that says only "rare" without naming its measure.
+When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.
     """
     GREATER_THAN_SIGN1_SOLIDUS_1000 = "ABOVE_1_IN_1000"
     """
-    More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+    More than 100 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet >1/1,000 prevalence class.
     """
     number_1_9_SOLIDUS_10000 = "BAND_1_5_PER_10000"
     """
-    1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.
+    10-99 per 100,000 (1-9 per 10,000), in whatever denominator `measure_type` specifies. Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.
     """
     number_1_9_SOLIDUS_100000 = "BAND_1_9_PER_100000"
     """
-    1 to 9 per 100,000. Orphanet class.
+    1-9 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/100,000 prevalence class.
     """
     number_1_9_SOLIDUS_1000000 = "BAND_1_9_PER_1000000"
     """
-    1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+    0.1-0.9 per 100,000 (1-9 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/1,000,000 prevalence class.
     """
     LESS_THAN_SIGN1_SOLIDUS_1000000 = "BELOW_1_IN_1000000"
     """
-    Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+    Fewer than 0.1 per 100,000 (less than 1 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet <1/1,000,000 prevalence class.
     """
     Common = "COMMON"
     """
-    Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively.
+    Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Rare = "RARE"
     """
-    Qualitative tier for disorders described as "rare" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+    Qualitative tier for disorders described as "rare" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000). Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Ultra_rare = "ULTRA_RARE"
     """
-    Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE.
+    Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Not_yet_documented = "NOT_YET_DOCUMENTED"
     """
-    Source states prevalence is not yet documented. Orphanet class.
+    Source states that the measure is not yet documented. Orphanet class; applies to whatever `measure_type` reports, not to prevalence alone.
     """
     Unknown = "UNKNOWN"
     """
-    Prevalence is unknown or not stated.
+    The magnitude is unknown or not stated for whatever `measure_type` reports.
+    """
+
+
+class RateDenominatorEnum(str, Enum):
+    """
+    What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of 5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has deliberately NO fallback — a published "annual incidence per 100,000" is usually computed against a mid-year population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one would silently assert a dimension for every legacy incidence record, none of which were migrated with denominator information. Treat an incidence record with no `rate_denominator` as undetermined, and set the slot explicitly on any incidence record you write. (Counts as of the decision are in design-decisions §8; they are deliberately not repeated here, since a schema description outlives any KB snapshot.)
+    """
+    Per_population = "POPULATION"
+    """
+    Whatever `measure_type` counts, per 100,000 people in the stated population — affected individuals for a prevalence, carriers for a carrier frequency. A dimensionless proportion; the denominator for point, period, and lifetime prevalence, and for carrier frequency.
+    """
+    Per_live_births = "LIVE_BIRTHS"
+    """
+    Whatever `measure_type` counts, per 100,000 live births (or births). A birth-cohort proportion, not a per-year rate; the denominator for birth prevalence and for predicted per-birth incidence catalogues.
+    """
+    Per_person_years = "PERSON_YEARS"
+    """
+    New cases per 100,000 person-years of observation. A true rate with dimension time^-1; never directly comparable with a prevalence proportion.
+    """
+    Per_population_per_year = "POPULATION_PER_YEAR"
+    """
+    New cases per 100,000 population per year, where the source reports an annual rate against a mid-period population rather than accumulated person-time. Distinguished from PERSON_YEARS because the two are only interchangeable when the population is stable over the interval.
     """
 
 
@@ -4373,6 +4475,10 @@ class DatasetTypeEnum(str, Enum):
     """
     Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)
     """
+    IMAGING = "IMAGING"
+    """
+    Image collection or image-derived morphometric dataset (e.g., micro-CT embryo phenotyping series, MRI cohorts, histology image repositories such as IMPC embryo imaging, IDR, or TCIA)
+    """
 
 
 class ExperimentalModelTypeEnum(str, Enum):
@@ -4458,6 +4564,78 @@ class ModelFidelityEnum(str, Enum):
     Unknown = "UNKNOWN"
     """
     Correspondence to the human mechanism has not been established. Prefer this over guessing a tier.
+    """
+
+
+class ModelDivergenceTypeEnum(str, Enum):
+    """
+    Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately computational-model-first; extending it to animal models would add supraphysiological expression and incomplete phenotype, each already evidenced in that set.
+    """
+    Boundary_omission = "BOUNDARY_OMISSION"
+    """
+    A component, cell type, compartment, or process the mechanism requires lies outside the model boundary. The commonest kind. Contrast PROXY_QUANTITY, where the thing is in the model but stands in for something else.
+    """
+    Proxy_quantity = "PROXY_QUANTITY"
+    """
+    The model's variable is a stand-in of a different quantity from the one the mechanism node describes -- transcriptional regulation of dopamine synthesis for striatal dopamine concentration, an imaging signal for the tissue property it correlates with. Can occur at the same biological scale, so it is not recoverable from `model_scale`.
+    """
+    Calibration_provenance = "CALIBRATION_PROVENANCE"
+    """
+    Parameters, training data, or validation derive from a system, cohort, or measurement type that does not match the claim -- fitted to cultured epithelia, parameterized from mouse fibroblasts, validated against aggregate rather than individual outcomes.
+    """
+    Cause_unrepresented = "CAUSE_UNREPRESENTED"
+    """
+    The disease lesion is not encoded; the mechanism is imposed phenomenologically instead of arising from the allele, exposure, or perturbation that causes it. Also covers a perturbation that cannot be applied in isolation.
+    """
+    Structural_idealization = "STRUCTURAL_IDEALIZATION"
+    """
+    Geometry, topology, or spatial organisation is idealized rather than anatomically or patient-derived -- a symmetric airway tree, a one-dimensional strand standing for a reconstructed outflow tract, spatially uniform fields.
+    """
+    Temporal_scope = "TEMPORAL_SCOPE"
+    """
+    The model's time horizon or dynamic resolution does not match the mechanism's: an acute-injury window standing for chronic progression, or a parameter-free qualitative model that reaches reachability but not magnitude or timing.
+    """
+    Contested_assumption = "CONTESTED_ASSUMPTION"
+    """
+    The model encodes a mechanistic assumption that independent or later evidence disputes, or that rests on a structure not experimentally known. Distinct from the other kinds in that the model may be internally sound and still wrong about the biology.
+    """
+    Scale_extrapolation = "SCALE_EXTRAPOLATION"
+    """
+    The model observes below the biological scale of the node it is cited for and infers the higher-scale outcome. Derivable from `model_scale` versus the target's `biological_scale`; record it explicitly when the curator wants to state why it matters here.
+    """
+    Species_mismatch = "SPECIES_MISMATCH"
+    """
+    The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat.
+    """
+    Population_mismatch = "POPULATION_MISMATCH"
+    """
+    The modelled cohort, subtype, or indication is not the one this entry describes -- a generic model standing for a genotype-defined disorder, or a cohort that mixes in cases outside the entry's molecular criteria.
+    """
+    Other = "OTHER"
+    """
+    A divergence that does not fit the values above. Requires a `description` that states the kind plainly, and is a signal the taxonomy may need a value.
+    """
+
+
+class ModelDivergenceMaterialityEnum(str, Enum):
+    """
+    Whether a specific divergence bears on the specific claim its link makes. This is what separates a caveat that undermines the claim from one that is real but beside the point, and it is deliberately per-divergence where `fidelity` is per-link. Recording it is what could eventually let `fidelity` be derived rather than authored. The per-divergence framing mirrors the risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where how much credibility evidence a model needs is set by its influence on the decision and the consequence of that decision being wrong, rather than by a single global quality score.
+    """
+    Invalidating = "INVALIDATING"
+    """
+    The claim should not be transferred to human disease on this model alone. Usually pairs with PARTIALLY_RECAPITULATE or FAILS_TO_RECAPITULATE and a low fidelity tier.
+    """
+    Qualifying = "QUALIFYING"
+    """
+    The claim holds, but in a narrower form than the link's `description` would suggest on its own. The commonest value.
+    """
+    Immaterial = "IMMATERIAL"
+    """
+    A real divergence that does not bear on this particular claim. Worth recording precisely because it stops a reader inferring that a known limitation of the model undermines this use of it.
+    """
+    Unknown = "UNKNOWN"
+    """
+    Bearing on the claim has not been assessed. Prefer this over guessing.
     """
 
 
@@ -4743,7 +4921,7 @@ class EnvironmentalEffectEnum(str, Enum):
 
 class ImagingModalityEnum(str, Enum):
     """
-    In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.
+    In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.
     """
     Magnetic_Resonance_Imaging = "MRI"
     """
@@ -4756,6 +4934,10 @@ class ImagingModalityEnum(str, Enum):
     Computed_Tomography = "CT"
     """
     X-ray computed tomography
+    """
+    Micro_Computed_Tomography = "MICRO_CT"
+    """
+    In-vivo X-ray computed tomography acquired at micrometer-scale voxel resolution, as used for live small-animal scanning and for high-resolution peripheral quantitative CT of human bone microarchitecture
     """
     Positron_Emission_Tomography = "PET"
     """
@@ -4981,13 +5163,17 @@ class TherapeuticModalityEnum(str, Enum):
     """
 
 
-class AsoMechanismEnum(str, Enum):
+class OligonucleotideMechanismEnum(str, Enum):
     """
-    Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+    Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation, and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched transcript.
     """
     RNase_H_knockdown = "RNASE_H_KNOCKDOWN"
     """
     ASO:RNA heteroduplex recruits RNase H1 to cleave the target mRNA, reducing a toxic or gain-of-function protein
+    """
+    RNAi_knockdown = "RNAI_KNOCKDOWN"
+    """
+    Double-stranded siRNA guide strand is loaded into RISC and Argonaute-2 catalytically cleaves the sequence-matched mRNA, reducing a toxic or gain-of-function protein (e.g., patisiran, vutrisiran, inclisiran)
     """
     Splice_modulation_LEFT_PARENTHESISexon_skippingRIGHT_PARENTHESIS = "SPLICE_MODULATION_EXON_SKIPPING"
     """
@@ -5007,9 +5193,9 @@ class AsoMechanismEnum(str, Enum):
     """
 
 
-class AsoChemistryEnum(str, Enum):
+class OligonucleotideChemistryEnum(str, Enum):
     """
-    Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.
+    Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity, and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should record the modification most characteristic of its design and describe the rest in the treatment description.
     """
     Phosphorothioate_backbone = "PHOSPHOROTHIOATE"
     """
@@ -5021,7 +5207,11 @@ class AsoChemistryEnum(str, Enum):
     """
     number_2APOSTROPHE_O_methyl = "TWO_PRIME_O_METHYL"
     """
-    2'-O-methyl (2'-OMe) ribose modification
+    2'-O-methyl (2'-OMe) ribose modification; the dominant sugar chemistry of stabilized siRNA duplexes
+    """
+    number_2APOSTROPHE_fluoro = "TWO_PRIME_FLUORO"
+    """
+    2'-fluoro (2'-F) ribose modification, alternated with 2'-O-methyl in enhanced-stabilization siRNA duplexes
     """
     number_2APOSTROPHE_O_methoxyethyl_LEFT_PARENTHESIS2APOSTROPHE_MOERIGHT_PARENTHESIS = "TWO_PRIME_O_METHOXYETHYL"
     """
@@ -5041,9 +5231,9 @@ class AsoChemistryEnum(str, Enum):
     """
 
 
-class AsoConjugationEnum(str, Enum):
+class OligonucleotideConjugationEnum(str, Enum):
     """
-    Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve pharmacokinetics.
+    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).
     """
     UNCONJUGATED = "UNCONJUGATED"
     """
@@ -5068,6 +5258,40 @@ class AsoConjugationEnum(str, Enum):
     OTHER = "OTHER"
     """
     Conjugate not covered by the above categories
+    """
+
+
+class OligonucleotideDeliveryPlatformEnum(str, Enum):
+    """
+    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.
+    """
+    Unformulated_SOLIDUS_free_uptake = "UNFORMULATED"
+    """
+    Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)
+    """
+    Ligand_conjugate = "CONJUGATE"
+    """
+    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)
+    """
+    Lipid_nanoparticle_LEFT_PARENTHESISLNPRIGHT_PARENTHESIS = "LIPID_NANOPARTICLE"
+    """
+    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)
+    """
+    POLYMER_NANOPARTICLE = "POLYMER_NANOPARTICLE"
+    """
+    Encapsulated in a polymeric or dendrimer nanoparticle
+    """
+    VIRAL_VECTOR = "VIRAL_VECTOR"
+    """
+    Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)
+    """
+    Exosome_SOLIDUS_extracellular_vesicle = "EXOSOME"
+    """
+    Delivered in an exosome or other extracellular vesicle
+    """
+    OTHER = "OTHER"
+    """
+    Delivery platform not covered by the above categories
     """
 
 
@@ -5617,7 +5841,11 @@ class ReferenceTagEnum(str, Enum):
     """
     GeneReviews = "GeneReviews"
     """
-    Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.
+    Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management. A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry (`just check-genereviews` reports whether one exists).
+    """
+    StatPearls = "StatPearls"
+    """
+    Reference is a StatPearls chapter published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK430685/). StatPearls is a point-of-care clinical reference spanning all of medicine, written by volunteer clinicians under a lighter editorial process than GeneReviews and framed as a continuing-education activity. A chapter is citable for orientation and its PubMed abstract is quotable, but it is not an expert-curated baseline: a StatPearls chapter never substitutes for a GeneReviews chapter, and its absence is never a gap.
     """
 
 
@@ -5710,6 +5938,7 @@ class Descriptor(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -5821,6 +6050,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -5892,6 +6122,7 @@ class CellTypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -5989,6 +6220,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6086,6 +6318,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6183,6 +6416,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6280,6 +6514,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6377,6 +6612,7 @@ class GeneDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6474,6 +6710,7 @@ class CellularComponentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6571,6 +6808,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6681,6 +6919,7 @@ class AssayDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6777,6 +7016,7 @@ class TriggerDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6873,6 +7113,7 @@ class DiseaseDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -6970,6 +7211,7 @@ class SubtypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7066,6 +7308,7 @@ class BiomarkerDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7162,6 +7405,7 @@ class GeneProductDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7267,6 +7511,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7368,6 +7613,7 @@ class ImagingFindingDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7480,6 +7726,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7576,6 +7823,7 @@ class PhenotypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7673,6 +7921,7 @@ class InheritanceDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7814,6 +8063,7 @@ class TreatmentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -7910,6 +8160,7 @@ class RegimenDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8011,6 +8262,7 @@ class ExposureDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8110,6 +8362,7 @@ class EnvironmentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8211,6 +8464,7 @@ class FoodDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8307,6 +8561,7 @@ class OrganismDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8382,7 +8637,14 @@ class HostDescriptor(OrganismDescriptor):
                       'or paratenic host'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -8402,6 +8664,7 @@ class HostDescriptor(OrganismDescriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8495,6 +8758,7 @@ class SampleTypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8604,6 +8868,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8873,6 +9138,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -8919,7 +9185,14 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ModuleCollection',
                        'ModuleCollectionMember'],
          'recommended': True} })
-    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
+    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'comments': ['On a Pathophysiology node, `variant_origin: SOMATIC` (or '
+                      'GERMLINE_AND_SOMATIC) additionally marks that node as where the '
+                      'transforming lesion occurred. For a neoplasm entry that makes '
+                      "it the origin node, and the disease's cell of origin is read "
+                      "from the same node's `cell_types` -- which is why there is no "
+                      '`cell_of_origin:` slot (design decisions 3d, '
+                      'docs/cancer-cell-of-origin.md).'],
+         'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
     sex: Optional[SexEnum] = Field(default=None, description="""Sex-specific stratum, if applicable""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Demographics']} })
     population: Optional[str] = Field(default=None, description="""Population or cohort description (e.g., for prevalence or association signals)""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'ReferenceRange',
@@ -9000,6 +9273,7 @@ class Dataset(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9078,6 +9352,7 @@ class Dataset(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9257,6 +9532,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9339,6 +9615,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9546,6 +9823,7 @@ class Experiment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9625,6 +9903,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9801,6 +10080,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -9891,6 +10171,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10096,6 +10377,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10186,6 +10468,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10358,6 +10641,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10414,6 +10698,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10628,6 +10913,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10692,6 +10978,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10888,6 +11175,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -10968,6 +11256,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11147,6 +11436,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11350,6 +11640,7 @@ class ModelVariableDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11501,6 +11792,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11557,6 +11849,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11727,6 +12020,7 @@ class Subtype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11781,6 +12075,7 @@ class Subtype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -11891,6 +12186,17 @@ class EvidenceItem(ConfiguredBaseModel):
          'exact_mappings': ['sepio:directionOfEvidenceProvided'],
          'examples': [{'value': 'SUPPORT'}]} })
     directness: Optional[DirectnessEnum] = Field(default=None, description="""How directly the quoted text bears on the claim. Optional: absent means no one has assessed it, which is the state of most of the knowledge base.""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'], 'examples': [{'value': 'DIRECT'}]} })
+    quote_role: Optional[QuoteRoleEnum] = Field(default=None, description="""Where the quoted sentence sits in the cited publication's own argument -- a result that publication produced, background it restates from elsewhere, or its synthesis of a literature. Optional: absent means no one has assessed it, which is the state of most of the knowledge base.""", json_schema_extra = { "linkml_meta": {'comments': ['Records provenance of the *finding*, where `reference` records '
+                      'provenance of the *sentence*. Those are different objects, and '
+                      'the model represented them identically until issue #10262.',
+                      'Judge it from the quoted text and the cached reference body, '
+                      "never from the reference's MeSH terms or publication type "
+                      'alone: a human cohort study has an introduction too, and an '
+                      'animal study can report a patient series. `just '
+                      'list-background-citations` builds the worklist; the call stays '
+                      "a curator's."],
+         'domain_of': ['EvidenceItem'],
+         'examples': [{'value': 'BACKGROUND'}]} })
     evidence_source: Optional[EvidenceSourceEnum] = Field(default=None, description="""Origin of the evidence item (human clinical, model organism, in vitro, or computational)""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem'], 'recommended': False} })
     snippet: Optional[str] = Field(default=None, description="""An exact excerpt/quote from the referenced publication that supports or refutes the claim""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the '
                       'linkml-reference-validator tool.'],
@@ -11960,6 +12266,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12014,6 +12321,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12114,6 +12422,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12168,6 +12477,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12278,6 +12588,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12332,6 +12643,170 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+
+
+class ModelDivergence(ConfiguredBaseModel):
+    """
+    One typed way in which a model departs from the mechanism node it is linked to, with the curator's explanation of why that gap applies to this particular claim.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['The point of the type is queryability -- "which models are '
+                      'limited by calibration provenance rather than by species" is '
+                      'not answerable against a prose `limitations` string. The point '
+                      'of the required `description` is that the type alone is never '
+                      'the argument: BOUNDARY_OMISSION says a component is missing, '
+                      'not which one or why it matters here.',
+                      'Orthogonal to `relationship` and `fidelity`. A link can be '
+                      'RECAPITULATES with several QUALIFYING divergences, or '
+                      'PARTIALLY_RECAPITULATES for a reason that is not a divergence '
+                      'in this taxonomy at all.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'see_also': ['PMID:32993675',
+                      'https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices',
+                      'https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions'],
+         'slot_usage': {'description': {'description': 'Why this kind of divergence '
+                                                       'applies to this link, in '
+                                                       'specific terms -- which '
+                                                       'component is outside the '
+                                                       'boundary, which quantity is '
+                                                       'standing in for which, which '
+                                                       'cohort the calibration came '
+                                                       'from. Never a restatement of '
+                                                       'the enum value.',
+                                        'name': 'description',
+                                        'required': True},
+                        'divergence_type': {'name': 'divergence_type',
+                                            'required': True},
+                        'evidence': {'description': 'Optional citation for the '
+                                                    'divergence itself, when it is a '
+                                                    'published finding rather than a '
+                                                    "reading of the model's own scope "
+                                                    '-- a later study displacing an '
+                                                    'assumption the model encodes, for '
+                                                    'instance.',
+                                     'name': 'evidence'}}})
+
+    divergence_type: ModelDivergenceTypeEnum = Field(default=..., description="""Kind of departure between the model and the mechanism it is linked to""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelDivergence']} })
+    description: str = Field(default=..., description="""Why this kind of divergence applies to this link, in specific terms -- which component is outside the boundary, which quantity is standing in for which, which cohort the calibration came from. Never a restatement of the enum value.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    materiality: Optional[ModelDivergenceMaterialityEnum] = Field(default=None, description="""Whether this specific divergence bears on the specific claim the link makes. Per-divergence, where `fidelity` is per-link.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelDivergence']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Optional citation for the divergence itself, when it is a published finding rather than a reading of the model's own scope -- a later study displacing an assumption the model encodes, for instance.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12393,8 +12868,30 @@ class ModelMechanismLink(ConfiguredBaseModel):
                       'mechanism nodes.',
                       'A FAILS_TO_RECAPITULATE link is a substantive negative claim '
                       'and should carry both `limitations` and `evidence`; it usually '
-                      'pairs with a HUMAN_MODEL_MISMATCH discussion.'],
+                      'pairs with a HUMAN_MODEL_MISMATCH discussion.',
+                      'A link is a *context-of-use* statement in the sense of the '
+                      'model-credibility literature: it asserts that this model is '
+                      'informative for this specific mechanism, which is a narrower '
+                      'and more checkable claim than "this model is good". '
+                      '`divergences` is the corresponding applicability analysis. The '
+                      'framing is borrowed from ASME V&V 40 and the FDA credibility '
+                      'guidance (both written for medical-device submissions) and from '
+                      'the healthcare-wide ten rules of credible practice, whose rule '
+                      '1 is "define context clearly" and rule 4 "list limitations '
+                      'explicitly".',
+                      '`model_scale` records the scale the model observes, against '
+                      "which the target node's own `biological_scale` can be compared. "
+                      'The comparison is directional and the two directions mean '
+                      "different things: a model BELOW its target's scale is "
+                      'extrapolating upward — it cannot observe the outcome it is '
+                      "cited for — whereas a model ABOVE its target's scale contains "
+                      'that scale and is normally unremarkable (a whole animal can '
+                      'report a molecular readout). Do not store the comparison; '
+                      'derive it.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'see_also': ['PMID:32993675',
+                      'https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices',
+                      'https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions'],
          'slot_usage': {'description': {'description': 'Brief assertion-level note '
                                                        'describing what facet of the '
                                                        'linked mechanism the model '
@@ -12463,6 +12960,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12513,6 +13011,28 @@ class ModelMechanismLink(ConfiguredBaseModel):
          'domain_of': ['Experiment', 'ModelMechanismLink', 'Biochemical']} })
     fidelity: Optional[ModelFidelityEnum] = Field(default=None, description="""Curator assessment of how faithfully this model captures the linked human mechanism. A translational-validity caveat, not a metric.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelMechanismLink']} })
     limitations: Optional[str] = Field(default=None, description="""Specific caveats on transferring findings from this model to the human mechanism: species divergence, supraphysiological expression, absent cell types, missing immune or vascular compartments, and similar.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelMechanismLink']} })
+    model_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale at which this model actually represents or measures the linked target — molecular, cellular, tissue/organ, or organism. Records what the model *observes*, which is not always the scale of the mechanism it is cited for: a signalling-network model whose output node is named for a tissue-level outcome still observes only molecular state. Compared against the target node's own `biological_scale`, this makes the scale gap computable rather than leaving it buried in `limitations` prose. Reuses BiologicalScaleEnum so the two are directly comparable.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelMechanismLink'],
+         'examples': [{'description': 'A Boolean signalling network linked to an '
+                                      'ORGANISM-scale node — the model observes '
+                                      'molecular state and infers the organism-scale '
+                                      'outcome.',
+                       'value': 'MOLECULAR'},
+                      {'description': 'A whole-animal model linked to a MOLECULAR node '
+                                      '— the model contains the target scale, so no '
+                                      'extrapolation is involved.',
+                       'value': 'ORGANISM'}]} })
+    divergences: Optional[list[ModelDivergence]] = Field(default=None, description="""Typed, individually explained ways in which this model departs from the mechanism it is linked to. The structured counterpart of the free-text `limitations` summary: each entry names a kind from a fixed taxonomy, says in the curator's own words why that kind of gap applies *here*, and optionally records whether it bears on this link's claim. Multivalued because a real caveat is usually several kinds at once.""", json_schema_extra = { "linkml_meta": {'comments': ['Complements `relationship` and `fidelity` rather than replacing '
+                      'them -- those say what the model does and how well, this says '
+                      'in what specific respects it falls short',
+                      'A SCALE_EXTRAPOLATION divergence should agree with the '
+                      '`model_scale` comparison; `just model-scale-audit` cross-checks '
+                      'the two',
+                      'This slot is the structured form of rule 4 of the ten rules of '
+                      'credible practice in healthcare modeling ("list limitations '
+                      'explicitly"); typing the list rather than writing it as prose '
+                      'is the only change dismech makes to that rule.'],
+         'domain_of': ['ModelMechanismLink'],
+         'see_also': ['PMID:32993675']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that this model is informative for the linked mechanism""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12527,6 +13047,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12663,6 +13184,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12717,6 +13239,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12845,6 +13368,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -12899,6 +13423,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13188,6 +13713,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13386,6 +13912,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13558,6 +14085,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13688,6 +14216,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13784,7 +14313,7 @@ class PublicationReference(ConfiguredBaseModel):
          'implements': ['linkml:title'],
          'recommended': True} })
     found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
-    tags: Optional[list[ReferenceTagEnum]] = Field(default=None, description="""Authoritative-source tags for a reference (e.g. GeneReviews). Populated programmatically by scripts/tag_references.py; use `just tag-references` to refresh.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
+    tags: Optional[list[ReferenceTagEnum]] = Field(default=None, description="""Authoritative-source tags for a reference (e.g. GeneReviews). Populated programmatically by scripts/tag_references.py, which decides membership from the committed Bookshelf index (`cache/bookshelf/`); use `just tag-references` to refresh.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'ExperimentalModel',
                        'ComputationalModel',
@@ -13861,6 +14390,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -13915,6 +14445,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14138,6 +14669,7 @@ class Finding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14209,6 +14741,9 @@ class Prevalence(ConfiguredBaseModel):
     rate_per_100000: Optional[float] = Field(default=None, description="""Normalized point estimate of occurrence expressed as cases per 100,000, for machine comparison across records. Convert from any source notation (% -> x1000; \"per million\" -> /10; \"1 in N\" -> 100000/N). Leave absent for band-only or qualitative records; use rate_low/rate_high for ranges.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '0.82'}]} })
     rate_low: Optional[float] = Field(default=None, description="""Lower bound of the occurrence rate per 100,000 when the source gives a range or a band.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '1.0'}]} })
     rate_high: Optional[float] = Field(default=None, description="""Upper bound of the occurrence rate per 100,000 when the source gives a range or a band.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '9.0'}]} })
+    rate_denominator: Optional[RateDenominatorEnum] = Field(default=None, description="""What `rate_per_100000` (and rate_low/rate_high) is a rate *of*. Makes the dimension of the rate explicit so a prevalence proportion is never silently compared with an incidence rate.
+ALWAYS set this on an `ANNUAL_INCIDENCE` record: that measure has no implied denominator, because per-population-per-year and per-person-year are both common and are interchangeable only when the population is stable. An incidence record without this slot is undetermined, not defaulted.
+Optional elsewhere: a record that omits it falls back to the denominator implied by `measure_type` — POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE (see RateDenominatorEnum). Populate it anyway whenever the source's denominator differs from that fallback, or whenever the record is intended for cross-record comparison.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': 'LIVE_BIRTHS'}]} })
     percentage: Optional[Union[float, int, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'float'},
                     {'range': 'integer'},
                     {'description': 'for ranges', 'range': 'string'}],
@@ -14234,6 +14769,7 @@ class Prevalence(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14369,6 +14905,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14507,6 +15044,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14669,6 +15207,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14835,6 +15374,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -14958,6 +15498,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15067,6 +15608,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15124,6 +15666,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15185,7 +15728,14 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Stage',
                        'Treatment'],
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     conforms_to: Optional[str] = Field(default=None, description="""Reference to a mechanism module that this pathophysiology node is an organ-specific instance of. Value is a path relative to kb/modules/ (e.g., \"fibrotic_response\") plus an optional node name after a hash (e.g., \"fibrotic_response#Mesenchymal Cell Activation\"). Used for cross-disorder consistency checking: if a node declares conformance, it should include the expected cell types, biological processes, and causal edges defined in the referenced module node.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -15309,7 +15859,14 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ImagingFinding',
                        'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
-    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
+    genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'comments': ['On a Pathophysiology node, `variant_origin: SOMATIC` (or '
+                      'GERMLINE_AND_SOMATIC) additionally marks that node as where the '
+                      'transforming lesion occurred. For a neoplasm entry that makes '
+                      "it the origin node, and the disease's cell of origin is read "
+                      "from the same node's `cell_types` -- which is why there is no "
+                      '`cell_of_origin:` slot (design decisions 3d, '
+                      'docs/cancer-cell-of-origin.md).'],
+         'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
     pdb_structures: Optional[list[ProteinStructure]] = Field(default=None, description="""Experimental or predicted 3D protein structures relevant to this treatment's mechanism of action. Typically co-crystal structures of the drug bound to its target protein, or AlphaFold predictions of the drug target.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Treatment']} })
     mechanism_confidence: Optional[MechanismConfidenceEnum] = Field(default=None, description="""Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     biological_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale of the substrate this pathophysiology node primarily describes — molecular, cellular, tissue/organ, or organism. Optional tag; each value covers both ongoing processes and persistent states at that scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
@@ -15394,6 +15951,7 @@ class Phenotype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15452,6 +16010,7 @@ class Phenotype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15682,6 +16241,7 @@ class Biochemical(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15933,6 +16493,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -15997,6 +16558,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16225,6 +16787,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16303,6 +16866,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16487,6 +17051,7 @@ class Genetic(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16702,6 +17267,7 @@ class Environmental(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16822,6 +17388,7 @@ class Environmental(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -16987,6 +17554,7 @@ class Disease(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17253,6 +17821,7 @@ class Stage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17307,6 +17876,7 @@ class Stage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17431,7 +18001,14 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Genetic',
@@ -17463,6 +18040,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17523,6 +18101,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17711,6 +18290,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17765,6 +18345,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -17954,6 +18535,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18025,6 +18607,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18232,6 +18815,7 @@ class Treatment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18276,7 +18860,14 @@ class Treatment(ConfiguredBaseModel):
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     therapeutic_modality: Optional[TherapeuticModalityEnum] = Field(default=None, description="""Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
-    aso_details: Optional[AntisenseOligonucleotideDetail] = Field(default=None, description="""Structured detail specific to antisense oligonucleotide treatments. Populate only when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    oligonucleotide_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Structured detail specific to nucleic-acid treatments that act by base-pairing with a target RNA. Populate when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    aso_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Deprecated alias of oligonucleotide_details, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_details, which covers siRNA as well '
+                       'as antisense oligonucleotides. Existing entries carrying '
+                       'aso_details remain valid; do not populate it on new '
+                       'treatments.',
+         'domain_of': ['Treatment']} })
+    dosing_interval: Optional[str] = Field(default=None, description="""Human-readable maintenance dosing interval as stated by the label or trial (e.g., \"once every 3 weeks\", \"twice yearly\"). Record loading or induction doses in the treatment description rather than here.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    dosing_interval_days: Optional[float] = Field(default=None, description="""The maintenance dosing interval normalized to days, so treatments are comparable across entries (3 weeks = 21; monthly = 30; quarterly = 90; twice yearly = 182.5). Populate alongside dosing_interval, which keeps the source phrasing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
                       'phenotypes list',
                       'Enables linking treatments/trials to the '
@@ -18312,6 +18903,7 @@ class Treatment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18436,7 +19028,14 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+                      'an initiating-sounding role does NOT identify the cell of '
+                      'origin: that derivation reads `genetic_context.variant_origin: '
+                      'SOMATIC` on the lesion node, or an `environmental_effect: '
+                      'TRIGGERS` link for non-mutational initiation (design decisions '
+                      '3d). An earlier version did read this slot and mis-fired. See '
+                      'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
+         'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
     mechanism: Optional[list[Mechanism]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -18447,18 +19046,24 @@ class Treatment(ConfiguredBaseModel):
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
 
 
-class AntisenseOligonucleotideDetail(ConfiguredBaseModel):
+class OligonucleotideDetail(ConfiguredBaseModel):
     """
-    Structured attributes specific to an antisense oligonucleotide (ASO) treatment: its molecular mechanism, RNA target, splice exon (for splice-switching ASOs), backbone chemistry, and targeting conjugate. Attach via the aso_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate, and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the same target, chemistry, and delivery attributes.
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'aliases': ['AntisenseOligonucleotideDetail'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    aso_mechanism: Optional[AsoMechanismEnum] = Field(default=None, description="""Molecular mechanism of action of an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_gene: Optional[GeneDescriptor] = Field(default=None, description="""The gene whose transcript an antisense oligonucleotide targets (bindable to HGNC).""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by an antisense oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    aso_chemistry: Optional[AsoChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
-    conjugation: Optional[AsoConjugationEnum] = Field(default=None, description="""Targeting ligand or conjugate attached to an antisense oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['AntisenseOligonucleotideDetail']} })
+    oligonucleotide_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Molecular mechanism of action of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_gene: Optional[GeneDescriptor] = Field(default=None, description="""The gene whose transcript a therapeutic oligonucleotide targets (bindable to HGNC).""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by a therapeutic oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\"). Not applicable to siRNA, which acts on mature mRNA rather than on splicing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    oligonucleotide_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    conjugation: Optional[OligonucleotideConjugationEnum] = Field(default=None, description="""Targeting ligand covalently attached to a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    delivery_platform: Optional[OligonucleotideDeliveryPlatformEnum] = Field(default=None, description="""How the oligonucleotide is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation: an unconjugated oligonucleotide may still be delivered in a nanoparticle.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    aso_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_mechanism.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_mechanism.',
+         'domain_of': ['OligonucleotideDetail']} })
+    aso_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_chemistry.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_chemistry.',
+         'domain_of': ['OligonucleotideDetail']} })
 
 
 class InfectiousAgent(ConfiguredBaseModel):
@@ -18521,6 +19126,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18584,6 +19190,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18688,6 +19295,7 @@ class Transmission(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18742,6 +19350,7 @@ class Transmission(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -18910,6 +19519,7 @@ class Assay(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19017,6 +19627,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19140,6 +19751,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19246,6 +19858,7 @@ class Inheritance(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19309,6 +19922,7 @@ class Inheritance(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19415,6 +20029,7 @@ class Variant(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19476,6 +20091,7 @@ class Variant(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19561,6 +20177,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19670,6 +20287,7 @@ class Mechanism(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19773,6 +20391,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19827,6 +20446,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -19895,6 +20515,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20041,6 +20662,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20187,6 +20809,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20333,6 +20956,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20479,6 +21103,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20625,6 +21250,7 @@ class IUISAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20771,6 +21397,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -20917,6 +21544,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21063,6 +21691,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21209,6 +21838,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21355,6 +21985,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21501,6 +22132,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21647,6 +22279,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21793,6 +22426,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -21939,6 +22573,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22085,6 +22720,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22231,6 +22867,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22377,6 +23014,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22523,6 +23161,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22750,6 +23389,7 @@ class Definition(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22809,6 +23449,7 @@ class Definition(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -22950,6 +23591,7 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -23063,6 +23705,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -23125,6 +23768,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -23254,6 +23898,7 @@ class CriteriaItem(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -23846,6 +24491,7 @@ class ConditionDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24125,6 +24771,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24337,6 +24984,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24466,6 +25114,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24549,6 +25198,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24603,6 +25253,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24676,6 +25327,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24730,6 +25382,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24814,6 +25467,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -24869,6 +25523,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25012,6 +25667,7 @@ class Discussion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25192,6 +25848,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25379,6 +26036,7 @@ class Grouping(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25526,6 +26184,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25582,6 +26241,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25713,6 +26373,7 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25811,6 +26472,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -25943,6 +26605,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26020,6 +26683,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26208,6 +26872,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26265,6 +26930,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26416,6 +27082,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26470,6 +27137,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout',
@@ -26631,6 +27299,7 @@ EvidenceItem.model_rebuild()
 CausalEdge.model_rebuild()
 TreatmentMechanismTarget.model_rebuild()
 EnvironmentalMechanismTarget.model_rebuild()
+ModelDivergence.model_rebuild()
 ModelMechanismLink.model_rebuild()
 BiomarkerReadout.model_rebuild()
 PhenotypeReadout.model_rebuild()
@@ -26661,7 +27330,7 @@ AgentLifeCycle.model_rebuild()
 AgentLifeCycleStage.model_rebuild()
 AnimalModel.model_rebuild()
 Treatment.model_rebuild()
-AntisenseOligonucleotideDetail.model_rebuild()
+OligonucleotideDetail.model_rebuild()
 InfectiousAgent.model_rebuild()
 Transmission.model_rebuild()
 Assay.model_rebuild()
