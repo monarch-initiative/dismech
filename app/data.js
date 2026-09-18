@@ -9585,6 +9585,105 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Action Myoclonus-Renal Failure Syndrome",
+    "disease_id": "MONDO:0009699",
+    "category": "Mendelian",
+    "parents": [
+      "Progressive Myoclonus Epilepsy",
+      "Lysosomal Storage Disease"
+    ],
+    "creation_date": "2026-09-16T20:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Action myoclonus-renal failure syndrome (AMRF) is an autosomal recessive lysosomal disorder caused by biallelic loss-of-function variants in SCARB2, which encodes the lysosomal integral membrane protein type 2 (LIMP-2). LIMP-2 is the mannose-6-phosphate-independent sorting receptor that carries beta-glucocerebrosidase (GCase) from the endoplasmic reticulum to the lysosome. When LIMP-2 is absent or retained in the ER, GCase never reaches the lysosome and is degraded, so the disease is a trafficking failure of a lysosomal enzyme rather than a defect in the enzyme itself. The clinical picture combines a progressive myoclonic epilepsy - adolescent or young-adult onset action myoclonus of cortical origin, ataxia, and seizures, characteristically without early dementia - with steroid-resistant nephrotic syndrome progressing to focal segmental glomerulosclerosis and end-stage kidney disease. The two organ manifestations progress independently, and some individuals with biallelic SCARB2 variants develop progressive myoclonus epilepsy with no renal involvement at all; that form sits at one end of the same spectrum rather than being a separate disease. Disease progresses relentlessly to death within roughly 7 to 15 years of onset.\n",
+    "pathophysiology": [
+      "LIMP-2 Loss of Function",
+      "Failure of Beta-Glucocerebrosidase Lysosomal Targeting",
+      "Reduced Lysosomal Glucocerebrosidase Activity",
+      "Neuronal Lysosomal Storage and Intracellular Inclusions",
+      "Cortical Hyperexcitability and Cerebellar Degeneration",
+      "Podocyte Injury and Glomerular Collapse"
+    ],
+    "cell_types": [
+      "cortical and cerebellar neuron",
+      "cerebellar Purkinje cell",
+      "glomerular podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000121",
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "LIMP-2-mediated sorting of beta-glucocerebrosidase",
+      "glucosylceramide catabolism in the lysosome"
+    ],
+    "phenotypes": [
+      "Tremor",
+      "Action myoclonus",
+      "Postural tremor-like rhythmic myoclonus",
+      "Progressive cerebellar ataxia",
+      "Generalized tonic-clonic seizures",
+      "Photosensitivity",
+      "Relative preservation of cognition",
+      "Dysphagia",
+      "Steroid-resistant nephrotic syndrome",
+      "Proteinuria",
+      "Focal segmental glomerulosclerosis",
+      "End-stage kidney disease",
+      "Peripheral neuropathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001337",
+      "HP:0034360",
+      "HP:0002174",
+      "HP:0002073",
+      "HP:0002069",
+      "HP:0007207",
+      "HP:0100543",
+      "HP:0002015",
+      "HP:0012588",
+      "HP:0000093",
+      "HP:0000097",
+      "HP:0003774",
+      "HP:0009830"
+    ],
+    "frequencies": [
+      "15/15"
+    ],
+    "genes": [
+      "SCARB2"
+    ],
+    "treatments": [
+      "Substrate Reduction Therapy (Miglustat)",
+      "Anti-Myoclonic and Anti-Seizure Pharmacotherapy",
+      "Vagus Nerve Stimulation",
+      "Renin-Angiotensin-Aldosterone Inhibition and Immunosuppression for Proteinuria",
+      "Dialysis and Renal Transplantation",
+      "Rehabilitation and Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Action_Myoclonus-Renal_Failure_Syndrome.yaml",
+    "page_url": "../pages/disorders/Action_Myoclonus-Renal_Failure_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Activated PI3K-delta syndrome",
     "disease_id": "MONDO:0018338",
     "category": "Mendelian",
@@ -313155,17 +313254,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3010,
+  "total_disorder_pages": 3011,
   "total_subtypes": 3766,
-  "total_disorders_and_subtypes": 6776,
-  "total_unique_evidence_sources": 42743,
-  "total_unique_publications": 40348,
+  "total_disorders_and_subtypes": 6777,
+  "total_unique_evidence_sources": 42759,
+  "total_unique_publications": 40364,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3005,
-  "total_unique_pathological_events": 18244,
+  "total_pathographs": 3006,
+  "total_unique_pathological_events": 18250,
   "total_modules": 177,
-  "total_research_reports": 3127,
+  "total_research_reports": 3128,
   "total_classifications": 19,
   "total_comorbidities": 32,
   "total_groupings": 102
