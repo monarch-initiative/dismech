@@ -362,9 +362,16 @@ def census_all_caches(root: Path) -> tuple[dict[str, tuple[int, int]], set[str]]
 def find_at_risk_snippets(root: Path, volatile: set[str]) -> list[tuple[str, str, str]]:
     """Find KB evidence snippets that quote a token a parser fix would rewrite.
 
-    Scans every ``evidence`` item anywhere in the KB — not only prevalence and
-    epidemiology — because the volatile text is cache content and any section
-    may quote it.
+    Scans every ``evidence`` item in the entry, not only ``prevalence`` and
+    ``epidemiology``, because the volatile text is cache content and any
+    section may quote it.
+
+    Coverage is ``_KB_GLOBS`` — ``kb/disorders``, ``kb/modules`` and
+    ``kb/comorbidities`` — which is where the entry classes carrying
+    ``EvidenceItem`` snippets live, not all eight ``kb/`` subtrees. No
+    volatile token is quoted outside those three today, so the gap is latent
+    rather than a live miss; widen ``_KB_GLOBS`` if a future entry class
+    starts carrying snippets.
     """
     if not volatile:
         return []

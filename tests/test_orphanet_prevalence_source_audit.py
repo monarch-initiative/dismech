@@ -235,10 +235,33 @@ def test_report_is_deterministic(real_audit) -> None:
 
 
 def test_committed_report_is_current(real_audit) -> None:
-    """`just orphanet-prevalence-source-audit` output is committed and fresh."""
+    """Advisory only: a stale report can under-report, never hide a defect (#8434).
+
+    The report's input is the live KB -- 157 `kb/disorders/*.yaml` files and all
+    344 `references_cache/ORPHA_*.md` files -- so any curation PR that edits an
+    ORPHA-sourced prevalence record, or adds an ORPHA cache file, makes it stale.
+
+    Asserting currency here would land that bill on the wrong author. This test
+    carries no `kb_data` marker, so it runs under `just test-python-code`, which
+    `.github/workflows/main.yaml` gates on a path filter covering `src/**`,
+    `tests/**/*.py`, `pyproject.toml`, `uv.lock`, `justfile` and
+    `project.justfile` -- no `kb/**` and no `references_cache/**`. The curation
+    PR that invalidates the report therefore never runs this test and merges
+    green; the red build arrives on the next unrelated `src/` or `tests/` PR.
+
+    The repo has already been burned by exactly this pattern and removed it in
+    #8434 -- see `tests/test_title_snippets.py` for the postmortem, where #8334
+    and #8346 each correctly fixed a snippet, neither regenerated the baseline,
+    and a dependency bump paid for it.
+
+    So this skips rather than fails. `test_report_is_deterministic` above is the
+    real guard on the generator and is pure, with no KB coupling.
+    """
     report = _REPO_ROOT / "research" / "orphanet_prevalence_source_audit.md"
     assert report.exists(), "run `just orphanet-prevalence-source-audit`"
-    assert report.read_text(encoding="utf-8") == audit_mod.render_markdown(real_audit), (
-        "research/orphanet_prevalence_source_audit.md is stale -- regenerate it "
-        "with `just orphanet-prevalence-source-audit`"
-    )
+    if report.read_text(encoding="utf-8") != audit_mod.render_markdown(real_audit):
+        pytest.skip(
+            "research/orphanet_prevalence_source_audit.md is stale -- the KB moved "
+            "under it. Harmless; regenerate with "
+            "`just orphanet-prevalence-source-audit`."
+        )

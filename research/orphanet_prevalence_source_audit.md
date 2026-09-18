@@ -44,12 +44,12 @@ statuses that want a human.
 
 | | Count |
 |---|---:|
-| Records carrying `ORPHA:` evidence | 225 |
-| `ORPHA:` evidence items on those records | 243 |
-| Recited tokens resolved from cache rows | 273 |
-| Distinct publications a backfill would introduce | 120 |
-| Tokens that must never be promoted | 114 |
-| Evidence items citing Orphanet prose, not a row | 14 |
+| Records carrying `ORPHA:` evidence | 228 |
+| `ORPHA:` evidence items on those records | 246 |
+| Recited tokens resolved from cache rows | 275 |
+| Distinct publications a backfill would introduce | 121 |
+| Tokens that must never be promoted | 115 |
+| Evidence items citing Orphanet prose, not a row | 15 |
 | Snippets needing review (`UNMATCHED`/`AMBIGUOUS`) | 0 |
 | `ORPHA:` ids with no cache file | 0 |
 
@@ -57,11 +57,11 @@ statuses that want a human.
 
 | Class | Tokens | Distinct | Already direct evidence |
 |---|---:|---:|---:|
-| `PMID_CANDIDATE` | 158 | 148 | 31 |
+| `PMID_CANDIDATE` | 159 | 147 | 30 |
 | `YEAR_SUSPECT` | 12 | 7 | 0 |
 | `ISBN_SUSPECT` | 2 | 2 | 0 |
 | `STRANDED_PMID` | 1 | 1 | 0 |
-| `MARKER` | 100 | 5 | 0 |
+| `MARKER` | 101 | 5 | 0 |
 
 ## Flagged tokens (never auto-promote)
 
@@ -89,7 +89,7 @@ The table above counts only rows a KB record cites. This one classifies every So
 
 | Class | Tokens | Distinct |
 |---|---:|---:|
-| `PMID_CANDIDATE` | 1298 | 641 |
+| `PMID_CANDIDATE` | 1299 | 642 |
 | `YEAR_SUSPECT` | 76 | 16 |
 | `ISBN_SUSPECT` | 4 | 4 |
 | `SHORT_SUSPECT` | 3 | 2 |
@@ -128,6 +128,7 @@ Each snippet below quotes a cache token that a tag-honouring parser necessarily 
 | `kb/disorders/Fanconi_Anemia.yaml` | ORPHA:84 | `NON_EPI_QUOTE` |
 | `kb/disorders/Hemochromatosis.yaml` | ORPHA:139498 | `NON_EPI_QUOTE` |
 | `kb/disorders/Liddle_Syndrome.yaml` | ORPHA:526 | `NON_EPI_QUOTE` |
+| `kb/disorders/MHC_Class_II_Deficiency.yaml` | ORPHA:572 | `NON_EPI_QUOTE` |
 | `kb/disorders/Multiple_Sclerosis.yaml` | ORPHA:802 | `NON_EPI_QUOTE` |
 | `kb/disorders/Myopathy_Lactic_Acidosis_and_Sideroblastic_Anemia.yaml` | ORPHA:2598 | `NON_EPI_QUOTE` |
 | `kb/disorders/Neuromyelitis_Optica.yaml` | ORPHA:71211 | `NON_EPI_QUOTE` |
@@ -234,7 +235,7 @@ Each snippet below quotes a cache token that a tag-honouring parser necessarily 
 | `kb/disorders/Cerebrotendinous_Xanthomatosis.yaml` | prevalence | 0 | ORPHA:909 | `PMID:16157755` | `PMID_CANDIDATE` | - | - |
 | `kb/disorders/Cherubism.yaml` | prevalence | 0 | ORPHA:184 | `ORPHANET` | `MARKER` | - | - |
 | `kb/disorders/Cockayne_Syndrome.yaml` | prevalence | 1 | ORPHA:191 | `PMID:18329345` | `PMID_CANDIDATE` | yes | yes |
-| `kb/disorders/Cornelia_de_Lange_Syndrome.yaml` | prevalence | 0 | ORPHA:199 | `PMID:18074387` | `PMID_CANDIDATE` | - | - |
+| `kb/disorders/Cornelia_de_Lange_Syndrome.yaml` | prevalence | 0 | ORPHA:199 | `PMID:18074387` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Cystic_Fibrosis.yaml` | prevalence | 3 | ORPHA:586 | `ORPHANET` | `MARKER` | - | - |
 | `kb/disorders/Cystic_Fibrosis.yaml` | prevalence | 4 | ORPHA:586 | `ORPHANET` | `MARKER` | - | - |
 | `kb/disorders/Cystinuria.yaml` | prevalence | 0 | ORPHA:214 | `EXPERT` | `MARKER` | - | - |
@@ -250,6 +251,7 @@ Each snippet below quotes a cache token that a tag-honouring parser necessarily 
 | `kb/disorders/Duchenne_Muscular_Dystrophy.yaml` | prevalence | 2 | ORPHA:98896 | `PMID:32503598` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Duchenne_Muscular_Dystrophy.yaml` | prevalence | 3 | ORPHA:98896 | `PMID:32503598` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Dyskeratosis_Congenita.yaml` | prevalence | 0 | ORPHA:1775 | `EXPERT` | `MARKER` | - | - |
+| `kb/disorders/EYS_Related_Retinitis_Pigmentosa.yaml` | prevalence | 0 | ORPHA:791 | `EXPERT` | `MARKER` | - | - |
 | `kb/disorders/Ehlers-Danlos_Syndrome.yaml` | prevalence | 1 | ORPHA:287 | `EXPERT` | `MARKER` | - | - |
 | `kb/disorders/Ehlers-Danlos_Syndrome.yaml` | prevalence | 1 | ORPHA:287 | `PMID:20301422` | `PMID_CANDIDATE` | - | - |
 | `kb/disorders/Ehlers-Danlos_Syndrome.yaml` | prevalence | 1 | ORPHA:287 | `PMID:20847697` | `PMID_CANDIDATE` | - | yes |
@@ -367,7 +369,7 @@ Each snippet below quotes a cache token that a tag-honouring parser necessarily 
 | `kb/disorders/Prader-Willi_Syndrome.yaml` | prevalence | 3 | ORPHA:739 | `PMID:8579217` | `PMID_CANDIDATE` | yes | yes |
 | `kb/disorders/Prader-Willi_Syndrome.yaml` | prevalence | 4 | ORPHA:739 | `PMID:2240051` | `PMID_CANDIDATE` | yes | yes |
 | `kb/disorders/Primary_Ciliary_Dyskinesia.yaml` | prevalence | 0 | ORPHA:244 | `PMID:23871404` | `PMID_CANDIDATE` | yes | yes |
-| `kb/disorders/Primary_Ciliary_Dyskinesia.yaml` | prevalence | 1 | ORPHA:244 | `PMID:19720631` | `PMID_CANDIDATE` | yes | yes |
+| `kb/disorders/Primary_Ciliary_Dyskinesia_30.yaml` | prevalence | 0 | ORPHA:244 | `PMID:23871404` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Primary_Myelofibrosis.yaml` | epidemiology | 0 | ORPHA:824 | `EXPERT` | `MARKER` | - | - |
 | `kb/disorders/Primary_Myelofibrosis.yaml` | epidemiology | 1 | ORPHA:824 | `INST` | `MARKER` | - | - |
 | `kb/disorders/Pseudopseudohypoparathyroidism.yaml` | prevalence | 0 | ORPHA:79445 | `ORPHANET` | `MARKER` | - | - |
@@ -391,6 +393,7 @@ Each snippet below quotes a cache token that a tag-honouring parser necessarily 
 | `kb/disorders/Spinal_Muscular_Atrophy.yaml` | prevalence | 3 | ORPHA:70 | `PMID:23107878` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Stickler_Syndrome_Type_1.yaml` | prevalence | 1 | ORPHA:828 | `PMID:2012` | `YEAR_SUSPECT` | - | - |
 | `kb/disorders/Stickler_Syndrome_Type_1.yaml` | prevalence | 2 | ORPHA:828 | `PMID:20301479` | `PMID_CANDIDATE` | - | yes |
+| `kb/disorders/Stickler_Syndrome_Type_2.yaml` | prevalence | 0 | ORPHA:828 | `PMID:20301479` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Stiff_Person_Syndrome.yaml` | prevalence | 0 | ORPHA:3198 | `PMID:21921002` | `PMID_CANDIDATE` | yes | yes |
 | `kb/disorders/Stiff_Person_Syndrome.yaml` | prevalence | 1 | ORPHA:3198 | `PMID:26316197` | `PMID_CANDIDATE` | - | yes |
 | `kb/disorders/Stromme_Syndrome.yaml` | prevalence | 0 | ORPHA:506307 | `PMID:28407396` | `PMID_CANDIDATE` | - | yes |
