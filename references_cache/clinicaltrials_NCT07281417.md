@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07281417"
+reference_id: clinicaltrials:NCT07281417
 title: "Neoadjuvant Chemotherapy With or Without Cemiplimab (REGN2810) in Sinonasal Squamous Cell Carcinoma: A Randomized Phase 2 Study"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Neoadjuvant Chemotherapy With or Without Cemiplimab (REGN2810) in Sinonasal Squamous Cell Carcinoma: A Randomized Phase 2 Study

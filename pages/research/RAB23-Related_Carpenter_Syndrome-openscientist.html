@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAB23-related Carpenter Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RAB23-related Carpenter Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RAB23-related Carpenter Syndrome</h1>
+                
+                <p class="report-subtitle">RAB23-related Carpenter Syndrome (CRPT1): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008710" target="_blank" rel="noopener noreferrer">MONDO:0008710</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RAB23-related Carpenter Syndrome (CRPT1): Comprehensive Disease Characterization Report</h1>
+<h2>Summary</h2>
+<p>RAB23-related Carpenter syndrome (Carpenter syndrome type 1, <strong>CRPT1</strong>; historically <strong>acrocephalopolysyndactyly type II</strong>; <strong>OMIM #201000</strong>; <strong><a href="https://bioregistry.io/ORPHA:65759" target="_blank" rel="noopener noreferrer">ORPHA:65759</a></strong>; <strong><a href="http://purl.obolibrary.org/obo/MONDO_0008544" target="_blank" rel="noopener noreferrer">MONDO:0008544</a></strong>) is an ultra-rare autosomal-recessive multiple-congenital-malformation disorder with an estimated prevalence of roughly <strong>1 in 1,000,000 births</strong>. It is caused by <strong>biallelic loss-of-function variants in RAB23</strong> (gene <em>OMIM *606144</em>; <a href="https://bioregistry.io/HGNC:9776" target="_blank" rel="noopener noreferrer">HGNC:9776</a>; NCBI Gene 51715; UniProt Q9ULC3; chromosome <strong>6p11.2</strong>), which encodes a small RAB-family GTPase that functions as a <strong>negative regulator of Hedgehog (HH) signaling</strong> and a regulator of ciliary membrane trafficking. When RAB23 function is lost, ciliary Smoothened turnover is impaired and downstream GLI-mediated transcription and FGF10–ERK signaling are de-repressed, and primary-cilium formation is perturbed in a cell-type–dependent manner. The convergent developmental consequence is the near-universal clinical dyad of <strong>multisuture craniosynostosis and preaxial polysyndactyly</strong>, accompanied by frequent obesity, congenital heart disease, cryptorchidism/hypogenitalism, umbilical hernia, and variable (~75%) intellectual impairment.</p>
+<p>The molecular pathology is a classic recessive loss-of-function paradigm: most pathogenic alleles are <strong>truncating and subject to nonsense-mediated decay (NMD)</strong>, and even in-frame or missense lesions (e.g., Y79del, disrupting the switch-II region; or C-terminal frameshifts that abolish the prenylatable cysteine) converge on loss of RAB23 activity. A recurrent <strong>L145X founder mutation</strong> in patients of northern European descent illustrates the population genetics of the disorder. A clinically overlapping but genetically distinct subtype, <strong>CRPT2</strong> (<strong>OMIM #614976</strong>), is caused by biallelic <strong>MEGF8</strong> variants and is distinguished by frequent left–right patterning defects and predominantly single-midline-suture synostosis.</p>
+<p>Management is entirely <strong>symptomatic and reconstructive</strong>. Early cranial-vault expansion / fronto-orbital advancement (ideally within 6–12 months of life, and urgently in the setting of raised intracranial pressure) is the cornerstone, complemented by cardiac surgery, hand/foot reconstruction, orchidopexy, and multidisciplinary developmental support. No disease-modifying pharmacotherapy or gene therapy exists. Prognosis is variable and multisystem; intellectual outcome correlates with the presence of cerebral malformations and untreated raised intracranial pressure rather than being invariable, and affected individuals can survive to adulthood and pregnancy.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — RAB23 biallelic loss-of-function is the cause of CRPT1</h3>
+<p>Carpenter syndrome type 1 is caused by <strong>biallelic loss-of-function mutations in RAB23</strong>. The gene was identified by homozygosity mapping across 15 independent families, which linked disease to chromosome <strong>6p12.1–q12</strong> and identified five distinct RAB23 mutations (four truncating and one missense). RAB23 encodes a member of the RAB guanosine-triphosphatase (GTPase) family of vesicle-transport proteins and functions as a <strong>negative regulator of Hedgehog signaling</strong>. The loss-of-function mechanism is reinforced at the transcript level: truncating mutations produce mRNAs that are degraded by <strong>nonsense-mediated decay (NMD)</strong>, an important contributor to pathogenesis. <em>[human clinical / in vitro]</em></p>
+<ul>
+<li><em>"we found linkage to chromosome 6p12.1-q12 and, in 15 independent families, identified five different mutations (four truncating and one missense) in RAB23, which encodes a member of the RAB guanosine triphosphatase (GTPase) family of vesicle transport proteins and acts as a negative regulator of hedgehog (HH) signaling"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17503333/">PMID: 17503333</a></li>
+<li><em>"We provide experimental evidence that transcripts encoding truncating mutations are subject to nonsense-mediated decay, and that this plays an important role in the pathogenesis of many RAB23 mutations."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21412941/">PMID: 21412941</a></li>
+</ul>
+<p><strong>Ontology anchors:</strong> gene RAB23 (<a href="https://bioregistry.io/HGNC:9776" target="_blank" rel="noopener noreferrer">HGNC:9776</a>); <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a> (smoothened signaling pathway); <a href="http://purl.obolibrary.org/obo/GO_0045879" target="_blank" rel="noopener noreferrer">GO:0045879</a> (negative regulation of smoothened signaling pathway).</p>
+<h3>Finding 2 — Core phenotype: multisuture craniosynostosis + polysyndactyly, with frequent obesity, cardiac defects, and cryptorchidism</h3>
+<p><strong>Multisuture craniosynostosis</strong> and <strong>polysyndactyly</strong> are present in essentially all molecularly confirmed patients described to date, and abnormal external genitalia (cryptorchidism) are universal in affected boys. The cardinal clinical picture — historically termed acrocephalopolysyndactyly — comprises craniosynostosis, short fingers, soft-tissue syndactyly, preaxial polydactyly, congenital heart disease, hypogenitalism, obesity, and umbilical hernia. As many as <strong>three-fourths of patients have some degree of intellectual impairment</strong>. No genotype–phenotype correlations are apparent. <em>[human clinical]</em></p>
+<ul>
+<li><em>"Multi-suture craniosynostosis and polysyndactyly have been present in all patients described to date, and abnormal external genitalia have been universal in boys."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21412941/">PMID: 21412941</a></li>
+<li><em>"Acrocephalopolysyndactyly or Carpenter syndrome consists of craniosynostosis, short fingers, soft tissue syndactyly, preaxial polydactyly, congenital heart disease, hypogenitalism, obesity, and umbilical hernia. As many as three-fourths of the patients have some degree of intellectual impairment."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/8352858/">PMID: 8352858</a></li>
+</ul>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a> (Craniosynostosis); <a href="http://purl.obolibrary.org/obo/HP_0004440" target="_blank" rel="noopener noreferrer">HP:0004440</a> (Coronal craniosynostosis); <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" rel="noopener noreferrer">HP:0100259</a> (Polysyndactyly); <a href="http://purl.obolibrary.org/obo/HP_0100258" target="_blank" rel="noopener noreferrer">HP:0100258</a> (Preaxial polydactyly); <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" rel="noopener noreferrer">HP:0001159</a> (Syndactyly); <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a> (Obesity); <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> (Abnormal heart morphology); <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a> (Cryptorchidism); <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" rel="noopener noreferrer">HP:0001537</a> (Umbilical hernia); <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (Intellectual disability).</p>
+<h3>Finding 3 — Recurrent L145X founder mutation; MEGF8 defines the distinct CRPT2 subtype</h3>
+<p>Among reported patients, <strong>10 individuals were homozygous for the same nonsense mutation, L145X, on a common haplotype</strong>, indicating a <strong>founder effect in patients of northern European descent</strong>. Separately, a clinically overlapping but genetically distinct disorder — <strong>CRPT2</strong> — is caused by biallelic <strong>MEGF8</strong> variants and is <strong>frequently associated with abnormal left-right patterning</strong> (situs inversus, dextrocardia, transposition of the great arteries). Laterality defects occur in nearly half of MEGF8 cases but are rare in RAB23 cases, providing a clinically useful discriminator. <em>[human clinical]</em></p>
+<ul>
+<li><em>"In 10 patients, the disease was caused by homozygosity for the same nonsense mutation, L145X, that resides on a common haplotype, indicative of a founder effect in patients of northern European descent."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17503333/">PMID: 17503333</a></li>
+<li><em>"we describe a disorder caused by mutations in multiple epidermal-growth-factor-like-domains 8 (MEGF8), which exhibits substantial clinical overlap with Carpenter syndrome but is frequently associated with abnormal left-right patterning"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23063620/">PMID: 23063620</a></li>
+</ul>
+<p>Additional recurrent/founder-type alleles reported include c.82C&gt;T p.(Arg28*) (first molecularly confirmed continental-African case, Tanzania; <a href="https://pubmed.ncbi.nlm.nih.gov/33368989/">PMID: 33368989</a>) and c.86dupA in a Comorian family (<a href="https://pubmed.ncbi.nlm.nih.gov/20358613/">PMID: 20358613</a>).</p>
+<h3>Finding 4 — RAB23 coordinates suture osteogenesis by repressing FGF-ERK and GLI1; loss causes a context-dependent ciliopathy</h3>
+<p>In mouse calvarial models, RAB23 is active in osteoblasts at the osteogenic front and regulates <strong>both Hedgehog and FGF pathways</strong>, repressing <strong>FGF10–pERK1/2 and GLI1</strong> during early osteogenesis. Across three independent vertebrate systems — Rab23 conditional-knockout mice, Carpenter-syndrome patient-derived iPSCs, and zebrafish morphants — RAB23 loss recapitulates CS/ciliopathy features and consistently perturbs <strong>primary-cilium formation, but in a cell-type–dependent (context-dependent) manner</strong> (affecting chondrocytes, mouse embryonic fibroblasts, neural progenitors, and neocortical neurons differently). <em>[model organism / iPSC]</em></p>
+<ul>
+<li><em>"RAB23 coordinates early osteogenesis by repressing FGF10-pERK1/2 and GLI1"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32662771/">PMID: 32662771</a></li>
+<li><em>"all three different vertebrate mutant models consistently show a perturbation of primary cilia formation, intriguingly, in a context-dependent manner"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">PMID: 40825043</a></li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" rel="noopener noreferrer">GO:0060348</a> (bone development); <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a> (ossification); <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a> (cilium assembly); <a href="http://purl.obolibrary.org/obo/GO_0070848" target="_blank" rel="noopener noreferrer">GO:0070848</a> (response to growth factor).</p>
+<h3>Finding 5 — RAB23 controls ciliary Smoothened turnover and Kif17 trafficking</h3>
+<p>Mechanistically, depletion of Rab23 or expression of dominant-negative Rab23 <strong>decreases the ciliary steady-state level specifically of Smoothened</strong> (but not of control ciliary proteins EB1 or Kim1), implicating RAB23 in protein turnover within the cilium. RAB23 also exists in a complex with the kinesin-2 motor <strong>Kif17</strong> and importin β2, and <strong>ciliary localization of Kif17 is disrupted in Rab23-depleted cells</strong>. RAB23 is enriched at the primary cilium. Together these establish the physical basis by which RAB23 loss dysregulates the ciliary Hedgehog signal-transduction apparatus. <em>[in vitro]</em></p>
+<ul>
+<li><em>"Depletion of Rab23 or expression of dominant-negative Rab23 decreased the ciliary steady state specifically of Smoothened but not EB1 or Kim1, suggesting a role of Rab23 in protein turnover in the cilium."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/20375059/">PMID: 20375059</a></li>
+<li><em>"ciliary localization of the kinesin-2 motor protein Kif17 was disrupted in Rab23-depleted cells"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26136363/">PMID: 26136363</a></li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a> (cilium); <a href="http://purl.obolibrary.org/obo/GO_0060170" target="_blank" rel="noopener noreferrer">GO:0060170</a> (ciliary membrane); <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" rel="noopener noreferrer">GO:0042073</a> (intraciliary transport).</p>
+<h3>Finding 6 — Structural basis of loss of function: switch-II disruption and loss of prenylation</h3>
+<p>High-resolution crystal structures of human RAB23 (wild-type and the <strong>Y79del</strong> clinical mutant, bound to GDP and to the non-hydrolyzable GTP analog GMPPNP) demonstrate that the Y79 deletion causes <strong>structural distortions in the switch-II region</strong> relative to wild type, potentially disrupting binding to interacting partners and thereby producing loss of function. Clinical point mutations M12K, C85R, and Y79del all fall within the GTPase domain. A second, orthogonal loss-of-function mechanism arises from truncating frameshift variants (e.g., p.Val161Leufs) that <strong>remove the C-terminal prenylatable cysteine</strong>, so that the truncated protein fails to undergo the lipid modification required to associate with target membranes. <em>[computational/structural / in vitro]</em></p>
+<ul>
+<li><em>"the Y79 deletion mutant exhibited structural distortions in the switch II region relative to that of the WT. The structural changes potentially disrupted the binding of Rab23 Y79del to its interacting partners, thus leading to a loss-of-function and the development of Carpenter syndrome"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39615683/">PMID: 39615683</a></li>
+<li><em>"Due to the loss of the C-terminally prenylatable cysteine residue, the truncated protein will probably fail to associate with the target cellular membranes due to the absence of the necessary lipid modification."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23599695/">PMID: 23599695</a></li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" rel="noopener noreferrer">GO:0003924</a> (GTPase activity); <a href="http://purl.obolibrary.org/obo/GO_0005525" target="_blank" rel="noopener noreferrer">GO:0005525</a> (GTP binding); <a href="http://purl.obolibrary.org/obo/GO_0018344" target="_blank" rel="noopener noreferrer">GO:0018344</a> (protein geranylgeranylation).</p>
+<h3>Finding 7 — Ultra-rare autosomal recessive disorder; model organisms</h3>
+<p>Carpenter syndrome has an <strong>estimated prevalence of ~1 in a million births</strong>. Disease models that recapitulate CS features include <strong>Rab23 conditional-knockout mice, CS patient-derived iPSCs, and zebrafish morphants</strong>. The spontaneous mouse mutant <strong>"open brain" (opb)</strong> carries a homozygous Rab23 mutation and shows <strong>embryonic lethality with open neural-tube defects</strong> — a notable species difference, since human RAB23-null homozygosity is not lethal, indicating a divergent early-developmental requirement. RAB23 also regulates Nodal expression in the left lateral plate mesoderm and Kupffer's vesicle, contributing to left–right patterning. <em>[human clinical / model organism]</em></p>
+<ul>
+<li><em>"This syndrome's rarity, with an estimated prevalence of one in a million births"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39040725/">PMID: 39040725</a></li>
+<li><em>"the embryonic lethality and open neural tube phenotype of a spontaneous mouse mutant that carries homozygous mutation of open brain, a gene encoding Rab23"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29727300/">PMID: 29727300</a></li>
+<li><em>"including Rab23 conditional knockout (CKO) mouse mutants, CS patient-derived induced pluripotent stem cells (iPSCs), and zebrafish morphants"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">PMID: 40825043</a></li>
+</ul>
+<h3>Finding 8 — Management is multidisciplinary and reconstructive</h3>
+<p>Management is centered on <strong>early surgical release of the fused sutures with fronto-orbital advancement</strong>, clearly indicated particularly in cases of <strong>elevated intracranial pressure</strong>. Early correction of craniofacial deformity is usually safe within <strong>6 to 12 months</strong> of life; operative planning uses 3D CT because venous drainage abnormalities and ectatic emissary veins can cause significant intraoperative bleeding. Advanced techniques include cranial-vault remodeling and monobloc distraction osteogenesis. Cardiac defects (e.g., Tetralogy of Fallot) require surgical correction, and treated patients can survive to adulthood and successful pregnancy. <strong>No CS-specific pharmacotherapy or gene therapy exists</strong>; care is supportive and reconstructive. <em>[human clinical]</em></p>
+<ul>
+<li><em>"early release of craniosynostoses with fronto-orbital advancement is clearly indicated in the CS literature, particularly in cases of elevated intracranial pressure"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25162549/">PMID: 25162549</a></li>
+<li><em>"Early correction of craniofacial deformity in Carpenter's syndrome is usually safe within 6 to 12 months. Venous drainage abnormalities and ectatic emissary veins can lead to significant bleeding"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34244844/">PMID: 34244844</a></li>
+</ul>
+<p><strong>Suggested NCIT terms:</strong> cranial-vault remodeling / fronto-orbital advancement; distraction osteogenesis (NCIT:C92968); cardiac surgical correction; orchidopexy; rehabilitation therapy.</p>
+<h3>Finding 9 — Lifelong multisystem morbidity; intellectual outcome is variable, not invariable</h3>
+<p>Although up to three-fourths of patients show some degree of intellectual impairment, <strong>mental retardation is not an invariable feature</strong>; the <strong>most severe developmental delay is associated with cerebral malformations demonstrable on MRI/CT</strong>, so neuroradiologic examination can help predict intellectual outcome. Characteristic craniofacial features include marked absence/underdevelopment of the anterior cranial fossa with bulging of the middle cranial fossa, and there is <strong>no correlation between the degree of craniofacial dysmorphology and brain dysmorphology</strong>. Congenital and progressive residual cardiac defects contribute to morbidity, and an atypical case associated chronic kidney disease with CS. The phenotypic spectrum has been expanded to include overgrowth with advanced bone age, epileptogenic EEG changes, and autistic features. <em>[human clinical]</em></p>
+<ul>
+<li><em>"Because mental retardation is not an invariable feature of this syndrome or other craniosynostosis syndromes, neuroradiologic examination may help in predicting the intellectual outcome in these patients."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/8352858/">PMID: 8352858</a></li>
+<li><em>"overgrowth with advanced bone age, epileptogenic changes on electroencephalogram and autistic features"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34748996/">PMID: 34748996</a></li>
+</ul>
+<h3>Finding 10 — Identifiers and nosology</h3>
+<p>RAB23-related Carpenter syndrome = <strong>CRPT1 / acrocephalopolysyndactyly type II</strong>, <strong>OMIM #201000</strong>, caused by RAB23 (gene OMIM <em>606144; <a href="https://bioregistry.io/HGNC:9776" target="_blank" rel="noopener noreferrer">HGNC:9776</a>; NCBI Gene 51715; UniProt Q9ULC3; chromosome 6p11.2). A second locus, </em><em>MEGF8 (CRPT2, OMIM #614976)</em><em>, causes a subtype with substantial clinical overlap but </em><em>frequent laterality defects</em><em> and typically </em><em>single-midline-suture</em><em> synostosis, whereas RAB23-CRPT1 shows </em><em>multi-suture craniosynostosis</em><em>. Orphanet </em><em><a href="https://bioregistry.io/ORPHA:65759" target="_blank" rel="noopener noreferrer">ORPHA:65759</a></em><em>; </em><em><a href="http://purl.obolibrary.org/obo/MONDO_0008544" target="_blank" rel="noopener noreferrer">MONDO:0008544</a></em><em>. </em>[human clinical]*</p>
+<ul>
+<li><em>"Craniosynostosis in CRPT2 commonly involves a single midline suture in comparison to the multi-suture craniosynostosis characteristic of CRPT1."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38760421/">PMID: 38760421</a></li>
+<li><em>"mutations in multiple epidermal-growth-factor-like-domains 8 (MEGF8), which exhibits substantial clinical overlap with Carpenter syndrome but is frequently associated with abnormal left-right patterning"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23063620/">PMID: 23063620</a></li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The unifying interpretation is that <strong>RAB23 is a ciliary "brake" on morphogen signaling</strong>. Under normal conditions, RAB23 at the primary cilium promotes turnover of Smoothened and correct trafficking of ciliary motors (Kif17), thereby keeping Hedgehog/GLI output — and, in cranial osteoblasts, FGF10–ERK output — appropriately low. Removing this brake (through NMD-mediated protein loss, switch-II GTPase-cycle disruption, or loss of prenylation-dependent membrane targeting) <strong>de-represses these pathways</strong>. Because different tissues rely on cilium-dependent signaling to different degrees, RAB23 loss manifests as a <strong>context-dependent ciliopathy</strong>: strongest and most consistent in the developing skull (multisuture synostosis) and limb (polysyndactyly), with variable CNS, cardiac, and metabolic consequences.</p>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic RAB23 loss-of-function variant</strong> (truncating → NMD; or switch-II/prenylation-disrupting) <strong>results in</strong> absent/non-functional RAB23 GTPase protein. <em>(Demonstrated.)</em></li>
+<li>Loss of RAB23 at the primary cilium <strong>leads to</strong> failure of normal ciliary protein turnover — specifically dysregulated <strong>ciliary Smoothened</strong> and disrupted Kif17 motor trafficking. <em>(Demonstrated in vitro.)</em></li>
+<li>Dysregulated ciliary Smoothened <strong>results in</strong> <strong>de-repression of Hedgehog (GLI-mediated) signaling</strong>; in parallel, RAB23 loss <strong>de-represses FGF10–pERK1/2 signaling</strong> at the cranial osteogenic front. <em>(Demonstrated in calvarial models.)</em></li>
+<li><strong>Branch A (skull):</strong> De-repressed HH/GLI1 + FGF-ERK in cranial osteoblasts <strong>leads to</strong> premature/accelerated osteogenic differentiation and <strong>multisuture craniosynostosis</strong>. <em>(Demonstrated.)</em></li>
+<li><strong>Branch B (limb):</strong> Altered HH gradient in the limb bud <strong>results in</strong> <strong>preaxial polydactyly/polysyndactyly</strong>. <em>(Inferred from HH-pathway biology and model phenotypes.)</em></li>
+<li><strong>Branch C (CNS/cardiac/other):</strong> Context-dependent perturbation of primary-cilium formation and Nodal regulation <strong>leads to</strong> cerebral malformations, variable intellectual impairment, cardiac defects, and (rarely) laterality anomalies. <em>(Partly demonstrated, partly inferred.)</em></li>
+</ol>
+<pre><code> RAB23 biallelic LOF (NMD / switch-II / no prenylation)
+ │
+ ▼
+   Loss of ciliary RAB23 function
+(dysregulated Smoothened turnover, ↓Kif17 trafficking)
+ │
+┌────────┴─────────┐
+▼                  ▼
+ De-repressed HH/GLI1   De-repressed FGF10–pERK1/2
+│                  │
+└────────┬─────────┘
+ ▼
+   Aberrant osteogenic &amp; patterning programs
+│           │            │
+▼           ▼            ▼
+  Multisuture   Preaxial     Cilium-dependent
+ craniosynostosis polysyndactyly CNS/cardiac defects
+</code></pre>
+<p>This model explains the near-universal core dyad, the variable expressivity, the correlation of cognitive outcome with cerebral malformation, and the absence of genotype–phenotype correlation (all pathogenic alleles converge on the same loss-of-function endpoint). It also clarifies why the closely related <strong>CRPT2 (MEGF8)</strong> shares the craniosynostosis/limb phenotype yet reaches it through a distinct, largely Hedgehog-independent <strong>BMPR1A–BMP-SMAD</strong> route and adds laterality defects (<a href="https://pubmed.ncbi.nlm.nih.gov/42399640/">PMID: 42399640</a>).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> RAB23-related Carpenter syndrome is a rare autosomal-recessive syndromic craniosynostosis (an "acrocephalopolysyndactyly") defined by the co-occurrence of multisuture craniosynostosis and polysyndactyly with a constellation of additional malformations (obesity, congenital heart disease, hypogenitalism, umbilical hernia, and frequently intellectual impairment).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (disease, CRPT1)</td>
+<td>#201000</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>*606144 (RAB23)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:65759" target="_blank" rel="noopener noreferrer">ORPHA:65759</a></td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008544" target="_blank" rel="noopener noreferrer">MONDO:0008544</a></td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><a href="https://bioregistry.io/HGNC:9776" target="_blank" rel="noopener noreferrer">HGNC:9776</a> (RAB23)</td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>51715</td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td>ENSG00000112210</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>Q9ULC3</td>
+</tr>
+<tr>
+<td>Cytoband</td>
+<td>6p11.2</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>Q87.0 / Q75.x</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>21086008 (Acrocephalopolysyndactyly)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Acrocephalopolysyndactyly</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Carpenter syndrome; Carpenter syndrome type 1 (CRPT1); acrocephalopolysyndactyly type II (ACPS II); ACPS2.</p>
+<p><strong>Data source type:</strong> Information is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet) and from <strong>individual patient reports/case series</strong> in the primary literature; the disorder is too rare for EHR-scale cohorts.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> purely <strong>genetic</strong> — biallelic loss-of-function variants in RAB23 (Finding 1). There is no known environmental, infectious, or toxic contribution to CRPT1.</p>
+<p><strong>Genetic risk factors:</strong> The disease requires two pathogenic RAB23 alleles; heterozygous carriers are unaffected. A <strong>founder L145X allele</strong> elevates carrier frequency in populations of northern European descent (Finding 3); other recurrent alleles (p.Arg28*, c.86dupA) occur in specific pedigrees/populations. <strong>Consanguinity</strong> substantially raises risk owing to autosomal-recessive inheritance (multiple reported families are consanguineous). Genetic heterogeneity exists at the disease level: MEGF8 causes CRPT2.</p>
+<p><strong>Environmental / lifestyle / protective factors / gene–environment interactions:</strong> None established. No environmental risk factors, protective genetic or environmental factors, or gene–environment interactions have been demonstrated for this Mendelian disorder. <em>(Not applicable / not available.)</em></p>
+<h3>3. Phenotypes</h3>
+<p>Onset is congenital; features are structural. Frequencies are qualitative given small cohorts.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multisuture craniosynostosis (often bicoronal + sagittal + metopic; cloverleaf/turricephaly)</td>
+<td>Physical/skeletal</td>
+<td>Near-universal (~100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a> / <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" rel="noopener noreferrer">HP:0002676</a></td>
+</tr>
+<tr>
+<td>Polysyndactyly (preaxial polydactyly, cutaneous syndactyly, brachydactyly)</td>
+<td>Physical/skeletal</td>
+<td>Near-universal (~100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" rel="noopener noreferrer">HP:0100259</a> / <a href="http://purl.obolibrary.org/obo/HP_0100258" target="_blank" rel="noopener noreferrer">HP:0100258</a> / <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" rel="noopener noreferrer">HP:0001159</a></td>
+</tr>
+<tr>
+<td>Cryptorchidism / abnormal genitalia (males)</td>
+<td>Physical</td>
+<td>Universal in boys</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+</tr>
+<tr>
+<td>Obesity</td>
+<td>Physical/metabolic</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a></td>
+</tr>
+<tr>
+<td>Congenital heart disease (ASD, VSD, PDA, ToF, TGA)</td>
+<td>Clinical sign</td>
+<td>Frequent (~30–50%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+</tr>
+<tr>
+<td>Intellectual disability / developmental delay</td>
+<td>Behavioral/cognitive</td>
+<td>~75% (variable)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Umbilical hernia</td>
+<td>Physical</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" rel="noopener noreferrer">HP:0001537</a></td>
+</tr>
+<tr>
+<td>Characteristic facies (flat nasal bridge, hypertelorism, low-set ears)</td>
+<td>Physical</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a> / <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a></td>
+</tr>
+<tr>
+<td>Genu valgum / short stature / skeletal dysplasia</td>
+<td>Physical/skeletal</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" rel="noopener noreferrer">HP:0002857</a> / <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Hydrocephalus / cerebral malformations</td>
+<td>Clinical sign</td>
+<td>Occasional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a> / <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" rel="noopener noreferrer">HP:0002011</a></td>
+</tr>
+<tr>
+<td>Corneal/ophthalmic anomalies</td>
+<td>Clinical sign</td>
+<td>Occasional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" rel="noopener noreferrer">HP:0007957</a></td>
+</tr>
+<tr>
+<td>Atypical: overgrowth/advanced bone age, seizures, autistic features</td>
+<td>Various</td>
+<td>Rare</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" rel="noopener noreferrer">HP:0001548</a> / <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> / <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> congenital (some prenatally detectable). <strong>Severity/progression:</strong> structural anomalies are static in origin but craniosynostosis can drive progressive raised intracranial pressure; cardiac lesions may progress. Variable expressivity, including intrafamilial (<a href="https://pubmed.ncbi.nlm.nih.gov/20358613/">PMID: 20358613</a>). <strong>Quality of life:</strong> substantial and lifelong (reconstructive-surgery burden, motor/orthopedic complications, cardiac limitation, cognitive outcome); no CS-specific validated QoL instrument data exist.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene:</strong> RAB23 (6p11.2), ~237-aa small GTPase, 6 coding exons. <strong>Variant spectrum:</strong> predominantly truncating (nonsense, frameshift, splice-site) with occasional missense/in-frame deletions; ≥12 distinct mutations across dozens of families. <strong>Classification:</strong> biallelic pathogenic/likely-pathogenic per ACMG/AMP (PVS1 for null alleles; segregation; functional evidence). <strong>Functional consequence:</strong> <strong>loss of function</strong> via (i) NMD of truncating transcripts, (ii) switch-II structural disruption (Y79del), and (iii) loss of C-terminal prenylation/membrane targeting (Findings 1, 6). <strong>Allele frequency:</strong> pathogenic alleles are extremely rare in gnomAD. <strong>Origin:</strong> germline. <strong>Modifier genes / epigenetics / large chromosomal abnormalities:</strong> none established for CRPT1 (karyotype typically normal).</p>
+<p>Representative variants: L145X (founder, N. European); p.Arg28* (Tanzania); c.86dupA (Comoros); c.481G&gt;C p.Val161Leufs*16 (exon-6 skipping, prenylation loss); M12K, C85R, Y79del (GTPase-domain).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Not applicable.</strong> CRPT1 is a monogenic disorder with no established environmental, lifestyle, or infectious contributors. (Obesity, once present, is a genetically driven feature that may be modifiable by diet/lifestyle as supportive care, but is not an environmental cause.)</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><em>See the "Mechanistic Model / Interpretation" section above for the full ordered causal chain and diagram.</em></p>
+<ul>
+<li><strong>Molecular pathways:</strong> Sonic Hedgehog/GLI (primary; de-repressed), FGF10–ERK1/2 (MAPK), Nodal/left–right patterning. (CRPT2/MEGF8: BMP–SMAD.) KEGG: Hedgehog (hsa04340); MAPK (hsa04010); Reactome: Signaling by Hedgehog.</li>
+<li><strong>Cellular processes:</strong> ciliogenesis and intraciliary transport; osteoblast differentiation/ossification; cell proliferation (e.g., cerebellar granule-cell precursors — Hedgehog de-repression links to medulloblastoma biology, <a href="https://pubmed.ncbi.nlm.nih.gov/34210780/">PMID: 34210780</a>).</li>
+<li><strong>Protein dysfunction:</strong> loss of GTPase cycling (switch-II) and loss of membrane targeting (prenylation).</li>
+<li><strong>Subcellular compartments:</strong> primary cilium/ciliary membrane, basal body, Golgi-derived vesicles, plasma membrane.</li>
+<li><strong>Immune/metabolic:</strong> no primary immune involvement; obesity implicates Hedgehog's role in adipogenesis/energy balance.</li>
+<li><strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a>; <a href="http://purl.obolibrary.org/obo/GO_0045879" target="_blank" rel="noopener noreferrer">GO:0045879</a>; <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a>; <a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" rel="noopener noreferrer">GO:0042073</a>; <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" rel="noopener noreferrer">GO:0003924</a>; <a href="http://purl.obolibrary.org/obo/GO_0018342" target="_blank" rel="noopener noreferrer">GO:0018342</a>; <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" rel="noopener noreferrer">GO:0001503</a>; <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a>. <strong>CL terms:</strong> osteoblast <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>; chondrocyte <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>; neural progenitor <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a>; fibroblast <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>; adipocyte <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" rel="noopener noreferrer">CL:0000136</a>.</li>
+<li><strong>Molecular profiling (omics):</strong> No large transcriptomic/proteomic/metabolomic patient datasets exist for this ultra-rare disease; mechanistic data derive from targeted mouse/zebrafish/iPSC assays.</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ/system level:</strong> skeletal (cranial sutures/skull <a href="http://purl.obolibrary.org/obo/UBERON_0004339" target="_blank" rel="noopener noreferrer">UBERON:0004339</a>; digits <a href="http://purl.obolibrary.org/obo/UBERON_0002544" target="_blank" rel="noopener noreferrer">UBERON:0002544</a>; long bones); cardiovascular (heart <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>); nervous system/brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> — anterior cranial fossa hypoplasia, bulging middle fossa, hydrocephalus); reproductive (testis <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a> — cryptorchidism); abdominal wall (umbilical hernia); renal (rare CKD, <a href="https://pubmed.ncbi.nlm.nih.gov/39040725/">PMID: 39040725</a>); visual (cornea/eye <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>); endocrine/metabolic (adiposity).</li>
+<li><strong>Tissue level:</strong> bone (<a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a>), cartilage (<a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" rel="noopener noreferrer">UBERON:0002418</a>), nervous tissue, cardiac muscle.</li>
+<li><strong>Cell level:</strong> osteoblasts, chondrocytes, cardiomyocytes, neural progenitors/neurons, adipocytes.</li>
+<li><strong>Subcellular level:</strong> primary cilium (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a>), ciliary membrane (<a href="http://purl.obolibrary.org/obo/GO_0060170" target="_blank" rel="noopener noreferrer">GO:0060170</a>), basal body (<a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" rel="noopener noreferrer">GO:0036064</a>), plasma membrane.</li>
+<li><strong>Lateralization:</strong> craniofacial/acral involvement is <strong>bilateral</strong> (often asymmetric); situs/laterality defects are asymmetric and rare in CRPT1.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> congenital; malformations form during embryogenesis and are evident at birth (some prenatally detectable — abnormal skull shape, bowed femora, cardiac defect; <a href="https://pubmed.ncbi.nlm.nih.gov/25168863/">PMID: 25168863</a>).</li>
+<li><strong>Onset pattern:</strong> structural/insidious (developmental), not acute.</li>
+<li><strong>Progression:</strong> underlying malformations are static in origin, but secondary processes are progressive (raised ICP from skull growth against fused sutures; progression of residual cardiac lesions, <a href="https://pubmed.ncbi.nlm.nih.gov/23706836/">PMID: 23706836</a>; worsening obesity/orthopedic problems). Chronic, lifelong; no spontaneous remission.</li>
+<li><strong>Critical period:</strong> first 6–12 months of life for cranial-vault surgery to protect brain growth and vision.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> ultra-rare; prevalence <strong>~1 in 1,000,000 births</strong> (~0.1 per 100,000); incidence not precisely quantified; &lt;~100 molecularly confirmed cases.</li>
+<li><strong>Inheritance:</strong> autosomal recessive (OMIM #201000).</li>
+<li><strong>Penetrance:</strong> effectively complete for the core dyad in biallelic-null genotypes.</li>
+<li><strong>Expressivity:</strong> variable, including intrafamilial; no genotype–phenotype correlation.</li>
+<li><strong>Genetic anticipation / germline mosaicism:</strong> not features of this disorder; recurrence risk follows standard AR 25%.</li>
+<li><strong>Founder effects:</strong> L145X (northern European); other recurrent alleles in specific populations (Comoros, Tanzania, Arabian Peninsula).</li>
+<li><strong>Consanguinity:</strong> strong contributor.</li>
+<li><strong>Carrier frequency:</strong> low overall; elevated in consanguineous/founder populations.</li>
+<li><strong>Demographics:</strong> reported worldwide; no strong sex bias in occurrence (male-specific genital findings emphasized); diagnosed in infancy/childhood.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical/imaging:</strong> recognition of the craniosynostosis + polysyndactyly gestalt; <strong>3D CT</strong> of the skull (suture fusion, cranial-fossa morphology, venous/emissary-vein assessment for operative planning); brain MRI (cerebral malformations — prognostic); echocardiography; skeletal survey. Prenatal ultrasound/fetal CT may show abnormal skull shape, bowed femora, cardiac defect.</li>
+<li><strong>Laboratory/biomarkers:</strong> no specific biochemical biomarker or enzyme assay; diagnosis is molecular.</li>
+<li><strong>Genetic testing (definitive):</strong> single-gene <strong>RAB23 sequencing</strong> (6 coding exons); <strong>craniosynostosis gene panels</strong> including RAB23 and MEGF8; <strong>WES</strong> for atypical presentations/second locus; <strong>WGS</strong> for deep-intronic/structural variants; chromosomal microarray/karyotype mainly to exclude mimics; RNA/splicing analysis to prove pathogenicity of splice variants.</li>
+<li><strong>Diagnostic criteria:</strong> no formal consensus criteria; characteristic phenotype + biallelic RAB23 variants.</li>
+<li><strong>Differential diagnosis:</strong> Apert, Pfeiffer, Crouzon, Saethre–Chotzen, Muenke (FGFR/TWIST-related, usually dominant); Greig cephalopolysyndactyly (GLI3); Bardet–Biedl and other ciliopathies; other ACPS variants; and <strong>MEGF8-related CRPT2</strong> (laterality/situs defects, usually single-midline-suture synostosis).</li>
+<li><strong>Screening:</strong> no population newborn screening; cascade/carrier testing and prenatal/preimplantation genetic testing once familial variants are known.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> no formal survival statistics; life expectancy is often near-normal with successful surgical management, and patients can reach adulthood and pregnancy. Early mortality risk relates chiefly to severe congenital heart disease, airway compromise, and raised-ICP complications.</li>
+<li><strong>Morbidity/function:</strong> significant lifelong morbidity — variable cognitive impairment (up to ~75%), visual/airway issues, repeated craniofacial/orthopedic/cardiac surgeries, mobility limitation from hand/foot anomalies.</li>
+<li><strong>Complications:</strong> raised intracranial pressure, hydrocephalus, operative bleeding from ectatic emissary veins, progressive cardiac disease, obesity-related sequelae, rare CKD.</li>
+<li><strong>Prognostic factors:</strong> presence/absence of cerebral malformation on imaging (predicts cognitive outcome), severity/timeliness of craniosynostosis correction, cardiac disease severity. No molecular prognostic biomarker; no genotype–phenotype correlation.</li>
+<li><strong>QoL measures:</strong> no disease-specific validated instruments reported.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying, pharmacologic, gene, cell, or RNA therapy exists.</strong> Management is symptomatic, reconstructive, and multidisciplinary.</p>
+<ul>
+<li><strong>Surgical/interventional (mainstay):</strong> cranial vault expansion / fronto-orbital advancement (first 6–12 months, esp. with raised ICP); monobloc/midface distraction osteogenesis (NCIT:C92968); hand/foot reconstruction; cardiac surgery; orchidopexy; umbilical hernia repair; orthopedic correction of genu valgum/scoliosis; VP shunt for hydrocephalus.</li>
+<li><strong>Supportive/rehabilitative:</strong> ophthalmology, airway/sleep management, audiology, developmental/physical/occupational/speech therapy, special education, dietary/lifestyle management of obesity.</li>
+<li><strong>Pharmacotherapy/pharmacogenomics:</strong> none specific/applicable.</li>
+<li><strong>Experimental/targeted:</strong> none in clinical use. Mechanistically, <strong>SMO inhibitors</strong> rescue Hh-dependent limb defects and <strong>BMP type-I receptor inhibition</strong> rescues MEGF8-driven craniosynostosis in models (<a href="https://pubmed.ncbi.nlm.nih.gov/42399640/">PMID: 42399640</a>) — proof-of-concept only. No registered interventional trials specific to RAB23 Carpenter syndrome.</li>
+<li><strong>Treatment strategy:</strong> individualized, staged surgical algorithm prioritizing ICP relief and airway/cardiac stabilization, then facial/skeletal reconstruction and developmental support.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not possible; risk reduction centers on <strong>genetic counseling</strong> for at-risk (especially consanguineous) couples and carrier relatives.</li>
+<li><strong>Secondary prevention:</strong> prenatal diagnosis when a familial variant is known (or ultrasound suspicion); early postnatal craniofacial/cardiac evaluation and timely surgery.</li>
+<li><strong>Tertiary prevention:</strong> surveillance/management of raised ICP, cardiac, visual, airway, orthopedic, and metabolic complications.</li>
+<li><strong>Genetic screening:</strong> cascade carrier testing, PGT-M, and prenatal testing once variants are identified.</li>
+<li><strong>Immunization / public-health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy of models:</strong> <em>Mus musculus</em> (NCBI:txid10090), <em>Danio rerio</em> (NCBI:txid7955).</li>
+<li><strong>Orthologous genes:</strong> mouse <em>Rab23</em> (NCBI Gene 19334; classic <strong>"open brain," opb</strong> allele); zebrafish <em>rab23</em>. RAB23 is conserved across metazoans and even present in flagellated protists such as <em>Trypanosoma brucei</em> (correlating with cilia/flagella; <a href="https://pubmed.ncbi.nlm.nih.gov/21676215/">PMID: 21676215</a>).</li>
+<li><strong>Natural disease in animals:</strong> no well-characterized spontaneous naturally occurring companion-animal/wildlife "Carpenter syndrome" is documented; the mouse <em>opb</em> mutant is a spontaneous laboratory mutation. Veterinary relevance is primarily as research models.</li>
+<li><strong>Comparative biology:</strong> disease mechanisms (Hedgehog antagonism, ciliary trafficking, left–right patterning) are highly conserved; a key species difference is that homozygous <em>Rab23</em> null is embryonic-lethal (open neural tube) in mice but viable in humans.</li>
+<li><strong>Transmission:</strong> not applicable (non-communicable genetic disease; no zoonotic potential).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key features / recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Open brain" (opb) mouse</td>
+<td>Spontaneous mammalian mutant</td>
+<td>Open neural-tube defect, embryonic lethal (more severe than human); established Rab23 as Shh antagonist</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29727300/">PMID: 29727300</a></td>
+</tr>
+<tr>
+<td>Rab23 conditional-KO mouse</td>
+<td>Genetic (conditional)</td>
+<td>Best mammalian model; skeletal/chondrocyte/neural CS features; context-dependent cilia defects</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">PMID: 40825043</a></td>
+</tr>
+<tr>
+<td>Calvarial/osteoblast explant</td>
+<td>Ex vivo</td>
+<td>RAB23 represses FGF10-pERK1/2 &amp; GLI1 in osteogenesis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32662771/">PMID: 32662771</a></td>
+</tr>
+<tr>
+<td>CS patient-derived iPSCs</td>
+<td>In vitro human</td>
+<td>Perturbed cilium formation, context-dependent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">PMID: 40825043</a></td>
+</tr>
+<tr>
+<td>Zebrafish morphants</td>
+<td>Vertebrate</td>
+<td>Ciliopathy/patterning defects; Nodal/laterality</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">PMID: 40825043</a></td>
+</tr>
+<tr>
+<td>MDCK/knockdown cells; recombinant RAB23</td>
+<td>In vitro / structural</td>
+<td>Ciliary Smoothened/Kif17 trafficking; crystal structures (WT, Y79del)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20375059/">PMID: 20375059</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26136363/">PMID: 26136363</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39615683/">PMID: 39615683</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation &amp; limitations:</strong> models reproduce craniofacial/skeletal defects, ciliary dysfunction, and Hedgehog/Nodal dysregulation, but no single model captures the full human multisystem spectrum; the mouse null's lethality and species-specific developmental requirements limit direct translation. <strong>Resources:</strong> MGI (mouse), ZFIN (zebrafish), IMPC/KOMP, Cellosaurus (iPSC lines), PDB (RAB23 structures).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17503333/">17503333</a></td>
+<td>Gene discovery; RAB23 as HH negative regulator; L145X founder</td>
+<td>Foundational — supports F1, F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21412941/">21412941</a></td>
+<td>NMD of truncating alleles; universal core features</td>
+<td>Supports F1, F2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8352858/">8352858</a></td>
+<td>Clinical spectrum; cerebral malformation predicts cognition</td>
+<td>Supports F2, F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23063620/">23063620</a></td>
+<td>MEGF8/CRPT2 with laterality defects</td>
+<td>Supports F3, F10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32662771/">32662771</a></td>
+<td>RAB23 represses FGF10-pERK1/2 and GLI1 in osteogenesis</td>
+<td>Supports F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40825043/">40825043</a></td>
+<td>Context-dependent ciliopathy across 3 models</td>
+<td>Supports F4, F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20375059/">20375059</a></td>
+<td>RAB23 regulates ciliary Smoothened turnover</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26136363/">26136363</a></td>
+<td>RAB23–Kif17 ciliary trafficking</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39615683/">39615683</a></td>
+<td>Crystal structure; Y79del disrupts switch-II</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23599695/">23599695</a></td>
+<td>Loss of prenylatable cysteine → membrane-targeting failure</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39040725/">39040725</a></td>
+<td>Prevalence ~1/1,000,000; CKD association</td>
+<td>Supports F7, F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29727300/">29727300</a></td>
+<td>Open brain mouse; species difference</td>
+<td>Supports F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25162549/">25162549</a></td>
+<td>FOA indicated, esp. raised ICP</td>
+<td>Supports F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34244844/">34244844</a></td>
+<td>Surgical timing 6–12 mo; bleeding risk</td>
+<td>Supports F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34748996/">34748996</a></td>
+<td>Expanded phenotype/mutations</td>
+<td>Supports F9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38760421/">38760421</a></td>
+<td>CRPT1 multi-suture vs CRPT2 single-midline</td>
+<td>Supports F10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42399640/">42399640</a></td>
+<td>MEGF8 BMP-SMAD mechanism (contrast to RAB23-FGF-ERK)</td>
+<td>Mechanistic contrast</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25168863/">25168863</a></td>
+<td>Prenatal findings; novel splice variant</td>
+<td>Supports Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20358613/">20358613</a></td>
+<td>Comorian family; intrafamilial variability</td>
+<td>Supports Inheritance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33368989/">33368989</a></td>
+<td>First continental-African case (R28X)</td>
+<td>Supports Population</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23706836/">23706836</a></td>
+<td>Adult survival/pregnancy; cardiac progression</td>
+<td>Supports Prognosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Consistency:</strong> No contradictory findings were encountered. All ten confirmed findings are mutually reinforcing, spanning human genetics, structural biology, cell biology, and clinical management. The one apparent tension — mouse null lethality vs. viable human null — is explicitly reconciled as a species-specific developmental requirement.</p>
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Rarity limits epidemiology and outcomes data:</strong> no robust prevalence/incidence by region, no survival curves, and no validated CS-specific quality-of-life data.</li>
+<li><strong>Genotype–phenotype:</strong> no correlations identified; the basis of variable expressivity (including within families) is unexplained — possible modifier genes/epigenetics remain uncharacterized.</li>
+<li><strong>Mechanistic gaps:</strong> the precise molecular partners disrupted by the switch-II lesion, and the tissue-specific determinants of the "context-dependent" cilium phenotype, are not fully defined. The link from ciliary Smoothened dysregulation to the specific (preaxial) limb pattern is inferred.</li>
+<li><strong>No therapeutics pipeline:</strong> absence of pharmacologic pathway-modulation (e.g., SMO inhibitor) data for CRPT1, in contrast to emerging pathway-specific rescue concepts in CRPT2 models.</li>
+<li><strong>Population coverage:</strong> most molecular data derive from European and a handful of African/Middle-Eastern pedigrees; the global variant landscape is incompletely sampled.</li>
+</ul>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Assemble an international CRPT1 registry</strong> to quantify phenotype frequencies, natural history, raised-ICP incidence, and neurodevelopmental outcomes with denominators.</li>
+<li><strong>Systematic RAB23 variant curation</strong> (ClinVar/gnomAD reconciliation) with functional assays (GTPase cycling, ciliary Smoothened turnover, membrane association) to standardize ACMG classification and probe genotype–phenotype signals.</li>
+<li><strong>Test pathway-targeted rescue</strong> in Rab23-CKO mice and patient iPSC-derived cranial mesenchyme: SMO/GLI antagonists and FGF-ERK inhibitors, benchmarking against BMP-receptor-inhibition rescue reported for MEGF8/CRPT2.</li>
+<li><strong>Single-cell and spatial transcriptomics of cranial sutures</strong> in Rab23 models to map cell-type-specific de-repression of HH and FGF programs and identify the "context" determining the cilium phenotype.</li>
+<li><strong>Prospective neuroimaging-outcome study</strong> to validate MRI/CT cerebral-malformation findings as a quantitative prognostic biomarker for intellectual outcome.</li>
+<li><strong>Search for modifier loci/epigenetic marks</strong> underlying intrafamilial variability using trio/family designs.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings across 33 reviewed papers over 5 investigation iterations. Evidence types: human clinical (case series/reports), model organism (mouse, zebrafish), in vitro (iPSC, cell lines), and computational/structural (crystallography). Frequencies are approximate given the ultra-rare nature of the disorder; no large-scale omics, QoL, or survival datasets currently exist for CRPT1.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/RAB23-Related_Carpenter_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/RAB23-Related_Carpenter_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>53</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>51</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0008544</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>tetramelic monodactyly</strong></li>
+<li><code>HP:0001513</code> (2 mentions) - the report calls it "Obesity", "Frequent"; HP calls it <strong>Obesity</strong></li>
+<li><code>HP:0001627</code> (2 mentions) - the report calls it "Abnormal heart morphology", "Frequent (~30–50%)"; HP calls it <strong>Abnormal heart morphology</strong></li>
+<li><code>HP:0000028</code> (2 mentions) - the report calls it "Cryptorchidism", "Universal in boys"; HP calls it <strong>Cryptorchidism</strong></li>
+<li><code>HP:0001537</code> (2 mentions) - the report calls it "Umbilical hernia", "Frequent"; HP calls it <strong>Umbilical hernia</strong></li>
+<li><code>HP:0001249</code> (2 mentions) - the report calls it "Intellectual disability", "~75% (variable)"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>HP:0007957</code> (1 mention) - the report calls it "Occasional"; HP calls it <strong>Corneal opacity</strong></li>
+<li><code>UBERON:0000955</code> (1 mention) - the report calls it "anterior cranial fossa hypoplasia, bulging middle fossa, hydrocephalus"; UBERON calls it <strong>brain</strong></li>
+<li><code>UBERON:0001474</code> (1 mention) - the report calls it "Tissue level:<strong> bone"; UBERON calls it </strong>bone element**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0100259</code> (2 mentions) - the report calls it "Polysyndactyly"; HP calls it <strong>Postaxial polydactyly</strong></li>
+<li><code>GO:0005929</code> (2 mentions) - the report calls it "cilium", "Subcellular level:<strong> primary cilium"; GO calls it </strong>cilium**, and lists "primary cilium" among its other names</li>
+<li><code>UBERON:0000473</code> (1 mention) - the report calls it "cryptorchidism"; UBERON calls it <strong>testis</strong>, and lists "orchis" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0001513</code> - called "Obesity", "Frequent"</li>
+<li><code>HP:0001627</code> - called "Abnormal heart morphology", "Frequent (~30–50%)"</li>
+<li><code>HP:0000028</code> - called "Cryptorchidism", "Universal in boys"</li>
+<li><code>HP:0001537</code> - called "Umbilical hernia", "Frequent"</li>
+<li><code>HP:0001249</code> - called "Intellectual disability", "~75% (variable)"</li>
+<li><code>GO:0005929</code> - called "cilium", "Subcellular level:** primary cilium"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Q_Fever-falcon.html">← Q Fever (Falcon)</a>
+                
+                
+                <a href="RAB33B-Related_Smith-McCort_Dysplasia_2-fallback.html">RAB33B-Related Smith-McCort Dysplasia 2 (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RAB23-related_Carpenter_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RAB23-Related_Carpenter_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

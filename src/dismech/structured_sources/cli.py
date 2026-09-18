@@ -17,7 +17,11 @@ from pathlib import Path
 
 import typer
 
-from dismech.structured_sources.base import StructuredSource
+from dismech.structured_sources.base import (
+    ChecksumMismatchError,
+    StructuredSource,
+    repin_manifest,
+)
 from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
@@ -27,15 +31,51 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_tsv,
 )
 from dismech.structured_sources.icees import ICEESSource
+from dismech.structured_sources.ictrp import ICTRPSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
+from dismech.structured_sources.strchive import StrchiveSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_DATA_DIR = _REPO_ROOT / "data"
 _DEFAULT_CACHE_DIR = _REPO_ROOT / "references_cache"
+
+
+_MANIFEST_DIRS: dict[str, str] = {
+    "orphanet": "orphadata",
+    "orpha": "orphadata",
+    "clingen": "clingen",
+    "cggv": "clingen",
+    "clingen-dosage": "clingen-dosage",
+    "clingen_dosage": "clingen-dosage",
+    "cgds": "clingen-dosage",
+    "civic": "civic",
+    "civicdb": "civic",
+    "mygeneset": "genesets",
+    "genesets": "genesets",
+    "geneset": "genesets",
+    "icees": "icees-kg",
+    "icees-kg": "icees-kg",
+    "icees_kg": "icees-kg",
+    "strchive": "strchive",
+    "str": "strchive",
+    "strchive-loci": "strchive",
+    "ncit": "ncit-edges",
+    "ncit-edges": "ncit-edges",
+    "ncit_edges": "ncit-edges",
+}
+
+
+def _manifest_path(name: str) -> Path | None:
+    """The MANIFEST.yaml pinning ``name``'s bulk files, if it has one."""
+    subdir = _MANIFEST_DIRS.get(name.lower())
+    if subdir is None:
+        return None
+    path = _DEFAULT_DATA_DIR / subdir / "MANIFEST.yaml"
+    return path if path.exists() else None
 
 
 def _get_source(name: str) -> StructuredSource:
@@ -70,6 +110,15 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ICEESSource.load_manifest(manifest)
         return ICEESSource(_DEFAULT_DATA_DIR / "icees-kg")
+    if name in {"strchive", "str", "strchive-loci"}:
+        manifest = _DEFAULT_DATA_DIR / "strchive" / "MANIFEST.yaml"
+        if manifest.exists():
+            StrchiveSource.load_manifest(manifest)
+        return StrchiveSource(_DEFAULT_DATA_DIR / "strchive")
+    if name in {"ictrp", "who-ictrp", "chictr"}:
+        # No bulk file: ICTRP records are fetched per identifier on demand, so
+        # the cache directory *is* the index of what this source knows about.
+        return ICTRPSource(_DEFAULT_DATA_DIR / "ictrp", cache_dir=_DEFAULT_CACHE_DIR)
     if name in {"ncit", "ncit-edges", "ncit_edges"}:
         manifest = _DEFAULT_DATA_DIR / "ncit-edges" / "MANIFEST.yaml"
         if not manifest.exists():
@@ -83,11 +132,58 @@ def _get_source(name: str) -> StructuredSource:
 def refresh_cmd(
     source: str = typer.Argument(..., help="Source name (e.g. 'orphanet')"),
     force: bool = typer.Option(False, "--force", help="Re-download even if cached"),
+    repin: bool = typer.Option(
+        False,
+        "--repin",
+        help=(
+            "Accept a new upstream release: record the downloaded files' "
+            "checksums in the manifest instead of failing. Leaves a diff to review."
+        ),
+    ),
 ) -> None:
-    """Download bulk-data files for a source and verify checksums."""
+    """Download bulk-data files for a source and verify checksums.
+
+    Most of these manifests pin a checksum against an unversioned upstream URL,
+    so the pin goes stale every time upstream publishes. `--repin` is the
+    supported way through that: it writes the new checksums (and snapshot date)
+    into the manifest so the fix is one command and one reviewable diff, rather
+    than a manual download-and-hand-edit.
+    """
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     src = _get_source(source)
-    src.refresh(force=force)
+    try:
+        changes = src.refresh(force=force, repin=repin)
+    except ChecksumMismatchError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if repin and not changes:
+        # `refresh` skips the download entirely when a local file already matches
+        # the pin, so `--repin` on an up-to-date checkout has nothing to record.
+        # Say so: a silent no-op reads like the repin failed.
+        typer.echo(
+            "--repin: nothing to repin. Every bulk file either matches the pinned "
+            "checksum already or was re-downloaded and still matches, so the "
+            "manifest is current.\n"
+            "If you expected a change, the local copy may predate the upstream "
+            "release; re-run with --force to download regardless."
+        )
+
+    if changes:
+        manifest = _manifest_path(source)
+        if manifest is None:
+            raise typer.BadParameter(
+                f"--repin: no manifest found for source {source!r}; "
+                "nothing to write the new checksums into."
+            )
+        notes = repin_manifest(manifest, changes)
+        typer.echo(f"repinned {manifest}:")
+        for note in notes:
+            typer.echo(f"  {note}")
+        typer.echo(
+            "\nReview the manifest diff, then rebuild the cache "
+            "(e.g. `just structured-rebuild-orphanet`) and review that diff too."
+        )
     typer.echo(f"refreshed {source}")
 
 
@@ -150,7 +246,9 @@ def list_cmd(
 @app.command("align")
 def align_cmd(
     disease: str = typer.Argument(..., help="Disorder name or path to its YAML"),
-    gene_set: str = typer.Argument(..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"),
+    gene_set: str = typer.Argument(
+        ..., help="Gene set id, e.g. KEGG_ASTHMA or MYGENESET:KEGG_ASTHMA"
+    ),
     kb_dir: Path = typer.Option(
         _REPO_ROOT / "kb" / "disorders", "--kb-dir", help="Disorder YAML directory"
     ),
