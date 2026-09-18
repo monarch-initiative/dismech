@@ -1,0 +1,47 @@
+---
+reference_id: DOI:10.3389/fnut.2026.1797345
+title: "Clinical, pathological and genetic features as well as follow-up of 68 patients with late-onset Pompe disease: a single-center retrospective study"
+authors:
+- Duoling Li
+- Yixin Shi
+- Hanhan Sun
+- Na Zhang
+- Hang Su
+- Wei Li
+- Dandan Zhao
+- Bing Wen
+- Yuying Zhao
+journal: Frontiers in Nutrition
+year: '2026'
+doi: 10.3389/fnut.2026.1797345
+content_type: abstract_only
+is_preprint: false
+---
+
+# Clinical, pathological and genetic features as well as follow-up of 68 patients with late-onset Pompe disease: a single-center retrospective study
+**Authors:** Duoling Li, Yixin Shi, Hanhan Sun, Na Zhang, Hang Su, Wei Li, Dandan Zhao, Bing Wen, Yuying Zhao
+**Journal:** Frontiers in Nutrition (2026)
+**DOI:** [10.3389/fnut.2026.1797345](https://doi.org/10.3389/fnut.2026.1797345)
+
+## Content
+
+Introduction
+Pompe disease is a muscular lysosomal storage disorder characterized by autosomal recessive inheritance and caused by deficiency of the acid alpha-glucosidase (GAA) enzyme. Late-onset Pompe disease (LOPD) exhibits heterogeneous clinical presentations, which are influenced by the type of GAA mutation and residual enzyme activity.
+
+
+Methods
+In this study, we conducted a retrospective analysis of 68 Chinese LOPD patients over a 17-year period at a single center to delineate the real-world disease status and survival outcomes.
+
+
+Results
+
+                      Among the 47 patients who received enzyme replacement therapy (ERT), the mortality rate was 6.4%, compared to 57.1% in the 21 patients who did not receive ERT. Muscle pathology analysis revealed that glycogenin accumulation appears earlier than autophagy marker, but this finding is exploratory and requires validation in larger studies. The severity of muscle pathology correlated with lower body mass index (BMI), shorter 6-min walk test (6MWT) and spinal curvature abnormalities. The most frequent
+                      GAA
+                      gene mutation identified was c.2238G &gt; C (p.W746C), present in 43.3% of patients. In an exploratory subgroup analysis (
+                      n
+                      = 10), patients who initiated ERT shortly after diagnosis exhibited greater improvements in muscle strength and 6MWT results compared to those who started treatment later; however, the small sample size precludes definitive conclusions.
+                    
+
+
+Conclusion
+In summary, our exploratory findings hypothesize that glycogenin may be an early pathological marker, but this requires prospective validation. ERT was associated with higher survival probability in this cohort, although survival bias limits causal inference. Earlier ERT initiation showed an association with better functional outcomes in a small subgroup. Lower BMI, shorter 6MWT, and spinal curvature abnormalities correlated with more severe muscle pathology in univariate analyses. All findings should be interpreted as hypothesis-generating due to study limitations.

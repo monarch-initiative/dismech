@@ -68,6 +68,14 @@ For an older report without validation output, run:
 just validate-research-reference research/My_Disease-deep-research-falcon.md
 ```
 
+The same recipes also check the report's **ontology terms** (`term_validation`
+in the frontmatter, `## Term Validation` at the end of the body). That is a
+different check from the citations one and catches a different error: a report
+can have every citation verified and still name the wrong MONDO term for the
+disease. Never bind a CURIE listed under `unresolved_terms`. For an older report,
+`just validate-research-terms <report>` adds the section; see
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
+
 Before using any report content, check that the report describes the intended
 disease:
 
@@ -135,7 +143,7 @@ just validate-disorders \
 
 This batched command mirrors CI's schema, term, and reference checks and uses
 `--no-full-text`. It is the authoritative evidence gate for disorder files.
-Use `just validate-references <file>` only when a non-disorder target or a
+Use `just validate-kb-references <file>` only when a non-disorder target or a
 full-text-permitting diagnostic requires it.
 
 Never report a validation command as passing unless it finished and you read
@@ -159,9 +167,20 @@ quote to preserve an evidence block.
 it does not mean no evidence was examined. Use the wrapper's affirmative
 `Snippets checked: N/N verified` summary to describe cache-backed coverage.
 
-Reference prefixes in `skip_prefixes` within
-`conf/reference_validator_config.yaml`, including `DOI:`, are not
-snippet-checked. Treat a skipped reference as unverified by these commands.
+`DOI:` and `PMID:` snippets are checked by the same authoritative validator.
+A missing source, missing body, or mismatched quote fails validation; a failed
+fetch is not evidence that the quote is valid. A cache containing only an
+abstract cannot verify text quoted from elsewhere in the paper.
+
+Some dataset-accession prefixes remain in `skip_prefixes` within
+`conf/reference_validator_config.yaml`. The `(N skipped by prefix)` summary
+reports those omissions; skipped never means verified. `--unskip-prefix` is a
+diagnostic for auditing an exempt prefix and is not required for DOI evidence.
+
+Never add literature prefixes to `skip_prefixes`, downgrade an unverified
+reference to a warning, or relax quote matching to make CI pass. Changes that
+weaken an evidence constraint require explicit approval from `cmungall`
+(issue #11921).
 
 ## Titles and brackets
 
@@ -183,12 +202,102 @@ If a verbatim quote fails near brackets, read the reason printed by
 `count-verified-snippets`. Do not change the global patterns to accommodate one
 snippet without replaying validation across the KB.
 
+### Read the title off the cache, never from memory
+
+`reference_title` (on an `EvidenceItem`) and `title` (on a top-level
+`references:` entry) name the paper you cited, and until #9138 nothing checked
+them. The failure mode that exposed is specific: **correct PMID, verified
+snippet, invented title.** Each gate reads a different field — `linkml-validate`
+confirms the slot is a string, `count-verified-snippets` and
+`validate-kb-references` check the *snippet*, `validate-terms` checks ontology
+terms, and `check_title_snippets` (despite the name) asks whether a snippet
+quotes a title. None of them reads the title.
+
+On PR #9111 three of twenty `(reference, reference_title)` pairs named papers
+that do not exist. Two were written by an agent that had just verified the
+adjacent snippets as exact substrings of the cached text, then wrote the titles
+beside them from memory. Being rigorous about the quote and careless about the
+citation attached to it is a distinct failure mode, and these values are not
+inert — they render on the disorder page and flow into the cx2 and SEPIO
+exports.
+
+The correct title is already on disk, in the reference's cache frontmatter:
+
+```bash
+head -5 references_cache/PMID_34081534.md
+# ---
+# reference_id: PMID:34081534
+# title: Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.
+```
+
+Copy it from there. `just check-reference-titles` gates new mismatches (offline,
+similarity-based, so punctuation, dashes, diacritics and source-XML markup do
+not trip it) and prints the cached title in the failure message, so the fix is a
+copy-paste. `just list-reference-title-mismatches` is the triage view;
+`scripts/find_missing_reference_titles.py` is the complementary check for
+*absent* titles.
+
 ## Frequency claims
 
 A phenotype `frequency:` value is a separate quantitative claim from the
 disease-phenotype association. Give it evidence that supports the frequency
 band or omit it. Follow `docs/frequency-evidence-guidelines.md` for acceptable
 quantitative, derived, qualitative, and clinical-estimate evidence.
+
+## Finding a cache file
+
+A cache filename is the reference id with `:`, `/`, `?` and `=` replaced by `_`,
+plus `.md`. **The prefix keeps the identifier's own casing — it is not
+uppercased.** `PMID:29167994` caches as `PMID_29167994.md`, but
+`clinicaltrials:NCT05813288` caches as `clinicaltrials_NCT05813288.md`, so a
+glob for `CLINICALTRIALS_*` finds nothing. Searching `pmid_*` on a
+case-sensitive filesystem is the mirror of the same mistake.
+
+Do not hand-derive the path when a tool will do it. `resolve_cache_path` in
+`src/dismech/reference_snippet_audit.py` is the authority, and it also resolves
+a bare identifier (`NCT06087757`) back to its prefixed file. Prefer the recipes
+that take a reference id or a KB file:
+
+```bash
+just fetch-reference PMID:29167994     # fetch or regenerate the cache entry
+just count-verified-snippets kb/disorders/Asthma.yaml
+```
+
+When you do need to glob, match case-insensitively and on the tail rather than
+guessing a prefix:
+
+```bash
+ls references_cache/ | grep -i "_29167994"
+```
+
+The prefixes in use, with the count of cached records at the time of writing —
+mixed case is normal and none of it is a typo:
+
+| Prefix | Cached | What it is |
+|---|---:|---|
+| `PMID` | 35586 | PubMed |
+| `DOI` | 6056 | DOI-only literature |
+| `clinicaltrials` | 1082 | ClinicalTrials.gov (NCT) |
+| `NCIT` | 796 | NCI Thesaurus predicate edges |
+| `ICEES` | 505 | ICEES KG comorbidity pairs |
+| `CGGV` | 502 | ClinGen gene-disease validity |
+| `ORPHA` | 347 | Orphanet |
+| `GEO` | 176 | Gene Expression Omnibus |
+| `url` | 116 | Web page |
+| `MYGENESET` | 100 | MyGeneset |
+| `STRCHIVE` | 73 | STRchive |
+| `PPR` | 25 | Europe PMC preprint |
+| `CIVIC` | 15 | CIViC assertions and evidence |
+| `ICTRP` | 7 | WHO ICTRP (non-NCT trial registries) |
+| `file` | 5 | Local document |
+| `CGDS` | 3 | ClinGen dosage sensitivity |
+| `METABOLIGHTS` | 2 | MetaboLights |
+| `MGNIFY` | 1 | MGnify |
+
+The list is a snapshot for orientation, not a closed set — a new structured
+source adds a prefix. Regenerate it with
+`ls references_cache/ | sed 's/_.*//' | sort | uniq -c | sort -rn` rather than
+trusting these counts.
 
 ## Reference-cache integrity
 

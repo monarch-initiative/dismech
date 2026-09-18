@@ -59,7 +59,6 @@ from verify_dataset_accessions import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
-CACHE_PATH = REPO_ROOT / "cache" / "dataset_accessions.json"
 
 # Only organisms already established in the KB, so term validation stays green
 # without pulling the 13.5 GB NCBITaxon sqlite.
@@ -127,12 +126,10 @@ def candidate_to_record(cand: dict, disease_name: str) -> dict:
 
 
 def propose(slugs: list[str], limit: int, out_path: Path, min_score: float) -> int:
+    # Per-run verification memo. Verified GEO records are cached per-record
+    # under references_cache/ by verify_one(); nothing is written to a shared
+    # cache file, so concurrent proposal runs cannot collide.
     cache: dict = {}
-    if CACHE_PATH.exists():
-        try:
-            cache = json.loads(CACHE_PATH.read_text())
-        except json.JSONDecodeError:
-            cache = {}
     import os
 
     api_key = os.environ.get("NCBI_API_KEY")
@@ -185,9 +182,6 @@ def propose(slugs: list[str], limit: int, out_path: Path, min_score: float) -> i
             }
         )
         print(f"[{i}/{len(slugs)}] {slug}: {len(kept)} proposed (of {len(cands)} candidates)", flush=True)
-
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(proposals, indent=2) + "\n")

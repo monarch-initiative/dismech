@@ -67,6 +67,88 @@ Do not choose a narrow term merely because it is available. If only a broad
 ontology term fits, bind that term and use `preferred_term` for justified
 human-readable specificity.
 
+### 3a. "Nothing more specific exists" is a checkable claim — write the query (dismech#7835)
+
+The step above ends in a broad binding often enough that the note explaining it
+has become routine, and that is where this failure mode lives: an entry binds an
+over-broad term and adds a `notes:` sentence asserting a search was run and found
+nothing finer. The binding is wrong **and** its justification is false.
+
+**The defect is in the audit trail, not in the data, so nothing catches it.** The
+bound term is real, its label matches, and it is inside the enum root — so
+`just validate-terms` passes, and so does every other check in the stack. The note
+makes it worse rather than better: a bare over-broad binding is a small error a
+reviewer might spot, whereas an over-broad binding plus *"I checked, nothing finer
+exists"* hands the reviewer an explicit reason to skip the one check that would
+catch it. Only a semantic re-check finds it.
+
+Three confirmed instances came out of a single batch of ten freshly curated
+entries. In each, an independent verifier re-ran the search the note claimed had
+been run and found an exact match: `UBERON:0014527` posterior limb of internal
+capsule (bound as the whole capsule `UBERON:0001887`), `NCIT:C80435` (bound as the
+branch root `NCIT:C49236` Therapeutic Procedure), and `HP:0004890` Elevated
+pulmonary artery pressure (asserted to be unavailable). All three were corrected
+before their PRs merged, so `main` has never carried them.
+
+1. **Write the query you ran, verbatim and re-runnable, plus what it returned** —
+   not a bare assertion that searching happened.
+   `KLHL24-Related_Hypertrophic_Cardiomyopathy.yaml` is the worked example: it
+   names ``runoak -i sqlite:obo:ncit search 't~defibrillator'`` and the term that
+   came back, so the next reader re-runs it in one paste instead of guessing what
+   was searched for.
+2. **Prefer no note to an unverified note.** If you did not run the search, silence
+   is the honest output. Never write a verification sentence to satisfy the
+   instruction to document verification.
+3. **State the relation you did check, not the absence you did not.** The strongest
+   form of these notes explains the binding *positively* against the alternative —
+   as in `CDH2-Related_ACOG_Syndrome.yaml`, which records that `HP:0002092` was
+   rejected because OAK shows it descending from `HP:0033578` pre-capillary
+   pulmonary hypertension, a haemodynamic category the source does not establish.
+   That is a claim a reviewer can falsify; "nothing finer exists" is not.
+
+This does **not** withdraw the instruction to document verification — the same
+batch produced genuinely excellent provenance notes, including one naming four
+papers it excluded as off-entity, each of which independently checked out. The
+rule is about what an *unbacked* verification sentence costs, not about whether to
+write notes. Record the reasoning in `notes:` rather than `description:`: the
+description says what the entity is, and why a CURIE was chosen is curation
+provenance.
+
+No lint covers this. Extracting "no more specific term exists"-shaped sentences
+from `notes:` and re-running the OAK search would catch the whole class
+mechanically; that is a follow-on rather than done. Until then a reviewer
+re-running the search is the only thing that finds it — so treat any
+negative-existence sentence in a diff as a prompt to do exactly that.
+
+### 3b. A term suggested by a deep-research report is a lead, not a binding
+
+Reports in `research/` suggest CURIEs because the templates ask them to, and
+they get them wrong in ways that look clean: the CMTX report in
+[#9729](https://github.com/monarch-initiative/dismech/issues/9729) offered
+`MONDO:0010674` (Hunter syndrome) for Charcot-Marie-Tooth X-linked, with 26/26
+of its citations verified.
+
+Since `deep-research-client` 0.2.11 those suggestions are checked as the report
+is generated. Read the report's `## Term Validation` section, or its
+`term_validation:` frontmatter, before lifting any CURIE out of it — and add the
+section to an older report with `just validate-research-terms <report>`.
+
+Two things the section does **not** settle, which is the whole of step 3 above:
+
+- whether the term is reachable from the slot's dynamic-enum root, and
+- whether it is the right term for the claim, as opposed to a real term named
+  consistently.
+
+It *does* flag a near-miss when the report names one — the same CMTX report
+writes "areflexia" beside `HP:0001265`, which HPO calls *Hyporeflexia*
+(*Areflexia* is `HP:0001284`). Read those entries as granularity findings, not
+as paraphrase.
+
+Gene CURIEs are skipped by default there (`HGNC` uppercase does not resolve in
+`sqlite:obo:hgnc`, and `ols:` resolves it to an unrelated term), so verify those
+yourself. See
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
+
 ### 4. Write the descriptor correctly
 
 Keep canonical and display labels distinct:

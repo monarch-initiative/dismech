@@ -1,13 +1,13 @@
 """Apply the candidate node-class tree to every pathophysiology node in the KB.
 
 This is the executable half of the pathograph node-classification design
-(``docs/superpowers/pathograph_node_classes.txt``). It reads the hand-built
+(``kb/node_classes/pathograph_node_classes.txt``). It reads the hand-built
 GO-term seed table, walks ``kb/``, and assigns each pathophysiology node a
 candidate class — or flags it as a **debundle candidate** when its own
 annotations disagree with each other.
 
-Nothing here writes to ``kb/`` and no schema slot exists yet. The output is a
-worklist and a measurement, deliberately kept reproducible so the numbers in
+Nothing here writes to ``kb/`` and no schema slot exists yet; the tree and
+seed table are read-only inputs. The output is a worklist and a measurement, deliberately kept reproducible so the numbers in
 the design doc can be re-derived rather than trusted.
 
 How a node is classified
@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DEFAULT_SEED = Path("docs/superpowers/pathograph_node_class_go_seed.tsv")
+DEFAULT_SEED = Path("kb/node_classes/pathograph_node_class_go_seed.tsv")
 DEFAULT_KB_DIRS = (Path("kb/disorders"), Path("kb/modules"))
 
 CONFLICT = "CONFLICT"
