@@ -24,3 +24,4 @@ numbers can be regenerated rather than trusted.
 | Experiment | Question | Runs |
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
+| [`claim_evidence/`](claim_evidence/) | Can TypeSafe detect a snippet that does not justify its attached claim and support/directness annotation? | 1 |
