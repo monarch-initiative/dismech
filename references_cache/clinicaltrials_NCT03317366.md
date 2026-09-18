@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03317366
+reference_id: "clinicaltrials:NCT03317366"
 title: Expanded Access to Provide ARQ 092 for the Treatment of Overgrowth Diseases and/or Vascular Anomalies With Genetic Alterations of the PI3K/AKT Pathway
 content_type: summary
-full_text_attempted: true
 ---
 
 # Expanded Access to Provide ARQ 092 for the Treatment of Overgrowth Diseases and/or Vascular Anomalies With Genetic Alterations of the PI3K/AKT Pathway

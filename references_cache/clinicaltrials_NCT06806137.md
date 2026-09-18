@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06806137
+reference_id: "clinicaltrials:NCT06806137"
 title: "A Phase 3a, Observer-blind, Randomized, Controlled, Study to Evaluate the Immunogenicity and Safety of an Investigational Varicella Vaccine Compared With Varivax, When Given as a Second Dose to Healthy Children, 3 Months After the Administration of a First Dose at 12 to 15 Months of Age"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 3a, Observer-blind, Randomized, Controlled, Study to Evaluate the Immunogenicity and Safety of an Investigational Varicella Vaccine Compared With Varivax, When Given as a Second Dose to Healthy Children, 3 Months After the Administration of a First Dose at 12 to 15 Months of Age

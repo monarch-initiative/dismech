@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05863234
+reference_id: "clinicaltrials:NCT05863234"
 title: "Multicenter, Open-label, Dose-escalation Phase I/II Study to Evaluate the Tolerability, Safety, Efficacy and Pharmacokinetics of Repeated Continuous Intravenous PPMX-T003 in Patients With Aggressive NK Cell Leukaemia (ANKL) (Physician-initiated Clinical Trial)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Multicenter, Open-label, Dose-escalation Phase I/II Study to Evaluate the Tolerability, Safety, Efficacy and Pharmacokinetics of Repeated Continuous Intravenous PPMX-T003 in Patients With Aggressive NK Cell Leukaemia (ANKL) (Physician-initiated Clinical Trial)

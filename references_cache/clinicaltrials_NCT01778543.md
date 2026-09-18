@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01778543
+reference_id: "clinicaltrials:NCT01778543"
 title: "Pathogenesis and Genetics of Microphthalmia, Anophthalmia and Uveal Coloboma ( MAC)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Pathogenesis and Genetics of Microphthalmia, Anophthalmia and Uveal Coloboma ( MAC)

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05280691
+reference_id: "clinicaltrials:NCT05280691"
 title: "A Multi-center, Cluster Randomized Superiority Trial of a Guideline-based Family Support Intervention in Intensive Care Units"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multi-center, Cluster Randomized Superiority Trial of a Guideline-based Family Support Intervention in Intensive Care Units

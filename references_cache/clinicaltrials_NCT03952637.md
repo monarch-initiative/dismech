@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03952637
+reference_id: "clinicaltrials:NCT03952637"
 title: A Phase 1/2 Study of Intravenous Gene Transfer With an AAV9 Vector Expressing Human Beta-galactosidase in Type I and Type II GM1 Gangliosidosis
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2 Study of Intravenous Gene Transfer With an AAV9 Vector Expressing Human Beta-galactosidase in Type I and Type II GM1 Gangliosidosis

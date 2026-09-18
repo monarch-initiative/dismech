@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00584948
+reference_id: "clinicaltrials:NCT00584948"
 title: "Characterization and Treatment of CNS Abnormalities in Premutation Carriers: A Double-Blind Placebo-Controlled Trial of Memantine"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Characterization and Treatment of CNS Abnormalities in Premutation Carriers: A Double-Blind Placebo-Controlled Trial of Memantine

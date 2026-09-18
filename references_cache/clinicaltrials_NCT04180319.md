@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04180319
+reference_id: "clinicaltrials:NCT04180319"
 title: A Pan-European Multi-Centre Observational Study To Determine The Natural History Of Patients With Alpha-1 Antitrypsin
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Pan-European Multi-Centre Observational Study To Determine The Natural History Of Patients With Alpha-1 Antitrypsin

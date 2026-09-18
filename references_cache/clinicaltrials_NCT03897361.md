@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03897361
+reference_id: "clinicaltrials:NCT03897361"
 title: A Phase 1/2 Study to Determine Safety and Efficacy of Transplantation With Autologous Human CD34+ Hematopoietic Stem Cells (HSC) From Mobilized Peripheral Blood Stem Cells (PBSC) of Patients With Cystinosis Modified by Ex Vivo Transduction Using pCCL-CTNS or pCDY.EFS.CTNS.T260I Lentiviral Vector and Will Include Transduction Enhancer When Required During Manufacturing
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2 Study to Determine Safety and Efficacy of Transplantation With Autologous Human CD34+ Hematopoietic Stem Cells (HSC) From Mobilized Peripheral Blood Stem Cells (PBSC) of Patients With Cystinosis Modified by Ex Vivo Transduction Using pCCL-CTNS or pCDY.EFS.CTNS.T260I Lentiviral Vector and Will Include Transduction Enhancer When Required During Manufacturing

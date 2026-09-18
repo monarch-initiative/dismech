@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01524250
+reference_id: "clinicaltrials:NCT01524250"
 title: "Recovery of Demyelinating Optic Neuritis After Treatment With Equivalent High Doses of Oral vs. Intravenous Corticosteroids: a Randomized Single Blinded Clinical Trial"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Recovery of Demyelinating Optic Neuritis After Treatment With Equivalent High Doses of Oral vs. Intravenous Corticosteroids: a Randomized Single Blinded Clinical Trial

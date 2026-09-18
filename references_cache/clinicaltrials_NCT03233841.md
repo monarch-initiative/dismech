@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03233841
+reference_id: "clinicaltrials:NCT03233841"
 title: Observational and Cross-Sectional Cohort Study of the Natural History and Phenotypic Spectrum of Farber Disease
 content_type: summary
-full_text_attempted: true
 ---
 
 # Observational and Cross-Sectional Cohort Study of the Natural History and Phenotypic Spectrum of Farber Disease

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02657915
+reference_id: "clinicaltrials:NCT02657915"
 title: "A Multicenter, Follow-Up Study to Assess Long-Term Electrophysiologic and Clinical Outcomes in Subjects Previously Enrolled in Study 215ON201"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multicenter, Follow-Up Study to Assess Long-Term Electrophysiologic and Clinical Outcomes in Subjects Previously Enrolled in Study 215ON201

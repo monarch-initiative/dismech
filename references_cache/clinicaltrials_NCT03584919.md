@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03584919
+reference_id: "clinicaltrials:NCT03584919"
 title: Comparison of Doxycycline and Cefuroxime Axetil in Patients With Erythema Migrans
 content_type: summary
-full_text_attempted: true
 ---
 
 # Comparison of Doxycycline and Cefuroxime Axetil in Patients With Erythema Migrans

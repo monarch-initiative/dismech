@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02999178
+reference_id: "clinicaltrials:NCT02999178"
 title: "A Double Blind, Randomized, Placebo-controlled Trial Evaluating the Efficacy and Safety of Nintedanib Over 52 Weeks in Patients With Progressive Fibrosing Interstitial Lung Disease (PF-ILD)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Double Blind, Randomized, Placebo-controlled Trial Evaluating the Efficacy and Safety of Nintedanib Over 52 Weeks in Patients With Progressive Fibrosing Interstitial Lung Disease (PF-ILD)

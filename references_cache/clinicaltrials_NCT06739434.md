@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06739434
+reference_id: "clinicaltrials:NCT06739434"
 title: "An Open Label, Single Arm, Dose Escalation Clinical Study Evaluating the Safety, Tolerability, and Initial Efficacy of GCB-002 in the Treatment of Female Subjects With MECP2 Gene Mutation in Patients With Rett Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # An Open Label, Single Arm, Dose Escalation Clinical Study Evaluating the Safety, Tolerability, and Initial Efficacy of GCB-002 in the Treatment of Female Subjects With MECP2 Gene Mutation in Patients With Rett Syndrome

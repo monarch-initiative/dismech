@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04171622
+reference_id: "clinicaltrials:NCT04171622"
 title: Lenvatinib in Combination With Pembrolizumab for Stage IVB Locally Advanced and Unresectable or Stage IVC Metastatic Anaplastic Thyroid Cancer
 content_type: summary
-full_text_attempted: true
 ---
 
 # Lenvatinib in Combination With Pembrolizumab for Stage IVB Locally Advanced and Unresectable or Stage IVC Metastatic Anaplastic Thyroid Cancer

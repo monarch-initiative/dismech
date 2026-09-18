@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02229903
+reference_id: "clinicaltrials:NCT02229903"
 title: A Prospective Double Blind Randomized Controlled Trial to Evaluate the Safety and Efficacy of the Deep Transcranial Magnetic Stimulation (dTMS) in Obsessive-Compulsive Subjects
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Prospective Double Blind Randomized Controlled Trial to Evaluate the Safety and Efficacy of the Deep Transcranial Magnetic Stimulation (dTMS) in Obsessive-Compulsive Subjects

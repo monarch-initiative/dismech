@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04503213
+reference_id: "clinicaltrials:NCT04503213"
 title: Longitudinal Assessment of CSF1R-Related Leukoencephalopathy Following Stem Cell Transplantation
 content_type: summary
-full_text_attempted: true
 ---
 
 # Longitudinal Assessment of CSF1R-Related Leukoencephalopathy Following Stem Cell Transplantation

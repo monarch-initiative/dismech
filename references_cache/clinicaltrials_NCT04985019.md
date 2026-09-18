@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04985019
+reference_id: "clinicaltrials:NCT04985019"
 title: A Validation Study of Mobile Virtual Reality-Based Self-Care and Exposure Therapy Contents for the Treatment of Panic Disorder
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Validation Study of Mobile Virtual Reality-Based Self-Care and Exposure Therapy Contents for the Treatment of Panic Disorder

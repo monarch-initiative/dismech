@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04193592
+reference_id: "clinicaltrials:NCT04193592"
 title: Pirfenidone in the Treatment of Hermansky Pudlak Syndrome (HPS) - Related Interstitial Lung Disease (ILD)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Pirfenidone in the Treatment of Hermansky Pudlak Syndrome (HPS) - Related Interstitial Lung Disease (ILD)

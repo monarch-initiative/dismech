@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02964494
+reference_id: "clinicaltrials:NCT02964494"
 title: The Congenital Dyserythropoietic Anemia Registry (CDAR)
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Congenital Dyserythropoietic Anemia Registry (CDAR)

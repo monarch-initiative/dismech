@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00838435
+reference_id: "clinicaltrials:NCT00838435"
 title: "A Phase 3b Open-Label Study to Evaluate the Effect of Kuvan® on Neurocognitive Function, Maintenance of Blood Phenylalanine Concentrations, Safety, and Population Pharmacokinetics in Young Children With Phenylketonuria"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 3b Open-Label Study to Evaluate the Effect of Kuvan® on Neurocognitive Function, Maintenance of Blood Phenylalanine Concentrations, Safety, and Population Pharmacokinetics in Young Children With Phenylketonuria

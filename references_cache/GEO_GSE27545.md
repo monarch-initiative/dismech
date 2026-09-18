@@ -2,7 +2,6 @@
 reference_id: GEO:GSE27545
 title: A Systems Approach for Decoding Mitochondrial Retrograde Signaling Pathways
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Systems Approach for Decoding Mitochondrial Retrograde Signaling Pathways

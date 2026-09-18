@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02174848
+reference_id: "clinicaltrials:NCT02174848"
 title: Long-term Safety and Efficacy Study of Deferiprone in Patients With Pantothenate Kinase-Associated Neurodegeneration (PKAN)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Long-term Safety and Efficacy Study of Deferiprone in Patients With Pantothenate Kinase-Associated Neurodegeneration (PKAN)

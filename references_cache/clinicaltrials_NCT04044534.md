@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04044534
+reference_id: "clinicaltrials:NCT04044534"
 title: Intranasal Insulin for Treating Posttraumatic Stress Disorder
 content_type: summary
-full_text_attempted: true
 ---
 
 # Intranasal Insulin for Treating Posttraumatic Stress Disorder

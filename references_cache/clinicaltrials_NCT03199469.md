@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03199469
+reference_id: "clinicaltrials:NCT03199469"
 title: "ASPIRO: A Phase 1/2/3, Randomized, Open-Label, Ascending-Dose, Delayed-Treatment Concurrent Control Clinical Study to Evaluate the Safety and Efficacy of AT132, an AAV8-Delivered Gene Therapy in X-Linked Myotubular Myopathy (XLMTM) Patients"
 content_type: summary
-full_text_attempted: true
 ---
 
 # ASPIRO: A Phase 1/2/3, Randomized, Open-Label, Ascending-Dose, Delayed-Treatment Concurrent Control Clinical Study to Evaluate the Safety and Efficacy of AT132, an AAV8-Delivered Gene Therapy in X-Linked Myotubular Myopathy (XLMTM) Patients

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02968966
+reference_id: "clinicaltrials:NCT02968966"
 title: Pathophysiologie Basierte Therapie Von früh Beginnenden Epileptischen Enzephalopathien
 content_type: summary
-full_text_attempted: true
 ---
 
 # Pathophysiologie Basierte Therapie Von früh Beginnenden Epileptischen Enzephalopathien

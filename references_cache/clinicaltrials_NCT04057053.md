@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04057053
+reference_id: "clinicaltrials:NCT04057053"
 title: Netarsudil Use After Descemetorhexis Without Endothelial Keratoplasty
 content_type: summary
-full_text_attempted: true
 ---
 
 # Netarsudil Use After Descemetorhexis Without Endothelial Keratoplasty

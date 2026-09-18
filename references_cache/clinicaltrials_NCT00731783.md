@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00731783
+reference_id: "clinicaltrials:NCT00731783"
 title: Household vs. Individual Approach to Decolonization of Community-acquired Methicillin-resistant Staphylococcus Aureus.
 content_type: summary
-full_text_attempted: true
 ---
 
 # Household vs. Individual Approach to Decolonization of Community-acquired Methicillin-resistant Staphylococcus Aureus.

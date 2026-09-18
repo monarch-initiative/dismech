@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04915846
+reference_id: "clinicaltrials:NCT04915846"
 title: "TAM4MTM: a Phase 1/2 Randomized, Placebo-Controlled, Double-Blinded, Single Crossover Study to Determine the Safety and Efficacy of Tamoxifen Therapy for Myotubular Myopathy (XLMTM)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # TAM4MTM: a Phase 1/2 Randomized, Placebo-Controlled, Double-Blinded, Single Crossover Study to Determine the Safety and Efficacy of Tamoxifen Therapy for Myotubular Myopathy (XLMTM)

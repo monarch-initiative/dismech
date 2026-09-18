@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00258180
+reference_id: "clinicaltrials:NCT00258180"
 title: High-Dose Cyclophosphamide for the Treatment of Severe Autoimmune Enteropathy
 content_type: summary
-full_text_attempted: true
 ---
 
 # High-Dose Cyclophosphamide for the Treatment of Severe Autoimmune Enteropathy

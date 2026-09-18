@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02958917
+reference_id: "clinicaltrials:NCT02958917"
 title: "A Randomized, Double-Blind, Placebo-Controlled, Study of Efficacy and Safety of Pirfenidone in Patients With Fibrotic Hypersensitivity Pneumonitis"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind, Placebo-Controlled, Study of Efficacy and Safety of Pirfenidone in Patients With Fibrotic Hypersensitivity Pneumonitis

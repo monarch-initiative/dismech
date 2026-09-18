@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03623087
+reference_id: "clinicaltrials:NCT03623087"
 title: "Combination Chemotherapy Using Cisplatin, Gemcitabine, Ifosfamide, Etoposide, L-asparaginase and Dexamethasone (SIMPLE) for Newly Diagnosed and Relapsed/Refractory NK/T Cell Malignancies"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Combination Chemotherapy Using Cisplatin, Gemcitabine, Ifosfamide, Etoposide, L-asparaginase and Dexamethasone (SIMPLE) for Newly Diagnosed and Relapsed/Refractory NK/T Cell Malignancies

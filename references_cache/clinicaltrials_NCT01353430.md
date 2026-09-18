@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01353430
+reference_id: "clinicaltrials:NCT01353430"
 title: Characterization of Familial Myopathy and Paget Disease of Bone
 content_type: summary
-full_text_attempted: true
 ---
 
 # Characterization of Familial Myopathy and Paget Disease of Bone

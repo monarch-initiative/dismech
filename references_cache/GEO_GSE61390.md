@@ -2,7 +2,6 @@
 reference_id: GEO:GSE61390
 title: Genetic Correction and Metabolic Rescue of Pluripotent Cells from Patients with mtDNA
 content_type: summary
-full_text_attempted: true
 ---
 
 # Genetic Correction and Metabolic Rescue of Pluripotent Cells from Patients with mtDNA

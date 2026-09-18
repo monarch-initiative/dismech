@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01302860
+reference_id: "clinicaltrials:NCT01302860"
 title: "A One-year Open-label, Multicenter Trial to Assess Efficacy, Safety and Tolerability of Canakinumab (ACZ885) and the Efficacy and Safety of Childhood Vaccinations in Patients Aged 4 Years or Younger With Cryopyrin Associated Periodic Syndromes (CAPS)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A One-year Open-label, Multicenter Trial to Assess Efficacy, Safety and Tolerability of Canakinumab (ACZ885) and the Efficacy and Safety of Childhood Vaccinations in Patients Aged 4 Years or Younger With Cryopyrin Associated Periodic Syndromes (CAPS)

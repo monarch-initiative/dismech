@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05490563
+reference_id: "clinicaltrials:NCT05490563"
 title: "A Double-blind, Randomized, Placebo Controlled, Trial to Assess Safety and Efficacy of SLS-005 (Trehalose Injection, 90.5 mg/mL for Intravenous Infusion) for the Treatment of Adults With Spinocerebellar Ataxia"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Double-blind, Randomized, Placebo Controlled, Trial to Assess Safety and Efficacy of SLS-005 (Trehalose Injection, 90.5 mg/mL for Intravenous Infusion) for the Treatment of Adults With Spinocerebellar Ataxia

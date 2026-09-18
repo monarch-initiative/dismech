@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01401998
+reference_id: "clinicaltrials:NCT01401998"
 title: "Core A: The Hepato/Renal Fibrocystic Diseases Translational Resource (ARPKD Database Study)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Core A: The Hepato/Renal Fibrocystic Diseases Translational Resource (ARPKD Database Study)

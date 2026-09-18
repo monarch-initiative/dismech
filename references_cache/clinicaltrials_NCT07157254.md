@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT07157254
+reference_id: "clinicaltrials:NCT07157254"
 title: "A Phase 2, Open-label, Basket Study Investigating the Safety and Efficacy of GTX-102 in Adult and Pediatric Subjects With Deletion- or Nondeletion-type Angelman Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 2, Open-label, Basket Study Investigating the Safety and Efficacy of GTX-102 in Adult and Pediatric Subjects With Deletion- or Nondeletion-type Angelman Syndrome

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02603328
+reference_id: "clinicaltrials:NCT02603328"
 title: "Phase I-II Randomized, Placebo-Controlled, Single-Blinded, Single-Site Clinical Trial of Atorvastatin in the Treatment of Cavernous Angiomas With Symptomatic Hemorrhage Exploratory Proof of Concept (AT CASH EPOC)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase I-II Randomized, Placebo-Controlled, Single-Blinded, Single-Site Clinical Trial of Atorvastatin in the Treatment of Cavernous Angiomas With Symptomatic Hemorrhage Exploratory Proof of Concept (AT CASH EPOC)

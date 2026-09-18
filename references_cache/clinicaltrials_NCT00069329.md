@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00069329
+reference_id: "clinicaltrials:NCT00069329"
 title: A Long-Term Outcome Study With the IL-1 Receptor Antagonist Anakinra/Kineret in Patients With Neonatal Onset Multisystem Inflammatory Disease (NOMID/CINCA Syndrome) A Therapeutic Approach to Study the Pathogenesis of This Disease
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Long-Term Outcome Study With the IL-1 Receptor Antagonist Anakinra/Kineret in Patients With Neonatal Onset Multisystem Inflammatory Disease (NOMID/CINCA Syndrome) A Therapeutic Approach to Study the Pathogenesis of This Disease

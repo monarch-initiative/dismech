@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05735158
+reference_id: "clinicaltrials:NCT05735158"
 title: "A Phase 2, Randomized, Placebo-controlled Study of Topical KB105, a Replication-defective, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 2, Randomized, Placebo-controlled Study of Topical KB105, a Replication-defective, Non-integrating HSV-1 Vector Expressing Human Transglutaminase 1 (TGM1) for the Treatment of TGM1-deficient Autosomal Recessive Congenital Ichthyosis (ARCI)

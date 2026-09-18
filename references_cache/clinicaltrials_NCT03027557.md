@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03027557
+reference_id: "clinicaltrials:NCT03027557"
 title: Treatment of Primary Hyperparathyroidism With Denosumab and Cinacalcet.
 content_type: summary
-full_text_attempted: true
 ---
 
 # Treatment of Primary Hyperparathyroidism With Denosumab and Cinacalcet.

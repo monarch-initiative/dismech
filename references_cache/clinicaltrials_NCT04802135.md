@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04802135
+reference_id: "clinicaltrials:NCT04802135"
 title: Creation of a Register of Patients With Neonatal-onset Epileptic Encephalopathy
 content_type: summary
-full_text_attempted: true
 ---
 
 # Creation of a Register of Patients With Neonatal-onset Epileptic Encephalopathy

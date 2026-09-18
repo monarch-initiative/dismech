@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03954288
+reference_id: "clinicaltrials:NCT03954288"
 title: The Serum Sclerostin Levels in Cholesteatoma Patients
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Serum Sclerostin Levels in Cholesteatoma Patients

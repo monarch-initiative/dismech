@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02950987
+reference_id: "clinicaltrials:NCT02950987"
 title: Screening With Whole Body MRI For Detection Of Primary Tumors In Children And Adults With Li-Fraumeni Syndrome (LFS) And Other Cancer Predisposition Syndromes
 content_type: summary
-full_text_attempted: true
 ---
 
 # Screening With Whole Body MRI For Detection Of Primary Tumors In Children And Adults With Li-Fraumeni Syndrome (LFS) And Other Cancer Predisposition Syndromes

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05846217
+reference_id: "clinicaltrials:NCT05846217"
 title: "Bell's Palsy With a Duration of Greater Than 8 Weeks Treated With Multiwave Locked System Intervention: A Randomized Controlled Trial"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Bell's Palsy With a Duration of Greater Than 8 Weeks Treated With Multiwave Locked System Intervention: A Randomized Controlled Trial

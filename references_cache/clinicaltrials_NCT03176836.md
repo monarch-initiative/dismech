@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03176836
+reference_id: "clinicaltrials:NCT03176836"
 title: Novel Approaches to Molecular and Clinical Surveillance in Li-Fraumeni Syndrome - Pilot Study.
 content_type: summary
-full_text_attempted: true
 ---
 
 # Novel Approaches to Molecular and Clinical Surveillance in Li-Fraumeni Syndrome - Pilot Study.

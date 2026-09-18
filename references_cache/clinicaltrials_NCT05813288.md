@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05813288
+reference_id: "clinicaltrials:NCT05813288"
 title: "A Randomized, Double-blind, Placebo-controlled, Parallel-group Study to Assess the Efficacy, Safety, and Tolerability of Dexpramipexole Administered Orally for 52 Weeks in Participants With Severe Eosinophilic Asthma"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-blind, Placebo-controlled, Parallel-group Study to Assess the Efficacy, Safety, and Tolerability of Dexpramipexole Administered Orally for 52 Weeks in Participants With Severe Eosinophilic Asthma

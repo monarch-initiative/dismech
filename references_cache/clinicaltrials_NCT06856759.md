@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06856759
+reference_id: "clinicaltrials:NCT06856759"
 title: "Study on the Safety, Tolerability, and Preliminary Efficacy of Single Intrathecal Injection of AAV-MECP2 in the Treatment of Rett Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Study on the Safety, Tolerability, and Preliminary Efficacy of Single Intrathecal Injection of AAV-MECP2 in the Treatment of Rett Syndrome

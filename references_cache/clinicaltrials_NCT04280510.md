@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04280510
+reference_id: "clinicaltrials:NCT04280510"
 title: Pathogenic Study of Adult Immune Enteropathies
 content_type: summary
-full_text_attempted: true
 ---
 
 # Pathogenic Study of Adult Immune Enteropathies

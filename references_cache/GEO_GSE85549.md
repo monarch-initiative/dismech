@@ -2,7 +2,6 @@
 reference_id: GEO:GSE85549
 title: Defects in mitochondrial RNA processing in disease
 content_type: summary
-full_text_attempted: true
 ---
 
 # Defects in mitochondrial RNA processing in disease

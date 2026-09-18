@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03166319
+reference_id: "clinicaltrials:NCT03166319"
 title: The Utility of Intracranial Vessel Wall Imaging for Suspected CNS Vasculitis Diagnosis and Assessment of Disease Activity.
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Utility of Intracranial Vessel Wall Imaging for Suspected CNS Vasculitis Diagnosis and Assessment of Disease Activity.

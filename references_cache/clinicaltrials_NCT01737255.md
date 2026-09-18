@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01737255
+reference_id: "clinicaltrials:NCT01737255"
 title: "Magnetic Resonance Imaging Screening In Li Fraumeni Syndrome: An Exploratory Whole Body MRI Study"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Magnetic Resonance Imaging Screening In Li Fraumeni Syndrome: An Exploratory Whole Body MRI Study

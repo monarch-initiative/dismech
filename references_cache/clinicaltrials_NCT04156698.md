@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04156698
+reference_id: "clinicaltrials:NCT04156698"
 title: "A Phase II, Single-center, Open-label, Single-arm Study of Induction Chemotherapy Combined With Immunotherapy for Locally Advanced Hypopharyngeal Carcinoma"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase II, Single-center, Open-label, Single-arm Study of Induction Chemotherapy Combined With Immunotherapy for Locally Advanced Hypopharyngeal Carcinoma

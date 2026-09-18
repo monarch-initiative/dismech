@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01663402
+reference_id: "clinicaltrials:NCT01663402"
 title: "A Randomized, Double-Blind, Placebo-Controlled, Parallel-Group Study to Evaluate the Effect of Alirocumab (SAR236553/REGN727) on the Occurrence of Cardiovascular Events in Patients Who Have Recently Experienced an Acute Coronary Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind, Placebo-Controlled, Parallel-Group Study to Evaluate the Effect of Alirocumab (SAR236553/REGN727) on the Occurrence of Cardiovascular Events in Patients Who Have Recently Experienced an Acute Coronary Syndrome

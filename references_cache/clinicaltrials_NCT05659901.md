@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05659901
+reference_id: "clinicaltrials:NCT05659901"
 title: Integrated Prospective and Retrospective Observational Study to Characterize Biomarkers and Disease Progression in Patients With Pelizaeus-Merzbacher Disease
 content_type: summary
-full_text_attempted: true
 ---
 
 # Integrated Prospective and Retrospective Observational Study to Characterize Biomarkers and Disease Progression in Patients With Pelizaeus-Merzbacher Disease

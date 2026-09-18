@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06169046
+reference_id: "clinicaltrials:NCT06169046"
 title: A Placebo-controlled Study to Evaluate the Efficacy and Safety of Clenbuterol in Patients With Spinal and Bulbar Muscular Atrophy (SBMA)
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Placebo-controlled Study to Evaluate the Efficacy and Safety of Clenbuterol in Patients With Spinal and Bulbar Muscular Atrophy (SBMA)

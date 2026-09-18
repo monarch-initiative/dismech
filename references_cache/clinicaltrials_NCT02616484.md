@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02616484
+reference_id: "clinicaltrials:NCT02616484"
 title: "Phase 3 Trial of Dichloroacetate in Pyruvate Dehydrogenase Complex Deficiency:"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase 3 Trial of Dichloroacetate in Pyruvate Dehydrogenase Complex Deficiency:

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05160558
+reference_id: "clinicaltrials:NCT05160558"
 title: "A Phase 1, Blinded, Randomized, Placebo-controlled Study to Investigate the Safety, Tolerability, and Pharmacokinetics of Multiple Ascending Doses of BIIB132 Administered Intrathecally to Adults With Spinocerebellar Ataxia 3"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1, Blinded, Randomized, Placebo-controlled Study to Investigate the Safety, Tolerability, and Pharmacokinetics of Multiple Ascending Doses of BIIB132 Administered Intrathecally to Adults With Spinocerebellar Ataxia 3

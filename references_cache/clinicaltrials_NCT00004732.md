@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00004732
+reference_id: "clinicaltrials:NCT00004732"
 title: Carotid Revascularization Endarterectomy Versus Stenting Trial (CREST)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Carotid Revascularization Endarterectomy Versus Stenting Trial (CREST)

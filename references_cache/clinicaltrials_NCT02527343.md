@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02527343
+reference_id: "clinicaltrials:NCT02527343"
 title: "A Randomized, Double-Blind, Placebo-Controlled, With an Open Label Extension, Phase 2/3 Study of ISIS 304801 Administered Subcutaneously to Patients With Familial Partial Lipodystrophy"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind, Placebo-Controlled, With an Open Label Extension, Phase 2/3 Study of ISIS 304801 Administered Subcutaneously to Patients With Familial Partial Lipodystrophy

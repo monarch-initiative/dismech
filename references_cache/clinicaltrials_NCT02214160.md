@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02214160
+reference_id: "clinicaltrials:NCT02214160"
 title: An Open-label Long-Term Safety and Efficacy Extension Study in Subjects With Long-Chain Fatty Acid Oxidation Disorders (LC-FAOD) Previously Enrolled in UX007 or Triheptanoin Studies
 content_type: summary
-full_text_attempted: true
 ---
 
 # An Open-label Long-Term Safety and Efficacy Extension Study in Subjects With Long-Chain Fatty Acid Oxidation Disorders (LC-FAOD) Previously Enrolled in UX007 or Triheptanoin Studies

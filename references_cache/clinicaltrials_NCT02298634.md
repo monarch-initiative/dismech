@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02298634
+reference_id: "clinicaltrials:NCT02298634"
 title: "Biomarker for Farber Disease - An International, Multicenter, Epidemiological Protocol"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Biomarker for Farber Disease - An International, Multicenter, Epidemiological Protocol

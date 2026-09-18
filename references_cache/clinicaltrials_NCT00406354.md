@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00406354
+reference_id: "clinicaltrials:NCT00406354"
 title: "A Randomized, Double-Blind Comparison of Atomoxetine Versus Placebo in Children and Adolescents With Attention-Deficit/Hyperactivity Disorder and Comorbid Oppositional Defiant Disorder"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-Blind Comparison of Atomoxetine Versus Placebo in Children and Adolescents With Attention-Deficit/Hyperactivity Disorder and Comorbid Oppositional Defiant Disorder

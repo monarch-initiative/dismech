@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02653391
+reference_id: "clinicaltrials:NCT02653391"
 title: "Part A: a Prospective, Randomized, Double-masked, Vehicle Controlled, Paired-eye Phase 1/2 Clinical Study to Evaluate the Safety, Tolerability and Efficacy of Elamipretide Topical Ophthalmic Solution in Subjects With Fuchs' Corneal Endothelial Dystrophy (FCED) Presenting With Mild to Moderate Corneal Edema Part B: a Prospective, Randomized, Double-masked, Vehicle Controlled, Phase 1/2 Clinical Study to Evaluate the Safety, Tolerability, and Efficacy of Elamipretide Topical Ophthalmic Solution in Subjects With FCED Presenting With Mild to Moderate Corneal Edema."
 content_type: summary
-full_text_attempted: true
 ---
 
 # Part A: a Prospective, Randomized, Double-masked, Vehicle Controlled, Paired-eye Phase 1/2 Clinical Study to Evaluate the Safety, Tolerability and Efficacy of Elamipretide Topical Ophthalmic Solution in Subjects With Fuchs' Corneal Endothelial Dystrophy (FCED) Presenting With Mild to Moderate Corneal Edema Part B: a Prospective, Randomized, Double-masked, Vehicle Controlled, Phase 1/2 Clinical Study to Evaluate the Safety, Tolerability, and Efficacy of Elamipretide Topical Ophthalmic Solution in Subjects With FCED Presenting With Mild to Moderate Corneal Edema.

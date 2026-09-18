@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00004645
+reference_id: "clinicaltrials:NCT00004645"
 title: "Phase III Randomized, Double-Blind, Sham-Controlled Study of Plasma Exchange for Acute Severe Attacks of Inflammatory Demyelinating Disease Refractory to Intravenous Methylprednisolone"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase III Randomized, Double-Blind, Sham-Controlled Study of Plasma Exchange for Acute Severe Attacks of Inflammatory Demyelinating Disease Refractory to Intravenous Methylprednisolone

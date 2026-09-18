@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04191499
+reference_id: "clinicaltrials:NCT04191499"
 title: "A Phase III, Randomized, Double-Blind, Placebo-Controlled Study Evaluating the Efficacy and Safety of Inavolisib Plus Palbociclib and Fulvestrant Versus Placebo Plus Palbociclib and Fulvestrant in Patients With PIK3CA-Mutant, Hormone Receptor-Positive, HER2-Negative, Locally Advanced or Metastatic Breast Cancer"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase III, Randomized, Double-Blind, Placebo-Controlled Study Evaluating the Efficacy and Safety of Inavolisib Plus Palbociclib and Fulvestrant Versus Placebo Plus Palbociclib and Fulvestrant in Patients With PIK3CA-Mutant, Hormone Receptor-Positive, HER2-Negative, Locally Advanced or Metastatic Breast Cancer

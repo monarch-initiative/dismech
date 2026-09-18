@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04903288
+reference_id: "clinicaltrials:NCT04903288"
 title: An Open-Label Trial to Address the Safety of the SmartFlow MR-Compatible Ventricular Cannula for Administering Eladocagene Exuparvovec to Pediatric Subjects
 content_type: summary
-full_text_attempted: true
 ---
 
 # An Open-Label Trial to Address the Safety of the SmartFlow MR-Compatible Ventricular Cannula for Administering Eladocagene Exuparvovec to Pediatric Subjects

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04844359
+reference_id: "clinicaltrials:NCT04844359"
 title: Development and Validation of a Prognostic Transcriptomic Signature for Chronic Hypersensitivity Pneumonitis
 content_type: summary
-full_text_attempted: true
 ---
 
 # Development and Validation of a Prognostic Transcriptomic Signature for Chronic Hypersensitivity Pneumonitis

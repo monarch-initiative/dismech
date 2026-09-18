@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05295433
+reference_id: "clinicaltrials:NCT05295433"
 title: "A Phase 1/2, Global, Open-Label, Extension Study to Evaluate the Long-Term Safety and Clinical Activity of mRNA-3705 in Participants Previously Enrolled in Other Clinical Studies of mRNA-3705"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2, Global, Open-Label, Extension Study to Evaluate the Long-Term Safety and Clinical Activity of mRNA-3705 in Participants Previously Enrolled in Other Clinical Studies of mRNA-3705

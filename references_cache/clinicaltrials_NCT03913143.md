@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03913143
+reference_id: "clinicaltrials:NCT03913143"
 title: "Double-masked, Randomized, Controlled, Multiple-dose Study to Evaluate Efficacy, Safety, Tolerability and Syst. Exposure of QR-110 in Leber's Congenital Amaurosis (LCA) Due to c.2991+1655A>G Mutation (p.Cys998X) in the CEP290 Gene"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Double-masked, Randomized, Controlled, Multiple-dose Study to Evaluate Efficacy, Safety, Tolerability and Syst. Exposure of QR-110 in Leber's Congenital Amaurosis (LCA) Due to c.2991+1655A>G Mutation (p.Cys998X) in the CEP290 Gene

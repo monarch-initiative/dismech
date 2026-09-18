@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04106557
+reference_id: "clinicaltrials:NCT04106557"
 title: "A Multicenter, Randomized, Double-Blind, Placebo-Controlled, Parallel-Group, Phase 3 Study to Evaluate the Efficacy and Safety of OV101 in Pediatric Individuals With Angelman Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multicenter, Randomized, Double-Blind, Placebo-Controlled, Parallel-Group, Phase 3 Study to Evaluate the Efficacy and Safety of OV101 in Pediatric Individuals With Angelman Syndrome

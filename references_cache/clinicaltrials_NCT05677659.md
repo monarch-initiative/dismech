@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05677659
+reference_id: "clinicaltrials:NCT05677659"
 title: "A Phase 2 Safety, Tolerability, and Proof-of-Concept Study of VGL101 in Patients With Adult-Onset Leukoencephalopathy With Axonal Spheroids and Pigmented Glia (ALSP) (The Ignite Study)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 2 Safety, Tolerability, and Proof-of-Concept Study of VGL101 in Patients With Adult-Onset Leukoencephalopathy With Axonal Spheroids and Pigmented Glia (ALSP) (The Ignite Study)

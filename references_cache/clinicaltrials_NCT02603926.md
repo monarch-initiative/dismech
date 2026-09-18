@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02603926
+reference_id: "clinicaltrials:NCT02603926"
 title: Treatment of Fragile-X Associated Tremor/Ataxia Syndrome (FXTAS) With Allopregnanolone
 content_type: summary
-full_text_attempted: true
 ---
 
 # Treatment of Fragile-X Associated Tremor/Ataxia Syndrome (FXTAS) With Allopregnanolone

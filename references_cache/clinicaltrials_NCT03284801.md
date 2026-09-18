@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03284801
+reference_id: "clinicaltrials:NCT03284801"
 title: Management of Acute Disseminated Encephalomyelitis in Neurology Unit of Assiut University Children Hospital
 content_type: summary
-full_text_attempted: true
 ---
 
 # Management of Acute Disseminated Encephalomyelitis in Neurology Unit of Assiut University Children Hospital

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06039631
+reference_id: "clinicaltrials:NCT06039631"
 title: Neoadjuvant Immunotherapy And Chemotherapy Followed By Concurrent Chemoradiation Or Organ Preservation Surgery In Locally Advanced Laryngeal Cancer And Hypopharyngeal Cancer
 content_type: summary
-full_text_attempted: true
 ---
 
 # Neoadjuvant Immunotherapy And Chemotherapy Followed By Concurrent Chemoradiation Or Organ Preservation Surgery In Locally Advanced Laryngeal Cancer And Hypopharyngeal Cancer

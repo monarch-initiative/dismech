@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03299166
+reference_id: "clinicaltrials:NCT03299166"
 title: "A Randomized, Double-blind, Placebo-controlled Trial of Adjunctive Troriluzole in Obsessive Compulsive Disorder"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-blind, Placebo-controlled Trial of Adjunctive Troriluzole in Obsessive Compulsive Disorder

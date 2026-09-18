@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05517603
+reference_id: "clinicaltrials:NCT05517603"
 title: "A Phase 1/2a, Randomized, Double-Blind, Placebo-Controlled, First-In-Patient Study Of AJ201 To Evaluate Safety, Tolerability, Pharmacokinetics, And Pharmacodynamics In Adults With Spinal And Bulbar Muscular Atrophy (SBMA)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2a, Randomized, Double-Blind, Placebo-Controlled, First-In-Patient Study Of AJ201 To Evaluate Safety, Tolerability, Pharmacokinetics, And Pharmacodynamics In Adults With Spinal And Bulbar Muscular Atrophy (SBMA)

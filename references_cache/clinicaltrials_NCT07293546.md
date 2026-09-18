@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT07293546
+reference_id: "clinicaltrials:NCT07293546"
 title: "An Open-Label First-in-Human Phase 1/2 Study to Evaluate the Safety, Tolerability, and Efficacy of FRF-001, an AAV-9 Gene Therapy Administered by Intracerebroventricular Injection in Participants With FOXG1 Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # An Open-Label First-in-Human Phase 1/2 Study to Evaluate the Safety, Tolerability, and Efficacy of FRF-001, an AAV-9 Gene Therapy Administered by Intracerebroventricular Injection in Participants With FOXG1 Syndrome

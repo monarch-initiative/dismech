@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06303414
+reference_id: "clinicaltrials:NCT06303414"
 title: Revascularization for Symptomatic Non-acute Carotid Artery Occlusion
 content_type: summary
-full_text_attempted: true
 ---
 
 # Revascularization for Symptomatic Non-acute Carotid Artery Occlusion

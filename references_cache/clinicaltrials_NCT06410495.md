@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06410495
+reference_id: "clinicaltrials:NCT06410495"
 title: "Digital Dyadic Family Based Intervention to Improve Sleep in Children with ODD and Their Parents: NiteCAPP SINCC (Pilot)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Digital Dyadic Family Based Intervention to Improve Sleep in Children with ODD and Their Parents: NiteCAPP SINCC (Pilot)

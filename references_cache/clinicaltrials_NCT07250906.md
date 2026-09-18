@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT07250906
+reference_id: "clinicaltrials:NCT07250906"
 title: Evaluation of the Impact of Anterior Veneers on the Quality of Life of Children With Amelogenesis Imperfecta
 content_type: summary
-full_text_attempted: true
 ---
 
 # Evaluation of the Impact of Anterior Veneers on the Quality of Life of Children With Amelogenesis Imperfecta

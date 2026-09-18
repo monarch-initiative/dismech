@@ -2,7 +2,6 @@
 reference_id: GEO:GSE1462
 title: Mitochondrial disorders
 content_type: summary
-full_text_attempted: true
 ---
 
 # Mitochondrial disorders

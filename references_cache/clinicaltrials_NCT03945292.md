@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03945292
+reference_id: "clinicaltrials:NCT03945292"
 title: "A Placebo-Controlled, Multi-dose, Phase 2 Study to Determine the Safety, Tolerability and Pharmacodynamic Effect of Fazirsiran (TAK-999, ARO-AAT) in Patients With Alpha-1 Antitrypsin Deficiency (AATD) [SEQUOIA]"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Placebo-Controlled, Multi-dose, Phase 2 Study to Determine the Safety, Tolerability and Pharmacodynamic Effect of Fazirsiran (TAK-999, ARO-AAT) in Patients With Alpha-1 Antitrypsin Deficiency (AATD) [SEQUOIA]

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05777226
+reference_id: "clinicaltrials:NCT05777226"
 title: Multi-center Study of Natural History of SORD-related Charcot-Marie-Tooth Disease and Epalrestat Treatment
 content_type: summary
-full_text_attempted: true
 ---
 
 # Multi-center Study of Natural History of SORD-related Charcot-Marie-Tooth Disease and Epalrestat Treatment

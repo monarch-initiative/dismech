@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04459117
+reference_id: "clinicaltrials:NCT04459117"
 title: Prophylactic Treatment of the Ductus Arteriosus in Preterm Infants by Acetaminophen
 content_type: summary
-full_text_attempted: true
 ---
 
 # Prophylactic Treatment of the Ductus Arteriosus in Preterm Infants by Acetaminophen

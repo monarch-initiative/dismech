@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03694275
+reference_id: "clinicaltrials:NCT03694275"
 title: "A Multicenter, Open-label, Pilot Study of TAK-935 (OV935) in Patients With 15Q Duplication Syndrome or CDKL5 Deficiency Disorder (ARCADE Study)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multicenter, Open-label, Pilot Study of TAK-935 (OV935) in Patients With 15Q Duplication Syndrome or CDKL5 Deficiency Disorder (ARCADE Study)

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02920710
+reference_id: "clinicaltrials:NCT02920710"
 title: ACTHAR Therapy for Central Nervous System Sarcoidosis
 content_type: summary
-full_text_attempted: true
 ---
 
 # ACTHAR Therapy for Central Nervous System Sarcoidosis

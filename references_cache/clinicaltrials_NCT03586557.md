@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03586557
+reference_id: "clinicaltrials:NCT03586557"
 title: Effectiveness of Plasma Exchange in Treating With Severe Acute AQP4-Ab Positive Optic Neuritis
 content_type: summary
-full_text_attempted: true
 ---
 
 # Effectiveness of Plasma Exchange in Treating With Severe Acute AQP4-Ab Positive Optic Neuritis

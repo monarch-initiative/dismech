@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02636725
+reference_id: "clinicaltrials:NCT02636725"
 title: A Phase II Trial of Concurrent Axitinib and Pembrolizumab in Subjects With Advanced Alveolar Soft Part Sarcoma (ASPS) and Other Soft Tissue Sarcomas (STS)
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase II Trial of Concurrent Axitinib and Pembrolizumab in Subjects With Advanced Alveolar Soft Part Sarcoma (ASPS) and Other Soft Tissue Sarcomas (STS)

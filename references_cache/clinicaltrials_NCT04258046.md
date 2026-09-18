@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04258046
+reference_id: "clinicaltrials:NCT04258046"
 title: Phase II Clinical Trial of MEK Inhibitor Trametinib in the Treatment of Complicated Extracranial Arterial Venous Malformation (VM)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase II Clinical Trial of MEK Inhibitor Trametinib in the Treatment of Complicated Extracranial Arterial Venous Malformation (VM)

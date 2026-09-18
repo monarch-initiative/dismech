@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00303446
+reference_id: "clinicaltrials:NCT00303446"
 title: "Phase II Clinical Trial to Examine the Efficacy and Safety of Dutasteride in Patients With Kennedy's Disease (Spinal and Bulbar Muscular Atrophy)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase II Clinical Trial to Examine the Efficacy and Safety of Dutasteride in Patients With Kennedy's Disease (Spinal and Bulbar Muscular Atrophy)

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02019667
+reference_id: "clinicaltrials:NCT02019667"
 title: Phase 2 Clinical Trial of SGS-742 Therapy in Succinic Semialdehyde Dehydrogenase Deficiency
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase 2 Clinical Trial of SGS-742 Therapy in Succinic Semialdehyde Dehydrogenase Deficiency

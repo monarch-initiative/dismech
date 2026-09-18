@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06465641
+reference_id: "clinicaltrials:NCT06465641"
 title: "Effectiveness of Methylphenidate in Children and Adolescents With KBG Syndrome: An N-of-1 Series"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Effectiveness of Methylphenidate in Children and Adolescents With KBG Syndrome: An N-of-1 Series

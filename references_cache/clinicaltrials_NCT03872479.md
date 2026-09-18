@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03872479
+reference_id: "clinicaltrials:NCT03872479"
 title: "Open-Label, Single Ascending Dose Study to Evaluate the Safety, Tolerability, and Efficacy of EDIT-101 in Adult and Pediatric Participants With Leber Congenital Amaurosis Type 10 (LCA10), With Centrosomal Protein 290 (CEP290)-Related Retinal Degeneration Caused by a Compound Heterozygous or Homozygous Mutation Involving c.2991+1655A>G in Intron 26 (IVS26) of the CEP290 Gene (\"LCA10-IVS26\")"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Open-Label, Single Ascending Dose Study to Evaluate the Safety, Tolerability, and Efficacy of EDIT-101 in Adult and Pediatric Participants With Leber Congenital Amaurosis Type 10 (LCA10), With Centrosomal Protein 290 (CEP290)-Related Retinal Degeneration Caused by a Compound Heterozygous or Homozygous Mutation Involving c.2991+1655A>G in Intron 26 (IVS26) of the CEP290 Gene ("LCA10-IVS26")

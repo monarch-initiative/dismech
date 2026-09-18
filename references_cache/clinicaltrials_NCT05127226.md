@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05127226
+reference_id: "clinicaltrials:NCT05127226"
 title: "HALOS: A Study to Evaluate the Safety, Tolerability, Pharmacokinetics and Pharmacodynamics of Intrathecally Administered ION582 in Patients With Angelman Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # HALOS: A Study to Evaluate the Safety, Tolerability, Pharmacokinetics and Pharmacodynamics of Intrathecally Administered ION582 in Patients With Angelman Syndrome

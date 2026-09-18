@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01725490
+reference_id: "clinicaltrials:NCT01725490"
 title: "The Chemopreventive Effect of Metformin in Patients With Familial Adenomatous Polyposis: Double Blinded Randomized Controlled Study"
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Chemopreventive Effect of Metformin in Patients With Familial Adenomatous Polyposis: Double Blinded Randomized Controlled Study

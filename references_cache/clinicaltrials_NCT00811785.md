@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00811785
+reference_id: "clinicaltrials:NCT00811785"
 title: "Molecular Bases of Response to Copper Treatment in Menkes Disease, Related Phenotypes, and Unexplained Copper Deficiency"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Molecular Bases of Response to Copper Treatment in Menkes Disease, Related Phenotypes, and Unexplained Copper Deficiency

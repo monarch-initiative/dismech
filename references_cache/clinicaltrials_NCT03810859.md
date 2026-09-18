@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03810859
+reference_id: "clinicaltrials:NCT03810859"
 title: "Non-syndromic Inherited Anomalies of Mineralized Tooth Tissues: a Whole Exome Study to Identify New Pathogenic Variants"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Non-syndromic Inherited Anomalies of Mineralized Tooth Tissues: a Whole Exome Study to Identify New Pathogenic Variants

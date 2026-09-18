@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03210688
+reference_id: "clinicaltrials:NCT03210688"
 title: "Treatment of Primary Minimal Change Nephropathy: A Randomized Open-labeled Non-inferiority Study on Prednisolone and Vitamin D"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Treatment of Primary Minimal Change Nephropathy: A Randomized Open-labeled Non-inferiority Study on Prednisolone and Vitamin D

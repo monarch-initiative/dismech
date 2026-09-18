@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02253004
+reference_id: "clinicaltrials:NCT02253004"
 title: The Effect of the Selective PDE3 Inhibitor on Migraine With Aura Induction and Vascular Endothelial Function.
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Effect of the Selective PDE3 Inhibitor on Migraine With Aura Induction and Vascular Endothelial Function.

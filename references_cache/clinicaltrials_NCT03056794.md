@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03056794
+reference_id: "clinicaltrials:NCT03056794"
 title: "Natural History and Advanced Genetic Study of Pyruvate Dehydrogenase Complex Deficiencies (North American Mitochondrial Disease Consortium, Rare Diseases Clinical Research Network, Project 7413)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Natural History and Advanced Genetic Study of Pyruvate Dehydrogenase Complex Deficiencies (North American Mitochondrial Disease Consortium, Rare Diseases Clinical Research Network, Project 7413)

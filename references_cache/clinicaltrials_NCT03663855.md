@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03663855
+reference_id: "clinicaltrials:NCT03663855"
 title: Effect of Increasing Doses of Tiopronin on Cystine Capacity in Patients With Cystinuria
 content_type: summary
-full_text_attempted: true
 ---
 
 # Effect of Increasing Doses of Tiopronin on Cystine Capacity in Patients With Cystinuria

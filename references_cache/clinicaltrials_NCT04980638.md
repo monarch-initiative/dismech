@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04980638
+reference_id: "clinicaltrials:NCT04980638"
 title: "A Prospective, Open-label, Genotype-match Controlled, Multicenter Clinical Trial to Investigate the Efficacy and Safety of Intra-amniotic ER004 as a Prenatal Treatment for Male Subjects With XLHED"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Prospective, Open-label, Genotype-match Controlled, Multicenter Clinical Trial to Investigate the Efficacy and Safety of Intra-amniotic ER004 as a Prenatal Treatment for Male Subjects With XLHED

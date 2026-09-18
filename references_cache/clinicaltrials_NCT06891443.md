@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06891443
+reference_id: "clinicaltrials:NCT06891443"
 title: "A Double-Masked, Randomized, Placebo-Controlled, Paired-Eye Study to Evaluate the Efficacy, Safety and Tolerability of Sepofarsen in Subjects With Leber Congenital Amaurosis (LCA) Due to the c.2991+1655A>G (p.Cys998X) Mutation in the CEP290 Gene"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Double-Masked, Randomized, Placebo-Controlled, Paired-Eye Study to Evaluate the Efficacy, Safety and Tolerability of Sepofarsen in Subjects With Leber Congenital Amaurosis (LCA) Due to the c.2991+1655A>G (p.Cys998X) Mutation in the CEP290 Gene

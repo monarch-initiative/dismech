@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03199625
+reference_id: "clinicaltrials:NCT03199625"
 title: "Different Neural Circuit Mechanisms Between Cognitive Therapy and Behavior Therapy for Patients With Panic Disorder: a Dynamic Research"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Different Neural Circuit Mechanisms Between Cognitive Therapy and Behavior Therapy for Patients With Panic Disorder: a Dynamic Research

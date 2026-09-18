@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01376479
+reference_id: "clinicaltrials:NCT01376479"
 title: "Phase I, Double Blind, Randomized, Placebo-controlled, Dose Escalation Study to Assess the Safety and Immunogenicity of a Prophylactic Vaccine Against Enterovirus Infection in Healthy Adults"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Phase I, Double Blind, Randomized, Placebo-controlled, Dose Escalation Study to Assess the Safety and Immunogenicity of a Prophylactic Vaccine Against Enterovirus Infection in Healthy Adults

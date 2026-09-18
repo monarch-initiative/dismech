@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT01314976
+reference_id: "clinicaltrials:NCT01314976"
 title: "Metronidazole for the Treatment of Dientamoebiasis in Children in Denmark - A Randomized, Placebo-controlled, Double-blinded Clinical Trial"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Metronidazole for the Treatment of Dientamoebiasis in Children in Denmark - A Randomized, Placebo-controlled, Double-blinded Clinical Trial

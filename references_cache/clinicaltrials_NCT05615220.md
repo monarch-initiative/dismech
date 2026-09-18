@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05615220
+reference_id: "clinicaltrials:NCT05615220"
 title: "A Multicenter, Double-Blind, Placebo-Controlled, Randomized Withdrawal Study to Evaluate the Safety and Maintenance of Efficacy of Ecopipam in Children, Adolescents and Adults With Tourette's Disorder"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multicenter, Double-Blind, Placebo-Controlled, Randomized Withdrawal Study to Evaluate the Safety and Maintenance of Efficacy of Ecopipam in Children, Adolescents and Adults With Tourette's Disorder

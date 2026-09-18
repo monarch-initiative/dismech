@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03041038
+reference_id: "clinicaltrials:NCT03041038"
 title: "A Multicenter Study With a Randomized, Double-Blind, Placebo-Controlled Period, Followed by an Open-Label Maintenance Dosing Period to Evaluate the Efficacy and Safety of Secukinumab in Patients With Ichthyoses"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Multicenter Study With a Randomized, Double-Blind, Placebo-Controlled Period, Followed by an Open-Label Maintenance Dosing Period to Evaluate the Efficacy and Safety of Secukinumab in Patients With Ichthyoses

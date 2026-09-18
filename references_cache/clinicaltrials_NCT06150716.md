@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06150716
+reference_id: "clinicaltrials:NCT06150716"
 title: "A Phase 1b Study to Evaluate the Safety, Pharmacokinetics and Pharmacodynamics of Intrathecally Administered ION356 in Patients With Pelizaeus Merzbacher Disease"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1b Study to Evaluate the Safety, Pharmacokinetics and Pharmacodynamics of Intrathecally Administered ION356 in Patients With Pelizaeus Merzbacher Disease

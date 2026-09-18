@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04762017
+reference_id: "clinicaltrials:NCT04762017"
 title: "A Randomized, Double-blind, Placebo-controlled Study to Evaluate the Safety and Tolerability of OCS-05 in Patients With Acute Optic Neuritis"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Randomized, Double-blind, Placebo-controlled Study to Evaluate the Safety and Tolerability of OCS-05 in Patients With Acute Optic Neuritis

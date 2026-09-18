@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05646108
+reference_id: "clinicaltrials:NCT05646108"
 title: "Tubridge Flow Diverter Study For Intracranial Aneurysms: A Post Market Nationwide Multi-center Registry Study In China"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Tubridge Flow Diverter Study For Intracranial Aneurysms: A Post Market Nationwide Multi-center Registry Study In China

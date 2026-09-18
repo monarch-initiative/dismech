@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05684692
+reference_id: "clinicaltrials:NCT05684692"
 title: Screening Trial for Pain Relief in Schwannomatosis (STARFISH)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Screening Trial for Pain Relief in Schwannomatosis (STARFISH)

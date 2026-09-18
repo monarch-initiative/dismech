@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT00001452
+reference_id: "clinicaltrials:NCT00001452"
 title: "Definition of the Genotype and Clinical Phenotype of Primary Pigmented Nodular Adrenocortical Disease (PPNAD), Carney Complex, Peutz-Jeghers Syndrome and Related Conditions"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Definition of the Genotype and Clinical Phenotype of Primary Pigmented Nodular Adrenocortical Disease (PPNAD), Carney Complex, Peutz-Jeghers Syndrome and Related Conditions

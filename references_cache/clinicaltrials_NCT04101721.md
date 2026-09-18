@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04101721
+reference_id: "clinicaltrials:NCT04101721"
 title: "Randomized, Controlled, Multi-Center Study to Assess the Efficacy, Safety, and Tolerability of Intravitreal Aflibercept Compared to Laser Photocoagulation in Patients With Retinopathy of Prematurity"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Randomized, Controlled, Multi-Center Study to Assess the Efficacy, Safety, and Tolerability of Intravitreal Aflibercept Compared to Laser Photocoagulation in Patients With Retinopathy of Prematurity

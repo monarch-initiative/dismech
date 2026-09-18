@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT07052929
+reference_id: "clinicaltrials:NCT07052929"
 title: "A Phase 1/2, Multicenter, Open-label, Dose Escalation and Expansion Clinical Study to Evaluate the Safety, Tolerability and Preliminary Efficacy of ASP2957 in Male Participants With Invasive Ventilator-dependent X-linked Myotubular Myopathy"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2, Multicenter, Open-label, Dose Escalation and Expansion Clinical Study to Evaluate the Safety, Tolerability and Preliminary Efficacy of ASP2957 in Male Participants With Invasive Ventilator-dependent X-linked Myotubular Myopathy

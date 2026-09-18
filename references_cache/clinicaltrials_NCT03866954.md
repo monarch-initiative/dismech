@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03866954
+reference_id: "clinicaltrials:NCT03866954"
 title: "The Safety, Tolerability, Pharmacodynamics, and Efficacy of Erythrocyte Encapsulated Thymidine Phosphorylase (EE-TP) in Patients With MNGIE"
 content_type: summary
-full_text_attempted: true
 ---
 
 # The Safety, Tolerability, Pharmacodynamics, and Efficacy of Erythrocyte Encapsulated Thymidine Phosphorylase (EE-TP) in Patients With MNGIE

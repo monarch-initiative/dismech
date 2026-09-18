@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04998396
+reference_id: "clinicaltrials:NCT04998396"
 title: A Phase 1/2 Open-Label Study of the Safety and Clinical Activity of Gene Therapy for Canavan Disease Through Administration of an Adeno-Associated Virus (AAV) Serotype 9-Based Recombinant Vector Encoding the Human ASPA Gene
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 1/2 Open-Label Study of the Safety and Clinical Activity of Gene Therapy for Canavan Disease Through Administration of an Adeno-Associated Virus (AAV) Serotype 9-Based Recombinant Vector Encoding the Human ASPA Gene

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03769194
+reference_id: "clinicaltrials:NCT03769194"
 title: "Immunogenicity and Safety Study of VLA15, A Multivalent Recombinant OspA (Outer Surface Protein A) Based Vaccine Candidate Against Lyme Borreliosis, in Healthy Adults Aged 18 to 65 Years. A Randomized, Controlled, Observer-blind Phase 2 Study."
 content_type: summary
-full_text_attempted: true
 ---
 
 # Immunogenicity and Safety Study of VLA15, A Multivalent Recombinant OspA (Outer Surface Protein A) Based Vaccine Candidate Against Lyme Borreliosis, in Healthy Adults Aged 18 to 65 Years. A Randomized, Controlled, Observer-blind Phase 2 Study.

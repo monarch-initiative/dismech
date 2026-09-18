@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02852213
+reference_id: "clinicaltrials:NCT02852213"
 title: "SIngle-Stage, Open-Label, Safety and Efficacy Study of Adeno-Associated Virus Encoding Human Aromatic L-Amino Acid Decarboxylase by Magnetic Resonance MR-guided Infusion Into Midbrain in Pediatric Patients With AADC Deficiency"
 content_type: summary
-full_text_attempted: true
 ---
 
 # SIngle-Stage, Open-Label, Safety and Efficacy Study of Adeno-Associated Virus Encoding Human Aromatic L-Amino Acid Decarboxylase by Magnetic Resonance MR-guided Infusion Into Midbrain in Pediatric Patients With AADC Deficiency

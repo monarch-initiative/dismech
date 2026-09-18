@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02638220
+reference_id: "clinicaltrials:NCT02638220"
 title: "An Observational, Multicenter Study of the Prevalence of Cerebrotendinous Xanthomatosis (CTX) in Patient Populations Diagnosed With Early-Onset Idiopathic Bilateral Cataracts"
 content_type: summary
-full_text_attempted: true
 ---
 
 # An Observational, Multicenter Study of the Prevalence of Cerebrotendinous Xanthomatosis (CTX) in Patient Populations Diagnosed With Early-Onset Idiopathic Bilateral Cataracts

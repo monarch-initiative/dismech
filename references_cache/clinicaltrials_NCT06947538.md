@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06947538
+reference_id: "clinicaltrials:NCT06947538"
 title: "Adaptive Interventions to Improve Posttraumatic Stress Disorder (PTSD) Treatment Access, Engagement, and Effectiveness in Routine Care"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Adaptive Interventions to Improve Posttraumatic Stress Disorder (PTSD) Treatment Access, Engagement, and Effectiveness in Routine Care

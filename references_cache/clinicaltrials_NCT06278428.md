@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06278428
+reference_id: "clinicaltrials:NCT06278428"
 title: "Genotype, Phenotype, and Disease Progression of Developmental Epileptic Encephalopathy With Onset Before 2 Years of Age"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Genotype, Phenotype, and Disease Progression of Developmental Epileptic Encephalopathy With Onset Before 2 Years of Age

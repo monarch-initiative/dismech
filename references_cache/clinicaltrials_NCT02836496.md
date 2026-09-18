@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02836496
+reference_id: "clinicaltrials:NCT02836496"
 title: "Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Study 200622: A Randomized, Double-blind, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Adolescent and Adult Subjects With Severe Hypereosinophilic Syndrome

@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03356483
+reference_id: "clinicaltrials:NCT03356483"
 title: "Psilocybin Treatment in Obsessive-Compulsive Disorder: a Preliminary Efficacy Study and Exploratory Investigation of Neural Correlates."
 content_type: summary
-full_text_attempted: true
 ---
 
 # Psilocybin Treatment in Obsessive-Compulsive Disorder: a Preliminary Efficacy Study and Exploratory Investigation of Neural Correlates.

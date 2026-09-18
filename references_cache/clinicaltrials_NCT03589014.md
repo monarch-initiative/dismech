@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03589014
+reference_id: "clinicaltrials:NCT03589014"
 title: Treat_CCM Clinical Trial A Multicenter Randomized Clinical Trial on Propranolol in Familial Cerebral Cavernous Malformation
 content_type: summary
-full_text_attempted: true
 ---
 
 # Treat_CCM Clinical Trial A Multicenter Randomized Clinical Trial on Propranolol in Familial Cerebral Cavernous Malformation

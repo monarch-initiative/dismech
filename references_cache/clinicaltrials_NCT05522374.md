@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05522374
+reference_id: "clinicaltrials:NCT05522374"
 title: TIRCON International NBIA (Neurodegeneration Associated With Brain Iron Accumulation) Patient Registry and Natural History Study
 content_type: summary
-full_text_attempted: true
 ---
 
 # TIRCON International NBIA (Neurodegeneration Associated With Brain Iron Accumulation) Patient Registry and Natural History Study

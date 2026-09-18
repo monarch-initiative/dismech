@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT03697265
+reference_id: "clinicaltrials:NCT03697265"
 title: "A Phase II, Randomised, Double-blind, Placebo-controlled, Parallel Group, Multicentre Study Investigating Efficacy and Safety of Sepranolone (UC1010) in Patients With Premenstrual Dysphoric Disorder (PMDD)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase II, Randomised, Double-blind, Placebo-controlled, Parallel Group, Multicentre Study Investigating Efficacy and Safety of Sepranolone (UC1010) in Patients With Premenstrual Dysphoric Disorder (PMDD)

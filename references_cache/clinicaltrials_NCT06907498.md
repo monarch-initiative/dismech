@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT06907498
+reference_id: "clinicaltrials:NCT06907498"
 title: "Paromomycin or Metronidazole for Symptomatic Dientamoeba Fragilis in Adults (COMFORTER Trial) - Protocol for a Superiority Double Blind, Randomized Controlled Trial"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Paromomycin or Metronidazole for Symptomatic Dientamoeba Fragilis in Adults (COMFORTER Trial) - Protocol for a Superiority Double Blind, Randomized Controlled Trial

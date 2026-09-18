@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02089217
+reference_id: "clinicaltrials:NCT02089217"
 title: Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial
 content_type: summary
-full_text_attempted: true
 ---
 
 # Carotid Revascularization and Medical Management for Asymptomatic Carotid Stenosis Trial

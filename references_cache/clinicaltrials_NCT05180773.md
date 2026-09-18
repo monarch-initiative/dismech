@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT05180773
+reference_id: "clinicaltrials:NCT05180773"
 title: Randomized Evaluation of Bromocriptine In Myocardial Recovery THerapy for Peripartum Cardiomyopathy (REBIRTH)
 content_type: summary
-full_text_attempted: true
 ---
 
 # Randomized Evaluation of Bromocriptine In Myocardial Recovery THerapy for Peripartum Cardiomyopathy (REBIRTH)

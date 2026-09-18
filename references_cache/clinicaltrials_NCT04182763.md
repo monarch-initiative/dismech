@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT04182763
+reference_id: "clinicaltrials:NCT04182763"
 title: A Phase 2 Study of a Vitamin Metabolite for PKAN
 content_type: summary
-full_text_attempted: true
 ---
 
 # A Phase 2 Study of a Vitamin Metabolite for PKAN

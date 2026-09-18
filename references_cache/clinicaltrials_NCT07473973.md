@@ -1,8 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT07473973
+reference_id: "clinicaltrials:NCT07473973"
 title: "The ENERGY 2 Study: An Open-Label Phase 3 Study to Evaluate the Efficacy and Safety of INZ-701 in Infants With Ectonucleotide Pyrophosphatase/Phosphodiesterase 1 (ENPP1) Deficiency"
 content_type: summary
-full_text_attempted: true
 ---
 
 # The ENERGY 2 Study: An Open-Label Phase 3 Study to Evaluate the Efficacy and Safety of INZ-701 in Infants With Ectonucleotide Pyrophosphatase/Phosphodiesterase 1 (ENPP1) Deficiency
