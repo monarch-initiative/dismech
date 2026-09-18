@@ -30189,6 +30189,129 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autosomal Dominant Cutis Laxa 1",
+    "disease_id": "MONDO:0007411",
+    "category": "Mendelian",
+    "parents": [
+      "Connective Tissue Disease",
+      "Cutis Laxa",
+      "Elastinopathy"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant cutis laxa 1 (ADCL1, ELN-related cutis laxa) is a rare heritable elastinopathy in which a heterozygous variant near the 3' end of the elastin gene produces tropoelastin with the wrong carboxy terminus. The mechanism is a dominant-negative one, and that is the fact that organises this entry: the mutant transcript escapes nonsense-mediated decay, the mutant tropoelastin is synthesised and secreted, and once in the extracellular space it co-assembles with wild-type tropoelastin, lowers the coacervation temperature of the mixture, aggregates into globules, binds fibrillin microfibrils poorly, and so leaves the tissue with fewer, fragmented and poorly cross-linked elastic fibres. The same gene, when one copy is simply lost, causes supravalvular aortic stenosis with more elastic lamellae rather than fewer, so the two allelic diseases sit at opposite ends of the elastin assembly problem.\nClinically the skin is loose, redundant and inelastic from birth or infancy, hangs in folds, and gives a prematurely aged face with a long philtrum, large ears, ptosis and blepharochalasis. The disorder was long regarded as cosmetic, and it is not: roughly half of patients develop aortic root dilatation, which can progress through childhood to aneurysm or rupture, and a third develop pulmonary emphysema, which can be early and severe. Inguinal hernias, joint hyperlaxity in infancy, a hoarse voice, bladder diverticula and occasional bicuspid aortic valve complete the picture. Intelligence and neuromotor development are normal, which is one of the features that separates this disorder from the recessive cutis laxa syndromes.\nA secondary layer of the mechanism explains why the internal organs are hit at all. Partly retained mutant tropoelastin triggers endoplasmic reticulum stress and apoptosis in an allele-dependent way, and the compliant, poorly organised matrix releases more TGF-beta, seen as increased phospho-SMAD2 in patient fibroblasts and in the transgenic mouse lung. That TGF-beta arm is what links the aortic disease to the heritable aortopathies and is the only proposed target for a mechanism-directed drug, though no such treatment has been tested in this disease.",
+    "pathophysiology": [
+      "Heterozygous 3-prime ELN Frameshift Variant",
+      "Stable Mutant ELN Transcript Escaping Nonsense-Mediated Decay",
+      "Synthesis and Secretion of C-Terminally Altered Tropoelastin",
+      "Dominant-Negative Disruption of Elastic Fiber Assembly",
+      "Endoplasmic Reticulum Stress and Apoptosis from Retained Mutant Tropoelastin",
+      "Fragmented, Sparse Elastic Fibers in Dermis, Lung and Arterial Media",
+      "Increased TGF-beta Signaling from a Compliant Matrix",
+      "Loss of Elastic Recoil in Skin and Supporting Connective Tissue",
+      "Emphysematous Airspace Enlargement",
+      "Aortic Medial Degeneration and Root Dilatation"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "nonsense-mediated decay of the mutant ELN transcript",
+      "secretion of mutant tropoelastin",
+      "elastic fiber assembly",
+      "extracellular matrix organization",
+      "response to endoplasmic reticulum stress",
+      "apoptotic process",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Prematurely aged appearance",
+      "Coarse facial features",
+      "Inguinal hernia",
+      "Aortic root dilatation",
+      "Aortic rupture",
+      "Bicuspid aortic valve",
+      "Emphysema",
+      "Airway obstruction",
+      "Ptosis",
+      "Joint hypermobility",
+      "Hoarse voice",
+      "Bladder diverticulum",
+      "Pulmonary artery stenosis"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Respiratory",
+      "Ophthalmological",
+      "Musculoskeletal",
+      "Otolaryngological",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0007495",
+      "HP:0000280",
+      "HP:0000023",
+      "HP:0002616",
+      "HP:0031649",
+      "HP:0001647",
+      "HP:0002097",
+      "HP:0006536",
+      "HP:0000508",
+      "HP:0001382",
+      "HP:0001609",
+      "HP:0000015",
+      "HP:0004415"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "Heterozygous ELN 3-prime frameshift variants"
+    ],
+    "treatments": [
+      "Multidisciplinary supportive care",
+      "Cardiovascular and pulmonary surveillance",
+      "Avoidance of agents that damage residual elastic tissue",
+      "Reconstructive surgery for redundant skin",
+      "Beta-blocker or angiotensin receptor blocker for aortic protection",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Cutis_Laxa_1.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Cutis_Laxa_1.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Autosomal Dominant Dopa-Responsive Dystonia",
     "disease_id": "MONDO:0971063",
     "category": "Genetic",
@@ -111188,6 +111311,130 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Exfoliation Syndrome",
+    "disease_id": "MONDO:0100046",
+    "category": "Complex",
+    "parents": [
+      "Ophthalmological Disease",
+      "Extracellular Matrix Disorder"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Exfoliation syndrome (pseudoexfoliation syndrome, PEX/XFS) is an age-related, systemic disorder of the elastic extracellular matrix in which abnormal fibrillar material is overproduced, abnormally cross-linked and stably deposited in tissues that make elastic fibres. The disease is visible almost only in the eye: the pre-equatorial lens epithelium, the nonpigmented ciliary epithelium and the iris pigment epithelium secrete microfibrillar aggregates containing fibrillin-1, latent TGF-beta binding proteins, clusterin and the cross-linking enzyme LOXL1, which settle on the anterior lens capsule in a classic three-zone pattern, on the pupillary border, on the zonules and in the trabecular meshwork. The mechanism runs from a common LOXL1 susceptibility genotype and an aged, TGF-beta1-rich, oxidatively stressed anterior-segment milieu, through dysregulated LOXL1 expression and failed extracellular chaperoning, to fibrillogenesis; from there the material does mechanical damage wherever it lands.\nThree consequences organise the clinical picture. Exfoliation material infiltrates and ruptures the zonules, so the lens becomes unstable (phacodonesis, subluxation) and cataract surgery carries many times the usual risk of zonular dehiscence and capsular rupture. The iris pigment epithelium degenerates at the pupillary margin, giving peripupillary transillumination, poor mydriasis and a shower of pigment into the anterior chamber. Most consequentially, exfoliation material and liberated pigment obstruct the trabecular meshwork, outflow resistance rises, intraocular pressure climbs to levels that are typically higher and more labile than in primary open-angle glaucoma, and the eye develops exfoliation glaucoma, the commonest identifiable cause of secondary open-angle glaucoma worldwide and a form with a faster, less medically responsive course.\nThe distinction that organises this entry is the same one used for pigment dispersion: exfoliation syndrome is a risk state, and exfoliation glaucoma is what it becomes in a large minority of eyes. The genetics are polygenic rather than Mendelian. LOXL1 common variants are present in nearly every patient and in most unaffected people, the risk allele reverses direction between ancestries, and the syndrome is strongly age-dependent, so LOXL1 is curated as a susceptibility locus and not as a causal gene. Systemic deposits are real, but the cardiovascular, hearing and pelvic-floor associations reported alongside them remain associations, and the entry records them as such.",
+    "pathophysiology": [
+      "LOXL1 Susceptibility Genotype",
+      "TGF-beta1 Excess and Oxidative Stress in the Anterior Segment",
+      "Dysregulated LOXL1 Expression and Elastic Microfibril Cross-Linking",
+      "Extracellular Chaperone Deficiency and Impaired Proteostasis",
+      "Exfoliation Material Fibrillogenesis and Deposition",
+      "Zonular Degradation and Lens Instability",
+      "Iris Pigment Epithelial Degeneration and Pigment Dispersion",
+      "Trabecular Meshwork Obstruction by Exfoliation Material and Pigment",
+      "Elevated Intraocular Pressure",
+      "Lamina Cribrosa Elastosis",
+      "Retinal Ganglion Cell Apoptosis",
+      "Exfoliation Glaucoma Optic Neuropathy",
+      "Systemic Elastosis"
+    ],
+    "cell_types": [
+      "nonpigmented ciliary epithelial cell",
+      "Tenon's capsule fibroblast",
+      "pre-equatorial lens epithelial cell",
+      "iris pigment epithelial cell",
+      "trabecular meshwork cell",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002304",
+      "CL:0000057",
+      "CL:0002224",
+      "CL:0002565",
+      "CL:0002367",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "TGF-beta1 signaling in the anterior segment",
+      "oxidative stress in the aqueous humour and anterior segment",
+      "elastic microfibril assembly and cross-linking",
+      "autophagic clearance",
+      "abnormal extracellular matrix deposition",
+      "trabecular extracellular matrix obstruction",
+      "retinal ganglion cell apoptosis"
+    ],
+    "phenotypes": [
+      "Pseudoexfoliation",
+      "Iris transillumination defect",
+      "Poor pupillary dilation",
+      "Pigment deposition in the trabecular meshwork",
+      "Ocular hypertension",
+      "Open angle glaucoma",
+      "Angle closure glaucoma",
+      "Visual field defect",
+      "Visual impairment",
+      "Phakodonesis",
+      "Lens subluxation",
+      "Cataract",
+      "Abnormality of the cardiovascular system",
+      "Sensorineural hearing impairment",
+      "Pelvic organ prolapse"
+    ],
+    "phenotype_categories": [
+      "Ophthalmic",
+      "Systemic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0012627",
+      "HP:0012805",
+      "HP:0012631",
+      "HP:0007906",
+      "HP:0012108",
+      "HP:0012109",
+      "HP:0007854",
+      "HP:0000505",
+      "HP:0012629",
+      "HP:0001132",
+      "HP:0000518",
+      "HP:0001626",
+      "HP:0000407",
+      "HP:0031607"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "LOXL1",
+      "CACNA1A",
+      "Additional genome-wide susceptibility loci",
+      "CYP39A1"
+    ],
+    "treatments": [
+      "Topical Intraocular Pressure Lowering Pharmacotherapy",
+      "Selective Laser Trabeculoplasty",
+      "Cataract Surgery with Zonular and Pupil Support",
+      "Filtration Surgery"
+    ],
+    "environmental": [
+      "Lifetime solar exposure and reflected light"
+    ],
+    "biochemical": [],
+    "source_file": "Exfoliation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Exfoliation_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 13,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Exstrophy-Epispadias Complex",
     "disease_id": "MONDO:0017919",
     "category": "Congenital",
@@ -147888,6 +148135,152 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Hyperphosphatemic Familial Tumoral Calcinosis",
+    "disease_id": "MONDO:0100251",
+    "category": "Mendelian",
+    "parents": [
+      "Disorders of Phosphate Metabolism",
+      "Metabolic Bone Disorders",
+      "Ectopic Calcification Disorders"
+    ],
+    "creation_date": "2026-09-04T23:23:40Z",
+    "updated_date": null,
+    "subtypes": [
+      "HFTC1",
+      "HFTC2",
+      "HFTC3"
+    ],
+    "description": "Hyperphosphatemic familial tumoral calcinosis (HFTC) is an autosomal recessive disorder of deficient fibroblast growth factor 23 (FGF23) action. Biallelic loss-of-function variants in GALNT3 or FGF23 leave the intact hormone unprotected against furin-family cleavage, so patients carry low or inappropriately normal intact FGF23 with a large excess of inactive C-terminal fragments; biallelic KL variants instead reduce alpha-Klotho, so intact FGF23 is high and the kidney is resistant to it. Either route removes FGF23-Klotho signalling from the renal proximal tubule.\nThe endocrine consequence is the mirror image of X-linked hypophosphatemia. Sodium-phosphate cotransport is not downregulated, tubular phosphate reabsorption stays inappropriately high, and 1-alpha-hydroxylase is not suppressed, so hyperphosphatemia coexists with elevated or inappropriately normal 1,25-dihydroxyvitamin D while calcium, PTH and renal function stay normal. The resulting rise in the calcium-phosphate product drives ectopic calcium-phosphate deposition.\nClinically this appears as lobular periarticular calcific masses at the hips, elbows and shoulders, a distinctive dental phenotype (enamel hypoplasia, short bulbous roots, obliterated pulp chambers, pulp stones), painful diaphyseal cortical hyperostosis, vascular calcification, testicular microlithiasis and angioid streaks. Some patients develop overwhelming systemic inflammation around the deposits. Hyperostosis-hyperphosphatemia syndrome (HHS) is the same disease, not a separate one: the same GALNT3 founder allele produces either presentation.\nThe entry is organised around the causal chain from each of the three genetic lesions to the shared FGF23-signalling failure, then to the renal phosphate and vitamin D phenotype, the elevated calcium-phosphate product, and the tissue-level consequences of ectopic mineral deposition.",
+    "pathophysiology": [
+      "Biallelic GALNT3 Loss of Function",
+      "Biallelic FGF23 Missense Variants Blocking Intact Hormone Secretion",
+      "Failure of FGF23 O-Glycosylation and Furin Cleavage of Intact FGF23",
+      "Deficiency of Circulating Intact FGF23 with C-Terminal Fragment Excess",
+      "Biallelic KL Loss of Function and Renal FGF23 Resistance",
+      "Loss of FGF23-Klotho-FGFR1c Signaling in the Renal Proximal Tubule",
+      "Increased Proximal Tubular Sodium-Phosphate Cotransport",
+      "Unsuppressed Renal Calcitriol Production",
+      "Hyperphosphatemia with Elevated Calcium-Phosphate Product",
+      "Ectopic Calcium-Phosphate Deposition in Periarticular Soft Tissue",
+      "Foreign-Body and Systemic Inflammation Around Calcific Deposits",
+      "Diaphyseal Cortical Hyperostosis",
+      "Ectopic Calcification of Vessels, Teeth and Other Organs"
+    ],
+    "cell_types": [
+      "osteocyte",
+      "osteoblast",
+      "epithelial cell of proximal tubule",
+      "fibroblast",
+      "macrophage",
+      "odontoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000062",
+      "CL:0002306",
+      "CL:0000057",
+      "CL:0000235",
+      "CL:0000060"
+    ],
+    "biological_processes": [
+      "protein O-linked glycosylation",
+      "phosphate ion homeostasis",
+      "fibroblast growth factor receptor signaling pathway",
+      "phosphate ion transmembrane transport",
+      "vitamin D biosynthetic process",
+      "biomineral tissue development",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Periarticular Calcific Masses",
+      "Restricted Joint Movement",
+      "Painful Diaphyseal Hyperostosis",
+      "Bone Pain",
+      "Dental Root and Pulp Disease",
+      "Short Dental Roots",
+      "Enamel Hypoplasia",
+      "Vascular Calcification",
+      "Testicular Microlithiasis",
+      "Angioid Streaks",
+      "Systemic Inflammation",
+      "Heterotopic Ossification",
+      "Hyperphosphatemia",
+      "Increased Renal Tubular Phosphate Reabsorption"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Skeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Genitourinary",
+      "Ophthalmologic",
+      "Constitutional",
+      "Metabolic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0025477",
+      "HP:0001376",
+      "HP:0100774",
+      "HP:0002653",
+      "HP:0006350",
+      "HP:0006336",
+      "HP:0006297",
+      "HP:0004934",
+      "HP:0012215",
+      "HP:0001102",
+      "HP:0011227",
+      "HP:0011986",
+      "HP:0002905",
+      "HP:0005571"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "Biallelic GALNT3 Pathogenic Variants",
+      "Biallelic FGF23 Pathogenic Variants",
+      "Biallelic KL Pathogenic Variants"
+    ],
+    "treatments": [
+      "Dietary Phosphate Restriction",
+      "Non-Calcium Phosphate Binders",
+      "Phosphaturic Therapy with Acetazolamide or Probenecid",
+      "Interleukin-1 Blockade for Systemic Inflammation",
+      "Surgical Excision of Calcific Masses"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Phosphate",
+      "Tubular Reabsorption of Phosphate and TmP/GFR",
+      "Intact FGF23",
+      "C-Terminal FGF23",
+      "1,25-Dihydroxyvitamin D",
+      "Serum Calcium and Parathyroid Hormone"
+    ],
+    "source_file": "Hyperphosphatemic_Familial_Tumoral_Calcinosis.yaml",
+    "page_url": "../pages/disorders/Hyperphosphatemic_Familial_Tumoral_Calcinosis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 13,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Hyperprolinemia Type 1",
@@ -313562,17 +313955,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3013,
-  "total_subtypes": 3768,
-  "total_disorders_and_subtypes": 6781,
-  "total_unique_evidence_sources": 42829,
-  "total_unique_publications": 40430,
+  "total_disorder_pages": 3016,
+  "total_subtypes": 3771,
+  "total_disorders_and_subtypes": 6787,
+  "total_unique_evidence_sources": 42903,
+  "total_unique_publications": 40504,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3008,
-  "total_unique_pathological_events": 18278,
+  "total_pathographs": 3011,
+  "total_unique_pathological_events": 18312,
   "total_modules": 177,
-  "total_research_reports": 3130,
+  "total_research_reports": 3133,
   "total_classifications": 19,
   "total_comorbidities": 43,
   "total_groupings": 102
