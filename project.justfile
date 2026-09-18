@@ -262,6 +262,19 @@ _linkml-validate-config target_class="Disease":
 new-history *ARGS:
     uv run python scripts/new_history.py "$@"
 
+# Report when each KB entry last had a *substantive* curation pass, derived from
+# history/ with bulk sweeps (one summary recurring across many entries) excluded.
+# Ordered stalest-first, so the output is a re-pass worklist. Issue #5334.
+#   just last-pass-report                       # summary + stalest 25
+#   just last-pass-report --status PASSED       # oldest genuine passes
+#   just last-pass-report --status NO_HISTORY   # entries with no history record
+#   just last-pass-report --model sonnet-4      # re-pass everything an old model did
+#   just last-pass-report --list-bulk           # audit the sweep classification
+#   just last-pass-report --format tsv --limit 0
+[group('Analysis')]
+last-pass-report *args="":
+    uv run python -m dismech.last_pass {{args}}
+
 # Validate a single history record
 [group('QC')]
 validate-history file:
