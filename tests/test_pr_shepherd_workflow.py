@@ -46,16 +46,20 @@ def test_merge_controller_has_a_fresh_trusted_runner_and_scoped_writer():
     token = step(merge_job, "Generate scoped merge token")
     assert token["with"]["permission-contents"] == "write"
     assert token["with"]["permission-pull-requests"] == "write"
-    controller = step(merge_job, "Merge at most one ready PR (deterministic)")
+    controller = step(merge_job, "Process ready PRs (deterministic)")
     assert controller["env"]["GH_TOKEN"] == "${{ github.token }}"
     assert controller["env"]["GH_MERGE_TOKEN"] == (
         "${{ steps.ai4c-token-merge.outputs.token }}"
     )
     assert "scripts/auto_merge_ready_prs.py" in controller["run"]
-    assert '--base-health-check "test (3.13)"' in controller["run"]
-    assert '--base-health-app-id "15368"' in controller["run"]
+    assert "--base-health-check" not in controller["run"]
+    assert "--base-health-app-id" not in controller["run"]
     assert 'args+=(--specific-pr "$SPECIFIC_PR")' in controller["run"]
     assert merge_job["env"]["SPECIFIC_PR"] == "${{ inputs.pr_number || '' }}"
+    assert merge_job["env"]["MAX_ENQUEUE_PER_RUN"] == (
+        "${{ inputs.max_enqueue_per_run || '50' }}"
+    )
+    assert '--max-enqueue-per-run "$MAX_ENQUEUE_PER_RUN"' in controller["run"]
     assert "python scripts/auto_merge_ready_prs.py" in controller["run"]
     assert "uv run" not in controller["run"]
     setup_python = step(merge_job, "Set up Python")
@@ -128,10 +132,32 @@ def test_agent_lane_uses_a_bounded_deterministic_shortlist():
     assert "CANDIDATE_PRS: ${{ steps.pr-candidates.outputs.pr_numbers }}" in prompt
     assert "merge_base_commit.sha == $MAIN_SHA" in prompt
     assert "baseRefOid" in prompt and "NOT an ancestry signal" in prompt
-    assert "APPROVED + ALIGNED + RED/BLOCKED" in prompt
-    assert "Update at most ONE behind branch per run" in prompt
+    assert "APPROVED + RED/BLOCKED" in prompt
+    assert "Never refresh a branch solely because it is behind main" in prompt
+    assert "1. Stale CHANGES_REQUESTED PRs, oldest updated first" in prompt
     assert "Never merge a PR, enable auto-merge" in prompt
     assert "Squash merge it directly" not in prompt
+
+
+def test_agent_recovers_abandoned_code_prs_and_preserves_cache_and_history_guards():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "including Python under src/, scripts/, and tests/" in prompt
+    assert "Only edit curation-scope files" not in prompt
+    assert (
+        "continue through the" in prompt
+        and "shortlist until the budget is used" in prompt
+    )
+    assert "Never use a blanket ours/theirs resolution" in prompt
+    assert (
+        "Never read, write, edit, or stage the frozen dataset-accession JSON cache"
+        in prompt
+    )
+    assert "Never force-push, rebase, reset, or rewrite PR history" in prompt
+    assert "Never modify human-authored PRs" in prompt
+    assert "Never modify a PR that is assigned" in prompt
+    assert "verify the remote head and assignment again" in prompt
+    assert "reproduce\n  the failure" in prompt
 
 
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
