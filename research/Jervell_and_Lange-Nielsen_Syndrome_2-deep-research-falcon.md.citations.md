@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Jervell and Lange-Nielsen Syndrome 2
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0012871 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -89,6 +89,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -447,23 +457,28 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-17T21:18:40.900844
+**Generated:** 2026-09-06T14:51:45.841987
 
 1. faridi2019mutationalandphenotypic pages 1-3
-2. faridi2019mutationalandphenotypic pages 8-9
-3. balestra2024congenitallongqt pages 4-5
-4. balestra2024congenitallongqt pages 5-8
-5. balestra2024congenitallongqt pages 8-9
-6. qiu2020jervellandlangenielsen pages 5-7
-7. faridi2019mutationalandphenotypic pages 9-11
-8. yu2023precisionmedicinefor pages 1-2
-9. faridi2019mutationalandphenotypic pages 3-4
-10. qiu2020jervellandlangenielsen pages 1-2
-11. yu2023precisionmedicinefor pages 7-8
-12. yu2023precisionmedicinefor pages 2-2
-13. https://doi.org/10.1002/humu.23689.
-14. https://doi.org/10.1017/erm.2022.43.
-15. https://doi.org/10.1002/humu.23689,
-16. https://doi.org/10.3390/children11050582,
-17. https://doi.org/10.1155/2020/3569359,
-18. https://doi.org/10.1017/erm.2022.43,
+2. hataba2025themutationalspectrum pages 14-17
+3. roberts2020aninternationalmulticenter pages 1-5
+4. qiu2020jervellandlangenielsen pages 5-7
+5. zhang2014recessivecardiacphenotypes pages 1-2
+6. faridi2019mutationalandphenotypic pages 12-14
+7. faridi2019mutationalandphenotypic pages 6-8
+8. theodore2024icdimplantin pages 1-3
+9. vojdani2019mutationscreeningof pages 7-10
+10. vojdani2019mutationscreeningof pages 4-7
+11. theodore2024icdimplantin pages 3-4
+12. Human genetic/review evidence; published December 2019; PMID **30461122**; DOI/URL: https://doi.org/10.1002/humu.23689
+13. Human multicenter cohort; February 2020; PMID **31983240**; DOI: https://doi.org/10.1161/CIRCULATIONAHA.119.043114
+14. Experimental human iPSC evidence; December 2014; DOI: https://doi.org/10.1073/pnas.1419553111
+15. https://doi.org/10.1002/humu.23689].
+16. https://doi.org/10.1161/CIRCULATIONAHA.119.043114].
+17. https://doi.org/10.1073/pnas.1419553111].
+18. https://doi.org/10.1161/circulationaha.119.043114,
+19. https://doi.org/10.1002/humu.23689,
+20. https://doi.org/10.1080/15513815.2019.1585500,
+21. https://doi.org/10.1101/2025.10.22.25336867,
+22. https://doi.org/10.1155/2020/3569359,
+23. https://doi.org/10.1073/pnas.1419553111,
