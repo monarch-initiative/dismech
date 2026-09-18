@@ -137,6 +137,26 @@ def test_find_duplicate_keys_tolerates_an_empty_document():
     assert yaml_io.find_duplicate_keys("") == []
 
 
+def test_find_duplicate_keys_survives_a_yaml_complex_key():
+    """A complex key (``? [a, b]``) composes to an unhashable list value.
+
+    Nothing in ``kb/`` uses complex keys, but this runs over the whole corpus on
+    every build, where a crash would be worse than a miss.
+    """
+    assert yaml_io.find_duplicate_keys("? [a, b]\n: 1\nx: 2\n") == []
+
+    duplicated = yaml_io.find_duplicate_keys("? [a, b]\n: 1\n? [a, b]\n: 2\n")
+    assert len(duplicated) == 1
+    path, _key, line = duplicated[0]
+    assert (path, line) == ("<document root>", 3)
+
+
+def test_find_duplicate_keys_propagates_parse_errors():
+    """Callers distinguish "malformed" from "clean"; it must not read as clean."""
+    with pytest.raises(yaml.YAMLError):
+        yaml_io.find_duplicate_keys("key: [unclosed\n")
+
+
 def test_libyaml_is_available_in_this_environment():
     """Guard the performance win, but only where losing it is a real regression.
 

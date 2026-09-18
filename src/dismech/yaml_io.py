@@ -63,13 +63,18 @@ def safe_load_path(path: str | Path, encoding: str = "utf-8") -> Any:
 def _walk_nodes(node: Any, path: str) -> Iterator[tuple[str, str, int]]:
     """Yield ``(path, key, line)`` for every duplicated key at or below ``node``."""
     if isinstance(node, yaml.MappingNode):
-        seen: set[Any] = set()
+        seen: set[str] = set()
         for key_node, value_node in node.value:
-            key = getattr(key_node, "value", None)
+            raw = getattr(key_node, "value", None)
+            # A scalar key composes to a str. A YAML *complex* key (``? [a, b]``)
+            # composes to a sequence/mapping node whose value is a list, which is
+            # unhashable — fall back to its repr so an exotic document cannot
+            # crash a check that runs over the whole corpus on every build.
+            key = raw if isinstance(raw, str) else repr(raw)
             if key in seen:
-                yield (path or "<document root>", str(key), key_node.start_mark.line + 1)
+                yield (path or "<document root>", key, key_node.start_mark.line + 1)
             seen.add(key)
-            yield from _walk_nodes(value_node, f"{path}.{key}" if path else str(key))
+            yield from _walk_nodes(value_node, f"{path}.{key}" if path else key)
     elif isinstance(node, yaml.SequenceNode):
         for index, child in enumerate(node.value):
             yield from _walk_nodes(child, f"{path}[{index}]")
