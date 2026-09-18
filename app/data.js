@@ -105794,6 +105794,8 @@ window.searchData = [
     "treatments": [
       "Supportive Care",
       "Experimental Therapies",
+      "REGN-EB3 (Inmazeb; atoltivimab/maftivimab/odesivimab)",
+      "mAb114 (Ebanga; ansuvimab)",
       "Vaccination"
     ],
     "environmental": [
@@ -105808,8 +105810,8 @@ window.searchData = [
     "num_phenotypes": 18,
     "num_pathophysiology": 5,
     "num_genes": 6,
-    "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "1"
   },
   {
@@ -270106,6 +270108,148 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Scorpion Envenomation",
+    "disease_id": "MONDO:0018755",
+    "category": "Injury",
+    "parents": [
+      "Envenomation"
+    ],
+    "creation_date": "2026-09-18T12:05:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Neurotoxic",
+      "Cytotoxic"
+    ],
+    "description": "Systemic poisoning following the sting of a scorpion, overwhelmingly of the family Buthidae. The venom's small peptide neurotoxins act on voltage-gated sodium channels of excitable membranes, and what follows is driven less by direct tissue injury than by the host's own response: a neurotransmitter storm releasing catecholamines and acetylcholine together, ending in cardiac dysfunction and pulmonary oedema. Stings are counted in the millions annually and the deaths are concentrated in children. One genus is different in kind - Hemiscorpius lepturus has a cytotoxic rather than a neurotoxic venom and causes dermonecrosis, haemolysis and thrombotic microangiopathy instead, so the entry models the two as separate subtypes rather than as one disease with a wide spectrum.",
+    "pathophysiology": [
+      "Scorpion Venom Neurotoxin Binding to Voltage-Gated Sodium Channels",
+      "Failure of Sodium Channel Fast Inactivation and Repetitive Firing",
+      "Autonomic Neurotransmitter Storm",
+      "Catecholamine-Mediated Myocardial Injury",
+      "Venom-Triggered Cardiac IL-1R Signaling and PGE2 Production",
+      "Excessive Vagal Acetylcholine Release at the Heart",
+      "Cardiac Dysfunction and Pulmonary Edema",
+      "Cytolytic Venom Membrane Damage",
+      "Intravascular Hemolysis with Acquired ADAMTS13 Deficiency",
+      "Thrombotic Microangiopathy and Acute Kidney Injury"
+    ],
+    "cell_types": [
+      "sympathetic postganglionic neuron",
+      "adrenal medulla chromaffin cell",
+      "cardiac muscle cell",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0011103",
+      "CL:0000336",
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "membrane depolarization during action potential",
+      "catecholamine secretion",
+      "acetylcholine secretion",
+      "prostaglandin E2 biosynthesis in the envenomed heart"
+    ],
+    "phenotypes": [
+      "Local paresthesia at bite site",
+      "Tachycardia",
+      "Bradycardia",
+      "Hypertension",
+      "Hypotension",
+      "Pulmonary edema",
+      "Myocarditis",
+      "Hyperhidrosis",
+      "Excessive salivation",
+      "Vomiting",
+      "Priapism",
+      "Hyperglycemia",
+      "Fasciculations",
+      "Tremor",
+      "Acute pancreatitis",
+      "Skin ulcer",
+      "Acute kidney injury",
+      "Hemolytic-uremic syndrome",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Constitutional",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Metabolic",
+      "Dermatologic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0020014",
+      "HP:0001649",
+      "HP:0001662",
+      "HP:0000822",
+      "HP:0002615",
+      "HP:0100598",
+      "HP:0012819",
+      "HP:0000975",
+      "HP:0003781",
+      "HP:0002013",
+      "HP:0200023",
+      "HP:0003074",
+      "HP:0002380",
+      "HP:0001337",
+      "HP:0001735",
+      "HP:0200042",
+      "HP:0001919",
+      "HP:0005575",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Species-specific antivenom",
+      "Prazosin",
+      "Dobutamine",
+      "Mechanical ventilation and intensive supportive care",
+      "Early dexamethasone",
+      "Atropine",
+      "Plasma exchange and renal replacement therapy",
+      "Anti-heminecrolysin nanobody"
+    ],
+    "environmental": [
+      "Scorpion sting delivering neurotoxic venom",
+      "Scorpion sting delivering cytotoxic venom"
+    ],
+    "biochemical": [
+      "N-terminal pro-B-type natriuretic peptide (NT-proBNP)",
+      "Creatine kinase MB (CK-MB)",
+      "Cardiac troponin",
+      "Soluble ST2 (sST2)",
+      "Heart-type fatty acid binding protein (FABP3)"
+    ],
+    "source_file": "Scorpion_Envenomation.yaml",
+    "page_url": "../pages/disorders/Scorpion_Envenomation.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 8,
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Scott Syndrome",
     "disease_id": "MONDO:0009885",
     "category": "Mendelian",
@@ -313418,17 +313562,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3012,
-  "total_subtypes": 3766,
-  "total_disorders_and_subtypes": 6778,
-  "total_unique_evidence_sources": 42801,
-  "total_unique_publications": 40404,
+  "total_disorder_pages": 3013,
+  "total_subtypes": 3768,
+  "total_disorders_and_subtypes": 6781,
+  "total_unique_evidence_sources": 42829,
+  "total_unique_publications": 40430,
   "total_unique_disease_categories": 58,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3007,
-  "total_unique_pathological_events": 18268,
+  "total_pathographs": 3008,
+  "total_unique_pathological_events": 18278,
   "total_modules": 177,
-  "total_research_reports": 3129,
+  "total_research_reports": 3130,
   "total_classifications": 19,
   "total_comorbidities": 43,
   "total_groupings": 102
