@@ -117,6 +117,23 @@ test-schema: _test-schema
 [group('model development')]
 test-python-code: _test-python-code
 
+# Validate a gene-classification collection (kb/gene_classifications/*.yaml).
+[group('data validation')]
+validate-gene-classifications:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  for f in kb/gene_classifications/*.yaml; do
+    echo "Validating $f"
+    uv run linkml-validate --schema src/dismech/schema/dismech.yaml \
+      --target-class GeneClassificationCollection "$f"
+  done
+
+# Regenerate the Gene Table of Neuromuscular Disorders gene classification.
+# Scrapes musclegenetable.fr and HGNC; never hand-edit the output.
+[group('data ingest')]
+fetch-nmd-gene-table:
+  uv run python scripts/fetch_nmd_gene_table.py
+
 # Validate a provider-by-assessor hypothesis report review sidecar.
 [group('data validation')]
 validate-hypothesis-assessment file:
