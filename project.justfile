@@ -262,6 +262,19 @@ _linkml-validate-config target_class="Disease":
 new-history *ARGS:
     uv run python scripts/new_history.py "$@"
 
+# Report when each KB entry last had a *substantive* curation pass, derived from
+# history/ with bulk sweeps (one summary recurring across many entries) excluded.
+# Ordered stalest-first, so the output is a re-pass worklist. Issue #5334.
+#   just last-pass-report                       # summary + stalest 25
+#   just last-pass-report --status PASSED       # oldest genuine passes
+#   just last-pass-report --status NO_HISTORY   # entries with no history record
+#   just last-pass-report --model sonnet-4      # re-pass everything an old model did
+#   just last-pass-report --list-bulk           # audit the sweep classification
+#   just last-pass-report --format tsv --limit 0
+[group('Analysis')]
+last-pass-report *args="":
+    uv run python -m dismech.last_pass {{args}}
+
 # Validate a single history record
 [group('QC')]
 validate-history file:
@@ -890,7 +903,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -934,6 +947,18 @@ knowledge-gap-audit *args="":
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
+# Census of has_subtypes usage (how many subtypes are ever referenced by a
+# subtype: foreign key) plus the deterministic subtype-gene wiring check: a
+# gene named in has_subtypes[].genes that no pathophysiology node carries and
+# no genetic: node links into the mechanism chain is reported as
+# GENETIC_UNWIRED or ABSENT. Advisory by default; --strict exits non-zero.
+#   just subtype-usage-audit
+#   just subtype-usage-audit --format list --status ABSENT
+#   just subtype-usage-audit --format tsv --out /tmp/subtypes.tsv
+[group('QC')]
+subtype-usage-audit *args="":
+    uv run python scripts/subtype_usage_audit.py {{args}}
+
 # Compare each model->mechanism link's `model_scale` against its target node's
 # `biological_scale`. Reports upward extrapolation (model below its target's
 # scale -- it cannot observe the outcome it is cited for) separately from the
@@ -944,6 +969,16 @@ check-knowledge-gap-targets *files:
 [group('QC')]
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
+
+# Find quantitative figures (percentages, 1-in-N, rates, N-fold) written into
+# description:/notes: prose that do NOT appear in the references cited beside
+# them. Every other anti-hallucination check reads evidence[].snippet, so a
+# claim that never becomes a snippet is checked by nothing (#7791).
+# ADVISORY and heuristic -- deliberately not in `just qc` and not gated in CI.
+# --dr-only limits to entries with a deep-research report in research/.
+[group('QC')]
+prose-figure-audit *args="":
+    uv run python scripts/prose_figure_audit.py {{args}}
 
 # Census of how diet is represented, on its two INDEPENDENT tracks: causal
 # (environmental[] food_source/exposure_term -> influences_mechanisms) and
@@ -1264,6 +1299,19 @@ check-case-collisions:
 [group('QC')]
 check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
+
+# Keep a treatment's carrier facts (delivery_platform, targeting ligand) consistent
+# across their two homes: the Treatment-level `delivery_system` block and the older
+# copy nested in `oligonucleotide_details`. Gates on a genuine defect -- the same
+# fact with two different values, an empty block, or a targeting_receptor alongside
+# targeting_ligand: UNCONJUGATED. The nested-only records are the migration
+# worklist and are reported, never gated; --format list shows them.
+#   just check-delivery-system
+#   just check-delivery-system --format list
+#   just check-delivery-system kb/disorders/ATTR_Amyloidosis.yaml
+[group('QC')]
+check-delivery-system *args:
+    uv run python scripts/check_delivery_system.py {{args}}
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `check_entity_ref_foreign_keys`, but that test is selected by the
@@ -2288,6 +2336,17 @@ discover-omicsdi *args="":
 discover-ebi-omics *args="":
     @uv run python scripts/discover_ebi_omics.py {{args}}
 
+# Find dbGaP and ImmPort studies for a disorder, keyed on the MONDO->MeSH
+# descriptor xref. These are the two repositories with coded disease indexing
+# and no overlap with GEO/ArrayExpress/EGA, queried through their own APIs
+# rather than the NIH Dataset Catalog (which returns the same records with more
+# incidental-mega-cohort noise and fewer fields).
+#   just discover-dbgap-immport Sjogrens_Syndrome
+#   just discover-dbgap-immport Asthma --include-subject-only
+[group('Research')]
+discover-dbgap-immport *args="":
+    @uv run python scripts/discover_dbgap_immport.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
@@ -2907,6 +2966,17 @@ genesets-refresh:
 [group('Research')]
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# Enumerate and classify the publications Orphanet *recites* on the
+# prevalence/epidemiology rows the KB imports -- a citation that today survives
+# only as display text inside `snippet` (#7518). Offline and deterministic;
+# regenerates research/orphanet_prevalence_source_audit.md in place.
+# Not every recited token is a publication: `_clean_source()` discards Orphadata's
+# source tag, so years, ISBNs and DOI fragments reach the cache wearing a `PMID:`
+# prefix. Add --format tsv/summary, or --strict to fail on a flagged token.
+[group('Research')]
+orphanet-prevalence-source-audit *args="":
+    uv run python scripts/orphanet_prevalence_source_audit.py {{args}}
 
 # Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
 # Use --id to limit to specific CGGV assertion IDs.

@@ -110,9 +110,16 @@ jobs:
               - 'src/**'
               - 'scripts/auto_merge_ready_prs.py'
               - 'scripts/pr_shepherd_policy.py'
+              - 'scripts/generated_cache_merge.py'
+              - 'scripts/repair_generated_cache_conflicts.py'
               - 'scripts/verify_merge_integrity.py'
               # Guarded by tests/test_term_validator_wrapper.py (#11004).
               - 'scripts/run_term_validator.sh'
+              # The reference gate's negative controls must run when its policy
+              # changes, not only when Python changes (issue #7514).
+              - 'scripts/run_reference_validator.sh'
+              - 'conf/reference_validator_config.yaml'
+              - '.linkml-reference-validator.yaml'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -452,6 +459,23 @@ jobs:
       # rather than conformance, which is what makes it affordable here.
       - name: Check enum values are permissible
         run: uv run python scripts/check_enum_values.py
+
+      # Ungated and whole-KB for the same merge-shaped reason as its two
+      # neighbours. A treatment's carrier facts (delivery_platform, targeting
+      # ligand) have two legal homes while the nested
+      # `oligonucleotide_details` copy is being retired: one PR moving a
+      # treatment onto the Treatment-level `delivery_system` block and another
+      # editing the nested copy on that same treatment are each green against
+      # their own base, and only the merge result holds both values. The
+      # renderer resolves `delivery_system` first, so the disagreement is
+      # silent -- the nested value is hidden rather than surfaced.
+      #
+      # Gates on CONFLICT, EMPTY and LIGANDLESS_TARGET only. The nested-only
+      # records are the migration worklist and are reported, never gated:
+      # gating them would turn every oligonucleotide entry in the KB red for a
+      # change none of their curators made. Offline, seconds, one walk.
+      - name: Check delivery systems are consistent
+        run: uv run python scripts/check_delivery_system.py
 
       # Ungated and whole-KB on purpose, and for a sharper reason than the
       # checks around it: the entity-ref rules ARE covered by pytest
